@@ -1,0 +1,20 @@
+{
+  "name": "iso-doom",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node src/main.js",
+    "compile": "node src/compile.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "js-yaml": "^4.1.0",
+    "kaitai-struct": "^0.10.0",
+    "kaitai-struct-compiler": "^0.10.0",
+    "wad-js": "^1.0.0"
+  }
+}
