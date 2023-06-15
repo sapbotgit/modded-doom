@@ -15,18 +15,18 @@ interface Thing {
     flags: number;
 }
 
-interface LineDef {
-    vx1: Vertex;
-    vx2: Vertex;
+export interface LineDef {
+    v1: Vertex;
+    v2: Vertex;
     flags: number;
     action: number;
     tag: number;
-    right: SideDef;
-    left: SideDef;
+    right?: SideDef;
+    left?: SideDef;
 }
 const toLineDef = (ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
-    vx1: vertexes[ld.vertexStartIdx],
-    vx2: vertexes[ld.vertexEndIdx],
+    v1: vertexes[ld.vertexStartIdx],
+    v2: vertexes[ld.vertexEndIdx],
     left: sidedefs[ld.sidedefLeftIdx],
     right: sidedefs[ld.sidedefRightIdx],
     tag: ld.sectorTag,
@@ -65,7 +65,7 @@ interface Seg {
     offset: number;
 }
 
-interface Sector {
+export interface Sector {
     zFloor: number;
     zCeil: number;
     floortFlat: string;
@@ -112,13 +112,32 @@ export interface DoomMap {
     nodes: Node[];
 }
 
+type RGB = string;
+type Palette = RGB[];
+
 export class DoomWad {
+    palettes: Palette[] = [];
     maps: DoomMap[] = [];
     raw: any;
 
     constructor(wad: ArrayBuffer) {
         const data = new DoomWadRaw(new KaitaiStream(wad), null, null);
         this.raw = data.index;
+
+        // https://doomwiki.org/wiki/PLAYPAL
+        const playpal = data.index.find(p => p.name === 'PLAYPAL');
+        if (playpal) {
+            for (let i = 0; i < 14; i++) {
+                const palette = [];
+                for (let j = 0; j < 256; j++) {
+                    const r = playpal.contents[i * 768 + j * 3 + 0];
+                    const g = playpal.contents[i * 768 + j * 3 + 1];
+                    const b = playpal.contents[i * 768 + j * 3 + 2];
+                    palette.push("#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1));
+                }
+                this.palettes.push(palette);
+            }
+        }
 
         for (let i = 0; i < data.index.length; i++) {
             if (isMap(data.index[i])) {

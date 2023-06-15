@@ -2,12 +2,13 @@
   import { DoomWad, type DoomMap } from './doom';
   import Map from './lib/Map.svelte';
 
+  let wad: DoomWad;
   let doomMaps = [];
   (async () => {
     const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
-    const data = new DoomWad(buffer);
-    doomMaps = data.maps;
-    window.data = data
+    wad = new DoomWad(buffer);
+    doomMaps = wad.maps;
+    // window.data = wad;
   })();
 
   let selectedMap: DoomMap = null
@@ -19,7 +20,7 @@
   {/each}
 
   {#if selectedMap}
-    <Map map={selectedMap} />
+    <Map {wad} map={selectedMap} />
   {/if}
 </main>
 
