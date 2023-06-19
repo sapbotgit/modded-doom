@@ -7,7 +7,7 @@ import DoomWadRaw from './doom-wad.ksy.js';
 
 type ThingType = number;
 
-interface Thing {
+export interface Thing {
     x: number;
     y: number;
     angle: number;
@@ -64,6 +64,14 @@ interface Seg {
     direction: number;
     offset: number;
 }
+const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
+    vx1: vertexes[item.vertexStart],
+    vx2: vertexes[item.vertexEnd],
+    angle: item.angle,
+    linedef: linedefs[item.linedef],
+    direction: item.direction,
+    offset: item.offset,
+});
 
 export interface Sector {
     zFloor: number;
@@ -84,32 +92,89 @@ const toSector = (sd: any): Sector => ({
     tag: sd.tag,
 });
 
-interface SubSector {
-    segCount: number;
-    first: Seg;
-}
-
-interface Node {
-    partitionX: number;
-    partitionY: number;
-    changeX: number;
-    changeY: number;
-    boundsRight: number;
-    boundsLeft: number;
-    childRight: number;
-    childLeft: number;
-}
-
-export interface DoomMap {
-    name: string;
-    things: Thing[];
-    linedefs: LineDef[];
-    sidedefs: SideDef[];
-    vertexes: Vertex[];
-    sectors: Sector[];
-    subsectors: SubSector[];
+export interface SubSector {
     segs: Seg[];
-    nodes: Node[];
+}
+const toSubSector = (item: any, segs: Seg[]): SubSector => ({
+    segs: segs.slice(item.firstSeg, item.firstSeg + item.count),
+});
+
+interface NodeBounds {
+    top: number;
+    left: number;
+    bottom: number;
+    right: number;
+}
+export interface TreeNode {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    boundsRight: NodeBounds;
+    boundsLeft: NodeBounds;
+    childRight: TreeNode | SubSector;
+    childLeft: TreeNode | SubSector;
+}
+const toNode = (item: any): TreeNode => ({
+    x1: item.xStart,
+    y1: item.yStart,
+    x2: item.xStart + item.xChange,
+    y2: item.yStart + item.yChange,
+    childRight: item.rightChild,
+    childLeft: item.leftChild,
+    boundsRight: item.rightBounds,
+    boundsLeft: item.leftBounds,
+});
+function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: SubSector[]) {
+    let idx = (child as any) as number;
+    return (idx & 0xa000)
+        ? ssector[idx & 0x7fff]
+        : nodes[idx & 0x7fff];
+};
+
+export class DoomMap {
+    readonly name: string;
+    readonly things: Thing[];
+    readonly linedefs: LineDef[];
+    readonly sidedefs: SideDef[];
+    readonly vertexes: Vertex[];
+    readonly sectors: Sector[];
+    readonly subsectors: SubSector[];
+    readonly segs: Seg[];
+    readonly nodes: TreeNode[];
+
+    constructor(items, index) {
+        this.name = items[index].name;
+
+        this.things = items[index + 1].contents.entries;
+        this.sectors = items[index + 8].contents.entries.map(s => toSector(s));
+        this.vertexes = items[index + 4].contents.entries;
+        this.sidedefs = items[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
+        this.linedefs = items[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, this.sidedefs));
+        this.segs = items[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
+        this.subsectors = items[index + 6].contents.entries.map(e => toSubSector(e, this.segs));
+        this.nodes = items[index + 7].contents.entries.map(d => toNode(d));
+        this.nodes.forEach(n => {
+            n.childLeft = assignChild(n.childLeft, this.nodes, this.subsectors);
+            n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
+        });
+    }
+
+    findSector(x: number, y: number): Sector {
+        let node: TreeNode | SubSector = this.nodes[this.nodes.length - 1];
+        while (true) {
+            if ('segs' in node) {
+                return node.segs[0].linedef.right.sector;
+            }
+            // is Left https://stackoverflow.com/questions/1560492
+            const cross = (node.x2 - node.x1) * (y - node.y1) - (node.y2 - node.y1) * (x - node.x1);
+            if (cross > 0) {
+                node = node.childLeft
+            } else {
+                node = node.childRight;
+            }
+        }
+    }
 }
 
 type RGB = string;
@@ -141,25 +206,10 @@ export class DoomWad {
 
         for (let i = 0; i < data.index.length; i++) {
             if (isMap(data.index[i])) {
-                this.maps.push(createMap(data.index, i));
+                this.maps.push(new DoomMap(data.index, i));
             }
         }
     }
-}
-// 7
-const createMap = (items, index): DoomMap => {
-    const name = items[index].name;
-
-    const things = items[index + 1].contents.entries;
-    const sectors = items[index + 8].contents.entries.map(s => toSector(s));
-    const vertexes = items[index + 4].contents.entries;
-    const sidedefs = items[index + 3].contents.entries.map(sd => toSideDef(sd, sectors));
-    const linedefs = items[index + 2].contents.entries.map(ld => toLineDef(ld, vertexes, sidedefs));
-    const subsectors = [];
-    const segs = [];
-    const nodes = [];
-
-    return { name, things, linedefs, sidedefs, vertexes, sectors, subsectors, segs, nodes };
 }
 
 const isMap = (item) => (

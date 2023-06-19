@@ -8,10 +8,13 @@
     const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
     doomMaps = wad.maps;
-    // window.data = wad;
+    window.data = wad;
   })();
 
   let selectedMap: DoomMap = null
+  $: if (selectedMap) {
+    window.map = selectedMap;
+  }
 </script>
 
 <main>

@@ -1,3 +1,5 @@
+## Based on https://formats.kaitai.io/doom_wad/ but modified to include:
+## Nodes, ssectors, and Segs
 meta:
   id: doom_wad
   application: id Tech 1
@@ -44,10 +46,76 @@ types:
             '"SIDEDEFS"': sidedefs
             '"VERTEXES"': vertexes
             '"BLOCKMAP"': blockmap
+            '"NODES"': nodes
+            '"SEGS"': segs
+            '"SSECTORS"': ssectors
             '"SECTORS"': sectors
             '"TEXTURE1"': texture12
             '"TEXTURE2"': texture12
             '"PNAMES"': pnames
+  segs:
+    seq:
+      - id: entries
+        type: seg
+        repeat: eos
+  seg:
+    seq:
+      - id: vertex_start
+        type: s2
+      - id: vertex_end
+        type: s2
+      - id: angle
+        type: s2
+      - id: linedef
+        type: s2
+      - id: direction
+        type: s2
+      - id: offset
+        type: s2
+  ssectors:
+    seq:
+      - id: entries
+        type: ssector
+        repeat: eos
+  ssector:
+    seq:
+      - id: count
+        type: s2
+      - id: first_seg
+        type: s2
+  nodes:
+    seq:
+      - id: entries
+        type: node
+        repeat: eos
+  node:
+    seq:
+      - id: x_start
+        type: s2
+      - id: y_start
+        type: s2
+      - id: x_change
+        type: s2
+      - id: y_change
+        type: s2
+      - id: right_bounds
+        type: bounds
+      - id: left_bounds
+        type: bounds
+      - id: right_child
+        type: u2
+      - id: left_child
+        type: u2
+  bounds:
+    seq:
+      - id: bottom
+        type: s2
+      - id: top
+        type: s2
+      - id: left
+        type: s2
+      - id: right
+        type: s2
   things:
     seq:
       - id: entries
