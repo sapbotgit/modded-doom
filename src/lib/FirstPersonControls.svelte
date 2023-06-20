@@ -133,10 +133,10 @@
             vec.copy(controls.getDirection(vec));
             camera.position.addScaledVector(vec, -velocity.z * delta);
 
-            const sector = map.findSector(camera.position.x, -camera.position.z);
-            if (sector) {
-                controls.getObject().position.y = sector.zFloor + 41;
-            }
+            // const sector = map.findSector(camera.position.x, -camera.position.z);
+            // if (sector) {
+            //     controls.getObject().position.y = sector.zFloor + 41;
+            // }
 
             // gravity?
             // controls.getObject().position.y += ( velocity.y * delta ); // new behavior

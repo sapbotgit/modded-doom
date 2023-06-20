@@ -34,7 +34,7 @@ const toLineDef = (ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef =>
     flags: ld.flags,
 });
 
-interface SideDef {
+export interface SideDef {
     xOffset: number;
     yOffset: number;
     sector: Sector;
@@ -46,10 +46,14 @@ const toSideDef = (sd: any, sectors: Sector[]): SideDef => ({
     xOffset: sd.offsetX,
     yOffset: sd.offsetY,
     sector: sectors[sd.sectorId],
-    lower: sd.lowerTextureName,
-    middle: sd.middleTextureName,
-    upper: sd.upperTextureName,
+    lower: fixTextureName(sd.lowerTextureName),
+    middle: fixTextureName(sd.normalTextureName),
+    upper: fixTextureName(sd.upperTextureName),
 });
+
+function fixTextureName(name: string) {
+    return !name || name.startsWith('-') ? undefined : name.split('\u0000')[0];
+}
 
 interface Vertex {
     x: number;
@@ -190,7 +194,7 @@ export class DoomWad {
         this.raw = data.index;
 
         // https://doomwiki.org/wiki/PLAYPAL
-        const playpal = data.index.find(p => p.name === 'PLAYPAL');
+        const playpal = this.lumpByName('PLAYPAL');
         if (playpal) {
             for (let i = 0; i < 14; i++) {
                 const palette = [];
@@ -204,12 +208,176 @@ export class DoomWad {
             }
         }
 
-        for (let i = 0; i < data.index.length; i++) {
-            if (isMap(data.index[i])) {
-                this.maps.push(new DoomMap(data.index, i));
+        for (let i = 0; i < this.raw.length; i++) {
+            if (isMap(this.raw[i])) {
+                this.maps.push(new DoomMap(this.raw, i));
             }
         }
     }
+
+    textureData(name: string) {
+        const uname = name.toUpperCase();
+        // use patches first because sometimes flats and patches have the same name
+        // https://doomwiki.org/wiki/Flat_and_texture_mixing
+        // a better approach would be to use F_START/P_START markers
+
+        // texture from patches
+        const pnames = this.lumpByName('PNAMES').contents.names.map(e => e.toUpperCase());
+        const texture1 = this.lumpByName('TEXTURE1').contents.textures;
+        // not all wads have texture2? (looking at you plutonia...)
+        const texture2 = this.lumpByName('TEXTURE2')?.contents.textures ?? [];
+        const texture =
+            texture1.find(e => e.body.name === uname) ??
+            texture2.find(e => e.body.name === uname);
+        if (texture) {
+            return this.assemblePatchGraphic(pnames, texture.body)
+        }
+
+        const data = this.lumpByName(uname);
+        if (data) {
+            return this.textureGraphic(data);
+        }
+        console.warn('missing texture:' + uname)
+        return 'missing';
+    }
+
+    private lumpByName(name: string) {
+        return this.raw.find(p => p.name === name);
+    }
+
+    private assemblePatchGraphic(pnames: string[], textureData: any) {
+        const { width, height, patches } = textureData;
+
+        const buffer = new Uint8Array(4 * width * height);
+        for (const patch of patches) {
+            const pname = pnames[patch.patchId];
+            const lump = this.lumpByName(pname);
+            const pic = this.doomPicture(lump);
+            if (typeof pic === 'string') {
+                console.warn('invalid patch', patch, pname)
+                continue;
+            }
+
+            for (let i = 0; i < pic.width; i++) {
+                for(let j = 0; j < pic.height; j++) {
+                    const u = patch.originX + i;
+                    const v = patch.originY + j;
+                    if (u < 0 || u >= width || v < 0 || v >= height) {
+                        continue;
+                    }
+                    const patchIdx = i + j * pic.width;
+                    const colorIdx = pic.data[patchIdx];
+                    const idx = 4 * (u + v * width);
+                    if (colorIdx !== -1) {
+                        const c = hexToRgb(this.palettes[0][colorIdx]);
+                        buffer[idx + 0] = c.r;
+                        buffer[idx + 1] = c.g;
+                        buffer[idx + 2] = c.b;
+                        buffer[idx + 3] = 255;
+                    }
+                }
+            }
+        }
+
+        return { width, height, buffer };
+    }
+
+    private textureGraphic(lumpData: any) {
+        const pic = this.doomPicture(lumpData);
+        if (typeof pic === 'string') {
+            return pic;
+        }
+        const { width, height, data } = pic;
+
+        let buffer = new Uint8Array(4 * width * height);
+        var size = width * height;
+        for (var i = 0; i < size; i++) {
+            if (data[i] === -1) {
+                buffer[i * 4 + 0] = 0;
+                buffer[i * 4 + 1] = 0;
+                buffer[i * 4 + 2] = 0;
+                buffer[i * 4 + 3] = 0;
+            } else {
+                let col = hexToRgb(this.palettes[0][data[i]]);
+                buffer[i * 4 + 0] = col.r;
+                buffer[i * 4 + 1] = col.g;
+                buffer[i * 4 + 2] = col.b;
+                buffer[i * 4 + 3] = 255;
+            }
+        }
+
+        return { width, height, buffer };
+    }
+
+    private doomPicture(lump: any) {
+        // https://doomwiki.org/wiki/Picture_format
+        // Straight outta https://github.com/jmickle66666666/wad-js/blob/develop/src/wad/graphic.js
+        // (with some cleanup)
+
+        // We can do better... https://stackoverflow.com/questions/51452398
+        const buff = lump.contents as Uint8Array;
+        let dv = new DataView(buff.buffer.slice(buff.byteOffset, buff.byteLength + buff.byteOffset));
+
+        // let width = lumpData.contents[1] << 4 | lumpData.contents[0];
+        // let height = lumpData.contents[3] << 8 | lumpData.contents[2];
+        let width = dv.getUint16(0, true);
+        let height = dv.getUint16(2, true);
+        let xOffset = dv.getUint16(4, true);
+        let yOffset = dv.getUint16(6, true);
+        if (width > 256) {
+            console.warn('bad pic?',lump, width, height)
+            return ''
+        }
+
+        let data = [];
+        for (let i = 0; i < width; i++) {
+            for (let j = 0; j < height; j++) {
+                //-1 for transparency
+                data.push(-1);
+            }
+        }
+
+        var columns = [];
+        for (let i = 0; i < width; i++) {
+            columns[i] = dv.getUint32(8 + (i * 4), true);
+        }
+
+        var position = 0;
+        var pixelCount = 0;
+        for (let i = 0; i < width; i++) {
+            position = columns[i];
+
+            let rowStart = 0;
+            while (rowStart != 255) {
+                rowStart = dv.getUint8(position);
+                position += 1;
+
+                if (rowStart == 255) break;
+
+                pixelCount = dv.getUint8(position);
+                position += 2;
+
+                for (let j = 0; j < pixelCount; j++) {
+                    data[((rowStart + j) * width) + i] = dv.getUint8(position);
+                    position += 1;
+                }
+                position += 1;
+            }
+        }
+
+        return { width, height, data };
+    }
+}
+
+
+// https://github.com/jmickle66666666/wad-js/blob/develop/src/wad/util.js
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
 }
 
 const isMap = (item) => (

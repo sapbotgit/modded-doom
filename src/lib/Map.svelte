@@ -1,20 +1,17 @@
 <script lang="ts">
-    import { PlaneGeometry, MeshBasicMaterial, MeshStandardMaterial, DoubleSide, BackSide, Path } from 'three'
+    import { PlaneGeometry, MeshStandardMaterial, Material, Texture, DataTexture, RepeatWrapping } from 'three'
     import {
       DirectionalLight,
       HemisphereLight,
       Mesh,
-      OrbitControls,
       PerspectiveCamera,
-      OrthographicCamera,
       Canvas,
       type Rotation,
-
       type Position
-
     } from "@threlte/core";
 
-    import type { DoomMap, DoomWad, LineDef, Sector, Thing, SubSector, TreeNode } from "../doomwad";
+    import { MapTextures } from './Texture';
+    import type { DoomMap, DoomWad, LineDef, Sector, Thing, SubSector, TreeNode, SideDef } from "../doomwad";
     import FirstPersonControls from './FirstPersonControls.svelte';
     export let wad: DoomWad;
     export let map: DoomMap;
@@ -23,6 +20,7 @@
     const svgStartSector = true;
     const svgBspBoxes = false;
     const svgVertexes = false;
+    const useTextures = true;
 
     let sect: Sector;
     const playerHeight = 41;
@@ -57,12 +55,14 @@
         height = Math.abs(top - padding) + Math.abs(bottom + padding);
     }
 
-    type MeshProps = { rotation: Rotation, position: Position, geometry: PlaneGeometry };
-    function meshProps(ld: LineDef, height: number, top: number, flip: boolean = false): MeshProps {
+    const textures = new MapTextures(wad);
+
+    type MeshProps = { rotation: Rotation, position: Position, geometry: PlaneGeometry, material: Material | Material[] };
+    function meshProps(ld: LineDef, height: number, top: number, sd: SideDef, texture: Texture, type: 'upper' | 'lower' | 'middle', flip: boolean = false): MeshProps {
         const vx = ld.v2.x - ld.v1.x;
         const vy = ld.v2.y - ld.v1.y;
         const width = Math.sqrt(vx * vx + vy * vy);
-        const geometry =  new PlaneGeometry(width, height)
+        const geometry = new PlaneGeometry(width, height)
 
         const x = (ld.v1.x + ld.v2.x) * .5;
         const y = top - height * .5;
@@ -71,29 +71,51 @@
 
         const invlen = 1 / width;
         const offset = flip ? Math.PI : 0;
-        const rotation = { y: Math.atan2(vy * invlen, vx * invlen) + offset};
+        const rotation = { y: Math.atan2(vy * invlen, vx * invlen) + offset };
 
-        return { rotation, position, geometry };
+        const material = (texture && useTextures)
+            ? new MeshStandardMaterial({ map: textures.position(texture, width, height, ld, sd, type), transparent: true })
+            : new MeshStandardMaterial({ color: lineStroke(ld) });
+
+        return { rotation, position, geometry, material };
     }
 
     function meshes(ld: LineDef) {
         let geos: MeshProps[] = [];
-        // TODO: middle section for two-sided sidedefs?
-        if (ld.left) {
-            if (ld.left.sector.zFloor !== ld.right.sector.zFloor) {
-                const height = Math.abs(ld.left.sector.zFloor - ld.right.sector.zFloor);
-                const top = Math.max(ld.right.sector.zFloor, ld.left.sector.zFloor);
-                geos.push(meshProps(ld, height, top, ld.left.sector.zFloor < ld.right.sector.zFloor));
-            }
+        if (ld.flags & 0x0004) {
+            // two-sided so figure out top and bottom
             if (ld.left.sector.zCeil !== ld.right.sector.zCeil) {
                 const height = Math.abs(ld.left.sector.zCeil - ld.right.sector.zCeil);
                 const top = Math.max(ld.right.sector.zCeil, ld.left.sector.zCeil);
-                geos.push(meshProps(ld, height, top, ld.left.sector.zCeil > ld.right.sector.zCeil));
+                const useLeft = ld.left.sector.zCeil > ld.right.sector.zCeil;
+                const texture = textures.get(useLeft ? ld.left.upper : ld.right.upper);
+                const sd = useLeft ? ld.left : ld.right;
+                geos.push(meshProps(ld, height, top, sd, texture, 'upper', useLeft));
+            }
+            if (ld.left.sector.zFloor !== ld.right.sector.zFloor) {
+                const height = Math.abs(ld.left.sector.zFloor - ld.right.sector.zFloor);
+                const top = Math.max(ld.right.sector.zFloor, ld.left.sector.zFloor);
+                const useLeft = ld.left.sector.zFloor < ld.right.sector.zFloor;
+                const texture = textures.get(useLeft ? ld.left.lower : ld.right.lower);
+                const sd = useLeft ? ld.left : ld.right;
+                geos.push(meshProps(ld, height, top, sd, texture, 'lower', useLeft));
+            }
+            // and middle(s)
+            const top = Math.min(ld.left.sector.zCeil, ld.right.sector.zCeil);
+            const height = top - Math.max(ld.left.sector.zFloor, ld.right.sector.zFloor);
+            if (ld.left.middle) {
+                const texture = textures.get(ld.left.middle);
+                geos.push(meshProps(ld, height, top, ld.left, texture, 'middle', true));
+            }
+            if (ld.right.middle) {
+                const texture = textures.get(ld.right.middle);
+                geos.push(meshProps(ld, height, top, ld.right, texture, 'middle'));
             }
         } else {
-            const height = ld.right.sector.zCeil - ld.right.sector.zFloor;
             const top = ld.right.sector.zCeil;
-            geos.push(meshProps(ld, height, top));
+            const height = top - ld.right.sector.zFloor;
+            const texture = textures.get(ld.right.middle);
+            geos.push(meshProps(ld, height, top, ld.right, texture, 'middle'));
         }
         return geos;
     }
@@ -103,6 +125,10 @@
             (ld.left.sector.zFloor !== ld.right.sector.zFloor) ? wad.palettes[0][64] :
             (ld.left.sector.zCeil !== ld.right.sector.zCeil) ?  wad.palettes[0][231] :
             wad.palettes[0][96];
+    }
+
+    function hit(mp: MeshProps, ld: LineDef) {
+        console.log((mp.material as MeshStandardMaterial).map.offset, ld)
     }
 </script>
 
@@ -138,10 +164,10 @@
     </svg>
 {/if}
 
+
 <Canvas size={{ width: 800, height: 600 }}>
     <PerspectiveCamera lookAt={target} position={{ x: p1.x, y: pZHeight, z: -p1.y }} far={100000} fov={70}>
         <FirstPersonControls {map} />
-        <!-- <OrbitControls {target} /> -->
     </PerspectiveCamera>
 
     <DirectionalLight shadow color={'white'} position={{ x: -15, y: 45, z: 20 }} />
@@ -150,10 +176,12 @@
     {#each map.linedefs as ld}
         {#each meshes(ld) as mesh}
             <Mesh
+                interactive
+                on:click={() => hit(mesh, ld)}
                 position={mesh.position}
                 rotation={mesh.rotation}
                 geometry={mesh.geometry}
-                material={new MeshStandardMaterial({ color: lineStroke(ld) })}
+                material={mesh.material}
             />
         {/each}
     {/each}
