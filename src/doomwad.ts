@@ -4,6 +4,7 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.js';
+import { centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
 
 type ThingType = number;
 
@@ -55,7 +56,7 @@ function fixTextureName(name: string) {
     return !name || name.startsWith('-') ? undefined : name.split('\u0000')[0];
 }
 
-interface Vertex {
+export interface Vertex {
     x: number;
     y: number;
 }
@@ -88,18 +89,20 @@ export interface Sector {
 }
 const toSector = (sd: any): Sector => ({
     zFloor: sd.floorZ,
-    floortFlat: sd.floortFlat,
+    floortFlat: fixTextureName(sd.floorFlat),
     zCeil: sd.ceilZ,
-    ceilFlat: sd.ceilFlat,
+    ceilFlat: fixTextureName(sd.ceilFlat),
     light: sd.light,
     type: sd.specialType,
     tag: sd.tag,
 });
 
 export interface SubSector {
+    sector: Sector;
     segs: Seg[];
 }
 const toSubSector = (item: any, segs: Seg[]): SubSector => ({
+    sector: segs[item.firstSeg].direction ? segs[item.firstSeg].linedef.left.sector : segs[item.firstSeg].linedef.right.sector,
     segs: segs.slice(item.firstSeg, item.firstSeg + item.count),
 });
 
@@ -110,20 +113,16 @@ interface NodeBounds {
     right: number;
 }
 export interface TreeNode {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
+    v1: Vertex;
+    v2: Vertex;
     boundsRight: NodeBounds;
     boundsLeft: NodeBounds;
     childRight: TreeNode | SubSector;
     childLeft: TreeNode | SubSector;
 }
 const toNode = (item: any): TreeNode => ({
-    x1: item.xStart,
-    y1: item.yStart,
-    x2: item.xStart + item.xChange,
-    y2: item.yStart + item.yChange,
+    v1: { x: item.xStart, y: item.yStart },
+    v2: { x: item.xStart + item.xChange, y: item.yStart + item.yChange },
     childRight: item.rightChild,
     childLeft: item.leftChild,
     boundsRight: item.rightBounds,
@@ -136,6 +135,14 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
         : nodes[idx & 0x7fff];
 };
 
+export interface RenderSector {
+    sector: Sector;
+    vertexes: Vertex[];
+    // these are only helpful for debugging. Maybe we can remove them?
+    subsec: SubSector;
+    bspLines: Vertex[][];
+}
+
 export class DoomMap {
     readonly name: string;
     readonly things: Thing[];
@@ -146,6 +153,7 @@ export class DoomMap {
     readonly subsectors: SubSector[];
     readonly segs: Seg[];
     readonly nodes: TreeNode[];
+    readonly renderSectors: RenderSector[];
 
     constructor(items, index) {
         this.name = items[index].name;
@@ -162,16 +170,17 @@ export class DoomMap {
             n.childLeft = assignChild(n.childLeft, this.nodes, this.subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
         });
+        this.renderSectors = buildRenderSectors(this.nodes)
     }
 
     findSector(x: number, y: number): Sector {
         let node: TreeNode | SubSector = this.nodes[this.nodes.length - 1];
         while (true) {
             if ('segs' in node) {
-                return node.segs[0].linedef.right.sector;
+                return node.sector;
             }
             // is Left https://stackoverflow.com/questions/1560492
-            const cross = (node.x2 - node.x1) * (y - node.y1) - (node.y2 - node.y1) * (x - node.x1);
+            const cross = (node.v2.x - node.v1.x) * (y - node.v1.y) - (node.v2.y - node.v1.y) * (x - node.v1.x);
             if (cross > 0) {
                 node = node.childLeft
             } else {
@@ -185,9 +194,11 @@ type RGB = string;
 type Palette = RGB[];
 
 export class DoomWad {
+    private mapIndex = new Map<string, number>();
     palettes: Palette[] = [];
-    maps: DoomMap[] = [];
     raw: any;
+
+    get mapNames() { return [...this.mapIndex.keys()]; }
 
     constructor(wad: ArrayBuffer) {
         const data = new DoomWadRaw(new KaitaiStream(wad), null, null);
@@ -210,12 +221,17 @@ export class DoomWad {
 
         for (let i = 0; i < this.raw.length; i++) {
             if (isMap(this.raw[i])) {
-                this.maps.push(new DoomMap(this.raw, i));
+                this.mapIndex.set(this.raw[i].name, i);
             }
         }
     }
 
-    textureData(name: string) {
+    readMap(name: string) {
+        const index = this.mapIndex.get(name)
+        return new DoomMap(this.raw, index);
+    }
+
+    wallTextureData(name: string) {
         const uname = name.toUpperCase();
         // use patches first because sometimes flats and patches have the same name
         // https://doomwiki.org/wiki/Flat_and_texture_mixing
@@ -238,6 +254,22 @@ export class DoomWad {
             return this.textureGraphic(data);
         }
         console.warn('missing texture:' + uname)
+        return 'missing';
+    }
+
+    flatTextureData(name: string) {
+        // debugger;
+        const uname = name.toUpperCase();
+        const fStartIndex = this.raw.findIndex(e => e.name === 'F_START');
+        const fEndIndex = this.raw.findIndex(e => e.name === 'F_END');
+
+        const data = this.lumpByName(uname);
+        const idx = this.raw.indexOf(data);
+        if (idx > fStartIndex && idx < fEndIndex) {
+            return this.readFlat(data);
+        }
+
+        console.warn('missing flat:' + uname)
         return 'missing';
     }
 
@@ -309,6 +341,30 @@ export class DoomWad {
         return { width, height, buffer };
     }
 
+    private readFlat(lump: any) {
+        const buff = lump.contents as Uint8Array;
+        let dv = new DataView(buff.buffer.slice(buff.byteOffset, buff.byteLength + buff.byteOffset));
+        const width = 64;
+        const height = 64;
+        const size = width * height;
+
+        let data = [];
+        for (var j = 0; j < size; j++) {
+            data.push(dv.getUint8(j));
+        }
+
+        let buffer = new Uint8Array(4 * width * height);
+        for (var i = 0; i < size; i++) {
+            let col = hexToRgb(this.palettes[0][data[i]]);
+            buffer[i * 4 + 0] = col.r;
+            buffer[i * 4 + 1] = col.g;
+            buffer[i * 4 + 2] = col.b;
+            buffer[i * 4 + 3] = 255;
+        }
+
+        return { width, height, buffer };
+    }
+
     private doomPicture(lump: any) {
         // https://doomwiki.org/wiki/Picture_format
         // Straight outta https://github.com/jmickle66666666/wad-js/blob/develop/src/wad/graphic.js
@@ -369,7 +425,6 @@ export class DoomWad {
     }
 }
 
-
 // https://github.com/jmickle66666666/wad-js/blob/develop/src/wad/util.js
 function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -380,7 +435,68 @@ function hexToRgb(hex) {
     } : null;
 }
 
-const isMap = (item) => (
+const isMap = (item) =>
     /^MAP\d\d$/.test(item.name) ||
-    /^E\dM\d$/.test(item.name)
-);
+    /^E\dM\d$/.test(item.name);
+
+
+function buildRenderSectors(nodes: TreeNode[]) {
+    let sectors: RenderSector[] = [];
+    let bspLines = [];
+
+    function visitNodeChild(child: TreeNode | SubSector) {
+        if ('segs' in child) {
+            const sector = child.sector;
+            const vertexes = subsectorVerts(child, bspLines);
+            sectors.push({ sector, vertexes, subsec: child, bspLines: [...bspLines] })
+        } else {
+            visitNode(child);
+        }
+    }
+
+    function visitNode(node: TreeNode) {
+        bspLines.push([node.v1, node.v2]);
+        visitNodeChild(node.childLeft);
+        bspLines.pop();
+
+        bspLines.push([node.v2, node.v1]);
+        visitNodeChild(node.childRight);
+        bspLines.pop();
+    }
+
+    visitNode(nodes[nodes.length - 1]);
+    return sectors;
+}
+
+function subsectorVerts(ssec: SubSector, bspLines: Vertex[][]) {
+    // explicit points
+    let segLines = ssec.segs.map(e => [e.vx1, e.vx2]);
+    let verts = segLines.flat();
+
+    // implicit points are much more complicated. It took me a while to actually figure this all out.
+    // Here are some helpful links:
+    // - https://www.doomworld.com/forum/topic/105730-drawing-flats-from-ssectors/
+    // - https://www.doomworld.com/forum/topic/50442-dooms-floors/
+    // - https://doomwiki.org/wiki/Subsector
+    //
+    // This source code below was particularly helpful and I implemented something quite similar:
+    // https://github.com/cristicbz/rust-doom/blob/6aa7681cee4e181a2b13ecc9acfa3fcaa2df4014/wad/src/visitor.rs#L670
+    for (let i = 0; i < bspLines.length - 1; i++) {
+        for (let j = i; j < bspLines.length; j++) {
+            let point = intersectionPoint(bspLines[i], bspLines[j]);
+            if (!point) {
+                continue;
+            }
+
+            // The intersection point must lie both within the BSP volume and the segs volume.
+            // the constants here are a little bit of trial and error but E1M1 had a
+            // couple of subsectors in the zigzag room that helped
+            let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .1);
+            let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -100);
+            if (insideBsp && insideSeg) {
+                verts.push(point);
+            }
+        }
+    }
+    return centerSort(verts)
+}

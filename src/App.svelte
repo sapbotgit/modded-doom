@@ -1,16 +1,20 @@
 <script lang="ts">
   import { DoomWad, type DoomMap } from './doom';
   import Map from './lib/Map.svelte';
-  import TextureDebug from './lib/TextureDebug.svelte';
+  import TextureDebug from './lib/Debug/TextureDebug.svelte';
+  import MathDebug from './lib/Debug/MathDebug.svelte';
+  import SvgMap from './lib/Debug/SvgMap.svelte';
+
+  const svgMap = false;
 
   let wad: DoomWad;
   let debugMap: DoomMap;
-  let doomMaps = [];
+  let mapNames = [];
   (async () => {
     const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
-    doomMaps = wad.maps;
-    // debugMap = doomMaps[0];
+    mapNames = wad.mapNames;
+    // debugMap = wad.readMap(mapNames[0]);
     window.data = wad;
   })();
 
@@ -21,11 +25,19 @@
 </script>
 
 <main>
-  {#each doomMaps as map}
-    <button on:click={() => selectedMap = map}>{map.name}</button>
+  <!-- <MathDebug /> -->
+
+  {#each mapNames as name}
+    <button on:click={() => selectedMap = wad.readMap(name)}>{name}</button>
   {/each}
 
   {#if selectedMap}
+    <div>{selectedMap.name}</div>
+
+    {#if svgMap}
+      <SvgMap map={selectedMap} {wad} />
+    {/if}
+
     <Map {wad} map={selectedMap} />
   {/if}
 

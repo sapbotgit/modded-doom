@@ -1,9 +1,9 @@
 <script lang="ts">
     import { DoubleSide, MeshStandardMaterial, PlaneGeometry } from "three";
-    import FirstPersonControls from "./FirstPersonControls.svelte";
+    import FirstPersonControls from "../FirstPersonControls.svelte";
     import { Canvas, DirectionalLight, HemisphereLight, Mesh, PerspectiveCamera } from "@threlte/core";
-    import type { DoomMap, DoomWad, LineDef, SideDef } from "../doomwad";
-    import { MapTextures } from "./Texture";
+    import type { DoomMap, DoomWad, LineDef, SideDef } from "../../doomwad";
+    import { MapTextures } from "../Texture";
 
     export let wad: DoomWad;
     export let map: DoomMap;
@@ -19,11 +19,11 @@
     // let texture = textures.get('STARG3');
     // let texture = textures.get('STEP1');
     // let texture = textures.get('GRAY7');
-    let texture = textures.get('BROWNGRN');
+    let texture = textures.wall('BROWNGRN');
     const ld: LineDef = {} as any;
     const sd: SideDef = { xOffset: 0, yOffset: 0 } as any;
     const material = new MeshStandardMaterial({
-        map: textures.position(texture, width, height, ld, sd, 'middle'),
+        map: textures.positionWall(texture, width, height, ld, sd, 'middle'),
         side: DoubleSide,
     });
 </script>
