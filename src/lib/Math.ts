@@ -1,5 +1,7 @@
 import type { Vertex } from "../doomwad";
 
+export const HALF_PI = Math.PI * 0.5;
+
 export function signedLineDistance(l: Vertex[], v: Vertex) {
     // https://math.stackexchange.com/questions/274712
     // https://www.xarg.org/book/linear-algebra/2d-perp-product/

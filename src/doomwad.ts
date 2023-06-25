@@ -20,7 +20,7 @@ export interface LineDef {
     v1: Vertex;
     v2: Vertex;
     flags: number;
-    action: number;
+    special: number;
     tag: number;
     right?: SideDef;
     left?: SideDef;
@@ -31,7 +31,7 @@ const toLineDef = (ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef =>
     left: sidedefs[ld.sidedefLeftIdx],
     right: sidedefs[ld.sidedefRightIdx],
     tag: ld.sectorTag,
-    action: ld.lineType,
+    special: ld.lineType,
     flags: ld.flags,
 });
 
@@ -81,7 +81,7 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 export interface Sector {
     zFloor: number;
     zCeil: number;
-    floortFlat: string;
+    floorFlat: string;
     ceilFlat: string;
     light: number;
     type: number;
@@ -89,7 +89,7 @@ export interface Sector {
 }
 const toSector = (sd: any): Sector => ({
     zFloor: sd.floorZ,
-    floortFlat: fixTextureName(sd.floorFlat),
+    floorFlat: fixTextureName(sd.floorFlat),
     zCeil: sd.ceilZ,
     ceilFlat: fixTextureName(sd.ceilFlat),
     light: sd.light,
@@ -198,6 +198,9 @@ export class DoomWad {
     palettes: Palette[] = [];
     raw: any;
 
+    private animatedFlats: string[][];
+    private animatedWalls: string[][];
+
     get mapNames() { return [...this.mapIndex.keys()]; }
 
     constructor(wad: ArrayBuffer) {
@@ -224,11 +227,87 @@ export class DoomWad {
                 this.mapIndex.set(this.raw[i].name, i);
             }
         }
+
+        // list of animated flats https://doomwiki.org/wiki/Animated_flat
+        const allFlats = this.flatsNames();
+        this.animatedFlats = [
+            { first: 'NUKAGE1', last: 'NUKAGE3' },
+            { first: 'FWATER1', last: 'FWATER4' },
+            { first: 'SWATER1', last: 'SWATER4' },
+            { first: 'LAVA1', last: 'LAVA4' },
+            { first: 'BLOOD1', last: 'BLOOD3' },
+            { first: 'RROCK05', last: 'RROCK08' },
+            { first: 'SLIME01', last: 'SLIME04' },
+            { first: 'SLIME05', last: 'SLIME08' },
+            { first: 'SLIME09', last: 'SLIME12' },
+        ].map(e => {
+            const first = allFlats.indexOf(e.first);
+            const last = allFlats.indexOf(e.last);
+            return allFlats.slice(first, last + 1);
+        }).filter(e => e.length);
+
+        // list of animated walls https://doomwiki.org/wiki/Animated_wall
+        const allTextures = this.texturesNames();
+        this.animatedWalls = [
+            { first: 'BLODGR1', last: 'BLODGR4' },
+            { first: 'BLODRIP1', last: 'BLODRIP4' },
+            { first: 'FIREBLU1', last: 'FIREBLU2' },
+            { first: 'FIRELAV3', last: 'FIRELAVA' },
+            { first: 'FIREMAG1', last: 'FIREMAG3' },
+            { first: 'FIREWALA', last: 'FIREWALL' },
+            { first: 'GSTFONT1', last: 'GSTFONT3' },
+            { first: 'ROCKRED1', last: 'ROCKRED3' },
+            { first: 'SLADRIP1', last: 'SLADRIP3' },
+            { first: 'BFALL1', last: 'BFALL4' },
+            { first: 'SFALL1', last: 'SFALL4' },
+            { first: 'WFALL1', last: 'WFALL4' },
+            { first: 'DBRAIN1', last: 'DBRAIN4' },
+        ].map(e => {
+            const first = allTextures.indexOf(e.first);
+            const last = allTextures.indexOf(e.last);
+            return allTextures.slice(first, last + 1);
+        }).filter(e => e.length);
     }
 
     readMap(name: string) {
         const index = this.mapIndex.get(name)
         return new DoomMap(this.raw, index);
+    }
+
+    animatedWallInfo(name: string): [number, string[]] {
+        for (const frames of this.animatedWalls) {
+            let index = frames.indexOf(name);
+            if (index !== -1) {
+                return [index, frames];
+            }
+        }
+        return null;
+    }
+
+    private texturesNames(): string[] {
+        const texture1 = this.lumpByName('TEXTURE1').contents.textures;
+        // not all wads have texture2? (looking at you plutonia...)
+        const texture2 = this.lumpByName('TEXTURE2')?.contents.textures ?? [];
+        return [
+            ...texture1.map(e => e.body.name),
+            ...texture2.map(e => e.body.name),
+        ];
+    }
+
+    animatedFlatInfo(name: string): [number, string[]] {
+        for (const frames of this.animatedFlats) {
+            let index = frames.indexOf(name);
+            if (index !== -1) {
+                return [index, frames];
+            }
+        }
+        return null;
+    }
+
+    private flatsNames(): string[] {
+        const fStartIndex = this.raw.findIndex(e => e.name === 'F_START');
+        const fEndIndex = this.raw.findIndex(e => e.name === 'F_END');
+        return this.raw.slice(fStartIndex, fEndIndex + 1).map(e => e.name);
     }
 
     wallTextureData(name: string) {
@@ -238,13 +317,14 @@ export class DoomWad {
         // a better approach would be to use F_START/P_START markers
 
         // texture from patches
-        const pnames = this.lumpByName('PNAMES').contents.names.map(e => e.toUpperCase());
         const texture1 = this.lumpByName('TEXTURE1').contents.textures;
         // not all wads have texture2? (looking at you plutonia...)
         const texture2 = this.lumpByName('TEXTURE2')?.contents.textures ?? [];
         const texture =
             texture1.find(e => e.body.name === uname) ??
             texture2.find(e => e.body.name === uname);
+
+        const pnames = this.lumpByName('PNAMES').contents.names.map(e => e.toUpperCase());
         if (texture) {
             return this.assemblePatchGraphic(pnames, texture.body)
         }
