@@ -1,12 +1,8 @@
 <script lang="ts">
-    import { onDestroy } from "svelte";
     import type { LineDef } from "../doomwad";
     import WallSegment from "./WallSegment.svelte";
-    import { useDoom } from "./useDoom";
 
     export let linedef: LineDef;
-
-    const { game } = useDoom();
 
     $: mid = {
         x: (linedef.v2.x + linedef.v1.x) * 0.5,
@@ -19,29 +15,9 @@
     $: angle = Math.atan2(vy * invlen, vx * invlen);
 
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
+    const { upper: upperL, lower: lowerL, middle: middleL }  = linedef.left ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
-
-    let scrollOffsetX = 0;
-    let scrollTick: () => void = null;
-    function stopScrollAnimation() {
-        scrollOffsetX = 0;
-        game.removeEventListener('frameTick', scrollTick);
-    }
-    onDestroy(stopScrollAnimation);
-
-    const scrollLeft = () => scrollOffsetX += 1;
-    const scrollRight = () => scrollOffsetX -= 1;
-    $: if (linedef.special === 48) {
-        stopScrollAnimation();
-        scrollTick = scrollLeft;
-        game.addEventListener('frameTick', scrollTick);
-    } else if (linedef.special === 85) {
-        stopScrollAnimation();
-        scrollTick = scrollRight;
-        game.addEventListener('frameTick', scrollTick);
-    } else {
-        stopScrollAnimation();
-    }
+    const { middle: middleR }  = linedef.right;
 </script>
 
 {#if linedef.flags & 0x0004}
@@ -51,12 +27,10 @@
         {@const height = Math.abs($zCeilL - $zCeilR)}
         {@const top = Math.max($zCeilR, $zCeilL)}
         <WallSegment
-            {linedef}
-            {width} {angle} {mid} {top} {height} {scrollOffsetX}
-            {useLeft}
-            type={'upper'}
-            textureName={useLeft ? linedef.left.upper : linedef.right.upper}
+            {linedef} {useLeft}
+            {width} {angle} {mid} {top} {height}
             sidedef={useLeft ? linedef.left : linedef.right}
+            type={'upper'}
         />
     {/if}
     {#if $zFloorL !== $zFloorR}
@@ -64,31 +38,26 @@
         {@const height = Math.abs($zFloorL - $zFloorR)}
         {@const top = Math.max($zFloorR, $zFloorL)}
         <WallSegment
-            {linedef}
-            {width} {angle} {mid} {top} {height} {scrollOffsetX}
-            {useLeft}
-            type={'lower'}
-            textureName={useLeft ? linedef.left.lower : linedef.right.lower}
+            {linedef} {useLeft}
+            {width} {angle} {mid} {top} {height}
             sidedef={useLeft ? linedef.left : linedef.right}
+            type={'lower'}
         />
     {/if}
     <!-- And middle(s) -->
     {@const top = Math.min($zCeilL, $zCeilR)}
     {@const height = top - Math.max($zFloorL, $zFloorR)}
-    {#if linedef.left.middle}
+    {#if $middleL}
         <WallSegment
-            {linedef}
-            {width} {angle} {mid} {top} {height} {scrollOffsetX}
-            useLeft
-            textureName={linedef.left.middle}
+            {linedef} useLeft
+            {width} {angle} {mid} {top} {height}
             sidedef={linedef.left}
         />
     {/if}
-    {#if linedef.right.middle}
+    {#if $middleR}
         <WallSegment
             {linedef}
-            {width} {angle} {mid} {height} {top} {scrollOffsetX}
-            textureName={linedef.right.middle}
+            {width} {angle} {mid} {height} {top}
             sidedef={linedef.right}
         />
     {/if}
@@ -97,8 +66,7 @@
     {@const height = top - $zFloorR}
     <WallSegment
         {linedef}
-        {width} {angle} {mid} {top} {height} {scrollOffsetX}
-        textureName={linedef.right.middle}
+        {width} {angle} {mid} {top} {height}
         sidedef={linedef.right}
     />
 {/if}

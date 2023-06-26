@@ -1,37 +1,40 @@
-type GameEvents = 'textureAnimationTick' | 'frameTick'
-export class DoomGame {
-    private animInterval: number;
-    private frameInterval: number;
-    private eventListeners = new Map<GameEvents, any[]>();
+import { writable } from "svelte/store";
+import type { DoomMap, LineDef } from "./doomwad";
 
-    constructor() {
-        console.log('new game')
-        // Doom uses "ticks" and animation is specified in terms of ticks.
-        // All wall/flat animations are 8 ticks so we convert to ms
-        this.animInterval = window.setInterval(
-            () => this.eventListeners.get('textureAnimationTick')?.forEach(fn => fn()),
-            (8 / 35) * 1000);
-        this.frameInterval = window.setInterval(
-            () => this.eventListeners.get('frameTick')?.forEach(fn => fn()),
-            1000 / 35);
+export class DoomGame {
+    private frameInterval: number;
+    private frameCount = 0;
+
+    private scrollingWalls: LineDef[] = [];
+
+    constructor(private map: DoomMap) {
+        this.frameInterval = window.setInterval(() => this.frameTick(), 1000 / 35);
+
+        this.scrollingWalls = map.linedefs.filter(e => e.special === 48 || e.special === 85);
+        this.scrollingWalls.forEach(ld => ld.xOffset = writable(0));
     }
 
     dispose() {
-        clearInterval(this.animInterval);
         clearInterval(this.frameInterval);
     }
 
-    addEventListener(name: GameEvents, fn: () => void) {
-        const evs = this.eventListeners.get(name);
-        if (!evs) {
-            this.eventListeners.set(name, [fn]);
-            return;
-        }
-        evs.push(fn);
-    }
+    private frameTick() {
+        this.frameCount += 1;
 
-    removeEventListener(name: GameEvents, fn: () => void) {
-        const evs = this.eventListeners.get(name) ?? [];
-        this.eventListeners.set(name, evs.filter(e => e !== fn));
+        // wall/flat animations are 8 ticks
+        if (this.frameCount % 8 === 0) {
+            this.map.animatedTextures.forEach(anim => {
+                anim.current = (anim.current + 1) % anim.frames.length;
+                anim.target.set(anim.frames[anim.current]);
+            });
+        }
+
+        for (const ld of this.scrollingWalls) {
+            if (ld.special === 48) {
+                ld.xOffset.update(n => n += 1)
+            } else if (ld.special === 85) {
+                ld.xOffset.update(n => n -= 1)
+            }
+        }
     }
 }

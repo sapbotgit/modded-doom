@@ -5,7 +5,7 @@
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.js';
 import { centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
-import { writable, type Writable } from 'svelte/store';
+import { readable, writable, type Writable } from 'svelte/store';
 
 type ThingType = number;
 
@@ -25,6 +25,8 @@ export interface LineDef {
     tag: number;
     right?: SideDef;
     left?: SideDef;
+    // derived
+    xOffset?: Writable<number>;
 }
 const toLineDef = (ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
     v1: vertexes[ld.vertexStartIdx],
@@ -40,17 +42,17 @@ export interface SideDef {
     xOffset: number;
     yOffset: number;
     sector: Sector;
-    upper: string;
-    lower: string;
-    middle: string;
+    upper: Writable<string>;
+    lower: Writable<string>;
+    middle: Writable<string>;
 }
 const toSideDef = (sd: any, sectors: Sector[]): SideDef => ({
     xOffset: sd.offsetX,
     yOffset: sd.offsetY,
     sector: sectors[sd.sectorId],
-    lower: fixTextureName(sd.lowerTextureName),
-    middle: fixTextureName(sd.normalTextureName),
-    upper: fixTextureName(sd.upperTextureName),
+    lower: writable(fixTextureName(sd.lowerTextureName)),
+    middle: writable(fixTextureName(sd.normalTextureName)),
+    upper: writable(fixTextureName(sd.upperTextureName)),
 });
 
 function fixTextureName(name: string) {
@@ -136,6 +138,12 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
         : nodes[idx & 0x7fff];
 };
 
+export interface AnimatedTexture {
+    frames: string[];
+    current: number;
+    target: Writable<string>;
+}
+
 export class DoomMap {
     readonly name: string;
     readonly things: Thing[];
@@ -148,22 +156,51 @@ export class DoomMap {
     readonly nodes: TreeNode[];
     readonly renderSectors: RenderSector[];
 
-    constructor(items, index) {
-        this.name = items[index].name;
+    readonly animatedTextures: AnimatedTexture[] = [];
 
-        this.things = items[index + 1].contents.entries;
-        this.sectors = items[index + 8].contents.entries.map(s => toSector(s));
-        this.vertexes = items[index + 4].contents.entries;
-        this.sidedefs = items[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
-        this.linedefs = items[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, this.sidedefs));
-        this.segs = items[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
-        this.subsectors = items[index + 6].contents.entries.map(e => toSubSector(e, this.segs));
-        this.nodes = items[index + 7].contents.entries.map(d => toNode(d));
+    constructor(wad: DoomWad, index) {
+        this.name = wad.raw[index].name;
+
+        this.things = wad.raw[index + 1].contents.entries;
+        this.sectors = wad.raw[index + 8].contents.entries.map(s => toSector(s));
+        this.vertexes = wad.raw[index + 4].contents.entries;
+        this.sidedefs = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
+        this.linedefs = wad.raw[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, this.sidedefs));
+        this.segs = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
+        this.subsectors = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, this.segs));
+        this.nodes = wad.raw[index + 7].contents.entries.map(d => toNode(d));
         this.nodes.forEach(n => {
             n.childLeft = assignChild(n.childLeft, this.nodes, this.subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
         });
-        this.renderSectors = buildRenderSectors(this.nodes)
+        this.renderSectors = buildRenderSectors(this.nodes);
+
+        // TOOD: we could be even more efficient by using only one store per texture name (rather than one store per sidedef/flat)
+        for (const rs of this.renderSectors) {
+            this.initializeTextureAnimation(wad, rs.sector.floorFlat, 'animatedFlatInfo');
+            this.initializeTextureAnimation(wad, rs.sector.ceilFlat, 'animatedFlatInfo');
+        }
+        for (const linedef of this.linedefs) {
+            if (linedef.left) {
+                this.initializeTextureAnimation(wad, linedef.left.upper, 'animatedWallInfo');
+                this.initializeTextureAnimation(wad, linedef.left.middle, 'animatedWallInfo');
+                this.initializeTextureAnimation(wad, linedef.left.lower, 'animatedWallInfo');
+            }
+            if (linedef.right) {
+                this.initializeTextureAnimation(wad, linedef.right.upper, 'animatedWallInfo');
+                this.initializeTextureAnimation(wad, linedef.right.middle, 'animatedWallInfo');
+                this.initializeTextureAnimation(wad, linedef.right.lower, 'animatedWallInfo');
+            }
+        }
+    }
+
+    private initializeTextureAnimation(wad: DoomWad, target: Writable<string>, animInfoFn: 'animatedWallInfo' | 'animatedFlatInfo') {
+        target.subscribe(v => {
+            const animInfo = wad[animInfoFn](v);
+            if (animInfo) {
+                this.animatedTextures.push({ frames: animInfo[1], current: animInfo[0], target });
+            }
+        })();
     }
 
     findSector(x: number, y: number): Sector {
@@ -264,7 +301,7 @@ export class DoomWad {
 
     readMap(name: string) {
         const index = this.mapIndex.get(name)
-        return new DoomMap(this.raw, index);
+        return new DoomMap(this, index);
     }
 
     animatedWallInfo(name: string): [number, string[]] {
@@ -528,7 +565,6 @@ function buildRenderSectors(nodes: TreeNode[]) {
         if ('segs' in child) {
             const sector = child.sector;
             const vertexes = subsectorVerts(child, bspLines);
-            const light = writable(sector.light)
             sectors.push({ sector, vertexes, subsec: child, bspLines: [...bspLines] })
         } else {
             visitNode(child);

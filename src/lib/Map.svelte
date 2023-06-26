@@ -17,15 +17,6 @@
     export let wad: DoomWad;
     export let map: DoomMap;
 
-    // let int = setInterval(
-    //     () => {
-    //         const idx = Math.floor(Math.random() * map.renderSectors.length);
-    //         const sec = map.renderSectors[idx].sector;
-    //         // sec.zCeil.update(n => n += (Math.random() * 5) - 10)
-    //         // sec.light.set(Math.trunc(Math.random() * 255));
-    //     }, 100);
-    // onDestroy(() => clearInterval(int));
-
     const playerHeight = 41;
 
     $: p1 = map.things.find(e => e.type === 1);
@@ -43,7 +34,7 @@
 
     $: if (map) {
         // create context
-        const game = new DoomGame();
+        const game = new DoomGame(map);
         const textures = new MapTextures(wad);
         const settings = {
             useTextures: true,

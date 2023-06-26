@@ -1,32 +1,30 @@
 <script lang="ts">
-    import { Color, MeshStandardMaterial, PlaneGeometry } from "three";
+    import { MeshStandardMaterial, PlaneGeometry } from "three";
     import type { LineDef, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
-    import { onDestroy } from "svelte";
 
     export let linedef: LineDef;
-    export let useLeft: boolean = false;
-    export let textureName: string;
     export let sidedef: SideDef;
-    export let scrollOffsetX: number;
+    export let useLeft: boolean = false;
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
 
+    $: texture = sidedef[type];
+    const { xOffset } = linedef;
+
     // geometry
-    export let mid: Vertex;
+    export let width: number;
     export let height: number;
     export let top: number;
-    export let width: number;
+    export let mid: Vertex;
     export let angle: number;
 
-    const { wad, settings, textures, game } = useDoom();
+    const { wad, settings, textures } = useDoom();
 
-    $: texName = textureName;
     $: offset = useLeft ? Math.PI : 0;
     const { light } = sidedef.sector;
-    const { zCeil } = sidedef.sector;
-    const { zFloor : zfloorL } = linedef.left?.sector ?? {};
-    const { zFloor : zfloorR } = linedef.right.sector
+    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
+    const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
 
     function material(name: string, xOffset: number, light: number) {
         if (!name || !settings.useTextures) {
@@ -47,7 +45,11 @@
             // two-sided
             if (type === 'lower' && (linedef.flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
-                pegging -= $zCeil - Math.max($zfloorL, $zfloorR);
+                // TODO: hmmm... the blue wall with the switch at the far side of E3M6 works with Max(ceilR, ceilL)
+                // but the green wall in E1M1 zigzag works better with just ceilR.
+                // Now I'm not sure which is actually correct :(
+                pegging -= $zCeilR - Math.max($zFloorL, $zFloorR);
+                // pegging -= Math.max($zCeilR, $zCeilL) - Math.max($zFloorL, $zFloorR);
             } else if (type === 'upper' && !(linedef.flags & 0x0008)) {
                 pegging = 0;
             } else if (type === 'middle' && (linedef.flags & 0x0010)) {
@@ -70,26 +72,6 @@
             wad.palettes[0][96];
     }
 
-    let textureChange: () => void = null;
-    function stopFrameAnimation() {
-        game.removeEventListener('textureAnimationTick', textureChange);
-        texName = textureName;
-    }
-    onDestroy(stopFrameAnimation);
-
-    $: animationInfo = wad.animatedWallInfo(textureName);
-    $: if (animationInfo) {
-        stopFrameAnimation();
-        let [index, frames] = animationInfo;
-        textureChange = () => {
-            index = (index + 1) % frames.length;
-            texName = frames[index];
-        };
-        game.addEventListener('textureAnimationTick', textureChange);
-    } else {
-        stopFrameAnimation();
-    }
-
     function hit() {
         console.log(linedef)
     }
@@ -101,5 +83,5 @@
     position={{ x: mid.x, y: top - height * .5, z: -mid.y }}
     rotation={{ y: angle + offset }}
     geometry={new PlaneGeometry(width, height)}
-    material={material(texName, scrollOffsetX, $light)}
+    material={material($texture, $xOffset ?? 0, $light)}
 />
