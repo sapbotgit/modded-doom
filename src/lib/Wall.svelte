@@ -18,6 +18,9 @@
     $: invlen = 1 / width;
     $: angle = Math.atan2(vy * invlen, vx * invlen);
 
+    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
+    const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
+
     let scrollOffsetX = 0;
     let scrollTick: () => void = null;
     function stopScrollAnimation() {
@@ -43,10 +46,10 @@
 
 {#if linedef.flags & 0x0004}
     <!-- two-sided so figure out top and bottom -->
-    {#if linedef.left.sector.zCeil !== linedef.right.sector.zCeil}
-        {@const useLeft = linedef.left.sector.zCeil > linedef.right.sector.zCeil}
-        {@const height = Math.abs(linedef.left.sector.zCeil - linedef.right.sector.zCeil)}
-        {@const top = Math.max(linedef.right.sector.zCeil, linedef.left.sector.zCeil)}
+    {#if $zCeilL !== $zCeilR}
+        {@const useLeft = $zCeilL > $zCeilR}
+        {@const height = Math.abs($zCeilL - $zCeilR)}
+        {@const top = Math.max($zCeilR, $zCeilL)}
         <WallSegment
             {linedef}
             {width} {angle} {mid} {top} {height} {scrollOffsetX}
@@ -56,10 +59,10 @@
             sidedef={useLeft ? linedef.left : linedef.right}
         />
     {/if}
-    {#if linedef.left.sector.zFloor !== linedef.right.sector.zFloor}
-        {@const useLeft = linedef.left.sector.zFloor < linedef.right.sector.zFloor}
-        {@const height = Math.abs(linedef.left.sector.zFloor - linedef.right.sector.zFloor)}
-        {@const top = Math.max(linedef.right.sector.zFloor, linedef.left.sector.zFloor)}
+    {#if $zFloorL !== $zFloorR}
+        {@const useLeft = $zFloorL < $zFloorR}
+        {@const height = Math.abs($zFloorL - $zFloorR)}
+        {@const top = Math.max($zFloorR, $zFloorL)}
         <WallSegment
             {linedef}
             {width} {angle} {mid} {top} {height} {scrollOffsetX}
@@ -70,8 +73,8 @@
         />
     {/if}
     <!-- And middle(s) -->
-    {@const top = Math.min(linedef.left.sector.zCeil, linedef.right.sector.zCeil)}
-    {@const height = top - Math.max(linedef.left.sector.zFloor, linedef.right.sector.zFloor)}
+    {@const top = Math.min($zCeilL, $zCeilR)}
+    {@const height = top - Math.max($zFloorL, $zFloorR)}
     {#if linedef.left.middle}
         <WallSegment
             {linedef}
@@ -90,8 +93,8 @@
         />
     {/if}
 {:else}
-    {@const top = linedef.right.sector.zCeil}
-    {@const height = top - linedef.right.sector.zFloor}
+    {@const top = $zCeilR}
+    {@const height = top - $zFloorR}
     <WallSegment
         {linedef}
         {width} {angle} {mid} {top} {height} {scrollOffsetX}

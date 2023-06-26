@@ -5,6 +5,7 @@ export class DoomGame {
     private eventListeners = new Map<GameEvents, any[]>();
 
     constructor() {
+        console.log('new game')
         // Doom uses "ticks" and animation is specified in terms of ticks.
         // All wall/flat animations are 8 ticks so we convert to ms
         this.animInterval = window.setInterval(
@@ -27,12 +28,10 @@ export class DoomGame {
             return;
         }
         evs.push(fn);
-        console.log(evs.length)
     }
 
     removeEventListener(name: GameEvents, fn: () => void) {
         const evs = this.eventListeners.get(name) ?? [];
         this.eventListeners.set(name, evs.filter(e => e !== fn));
-        console.log(evs.length)
     }
 }

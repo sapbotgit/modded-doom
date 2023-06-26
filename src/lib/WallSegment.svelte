@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry } from "three";
+    import { Color, MeshStandardMaterial, PlaneGeometry } from "three";
     import type { LineDef, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
@@ -23,8 +23,12 @@
 
     $: texName = textureName;
     $: offset = useLeft ? Math.PI : 0;
+    const { light } = sidedef.sector;
+    const { zCeil } = sidedef.sector;
+    const { zFloor : zfloorL } = linedef.left?.sector ?? {};
+    const { zFloor : zfloorR } = linedef.right.sector
 
-    function material(name: string, xOffset: number) {
+    function material(name: string, xOffset: number, light: number) {
         if (!name || !settings.useTextures) {
             return new MeshStandardMaterial({ color: lineStroke() });
         }
@@ -43,7 +47,7 @@
             // two-sided
             if (type === 'lower' && (linedef.flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
-                pegging -= sidedef.sector.zCeil - Math.max(linedef.left.sector.zFloor, linedef.right.sector.zFloor);
+                pegging -= $zCeil - Math.max($zfloorL, $zfloorR);
             } else if (type === 'upper' && !(linedef.flags & 0x0008)) {
                 pegging = 0;
             } else if (type === 'middle' && (linedef.flags & 0x0010)) {
@@ -54,8 +58,9 @@
             pegging = 0;
         }
         const yOffset = -sidedef.yOffset + pegging;
-        texture2.offset.set((xOffset + sidedef.xOffset) * invTextureWidth, yOffset * invTextureHeight)
-        return new MeshStandardMaterial({ map: texture2, transparent: true });
+        texture2.offset.set((xOffset + sidedef.xOffset) * invTextureWidth, yOffset * invTextureHeight);
+        let color = light | light << 8 | light << 16;
+        return new MeshStandardMaterial({ map: texture2, transparent: true, color });
     }
 
     function lineStroke() {
@@ -96,5 +101,5 @@
     position={{ x: mid.x, y: top - height * .5, z: -mid.y }}
     rotation={{ y: angle + offset }}
     geometry={new PlaneGeometry(width, height)}
-    material={material(texName, scrollOffsetX)}
+    material={material(texName, scrollOffsetX, $light)}
 />

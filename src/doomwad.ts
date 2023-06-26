@@ -5,6 +5,7 @@
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.js';
 import { centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
+import { writable, type Writable } from 'svelte/store';
 
 type ThingType = number;
 
@@ -79,22 +80,22 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 });
 
 export interface Sector {
-    zFloor: number;
-    zCeil: number;
-    floorFlat: string;
-    ceilFlat: string;
-    light: number;
     type: number;
     tag: number;
+    zFloor: Writable<number>;
+    zCeil: Writable<number>;
+    light: Writable<number>;
+    floorFlat: Writable<string>;
+    ceilFlat: Writable<string>;
 }
 const toSector = (sd: any): Sector => ({
-    zFloor: sd.floorZ,
-    floorFlat: fixTextureName(sd.floorFlat),
-    zCeil: sd.ceilZ,
-    ceilFlat: fixTextureName(sd.ceilFlat),
-    light: sd.light,
     type: sd.specialType,
     tag: sd.tag,
+    zFloor: writable(sd.floorZ),
+    zCeil: writable(sd.ceilZ),
+    light: writable(sd.light),
+    floorFlat: writable(fixTextureName(sd.floorFlat)),
+    ceilFlat: writable(fixTextureName(sd.ceilFlat)),
 });
 
 export interface SubSector {
@@ -134,14 +135,6 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
         ? ssector[idx & 0x7fff]
         : nodes[idx & 0x7fff];
 };
-
-export interface RenderSector {
-    sector: Sector;
-    vertexes: Vertex[];
-    // these are only helpful for debugging. Maybe we can remove them?
-    subsec: SubSector;
-    bspLines: Vertex[][];
-}
 
 export class DoomMap {
     readonly name: string;
@@ -519,6 +512,13 @@ const isMap = (item) =>
     /^MAP\d\d$/.test(item.name) ||
     /^E\dM\d$/.test(item.name);
 
+export interface RenderSector {
+    sector: Sector;
+    vertexes: Vertex[];
+    // these are only helpful for debugging. Maybe we can remove them?
+    subsec: SubSector;
+    bspLines: Vertex[][];
+}
 
 function buildRenderSectors(nodes: TreeNode[]) {
     let sectors: RenderSector[] = [];
@@ -528,6 +528,7 @@ function buildRenderSectors(nodes: TreeNode[]) {
         if ('segs' in child) {
             const sector = child.sector;
             const vertexes = subsectorVerts(child, bspLines);
+            const light = writable(sector.light)
             sectors.push({ sector, vertexes, subsec: child, bspLines: [...bspLines] })
         } else {
             visitNode(child);

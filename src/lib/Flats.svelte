@@ -12,6 +12,7 @@
     }
     $: color = namedColor(index);
     $: geometry = createShape(renderSector.vertexes);
+    const { zFloor, floorFlat, zCeil, ceilFlat } = renderSector.sector;
 
     function createShape(verts: Vertex[]) {
         const shape = new Shape();
@@ -28,13 +29,13 @@
 
 <Flat
     {geometry} {color} {renderSector}
-    vertical={renderSector.sector.zFloor}
-    textureName={renderSector.sector.floorFlat}
+    vertical={$zFloor}
+    textureName={$floorFlat}
 />
 
 <Flat
     {geometry} {color} {renderSector}
     ceiling
-    vertical={renderSector.sector.zCeil}
-    textureName={renderSector.sector.ceilFlat}
+    vertical={$zCeil}
+    textureName={$ceilFlat}
 />

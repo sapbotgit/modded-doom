@@ -27,6 +27,7 @@
 <main>
   <!-- <MathDebug /> -->
 
+  <button on:click={() => selectedMap = null}>None</button>
   {#each mapNames as name}
     <button on:click={() => selectedMap = wad.readMap(name)}>{name}</button>
   {/each}
@@ -38,7 +39,9 @@
       <SvgMap map={selectedMap} {wad} />
     {/if}
 
-    <Map {wad} map={selectedMap} />
+    {#key selectedMap.name}
+      <Map {wad} map={selectedMap} />
+    {/key}
   {/if}
 
   {#if debugMap}

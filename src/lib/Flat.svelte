@@ -13,11 +13,13 @@
     export let ceiling = false;
 
     const { game, textures, settings, wad } = useDoom();
+    const { light } = renderSector.sector;
 
-    function material(name: string) {
+    function material(name: string, light: number) {
         const params: MeshStandardMaterialParameters = { side: ceiling ? BackSide : FrontSide};
         if (settings.useTextures && name) {
             params.map = textures.get(name, 'flat');
+            params.color = light | light << 8 | light << 16;
         } else {
             params.color = color;
         }
@@ -57,7 +59,7 @@
 <Mesh
     interactive
     {geometry}
-    material={material(texName)}
+    material={material(texName, $light)}
     position={{ x: 0, y: vertical, z: 0 }}
     on:click={hit}
 />
