@@ -82,8 +82,9 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 });
 
 export interface Sector {
-    type: number;
     tag: number;
+    type: number;
+    raw: any;
     zFloor: Writable<number>;
     zCeil: Writable<number>;
     light: Writable<number>;
@@ -91,8 +92,9 @@ export interface Sector {
     ceilFlat: Writable<string>;
 }
 const toSector = (sd: any): Sector => ({
-    type: sd.specialType,
+    raw: sd,
     tag: sd.tag,
+    type: sd.specialType,
     zFloor: writable(sd.floorZ),
     zCeil: writable(sd.ceilZ),
     light: writable(sd.light),
