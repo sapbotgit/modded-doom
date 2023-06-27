@@ -6,7 +6,7 @@
 
     export let linedef: LineDef;
     export let sidedef: SideDef;
-    export let useLeft: boolean = false;
+    export let useLeft = false;
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
 
     $: texture = sidedef[type];

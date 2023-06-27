@@ -14,6 +14,7 @@
     import { DoomGame } from "../doom-game";
     import type { DoomContext } from "./useDoom";
     import FirstPersonControls from "./FirstPersonControls.svelte";
+    import SkyBox from "./SkyBox.svelte";
     export let wad: DoomWad;
     export let map: DoomMap;
 
@@ -51,6 +52,8 @@
     <PerspectiveCamera lookAt={target(p1)} position={position(p1)} far={100000} fov={70}>
         <FirstPersonControls {map} />
     </PerspectiveCamera>
+
+    <SkyBox {map} />
 
     <!-- <DirectionalLight shadow color={'white'} position={{ x: -15, y: 45, z: 20 }} intensity={0.5} />
     <DirectionalLight shadow color={'white'} position={{ x: -15, y: -45, z: 20 }} intensity={0.5} /> -->

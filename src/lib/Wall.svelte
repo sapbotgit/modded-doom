@@ -18,11 +18,16 @@
     const { middle: middleL }  = linedef.left ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
     const { middle: middleR }  = linedef.right;
+
+    // sky-hack https://doomwiki.org/wiki/Sky_hack
+    const { ceilFlat: ceilFlatL } = linedef.left?.sector ?? {};
+    const { ceilFlat: ceilFlatR } = linedef.right.sector
+    const skyHack = ($ceilFlatL === 'F_SKY1' && $ceilFlatR === 'F_SKY1');
 </script>
 
 {#if linedef.flags & 0x0004}
     <!-- two-sided so figure out top and bottom -->
-    {#if $zCeilL !== $zCeilR}
+    {#if $zCeilL !== $zCeilR && !skyHack}
         {@const useLeft = $zCeilL > $zCeilR}
         {@const height = Math.abs($zCeilL - $zCeilR)}
         {@const top = Math.max($zCeilR, $zCeilL)}

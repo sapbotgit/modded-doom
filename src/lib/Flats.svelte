@@ -33,9 +33,15 @@
     textureName={$floorFlat}
 />
 
-<Flat
-    {geometry} {color} {renderSector}
-    ceiling
-    vertical={$zCeil}
-    textureName={$ceilFlat}
-/>
+<!--
+    TODO: for a level editor, it would actually be useful to still draw this so
+    we can click on it and edit. Something to think about (same for Wall.svelte)
+-->
+{#if $ceilFlat !== 'F_SKY1'}
+    <Flat
+        {geometry} {color} {renderSector}
+        ceiling
+        vertical={$zCeil}
+        textureName={$ceilFlat}
+    />
+{/if}

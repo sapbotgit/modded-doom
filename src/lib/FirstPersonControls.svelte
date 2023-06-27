@@ -15,6 +15,7 @@
     } from "@threlte/core";
     import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls";
     import type { DoomMap } from "../doomwad";
+    import { get } from "svelte/store";
     const parent = useParent();
     const { renderer } = useThrelte();
     if (!renderer)
@@ -135,7 +136,7 @@
 
             // const sector = map.findSector(camera.position.x, -camera.position.z);
             // if (sector) {
-            //     controls.getObject().position.y = sector.zFloor + 41;
+            //     controls.getObject().position.y = get(sector.zFloor) + 41;
             // }
 
             // gravity?

@@ -1,4 +1,4 @@
-import { DataTexture, RepeatWrapping, type Texture } from "three";
+import { BackSide, CubeReflectionMapping, CubeRefractionMapping, CubeTexture, CubeUVReflectionMapping, DataTexture, Material, MeshBasicMaterial, RepeatWrapping, type Texture } from "three";
 import type { DoomWad } from "../doomwad";
 
 // all flats (floors/ceilings) are 64px

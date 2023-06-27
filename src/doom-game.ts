@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
-import type { DoomMap, LineDef, Sector } from "./doomwad";
+import type { DoomMap, Sector } from "./doomwad";
+import type { MapTextures } from "./lib/Texture";
 
 const randInt = (min: number, max: number) => Math.floor((Math.random() * (max - min)) + min);
 
