@@ -15,6 +15,7 @@
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
     // debugMap = wad.readMap(mapNames[0]);
+    // selectedMap = wad.readMap('E2M3')
     window.data = wad;
   })();
 

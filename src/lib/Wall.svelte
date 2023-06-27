@@ -15,7 +15,7 @@
     $: angle = Math.atan2(vy * invlen, vx * invlen);
 
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
-    const { upper: upperL, lower: lowerL, middle: middleL }  = linedef.left ?? {};
+    const { middle: middleL }  = linedef.left ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
     const { middle: middleR }  = linedef.right;
 </script>

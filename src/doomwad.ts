@@ -5,7 +5,7 @@
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.js';
 import { centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
-import { writable, type Writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 
 type ThingType = number;
 
@@ -46,13 +46,13 @@ export interface SideDef {
     lower: Writable<string>;
     middle: Writable<string>;
 }
-const toSideDef = (sd: any, sectors: Sector[]): SideDef => ({
+const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Writable<string>>): SideDef => ({
     xOffset: sd.offsetX,
     yOffset: sd.offsetY,
     sector: sectors[sd.sectorId],
-    lower: writable(fixTextureName(sd.lowerTextureName)),
-    middle: writable(fixTextureName(sd.normalTextureName)),
-    upper: writable(fixTextureName(sd.upperTextureName)),
+    lower: textures.get(fixTextureName(sd.lowerTextureName)),
+    middle: textures.get(fixTextureName(sd.normalTextureName)),
+    upper: textures.get(fixTextureName(sd.upperTextureName)),
 });
 
 function fixTextureName(name: string) {
@@ -91,15 +91,15 @@ export interface Sector {
     floorFlat: Writable<string>;
     ceilFlat: Writable<string>;
 }
-const toSector = (sd: any): Sector => ({
+const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => ({
     raw: sd,
     tag: sd.tag,
     type: sd.specialType,
     zFloor: writable(sd.floorZ),
     zCeil: writable(sd.ceilZ),
     light: writable(sd.light),
-    floorFlat: writable(fixTextureName(sd.floorFlat)),
-    ceilFlat: writable(fixTextureName(sd.ceilFlat)),
+    floorFlat: textures.get(fixTextureName(sd.floorFlat)),
+    ceilFlat: textures.get(fixTextureName(sd.ceilFlat)),
 });
 
 export interface SubSector {
@@ -163,10 +163,28 @@ export class DoomMap {
     constructor(wad: DoomWad, index) {
         this.name = wad.raw[index].name;
 
+        // optimization: use a single writeable per texture name
+        const wallTextures = new Map<string, Writable<string>>();
+        for (const sidedef of wad.raw[index + 3].contents.entries) {
+            const lower = fixTextureName(sidedef.lowerTextureName);
+            const middle = fixTextureName(sidedef.normalTextureName);
+            const upper = fixTextureName(sidedef.upperTextureName);
+            wallTextures.set(lower, writable(lower));
+            wallTextures.set(middle, writable(middle));
+            wallTextures.set(upper, writable(upper));
+        }
+        const flatTextures = new Map<string, Writable<string>>();
+        for (const sector of wad.raw[index + 8].contents.entries) {
+            const floorFlat = fixTextureName(sector.floorFlat);
+            const ceilFlat = fixTextureName(sector.ceilFlat);
+            flatTextures.set(floorFlat, writable(floorFlat));
+            flatTextures.set(ceilFlat, writable(ceilFlat));
+        }
+
         this.things = wad.raw[index + 1].contents.entries;
-        this.sectors = wad.raw[index + 8].contents.entries.map(s => toSector(s));
+        this.sectors = wad.raw[index + 8].contents.entries.map(s => toSector(s, flatTextures));
         this.vertexes = wad.raw[index + 4].contents.entries;
-        this.sidedefs = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
+        this.sidedefs = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
         this.linedefs = wad.raw[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, this.sidedefs));
         this.segs = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
         this.subsectors = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, this.segs));
@@ -177,22 +195,12 @@ export class DoomMap {
         });
         this.renderSectors = buildRenderSectors(this.nodes);
 
-        // TOOD: we could be even more efficient by using only one store per texture name (rather than one store per sidedef/flat)
-        for (const rs of this.renderSectors) {
-            this.initializeTextureAnimation(wad, rs.sector.floorFlat, 'animatedFlatInfo');
-            this.initializeTextureAnimation(wad, rs.sector.ceilFlat, 'animatedFlatInfo');
+        // apply animations only to the cached textures
+        for (const texture of flatTextures.values()) {
+            this.initializeTextureAnimation(wad, texture, 'animatedFlatInfo');
         }
-        for (const linedef of this.linedefs) {
-            if (linedef.left) {
-                this.initializeTextureAnimation(wad, linedef.left.upper, 'animatedWallInfo');
-                this.initializeTextureAnimation(wad, linedef.left.middle, 'animatedWallInfo');
-                this.initializeTextureAnimation(wad, linedef.left.lower, 'animatedWallInfo');
-            }
-            if (linedef.right) {
-                this.initializeTextureAnimation(wad, linedef.right.upper, 'animatedWallInfo');
-                this.initializeTextureAnimation(wad, linedef.right.middle, 'animatedWallInfo');
-                this.initializeTextureAnimation(wad, linedef.right.lower, 'animatedWallInfo');
-            }
+        for (const texture of wallTextures.values()) {
+            this.initializeTextureAnimation(wad, texture, 'animatedWallInfo');
         }
     }
 
