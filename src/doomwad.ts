@@ -5,7 +5,7 @@
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.js';
 import { centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
-import { readable, writable, type Writable } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
 
 type ThingType = number;
 
@@ -219,6 +219,21 @@ export class DoomMap {
                 node = node.childRight;
             }
         }
+    }
+
+    sectorNeighbours(sector: Sector): Sector[] {
+        const sectors = [];
+        for (const ld of this.linedefs) {
+            if (ld.flags & 0x0004) {
+                if (ld.left?.sector === sector) {
+                    sectors.push(ld.right.sector);
+                }
+                if (ld.right.sector === sector) {
+                    sectors.push(ld.left.sector);
+                }
+            }
+        }
+        return sectors;
     }
 }
 
