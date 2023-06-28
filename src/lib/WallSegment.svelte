@@ -62,7 +62,7 @@
         const yOffset = -sidedef.yOffset + pegging;
         texture2.offset.set((xOffset + sidedef.xOffset) * invTextureWidth, yOffset * invTextureHeight);
         let color = light | light << 8 | light << 16;
-        return new MeshStandardMaterial({ map: texture2, transparent: true, color });
+        return new MeshStandardMaterial({ map: texture2, alphaTest: 1, color });
     }
 
     function lineStroke() {

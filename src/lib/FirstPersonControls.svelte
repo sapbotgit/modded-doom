@@ -15,7 +15,8 @@
     } from "@threlte/core";
     import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls";
     import type { DoomMap } from "../doomwad";
-    import { get } from "svelte/store";
+    import { useDoom } from "./useDoom";
+
     const parent = useParent();
     const { renderer } = useThrelte();
     if (!renderer)
@@ -30,6 +31,8 @@
 
     export let map: DoomMap;
     export const controls = new PointerLockControls($parent, document.body);
+
+    const { game } = useDoom();
 
     let moveForward = false;
     let moveBackward = false;
@@ -110,6 +113,11 @@
         controls.lock();
     });
 
+    // HACK ALERT: the game should know the player position and the UI "react" to that.
+    game.playerPosition.set(controls.camera.position);
+    vec.copy(controls.getDirection(vec));
+    game.playerDirection.set(vec);
+
     useFrame((ctx, delta) => {
         if (controls.isLocked === true) {
             velocity.x -= velocity.x * 5.0 * delta;
@@ -133,6 +141,10 @@
             const camera = controls.camera;
             vec.copy(controls.getDirection(vec));
             camera.position.addScaledVector(vec, -velocity.z * delta);
+
+            // HACK ALERT: the game should know the player position and the UI "react" to that.
+            game.playerPosition.set(camera.position);
+            game.playerDirection.set(vec);
 
             // const sector = map.findSector(camera.position.x, -camera.position.z);
             // if (sector) {

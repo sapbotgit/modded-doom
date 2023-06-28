@@ -1,4 +1,4 @@
-import { BackSide, CubeReflectionMapping, CubeRefractionMapping, CubeTexture, CubeUVReflectionMapping, DataTexture, Material, MeshBasicMaterial, RepeatWrapping, type Texture } from "three";
+import { DataTexture, RepeatWrapping, type Texture } from "three";
 import type { DoomWad } from "../doomwad";
 
 // all flats (floors/ceilings) are 64px
@@ -9,11 +9,13 @@ export class MapTextures {
 
     constructor(readonly wad: DoomWad) {}
 
-    get(name: string, type: 'wall' | 'flat') {
-        const cacheKey = (type === 'wall' ? 'w' : 'f') + name;
+    get(name: string, type: 'wall' | 'flat' | 'sprite') {
+        const cacheKey = type[0] + name;
         let texture = this.cache.get(cacheKey);
         if (texture === undefined && name) {
-            const loadFn = type === 'wall' ? 'wallTextureData' : 'flatTextureData';
+            const loadFn = type === 'wall' ? 'wallTextureData' :
+                type === 'flat' ? 'flatTextureData' :
+                'spriteTextureData';
             const data = this.wad[loadFn](name);
             if (typeof data === 'object') {
                 texture = new DataTexture(data.buffer, data.width, data.height)
@@ -22,6 +24,8 @@ export class MapTextures {
                 texture.flipY = true;
                 texture.needsUpdate = true;
                 texture.userData = {
+                    width: data.width,
+                    height: data.height,
                     invWidth: 1 / data.width,
                     invHeight: 1 / data.height,
                 }

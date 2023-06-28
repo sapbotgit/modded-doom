@@ -11,8 +11,7 @@
     $: vx = linedef.v2.x - linedef.v1.x;
     $: vy = linedef.v2.y - linedef.v1.y;
     $: width = Math.sqrt(vx * vx + vy * vy);
-    $: invlen = 1 / width;
-    $: angle = Math.atan2(vy * invlen, vx * invlen);
+    $: angle = Math.atan2(vy, vx);
 
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { middle: middleL }  = linedef.left ?? {};

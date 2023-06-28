@@ -5,7 +5,8 @@
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.js';
 import { centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
-import { get, writable, type Writable } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
+import { thingSpec, type ThingSpec } from './doom-things.js';
 
 type ThingType = number;
 
@@ -84,7 +85,7 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 export interface Sector {
     tag: number;
     type: number;
-    wad: {
+    source: {
         zFloor: number;
         zCeil: number;
         light: number;
@@ -98,7 +99,7 @@ export interface Sector {
     ceilFlat: Writable<string>;
 }
 const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => ({
-    wad: {
+    source: {
         zFloor: sd.floorZ,
         zCeil: sd.ceilZ,
         light: sd.light,
@@ -169,6 +170,7 @@ export class DoomMap {
     readonly segs: Seg[];
     readonly nodes: TreeNode[];
     readonly renderSectors: RenderSector[];
+    readonly renderThings: RenderThing[];
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
@@ -206,6 +208,7 @@ export class DoomMap {
             n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
         });
         this.renderSectors = buildRenderSectors(this.nodes);
+        this.renderThings = this.things.map(e => new RenderThing(wad, e));
 
         // apply animations only to the cached textures
         for (const texture of flatTextures.values()) {
@@ -260,10 +263,16 @@ export class DoomMap {
 type RGB = string;
 type Palette = RGB[];
 
+interface Graphic {
+    buffer: Uint8Array;
+    width: number;
+    height: number;
+}
+
 export class DoomWad {
     private mapIndex = new Map<string, number>();
     palettes: Palette[] = [];
-    raw: any;
+    raw: any[];
 
     private animatedFlats: string[][];
     private animatedWalls: string[][];
@@ -404,8 +413,29 @@ export class DoomWad {
         return 'missing';
     }
 
+    spriteFrames(name: string): string[] {
+        const uname = name.toUpperCase();
+        const sStartIndex = this.raw.findIndex(e => e.name === 'S_START');
+        const sEndIndex = this.raw.findIndex(e => e.name === 'S_END');
+        return this.raw.filter((lump, idx) => lump.name.startsWith(uname) && idx > sStartIndex && idx < sEndIndex).map(lump => lump.name);
+    }
+
+    spriteTextureData(name: string) {
+        const uname = name.toUpperCase();
+        const fStartIndex = this.raw.findIndex(e => e.name === 'S_START');
+        const fEndIndex = this.raw.findIndex(e => e.name === 'S_END');
+
+        const data = this.lumpByName(uname);
+        const idx = this.raw.indexOf(data);
+        if (idx > fStartIndex && idx < fEndIndex) {
+            return this.textureGraphic(data);
+        }
+
+        console.warn('missing sprite:' + uname)
+        return 'missing';
+    }
+
     flatTextureData(name: string) {
-        // debugger;
         const uname = name.toUpperCase();
         const fStartIndex = this.raw.findIndex(e => e.name === 'F_START');
         const fEndIndex = this.raw.findIndex(e => e.name === 'F_END');
@@ -653,4 +683,65 @@ function subsectorVerts(ssec: SubSector, bspLines: Vertex[][]) {
         }
     }
     return centerSort(verts)
+}
+
+
+interface SpriteFrame {
+    mirror: boolean;
+    name: string;
+    frame: number;
+    rotation: number;
+}
+
+export class RenderThing {
+    readonly spec: ThingSpec;
+    readonly position: Writable<Vertex>;
+    readonly fromFloor: boolean = true;
+    readonly frames: SpriteFrame[] = [];
+    readonly sprite = writable<SpriteFrame>(null);
+
+    private animInfo = {
+        sequence: [] as number[],
+        index: 0,
+    };
+
+    constructor(wad: DoomWad, readonly source: Thing) {
+        this.spec = thingSpec(source);
+        this.animInfo.sequence = Array.from(this.spec.sequence.replace('+', '')).map(e => e.charCodeAt(0) - 65)
+        this.fromFloor = !this.spec.class.includes('^');
+        this.position = writable({ x: source.x, y: source.y });
+
+        const sprites = wad.spriteFrames(this.spec.sprite);
+        for (const spriteName of sprites) {
+            let frame = spriteName.charCodeAt(4) - 65;
+            let rotation = spriteName.charCodeAt(5) - 48;
+
+            this.frames.push({ frame, rotation, name: spriteName, mirror: false});
+            if (rotation === 0) {
+                continue;
+            }
+
+            if (spriteName.length === 8) {
+                let frame = spriteName.charCodeAt(6) - 65;
+                let rotation = spriteName.charCodeAt(7) - 48;
+                this.frames.push({ frame, rotation, name: spriteName, mirror: true });
+            }
+        }
+        if (this.frames.length) {
+            this.setSpriteFrame();
+        }
+    }
+
+    tick() {
+        this.setSpriteFrame();
+    }
+
+    private setSpriteFrame() {
+        this.animInfo.index = (this.animInfo.index + 1) % this.animInfo.sequence.length;
+        // const sprite = this.frames.find(e => e.frame == this.animInfo.sequence[this.animInfo.index]);
+        const sprite = this.frames.find(e => e.frame == this.animInfo.sequence[0]);
+        if (sprite) {
+            this.sprite.set(sprite)
+        }
+    }
 }

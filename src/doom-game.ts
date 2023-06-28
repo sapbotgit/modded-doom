@@ -1,16 +1,18 @@
-import { writable } from "svelte/store";
-import type { DoomMap, Sector } from "./doomwad";
-import type { MapTextures } from "./lib/Texture";
+import { writable, type Writable } from "svelte/store";
+import type { DoomMap, Sector, Thing, Vertex } from "./doomwad";
+import type { Position } from "@threlte/core";
+import { thingSpec, type ThingSpec } from "./doom-things";
 
 const randInt = (min: number, max: number) => Math.floor((Math.random() * (max - min)) + min);
 
 type Action = () => void;
 
+// TODO: should be 0 if sectors is empty?
 const lowestLight = (sectors: Sector[], min: number) =>
-    sectors.map(s => s.wad.light).reduce((last, val) => Math.min(last, val), min);
+    sectors.map(s => s.source.light).reduce((last, val) => Math.min(last, val), min);
 
 const randomFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.wad.light;
+    const max = sector.source.light;
     const min = lowestLight(map.sectorNeighbours(sector), max);
     let val = max;
     let ticks = 1;
@@ -30,7 +32,7 @@ const randomFlicker = (map: DoomMap, sector: Sector) => {
 const strobeFlash =
     (lightTicks: number, darkTicks: number, synchronized = false) =>
     (map: DoomMap, sector: Sector) => {
-        const max = sector.wad.light;
+        const max = sector.source.light;
         const min = lowestLight(map.sectorNeighbours(sector), max);
         let ticks = synchronized ? 1 : randInt(1, 7);
         let val = max;
@@ -48,7 +50,7 @@ const strobeFlash =
     };
 
 const glowLight = (map: DoomMap, sector: Sector) => {
-    const max = sector.wad.light;
+    const max = sector.source.light;
     const min = lowestLight(map.sectorNeighbours(sector), max);
     let val = max;
     let step = -8;
@@ -63,7 +65,7 @@ const glowLight = (map: DoomMap, sector: Sector) => {
 };
 
 const fireFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.wad.light;
+    const max = sector.source.light;
     const min = lowestLight(map.sectorNeighbours(sector), max) + 16;
     let ticks = 4;
     return () => {
@@ -88,6 +90,8 @@ const sectorAnimations = {
 export class DoomGame {
     private frameInterval: number;
     currentTick = 0;
+    playerPosition = writable<Position>({});
+    playerDirection = writable<Position>({});
 
     private actions: Action[] = [];
 
@@ -129,5 +133,7 @@ export class DoomGame {
                 anim.target.set(anim.frames[anim.current]);
             });
         }
+
+        this.map.renderThings.forEach(thing => thing.tick());
     }
 }

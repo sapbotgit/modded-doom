@@ -6,7 +6,7 @@
     } from "@threlte/core";
 
     import { MapTextures } from './Texture';
-    import type { DoomMap, DoomWad, Thing } from "../doomwad";
+    import type { DoomMap, DoomWad, Thing as DoomThing, RenderThing } from "../doomwad";
     import Stats from './Debug/Stats.svelte';
     import Wall from './Wall.svelte';
     import Flats from './Flats.svelte';
@@ -15,6 +15,7 @@
     import type { DoomContext } from "./useDoom";
     import FirstPersonControls from "./FirstPersonControls.svelte";
     import SkyBox from "./SkyBox.svelte";
+    import Thing from "./Thing.svelte";
     export let wad: DoomWad;
     export let map: DoomMap;
 
@@ -23,19 +24,31 @@
     $: p1 = map.things.find(e => e.type === 1);
     $: zFloor = map.findSector(p1.x, p1.y).zFloor;
     $: pZHeight = playerHeight + $zFloor;
+    $: position = ({ x: p1.x, y: pZHeight, z: -p1.y });
 
-    const position = (p1: Thing) => ({ x: p1.x, y: pZHeight, z: -p1.y });
-
-    function target(p1: Thing) {
+    function target(p1: DoomThing) {
         const angRad = p1.angle * Math.PI / 180;
         const tx = 10 * Math.cos(angRad) + p1.x;
         const tz = 10 * -Math.sin(angRad) - p1.y;
         return { x: tx, y: pZHeight, z: tz };
     }
 
+    // https://doomwiki.org/wiki/Thing_types#Other
+    const invisibleThingTypes = [1, 2, 3, 4, 11, 14, 87, 88, 89];
+    function isVisible(thing: RenderThing) {
+        if (thing.source.flags & 0x0010) {
+            return false;
+        }
+        if (invisibleThingTypes.includes(thing.spec.type)) {
+            return false;
+        }
+        return true;
+    }
+
     $: if (map) {
         // create context
         const game = new DoomGame(map);
+        game.playerPosition.set(position)
         const textures = new MapTextures(wad);
         const settings = {
             useTextures: true,
@@ -49,7 +62,7 @@
 <Canvas size={{ width: 800, height: 600 }}>
     <Stats />
 
-    <PerspectiveCamera lookAt={target(p1)} position={position(p1)} far={100000} fov={70}>
+    <PerspectiveCamera lookAt={target(p1)} {position} far={100000} fov={70}>
         <FirstPersonControls {map} />
     </PerspectiveCamera>
 
@@ -66,5 +79,9 @@
 
     {#each map.renderSectors as renderSector, i}
         <Flats {renderSector} index={i} />
+    {/each}
+
+    {#each map.renderThings.filter(isVisible) as thing}
+        <Thing {wad} {map} {thing} />
     {/each}
 </Canvas>
