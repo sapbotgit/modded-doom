@@ -84,7 +84,13 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 export interface Sector {
     tag: number;
     type: number;
-    raw: any;
+    wad: {
+        zFloor: number;
+        zCeil: number;
+        light: number;
+        floorFlat: string;
+        ceilFlat: string;
+    };
     zFloor: Writable<number>;
     zCeil: Writable<number>;
     light: Writable<number>;
@@ -92,7 +98,13 @@ export interface Sector {
     ceilFlat: Writable<string>;
 }
 const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => ({
-    raw: sd,
+    wad: {
+        zFloor: sd.floorZ,
+        zCeil: sd.ceilZ,
+        light: sd.light,
+        floorFlat: fixTextureName(sd.floorFlat),
+        ceilFlat: fixTextureName(sd.ceilFlat),
+    },
     tag: sd.tag,
     type: sd.specialType,
     zFloor: writable(sd.floorZ),

@@ -6,10 +6,10 @@ const randInt = (min: number, max: number) => Math.floor((Math.random() * (max -
 type Action = () => void;
 
 const lowestLight = (sectors: Sector[], min: number) =>
-    sectors.map(s => s.raw.light).reduce((last, val) => Math.min(last, val), min);
+    sectors.map(s => s.wad.light).reduce((last, val) => Math.min(last, val), min);
 
 const randomFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.raw.light;
+    const max = sector.wad.light;
     const min = lowestLight(map.sectorNeighbours(sector), max);
     let val = max;
     let ticks = 1;
@@ -29,7 +29,7 @@ const randomFlicker = (map: DoomMap, sector: Sector) => {
 const strobeFlash =
     (lightTicks: number, darkTicks: number, synchronized = false) =>
     (map: DoomMap, sector: Sector) => {
-        const max = sector.raw.light;
+        const max = sector.wad.light;
         const min = lowestLight(map.sectorNeighbours(sector), max);
         let ticks = synchronized ? 1 : randInt(1, 7);
         let val = max;
@@ -47,7 +47,7 @@ const strobeFlash =
     };
 
 const glowLight = (map: DoomMap, sector: Sector) => {
-    const max = sector.raw.light;
+    const max = sector.wad.light;
     const min = lowestLight(map.sectorNeighbours(sector), max);
     let val = max;
     let step = -8;
@@ -62,7 +62,7 @@ const glowLight = (map: DoomMap, sector: Sector) => {
 };
 
 const fireFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.raw.light;
+    const max = sector.wad.light;
     const min = lowestLight(map.sectorNeighbours(sector), max) + 16;
     let ticks = 4;
     return () => {
