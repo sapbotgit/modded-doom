@@ -16,6 +16,7 @@
     import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls";
     import type { DoomMap } from "../doomwad";
     import { useDoom } from "./useDoom";
+    import { HALF_PI } from "./Math";
 
     const parent = useParent();
     const { renderer } = useThrelte();
@@ -116,7 +117,7 @@
     // HACK ALERT: the game should know the player position and the UI "react" to that.
     game.playerPosition.set(controls.camera.position);
     vec.copy(controls.getDirection(vec));
-    game.playerDirection.set( Math.atan2(-vec.z, vec.x));
+    game.playerDirection.set(Math.atan2(-vec.z, vec.x) - HALF_PI);
 
     useFrame((ctx, delta) => {
         if (controls.isLocked === true) {
@@ -144,7 +145,7 @@
 
             // HACK ALERT: the game should know the player position and the UI "react" to that.
             game.playerPosition.set(camera.position);
-            game.playerDirection.set(Math.atan2(-vec.z, vec.x));
+            game.playerDirection.set(Math.atan2(-vec.z, vec.x) - HALF_PI);
 
             // const sector = map.findSector(camera.position.x, -camera.position.z);
             // if (sector) {

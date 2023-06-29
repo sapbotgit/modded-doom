@@ -1,4 +1,4 @@
-import { DataTexture, RepeatWrapping, type Texture } from "three";
+import { DataTexture, DisplayP3ColorSpace, LinearSRGBColorSpace, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import type { DoomWad } from "../doomwad";
 
 // all flats (floors/ceilings) are 64px
@@ -23,6 +23,7 @@ export class MapTextures {
                 texture.wrapT = RepeatWrapping;
                 texture.flipY = true;
                 texture.needsUpdate = true;
+                texture.colorSpace = SRGBColorSpace;
                 texture.userData = {
                     width: data.width,
                     height: data.height,

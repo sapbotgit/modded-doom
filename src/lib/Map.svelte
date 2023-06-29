@@ -1,7 +1,6 @@
 <script lang="ts">
     import {
         Canvas,
-        AmbientLight,
         PerspectiveCamera,
     } from "@threlte/core";
 
@@ -69,11 +68,6 @@
     </PerspectiveCamera>
 
     <SkyBox {map} />
-
-    <!-- <DirectionalLight shadow color={'white'} position={{ x: -15, y: 45, z: 20 }} intensity={0.5} />
-    <DirectionalLight shadow color={'white'} position={{ x: -15, y: -45, z: 20 }} intensity={0.5} /> -->
-    <!-- <HemisphereLight skyColor={'white'} groundColor={'white'} intensity={.8} /> -->
-    <AmbientLight color={'white'} intensity={0.4} />
 
     {#each map.linedefs as linedef}
         <Wall {linedef} />
