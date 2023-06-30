@@ -1,14 +1,16 @@
 <script lang="ts">
     import { Color } from "three";
-    import type { DoomMap, DoomWad, LineDef, Sector, Thing, SideDef, Vertex } from "../../doomwad";
-    import { intersectionPoint, signedLineDistance } from '../Math';
+    import type { DoomMap, DoomWad, LineDef, Sector, Thing, SideDef, Vertex, RenderThing } from "../../doomwad";
+    import { ToRadians, intersectionPoint, signedLineDistance } from '../Math';
+    import { MFFlags } from "../../doom-things-info";
     export let wad: DoomWad;
     export let map: DoomMap;
 
     const svgStartSector = true;
     const svgBspBoxes = false;
     const svgVertexes = false;
-    const svgSectors = true;
+    const svgSubSectors = false;
+    const svgThings = true;
 
     let sect: Sector;
     const padding = 40;
@@ -123,9 +125,40 @@
         //     }
         // }
     }
+
+    function thingColor(th: RenderThing) {
+        const c = th.source.type <= 4 ? Color.NAMES.green :
+            th.source.type === 11 ? Color.NAMES.lightgreen :
+            th.spec.class === 'M' ? Color.NAMES.red :
+            th.spec.class === 'W' ? Color.NAMES.orange :
+            th.spec.class === 'A' ? Color.NAMES.yellow :
+            th.spec.class === 'I' ? Color.NAMES.blue :
+            th.spec.class === 'P' ? Color.NAMES.indigo :
+            th.spec.class === 'K' ? Color.NAMES.violet :
+            th.spec.class === 'O' ? Color.NAMES.gray :
+            th.spec.class === 'D' ? Color.NAMES.brown :
+            th.spec.class === 'S' ? Color.NAMES.magenta :
+            Color.NAMES.white;
+        return '#' + c.toString(16);
+    }
 </script>
 
 <svg viewBox="{left} {top} {width} {height}" on:click={touchMap} bind:this={svg}>
+    <defs>
+        <!-- https://developer.mozilla.org/en-US/docs/Web/SVG/Element/marker -->
+        <!-- A marker to be used as an arrowhead -->
+        <marker
+            id="arrow"
+            viewBox="0 0 10 10"
+            refX="5"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" stroke="context-stroke" fill="context-fill"/>
+        </marker>
+    </defs>
+
     {#if svgBspBoxes}
         {#each map.nodes as n}
             <rect
@@ -145,7 +178,7 @@
         {/each}
     {/if}
 
-    {#if svgSectors}
+    {#if svgSubSectors}
         {#each map.renderSectors as s, i}
             {@const c = namedColor(i)}
             <path class="subsector" d={subsegPath(s)} fill={"#" + c.toString(16)} on:click={() => clickSubsect(s)} />
@@ -197,6 +230,23 @@
                 stroke-width={5}
             />
         {/each}
+    {/if}
+
+    {#if svgThings}
+        {#each map.renderThings as th}
+            <circle cx={th.source.x} cy={th.source.y} r={th.spec.mo.radius} stroke={thingColor(th)} stroke-width={3} />
+            <line
+                x1={th.source.x}
+                y1={th.source.y}
+                x2={th.spec.mo.radius * Math.cos(th.source.angle * ToRadians) + th.source.x}
+                y2={th.spec.mo.radius * Math.sin(th.source.angle * ToRadians) + th.source.y}
+                stroke={thingColor(th)}
+                fill={thingColor(th)}
+                marker-end="url(#arrow)"
+                stroke-width={2}
+            />
+        {/each}
+
     {/if}
 </svg>
 

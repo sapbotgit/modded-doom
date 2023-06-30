@@ -4,9 +4,10 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.js';
-import { centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
+import { ToRadians, centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
 import { writable, type Writable } from 'svelte/store';
-import { thingSpec, type ThingSpec } from './doom-things.js';
+import { thingSpec, type ThingSpec } from './doom-things';
+import { states, type State, MFFlags, SpriteNames } from './doom-things-info.js';
 
 type ThingType = number;
 
@@ -208,7 +209,7 @@ export class DoomMap {
             n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
         });
         this.renderSectors = buildRenderSectors(this.nodes);
-        this.renderThings = this.things.map(e => new RenderThing(wad, e));
+        this.renderThings = this.things.map(e => new RenderThing(e));
 
         // apply animations only to the cached textures
         for (const texture of flatTextures.values()) {
@@ -263,10 +264,9 @@ export class DoomMap {
 type RGB = string;
 type Palette = RGB[];
 
-interface Graphic {
-    buffer: Uint8Array;
-    width: number;
-    height: number;
+interface SpriteFrame {
+    name: string;
+    mirror: boolean;
 }
 
 export class DoomWad {
@@ -413,11 +413,34 @@ export class DoomWad {
         return 'missing';
     }
 
-    spriteFrames(name: string): string[] {
+    spriteFrames(name: string): SpriteFrame[][] {
+        // TODO: cache results?
         const uname = name.toUpperCase();
         const sStartIndex = this.raw.findIndex(e => e.name === 'S_START');
         const sEndIndex = this.raw.findIndex(e => e.name === 'S_END');
-        return this.raw.filter((lump, idx) => lump.name.startsWith(uname) && idx > sStartIndex && idx < sEndIndex).map(lump => lump.name);
+        const sprites = this.raw.filter((lump, idx) => lump.name.startsWith(uname) && idx > sStartIndex && idx < sEndIndex).map(lump => lump.name);
+        const frames: (SpriteFrame & { frame: number, rotation: number })[] = [];
+        for (const spriteName of sprites) {
+            let frame = spriteName.charCodeAt(4) - 65;
+            let rotation = spriteName.charCodeAt(5) - 48;
+
+            frames.push({ frame, rotation, name: spriteName, mirror: false });
+            if (rotation === 0) {
+                continue;
+            }
+
+            if (spriteName.length === 8) {
+                let frame = spriteName.charCodeAt(6) - 65;
+                let rotation = spriteName.charCodeAt(7) - 48;
+                frames.push({ frame, rotation, name: spriteName, mirror: true });
+            }
+        }
+
+        const result: SpriteFrame[][] = [];
+        for (const frame of frames.map(e => e.frame)) {
+            result[frame] = frames.filter(e => e.frame === frame).sort((a, b) => a.rotation - b.rotation);
+        }
+        return result;
     }
 
     spriteTextureData(name: string) {
@@ -685,63 +708,53 @@ function subsectorVerts(ssec: SubSector, bspLines: Vertex[][]) {
     return centerSort(verts)
 }
 
-
-interface SpriteFrame {
-    mirror: boolean;
+interface Sprite {
     name: string;
     frame: number;
-    rotation: number;
+    fullbright: boolean;
 }
 
+const FF_FULLBRIGHT = 0x8000;
+const FF_FRAMEMASK = 0x7fff;
 export class RenderThing {
     readonly spec: ThingSpec;
     readonly position: Writable<Vertex>;
+    readonly direction: Writable<number>;
     readonly fromFloor: boolean = true;
-    readonly frames: SpriteFrame[] = [];
-    readonly sprite = writable<SpriteFrame>(null);
+    readonly sprite = writable<Sprite>(null);
+    private state: State;
+    private ticks: number;
 
-    private animInfo = {
-        sequence: [] as number[],
-        index: 0,
-    };
-
-    constructor(wad: DoomWad, readonly source: Thing) {
+    constructor(readonly source: Thing) {
         this.spec = thingSpec(source);
-        this.animInfo.sequence = Array.from(this.spec.sequence.replace('+', '')).map(e => e.charCodeAt(0) - 65)
-        this.fromFloor = !this.spec.class.includes('^');
+        this.fromFloor = !(this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
         this.position = writable({ x: source.x, y: source.y });
+        this.direction = writable(Math.PI + source.angle * ToRadians);
 
-        const sprites = wad.spriteFrames(this.spec.sprite);
-        for (const spriteName of sprites) {
-            let frame = spriteName.charCodeAt(4) - 65;
-            let rotation = spriteName.charCodeAt(5) - 48;
-
-            this.frames.push({ frame, rotation, name: spriteName, mirror: false});
-            if (rotation === 0) {
-                continue;
-            }
-
-            if (spriteName.length === 8) {
-                let frame = spriteName.charCodeAt(6) - 65;
-                let rotation = spriteName.charCodeAt(7) - 48;
-                this.frames.push({ frame, rotation, name: spriteName, mirror: true });
-            }
-        }
-        if (this.frames.length) {
-            this.setSpriteFrame();
-        }
+        this.state = states[this.spec.mo.spawnstate];
+        this.ticks = this.state.tics;
+        this.setSpriteFrame();
     }
 
     tick() {
+        if (!this.state || this.ticks === -1) {
+            return;
+        }
+
+        this.ticks -= 1;
+        if (this.ticks > 0) {
+            return;
+        }
+
+        this.state = states[this.state.nextState];
+        this.ticks = this.state.tics;
         this.setSpriteFrame();
     }
 
     private setSpriteFrame() {
-        this.animInfo.index = (this.animInfo.index + 1) % this.animInfo.sequence.length;
-        // const sprite = this.frames.find(e => e.frame == this.animInfo.sequence[this.animInfo.index]);
-        const sprite = this.frames.find(e => e.frame == this.animInfo.sequence[0]);
-        if (sprite) {
-            this.sprite.set(sprite)
-        }
+        const name = SpriteNames[this.state.sprite];
+        const frame = this.state.frame & FF_FRAMEMASK;
+        const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
+        this.sprite.set({ name, frame, fullbright });
     }
 }

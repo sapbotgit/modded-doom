@@ -1,6 +1,10 @@
 import type { Vertex } from "../doomwad";
 
 export const HALF_PI = Math.PI * 0.5;
+export const QUARTER_PI = Math.PI * 0.25;
+export const EIGHTH_PI = Math.PI * 0.125;
+export const ToRadians = Math.PI / 180;
+export const ToDegrees = 180 / Math.PI;
 
 export function signedLineDistance(l: Vertex[], v: Vertex) {
     // https://math.stackexchange.com/questions/274712

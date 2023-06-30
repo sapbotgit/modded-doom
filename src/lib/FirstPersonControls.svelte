@@ -116,7 +116,7 @@
     // HACK ALERT: the game should know the player position and the UI "react" to that.
     game.playerPosition.set(controls.camera.position);
     vec.copy(controls.getDirection(vec));
-    game.playerDirection.set(vec);
+    game.playerDirection.set( Math.atan2(-vec.z, vec.x));
 
     useFrame((ctx, delta) => {
         if (controls.isLocked === true) {
@@ -144,7 +144,7 @@
 
             // HACK ALERT: the game should know the player position and the UI "react" to that.
             game.playerPosition.set(camera.position);
-            game.playerDirection.set(vec);
+            game.playerDirection.set(Math.atan2(-vec.z, vec.x));
 
             // const sector = map.findSector(camera.position.x, -camera.position.z);
             // if (sector) {

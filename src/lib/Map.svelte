@@ -16,6 +16,7 @@
     import FirstPersonControls from "./FirstPersonControls.svelte";
     import SkyBox from "./SkyBox.svelte";
     import Thing from "./Thing.svelte";
+    import { ToRadians } from "./Math";
     export let wad: DoomWad;
     export let map: DoomMap;
 
@@ -27,7 +28,7 @@
     $: position = ({ x: p1.x, y: pZHeight, z: -p1.y });
 
     function target(p1: DoomThing) {
-        const angRad = p1.angle * Math.PI / 180;
+        const angRad = p1.angle * ToRadians;
         const tx = 10 * Math.cos(angRad) + p1.x;
         const tz = 10 * -Math.sin(angRad) - p1.y;
         return { x: tx, y: pZHeight, z: tz };
@@ -45,6 +46,7 @@
         return true;
     }
 
+    $: things = map.renderThings.filter(isVisible)
     $: if (map) {
         // create context
         const game = new DoomGame(map);
@@ -81,7 +83,7 @@
         <Flats {renderSector} index={i} />
     {/each}
 
-    {#each map.renderThings.filter(isVisible) as thing}
+    {#each things as thing}
         <Thing {wad} {map} {thing} />
     {/each}
 </Canvas>

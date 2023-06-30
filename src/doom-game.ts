@@ -91,7 +91,7 @@ export class DoomGame {
     private frameInterval: number;
     currentTick = 0;
     playerPosition = writable<Position>({});
-    playerDirection = writable<Position>({});
+    playerDirection = writable<number>(0);
 
     private actions: Action[] = [];
 
