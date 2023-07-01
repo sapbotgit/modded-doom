@@ -3,6 +3,7 @@
     import type { DoomMap } from "../doomwad";
     import { useDoom } from "./useDoom";
     import { AmbientLight, useThrelte } from "@threlte/core";
+    import { HALF_PI, QUARTER_PI } from "./Math";
 
     const { scene, renderer } = useThrelte();
     const { textures } = useDoom();
@@ -34,7 +35,7 @@
         map.name.startsWith('E4') ? 'SKY4' :
         'SKY1'
     const sky = textures.get(textureName, 'wall');
-    const px = (sky as DataTexture).image.data;
+    const pic = (sky as DataTexture).image.data;
 
     let buff = new Uint8Array(4 * size);
     for (let i = 0; i < width; i++) {
@@ -47,15 +48,15 @@
                 j > topOffset + 127 ? 127 - (j - 127 - topOffset) : // <-- reflection
                 j - topOffset;
             const pidx = Math.min(textureY * width + i + noise, 256 * 128 - 1);
-            buff[idx * 4 + 0] = px[pidx * 4 + 0];
-            buff[idx * 4 + 1] = px[pidx * 4 + 1];
-            buff[idx * 4 + 2] = px[pidx * 4 + 2];
-            buff[idx * 4 + 3] = px[pidx * 4 + 3];
+            buff[idx * 4 + 0] = pic[pidx * 4 + 0];
+            buff[idx * 4 + 1] = pic[pidx * 4 + 1];
+            buff[idx * 4 + 2] = pic[pidx * 4 + 2];
+            buff[idx * 4 + 3] = pic[pidx * 4 + 3];
 
             if (textureY === 1) {
-                topRowAvgColor.r += px[pidx * 4 + 0] * px[pidx * 4 + 0];
-                topRowAvgColor.g += px[pidx * 4 + 1] * px[pidx * 4 + 1];
-                topRowAvgColor.b += px[pidx * 4 + 2] * px[pidx * 4 + 2];
+                topRowAvgColor.r += pic[pidx * 4 + 0] * pic[pidx * 4 + 0];
+                topRowAvgColor.g += pic[pidx * 4 + 1] * pic[pidx * 4 + 1];
+                topRowAvgColor.b += pic[pidx * 4 + 2] * pic[pidx * 4 + 2];
             }
         }
     }
@@ -100,8 +101,35 @@
     }
     const skyTop = new DataTexture(buff, width, height);
 
+    // we need to hand-rotate textures if we don't use the 0,1,0 up vector
+    // https://github.com/mrdoob/three.js/issues/16328
+    // the rendering code is much easier to work with because we can use z for up/down
+    function rotate(texture: DataTexture, ang: 1 | 2 | 3) {
+        let buff = new Uint8Array(4 * size);
+        for (let i = 0; i < width; i++) {
+            for (let j = 0; j < height; j++) {
+                const src = j * width + i;
+                // const out = (width - j) * width + i;
+                const out =
+                    ang === 1 ? (width - i - 1) * width + j :
+                    ang === 2 ? i * width + (height - j) :
+                    (height - j - 1) * width + (width - i);
+                buff[out * 4 + 0] = texture.image.data[src * 4 + 0];
+                buff[out * 4 + 1] = texture.image.data[src * 4 + 1];
+                buff[out * 4 + 2] = texture.image.data[src * 4 + 2];
+                buff[out * 4 + 3] = texture.image.data[src * 4 + 3];
+            }
+        }
+        return new DataTexture(buff, width, height);
+    }
+
     const tx = new CubeTexture([
-        skyWall, skyWall, skyTop, skyTop, skyWall, skyWall,
+        rotate(skyWall, 1),
+        rotate(skyWall, 2),
+        rotate(skyWall, 3),
+        skyWall,
+        skyTop,
+        skyTop,
     ]);
     tx.colorSpace = SRGBColorSpace;
     tx.needsUpdate = true;

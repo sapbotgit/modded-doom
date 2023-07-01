@@ -13,7 +13,7 @@
         useParent,
         useThrelte,
     } from "@threlte/core";
-    import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls";
+    import { PointerLockControls } from "./ZAxisPointerLock";
     import type { DoomMap } from "../doomwad";
     import { useDoom } from "./useDoom";
     import { HALF_PI } from "./Math";
@@ -126,9 +126,7 @@
     let vec = new Vector3();
     const domRoot = renderer.domElement;
     const lockElement = domRoot//document.getElementById('lock-message');
-    lockElement.addEventListener( 'click', function () {
-        controls.lock();
-    });
+    lockElement.addEventListener( 'click', () => controls.lock());
     // controls.addEventListener('lock', () => lockElement.style.display = 'none');
     // controls.addEventListener('unlock', () => lockElement.style.display = 'block');
 
@@ -140,22 +138,21 @@
     // HACK ALERT: the game should know the player position and the UI "react" to that.
     game.playerPosition.set(controls.camera.position);
     vec.copy(controls.getDirection(vec));
-    game.playerDirection.set(Math.atan2(-vec.z, vec.x));
+    game.playerDirection.set(Math.atan2(vec.y, vec.x));
 
     useFrame((ctx, delta) => {
         if (controls.isLocked === true) {
             velocity.x -= velocity.x * 5.0 * delta;
-            velocity.z -= velocity.z * 5.0 * delta;
+            velocity.y -= velocity.y * 5.0 * delta;
+            velocity.z -= 9.8 * 100.0 * delta; // 100.0 = mass
 
-            velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
-
-            direction.z = Number(moveForward) - Number(moveBackward);
             direction.x = Number(moveRight) - Number(moveLeft);
+            direction.y =  Number(moveBackward) - Number(moveForward);
             direction.normalize(); // ensure consistent movements in all directions
 
             const speed = slow ? 500.0 : run ? 8000.0 : 4000.0
             if (moveForward || moveBackward)
-                velocity.z -= direction.z * speed * delta;
+                velocity.y -= direction.y * speed * delta;
             if (moveLeft || moveRight)
                 velocity.x -= direction.x * speed * delta;
 
@@ -164,11 +161,11 @@
             // controls.moveForward(-velocity.z * delta);
             const camera = controls.camera;
             vec.copy(controls.getDirection(vec));
-            camera.position.addScaledVector(vec, -velocity.z * delta);
+            camera.position.addScaledVector(vec, velocity.y * delta);
 
             // HACK ALERT: the game should know the player position and the UI "react" to that.
             game.playerPosition.set(camera.position);
-            game.playerDirection.set(Math.atan2(-vec.z, vec.x));
+            game.playerDirection.set(Math.atan2(vec.y, vec.x));
 
             const sector = map.findSector(camera.position.x, -camera.position.z);
             if (sector && !freeFly) {

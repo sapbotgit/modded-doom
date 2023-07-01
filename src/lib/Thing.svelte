@@ -16,7 +16,7 @@
     const { spec, position, sprite, direction } = thing;
     const frames = map.wad.spriteFrames(spec.sprite);
 
-    $: ang = Math.atan2($position.y + $playerPosition.z, $position.x - $playerPosition.x)
+    $: ang = Math.atan2($position.y - $playerPosition.y, $position.x - $playerPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
@@ -26,9 +26,9 @@
     $: zCeil = sector.zCeil;
     $: light = sector.light;
     $: halfHeight = texture.userData.height * .5;
-    $: yPos = thing.fromFloor ? $zFloor + halfHeight : $zCeil - halfHeight;
-    $: xOffset = texture.userData.xOffset - texture.userData.width * .5;
-    $: yOffset = texture.userData.yOffset - texture.userData.height;
+    $: zPos = thing.fromFloor ? $zFloor + halfHeight : $zCeil - halfHeight;
+    $: hOffset = texture.userData.xOffset - texture.userData.width * .5;
+    $: vOffset = texture.userData.yOffset - texture.userData.height;
 
     $: color = $sprite.fullbright ? 'white' : textures.lightColor($light);
 
@@ -47,7 +47,7 @@
 
     function positionChanged(ev) {
         $position.x = Math.floor(ev.detail.target.worldPosition.x);
-        $position.y = Math.floor(-ev.detail.target.worldPosition.z);
+        $position.y = Math.floor(ev.detail.target.worldPosition.y);
     }
 </script>
 
@@ -57,17 +57,18 @@
     material={material(texture, color, $editor.selected)}
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
-    rotation={{ y: $playerDirection - HALF_PI }}
+    rotation={{ y: $playerDirection - HALF_PI, x: HALF_PI, order:'ZXY' }}
     position={{
-        x:  ($position.x + xOffset),
-        z: -($position.y + xOffset),
-        y: Math.max(yPos, yPos + yOffset),
+        x: ($position.x + hOffset),
+        y: ($position.y + hOffset),
+        z: Math.max(zPos, zPos + vOffset),
     }}
 >
     {#if $editor.selected === thing}
         <TransformControls
             mode='translate'
-            showY={false}
+            showZ={false}
+            on:dragging-changed={drag}
             on:object-changed={positionChanged}
         />
     {/if}

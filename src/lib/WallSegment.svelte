@@ -3,7 +3,7 @@
     import type { LineDef, Seg, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
-    import { angleIsVisible } from "./Math";
+    import { HALF_PI, angleIsVisible } from "./Math";
     import Wireframe from "./Debug/Wireframe.svelte";
 
     export let seg: Seg;
@@ -110,8 +110,8 @@
     {visible}
     interactive={$editor.active}
     on:click={hit}
-    position={{ x: mid.x, y: top - height * .5, z: -mid.y }}
-    rotation={{ y: angle }}
+    position={{ x: mid.x, y: mid.y, z: top - height * .5 }}
+    rotation={{ z: angle, x: HALF_PI, order:'ZXY' }}
     geometry={new PlaneGeometry(width, height)}
     material={material(texture, flags, $xOffset, $yOffset, $animOffset ?? 0, $light, $editor.selected)}
 >

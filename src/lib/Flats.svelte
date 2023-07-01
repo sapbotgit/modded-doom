@@ -2,7 +2,6 @@
     import { Color, Shape, ShapeGeometry } from "three";
     import type { RenderSector, Vertex } from "../doomwad";
     import Flat from "./Flat.svelte";
-    import { HALF_PI } from "./Math";
 
     export let index: number;
     export let renderSector: RenderSector;
@@ -22,7 +21,6 @@
             shape.lineTo(verts[i].x, verts[i].y);
         }
         const geometry = new ShapeGeometry(shape, 1);
-        geometry.rotateX(-HALF_PI);
         return geometry;
     }
 </script>

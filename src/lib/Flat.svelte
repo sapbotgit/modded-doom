@@ -17,8 +17,8 @@
 
     const { textures, settings, editor } = useDoom();
     const { light } = renderSector.sector;
-    $: visible = (ceiling && $playerPosition.y <= vertical)
-            || (!ceiling && $playerPosition.y >= vertical);
+    $: visible = (ceiling && $playerPosition.z <= vertical)
+            || (!ceiling && $playerPosition.z >= vertical);
 
     function material(name: string, light: number, selected: Sector) {
         const params: MeshStandardMaterialParameters = { side: ceiling ? BackSide : FrontSide };
@@ -51,7 +51,7 @@
         interactive={$editor.active}
         {geometry}
         material={material(textureName, $light, $editor.selected)}
-        position={{ x: 0, y: vertical, z: 0 }}
+        position={{ z: vertical }}
         on:click={hit}
     >
         <Wireframe />
