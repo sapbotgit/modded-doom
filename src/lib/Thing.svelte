@@ -13,23 +13,17 @@
     const { playerPosition, playerDirection } = game;
     const frames = wad.spriteFrames(thing.spec.sprite);
 
-    $: pos = thing.position;
-    $: sprite = thing.sprite;
-    $: direction = thing.direction;
+    const { position, sprite, direction } = thing;
 
-    $: ang = Math.atan2($pos.y + $playerPosition.z, $pos.x - $playerPosition.x)
+    $: ang = Math.atan2($position.y + $playerPosition.z, $position.x - $playerPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
-    $: sector = map.findSector($pos.x, $pos.y);
-    $: zFloor = sector.zFloor;
-    $: zCeil = sector.zCeil;
-
+    const { zFloor, zCeil, light } = map.findSector($position.x, $position.y);
     $: texture = textures.get(frame.name, 'sprite');
     $: height = texture.userData.height * .5;
     $: yPos = thing.fromFloor ? $zFloor + height : $zCeil - height;
 
-    $: light = sector.light;
     $: color = $sprite.fullbright ? 'white' : $light | $light << 8 | $light << 16;
 
     function hit() {
@@ -44,5 +38,5 @@
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
     rotation={{ y: $playerDirection }}
-    position={{ x: $pos.x, z: -$pos.y, y: yPos }}
+    position={{ x: $position.x, z: -$position.y, y: yPos }}
 />

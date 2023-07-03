@@ -22,6 +22,7 @@
         } else {
             params.color = color;
         }
+        // TODO: use MeshBasic here (and WallSegment and Thing) because we only have one ambient light
         return new MeshStandardMaterial(params);
     }
 

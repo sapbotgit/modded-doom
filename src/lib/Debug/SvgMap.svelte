@@ -143,6 +143,7 @@
     }
 </script>
 
+<!-- svelte-ignore a11y-click-events-have-key-events -->
 <svg viewBox="{left} {top} {width} {height}" on:click={touchMap} bind:this={svg}>
     <defs>
         <!-- https://developer.mozilla.org/en-US/docs/Web/SVG/Element/marker -->

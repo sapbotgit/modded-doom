@@ -3,7 +3,7 @@
 //
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
-import DoomWadRaw from './doom-wad.ksy.js';
+import DoomWadRaw from './doom-wad.ksy.ts';
 import { ToRadians, centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
 import { writable, type Writable } from 'svelte/store';
 import { thingSpec, type ThingSpec } from './doom-things';
@@ -580,7 +580,7 @@ export class DoomWad {
         let height = dv.getUint16(2, true);
         let xOffset = dv.getUint16(4, true);
         let yOffset = dv.getUint16(6, true);
-        if (width > 256) {
+        if (width > 2048 || height > 2048) {
             console.warn('bad pic?',lump, width, height)
             return ''
         }

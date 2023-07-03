@@ -17,6 +17,7 @@
     import type { DoomMap } from "../doomwad";
     import { useDoom } from "./useDoom";
     import { HALF_PI } from "./Math";
+    import { get } from "svelte/store";
 
     const parent = useParent();
     const { renderer } = useThrelte();
@@ -34,6 +35,9 @@
     export const controls = new PointerLockControls($parent, document.body);
 
     const { game } = useDoom();
+
+    const freeFly = true;
+    const canLookUp = true;
 
     let moveForward = false;
     let moveBackward = false;
@@ -114,6 +118,11 @@
         controls.lock();
     });
 
+    if (!canLookUp) {
+        controls.maxPolarAngle = HALF_PI;
+        controls.minPolarAngle = HALF_PI;
+    }
+
     // HACK ALERT: the game should know the player position and the UI "react" to that.
     game.playerPosition.set(controls.camera.position);
     vec.copy(controls.getDirection(vec));
@@ -147,10 +156,10 @@
             game.playerPosition.set(camera.position);
             game.playerDirection.set(Math.atan2(-vec.z, vec.x) - HALF_PI);
 
-            // const sector = map.findSector(camera.position.x, -camera.position.z);
-            // if (sector) {
-            //     controls.getObject().position.y = get(sector.zFloor) + 41;
-            // }
+            const sector = map.findSector(camera.position.x, -camera.position.z);
+            if (sector && !freeFly) {
+                controls.getObject().position.y = get(sector.zFloor) + 41;
+            }
 
             // gravity?
             // controls.getObject().position.y += ( velocity.y * delta ); // new behavior

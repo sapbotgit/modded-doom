@@ -41,6 +41,9 @@ export class MapTextures {
             }
             this.cache.set(cacheKey, texture);
         }
+        if (!texture) {
+            console.warn('missing texture', name, type)
+        }
         return texture;
     }
 }

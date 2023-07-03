@@ -1,14 +1,13 @@
-import { writable, type Writable } from "svelte/store";
-import type { DoomMap, Sector, Thing, Vertex } from "./doomwad";
+import { writable } from "svelte/store";
+import type { DoomMap, Sector } from "./doomwad";
 import type { Position } from "@threlte/core";
-import { thingSpec, type ThingSpec } from "./doom-things";
 
 const randInt = (min: number, max: number) => Math.floor((Math.random() * (max - min)) + min);
 
 type Action = () => void;
 
-// TODO: should be 0 if sectors is empty?
 const lowestLight = (sectors: Sector[], min: number) =>
+    sectors.length === 0 ? 0 :
     sectors.map(s => s.source.light).reduce((last, val) => Math.min(last, val), min);
 
 const randomFlicker = (map: DoomMap, sector: Sector) => {

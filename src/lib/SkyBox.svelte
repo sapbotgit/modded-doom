@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { ACESFilmicToneMapping, CineonToneMapping, Color, CubeTexture, CustomToneMapping, DataTexture, LinearToneMapping, NoToneMapping, ReinhardToneMapping, SRGBColorSpace } from "three";
+    import { Color, CubeTexture, DataTexture, LinearToneMapping } from "three";
     import type { DoomMap } from "../doomwad";
     import { useDoom } from "./useDoom";
     import { AmbientLight, useThrelte } from "@threlte/core";
@@ -9,7 +9,7 @@
 
     export let map: DoomMap;
 
-renderer.toneMapping=LinearToneMapping;
+    renderer.toneMapping = LinearToneMapping;
 
     // doom sky textures are 256x128 (it's actually more complicated https://doomwiki.org/wiki/Sky)
     // so we add another 128 pixels on top of the bottom 128 based on the colour of the first row)
@@ -122,4 +122,4 @@ renderer.toneMapping=LinearToneMapping;
     scene.background = tx;
 </script>
 
-<AmbientLight color={'white'} intensity={1.4} />
+<AmbientLight color={'white'} intensity={1} />
