@@ -1,5 +1,5 @@
 import type { Thing } from "./doomwad";
-import { states, mapObjectInfo, type MapObjectInfo } from './doom-things-info';
+import { mapObjectInfo, type MapObjectInfo } from './doom-things-info';
 
 // Adapted from https://doomwiki.org/wiki/Thing_types and combined/mixed with
 // animation/state info from https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/info.c#L135
@@ -164,12 +164,12 @@ export interface ThingSpec {
     mo: MapObjectInfo;
 }
 
-const things = [monsters, weapons, ammunitions, items, powerups, keys, obstacles, decorations, other].flat();
-export function thingSpec(thing: Thing) {
-    const t = things.find(e => e.type === thing.type);
+export const things = [monsters, weapons, ammunitions, items, powerups, keys, obstacles, decorations, other].flat();
+export function thingSpec(type: number): ThingSpec {
+    const t = things.find(e => e.type === type);
     const mo =
         // special handling for player starts
-        (thing.type <= 4 || thing.type === 11) ? mapObjectInfo[0] :
-        mapObjectInfo.find(e => e.doomednum === thing.type);
+        (type <= 4 || type === 11) ? mapObjectInfo[0] :
+        mapObjectInfo.find(e => e.doomednum === type);
     return { ...t, mo };
 }

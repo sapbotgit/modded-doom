@@ -1,5 +1,6 @@
-import { DataTexture, DisplayP3ColorSpace, LinearSRGBColorSpace, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
+import { DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import type { DoomWad } from "../doomwad";
+import { sineIn } from 'svelte/easing';
 
 // all flats (floors/ceilings) are 64px
 const flatRepeat = 1 / 64;
@@ -45,5 +46,13 @@ export class MapTextures {
             console.warn('missing texture', name, type)
         }
         return texture;
+    }
+
+    // TODO: find a better place for this
+    // scale light using a curve to make it look more like doom
+    lightColor(light: number) {
+        const t = light / 255;
+        const scaled = Math.floor(sineIn(t) * 255);
+        return scaled | scaled << 8 | scaled << 16;
     }
 }

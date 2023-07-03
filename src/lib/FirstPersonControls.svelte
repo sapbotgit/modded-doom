@@ -5,7 +5,7 @@
     // See also:
     // - https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
     // - https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/FlyControls.js
-    import { Camera, Object3D, Vector3 } from "three";
+    import { AlwaysStencilFunc, Camera, Object3D, Vector3 } from "three";
     import {
         DisposableObject,
         TransformableObject,
@@ -49,7 +49,7 @@
     const velocity = new Vector3();
     const direction = new Vector3();
 
-    const keydown = function (event) {
+    const keydown = (event) => {
         switch (event.code) {
             case "ArrowUp":
             case "KeyW":
@@ -83,7 +83,7 @@
         }
     };
 
-    const keyup = function (event) {
+    const keyup = (event) => {
         switch (event.code) {
             case "ArrowUp":
             case "KeyW":
@@ -113,10 +113,13 @@
     };
 
     let vec = new Vector3();
-    const domRoot = renderer.domElement;
-    domRoot.addEventListener( 'click', function () {
+    // const domRoot = renderer.domElement;
+    const lockElement = document.getElementById('lock-message');
+    lockElement.addEventListener( 'click', function () {
         controls.lock();
     });
+    controls.addEventListener('lock', () => lockElement.style.display = 'none');
+    controls.addEventListener('unlock', () => lockElement.style.display = 'block');
 
     if (!canLookUp) {
         controls.maxPolarAngle = HALF_PI;
@@ -172,6 +175,9 @@
     });
 </script>
 
-<svelte:window on:keydown={keydown} on:keyup={keyup} />
+<svelte:window
+    on:keydown={keydown}
+    on:keyup={keyup}
+/>
 
 <DisposableObject object={controls} />

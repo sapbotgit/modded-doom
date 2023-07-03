@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry } from "three";
+    import { MeshStandardMaterial, PlaneGeometry, type MeshStandardMaterialParameters } from "three";
     import type { LineDef, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
@@ -10,7 +10,8 @@
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
 
     $: texture = sidedef[type];
-    const { xOffset } = linedef;
+    const { yOffset: sdYOffset, xOffset: sdXOffset } = sidedef
+    const { xOffset, flags } = linedef;
 
     // geometry
     export let width: number;
@@ -19,16 +20,17 @@
     export let mid: Vertex;
     export let angle: number;
 
-    const { wad, settings, textures } = useDoom();
+    const { wad, settings, textures, editor } = useDoom();
 
     $: offset = useLeft ? Math.PI : 0;
     const { light } = sidedef.sector;
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
 
-    function material(name: string, xOffset: number, light: number) {
+    function material(name: string, flags: number, sdXOffset: number, sdYOffset: number,  xOffset: number, light: number, selected: LineDef) {
         if (!name || !settings.useTextures) {
-            return new MeshStandardMaterial({ color: lineStroke() });
+            const color = selected === linedef ? 'magenta' : lineStroke();
+            return new MeshStandardMaterial({ color });
         }
 
         const texture2 = textures.get(name, 'wall').clone();
@@ -41,30 +43,36 @@
         // threejs uses 0,0 in bottom left but doom uses 0,0 for top left so we by default
         // "peg" the corner to the top left by offsetting by height
         let pegging = -height;
-        if (linedef.flags & 0x0004) {
+        if (flags & 0x0004) {
             // two-sided
-            if (type === 'lower' && (linedef.flags & 0x0010)) {
+            if (type === 'lower' && (flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
                 // TODO: hmmm... the blue wall with the switch at the far side of E3M6 works with Max(ceilR, ceilL)
                 // but the green wall in E1M1 zigzag works better with just ceilR.
                 // Now I'm not sure which is actually correct :(
                 pegging -= $zCeilR - Math.max($zFloorL, $zFloorR);
                 // pegging -= Math.max($zCeilR, $zCeilL) - Math.max($zFloorL, $zFloorR);
-            } else if (type === 'upper' && !(linedef.flags & 0x0008)) {
+            } else if (type === 'upper' && !(flags & 0x0008)) {
                 pegging = 0;
-            } else if (type === 'middle' && (linedef.flags & 0x0010)) {
+            } else if (type === 'middle' && (flags & 0x0010)) {
                 pegging = 0;
             }
-        } else if (linedef.flags & 0x0010) {
+        } else if (flags & 0x0010) {
             // peg to floor (bottom left)
             pegging = 0;
         }
-        const yOffset = -sidedef.yOffset + pegging;
-        texture2.offset.set((xOffset + sidedef.xOffset) * invTextureWidth, yOffset * invTextureHeight);
-        let color = light | light << 8 | light << 16;
+        const yOffset = -sdYOffset + pegging;
+        texture2.offset.set((xOffset + sdXOffset) * invTextureWidth, yOffset * invTextureHeight);
+        let color = textures.lightColor(light);
+
+        const params: MeshStandardMaterialParameters = { map: texture2, alphaTest: 1, color };
+        if (selected === linedef) {
+            params.emissive = 'magenta';
+            params.emissiveIntensity = 0.1;
+        }
         // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
         // and we get a ~25% performance boost. I'd rather keep this and figure out a way to cull
-        return new MeshStandardMaterial({ map: texture2, alphaTest: 1, color });
+        return new MeshStandardMaterial(params);
     }
 
     function lineStroke() {
@@ -75,15 +83,15 @@
     }
 
     function hit() {
-        console.log(linedef)
+        $editor.selected = linedef;
     }
 </script>
 
 <Mesh
-    interactive
+    interactive={$editor.active}
     on:click={hit}
     position={{ x: mid.x, y: top - height * .5, z: -mid.y }}
     rotation={{ y: angle + offset }}
     geometry={new PlaneGeometry(width, height)}
-    material={material($texture, $xOffset ?? 0, $light)}
+    material={material($texture, flags, $sdXOffset, $sdYOffset, $xOffset ?? 0, $light, $editor.selected)}
 />

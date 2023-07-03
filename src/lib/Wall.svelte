@@ -13,6 +13,7 @@
     $: width = Math.sqrt(vx * vx + vy * vy);
     $: angle = Math.atan2(vy, vx);
 
+    const { flags } = linedef;
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { middle: middleL }  = linedef.left ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
@@ -24,7 +25,7 @@
     const skyHack = ($ceilFlatL === 'F_SKY1' && $ceilFlatR === 'F_SKY1');
 </script>
 
-{#if linedef.flags & 0x0004}
+{#if flags & 0x0004}
     <!-- two-sided so figure out top and bottom -->
     {#if $zCeilL !== $zCeilR && !skyHack}
         {@const useLeft = $zCeilL > $zCeilR}

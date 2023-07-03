@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Color } from "three";
-    import type { DoomMap, DoomWad, LineDef, Sector, Thing, SideDef, Vertex, RenderThing } from "../../doomwad";
+    import type { DoomMap, DoomWad, LineDef, Sector, Thing, SideDef, Vertex, RenderThing, RenderSector } from "../../doomwad";
     import { ToRadians, intersectionPoint, signedLineDistance } from '../Math';
     import { MFFlags } from "../../doom-things-info";
     export let wad: DoomWad;

@@ -1,42 +1,67 @@
 <script lang="ts">
-    import { Mesh } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry } from 'three';
+    import { Mesh, TransformControls } from '@threlte/core';
+    import { MeshStandardMaterial, PlaneGeometry, Texture, type MeshStandardMaterialParameters, type ColorRepresentation, Vector3 } from 'three';
     import { useDoom } from './useDoom';
-    import type { DoomMap, DoomWad, RenderThing } from '../doomwad';
+    import type { DoomMap, RenderThing } from '../doomwad';
     import { EIGHTH_PI, QUARTER_PI } from './Math';
 
-    const { textures, game } = useDoom();
+    const { textures, game, editor } = useDoom();
 
     export let thing: RenderThing;
     export let map: DoomMap;
-    export let wad: DoomWad;
-    const { playerPosition, playerDirection } = game;
-    const frames = wad.spriteFrames(thing.spec.sprite);
 
-    const { position, sprite, direction } = thing;
+    const { playerPosition, playerDirection } = game;
+
+    const { spec, position, sprite, direction } = thing;
+    const frames = map.wad.spriteFrames(spec.sprite);
 
     $: ang = Math.atan2($position.y + $playerPosition.z, $position.x - $playerPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
-    const { zFloor, zCeil, light } = map.findSector($position.x, $position.y);
+    $: sector = map.findSector($position.x, $position.y);
+    $: zFloor = sector.zFloor;
+    $: zCeil = sector.zCeil;
+    $: light = sector.light;
     $: texture = textures.get(frame.name, 'sprite');
     $: height = texture.userData.height * .5;
     $: yPos = thing.fromFloor ? $zFloor + height : $zCeil - height;
 
-    $: color = $sprite.fullbright ? 'white' : $light | $light << 8 | $light << 16;
+    $: color = $sprite.fullbright ? 'white' : textures.lightColor($light);
+
+    function material(map: Texture, color: ColorRepresentation, selected: RenderThing) {
+        const params: MeshStandardMaterialParameters = { map, color, alphaTest: 1 };
+        if (selected === thing) {
+            params.emissive = 'magenta';
+            params.emissiveIntensity = 0.1;
+        }
+        return new MeshStandardMaterial(params);
+    }
 
     function hit() {
-        console.log(thing)
+        $editor.selected = thing;
+    }
+
+    function positionChanged(ev) {
+        $position.x = Math.floor(ev.detail.target.worldPosition.x);
+        $position.y = Math.floor(-ev.detail.target.worldPosition.z);
     }
 </script>
 
 <Mesh
-    interactive
+    interactive={$editor.active}
     on:click={hit}
-    material={new MeshStandardMaterial({ map: texture, color, alphaTest: 1 })}
+    material={material(texture, color, $editor.selected)}
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
     rotation={{ y: $playerDirection }}
     position={{ x: $position.x, z: -$position.y, y: yPos }}
-/>
+>
+    {#if $editor.selected === thing}
+        <TransformControls
+            mode='translate'
+            showY={false}
+            on:object-changed={positionChanged}
+        />
+    {/if}
+</Mesh>

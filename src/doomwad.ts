@@ -41,16 +41,16 @@ const toLineDef = (ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef =>
 });
 
 export interface SideDef {
-    xOffset: number;
-    yOffset: number;
+    xOffset: Writable<number>;
+    yOffset: Writable<number>;
     sector: Sector;
     upper: Writable<string>;
     lower: Writable<string>;
     middle: Writable<string>;
 }
 const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Writable<string>>): SideDef => ({
-    xOffset: sd.offsetX,
-    yOffset: sd.offsetY,
+    xOffset: writable(sd.offsetX),
+    yOffset: writable(sd.offsetY),
     sector: sectors[sd.sectorId],
     lower: textures.get(fixTextureName(sd.lowerTextureName)),
     middle: textures.get(fixTextureName(sd.normalTextureName)),
@@ -171,11 +171,11 @@ export class DoomMap {
     readonly segs: Seg[];
     readonly nodes: TreeNode[];
     readonly renderSectors: RenderSector[];
-    readonly renderThings: RenderThing[];
+    renderThings: RenderThing[];
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
-    constructor(wad: DoomWad, index) {
+    constructor(readonly wad: DoomWad, index) {
         this.name = wad.raw[index].name;
 
         // optimization: use a single writeable per texture name
@@ -360,7 +360,7 @@ export class DoomWad {
         return null;
     }
 
-    private texturesNames(): string[] {
+    texturesNames(): string[] {
         const texture1 = this.lumpByName('TEXTURE1').contents.textures;
         // not all wads have texture2? (looking at you plutonia...)
         const texture2 = this.lumpByName('TEXTURE2')?.contents.textures ?? [];
@@ -380,10 +380,12 @@ export class DoomWad {
         return null;
     }
 
-    private flatsNames(): string[] {
+    flatsNames(): string[] {
         const fStartIndex = this.raw.findIndex(e => e.name === 'F_START');
         const fEndIndex = this.raw.findIndex(e => e.name === 'F_END');
-        return this.raw.slice(fStartIndex, fEndIndex + 1).map(e => e.name);
+        return this.raw.slice(fStartIndex, fEndIndex + 1)
+            .filter(e => !e.name.endsWith('_START') && !e.name.endsWith('_END'))
+            .map(e => e.name);
     }
 
     wallTextureData(name: string) {
@@ -726,14 +728,11 @@ export class RenderThing {
     private ticks: number;
 
     constructor(readonly source: Thing) {
-        this.spec = thingSpec(source);
+        this.spec = thingSpec(source.type);
         this.fromFloor = !(this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
         this.position = writable({ x: source.x, y: source.y });
         this.direction = writable(Math.PI + source.angle * ToRadians);
-
-        this.state = states[this.spec.mo.spawnstate];
-        this.ticks = this.state.tics;
-        this.setSpriteFrame();
+        this.setState(this.spec.mo.spawnstate)
     }
 
     tick() {
@@ -746,12 +745,13 @@ export class RenderThing {
             return;
         }
 
-        this.state = states[this.state.nextState];
-        this.ticks = this.state.tics;
-        this.setSpriteFrame();
+        this.setState(this.state.nextState)
     }
 
-    private setSpriteFrame() {
+    private setState(stateIndex: number) {
+        this.state = states[stateIndex];
+        this.ticks = this.state.tics;
+
         const name = SpriteNames[this.state.sprite];
         const frame = this.state.frame & FF_FRAMEMASK;
         const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;

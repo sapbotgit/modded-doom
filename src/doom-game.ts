@@ -2,7 +2,7 @@ import { writable } from "svelte/store";
 import type { DoomMap, Sector } from "./doomwad";
 import type { Position } from "@threlte/core";
 
-const randInt = (min: number, max: number) => Math.floor((Math.random() * (max - min)) + min);
+const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min)) + min;
 
 type Action = () => void;
 
@@ -87,40 +87,17 @@ const sectorAnimations = {
 };
 
 export class DoomGame {
-    private frameInterval: number;
     currentTick = 0;
     playerPosition = writable<Position>({});
     playerDirection = writable<number>(0);
 
-    private actions: Action[] = [];
+    private actions: Action[];
 
     constructor(private map: DoomMap) {
-        this.frameInterval = window.setInterval(() => this.frameTick(), 1000 / 35);
-
-        for (const wall of map.linedefs) {
-            if (wall.special === 48) {
-                wall.xOffset = writable(0);
-                this.actions.push(() => wall.xOffset.update(n => n += 1));
-            } else if (wall.special === 85) {
-                wall.xOffset = writable(0);
-                this.actions.push(() => wall.xOffset.update(n => n += 1));
-            }
-        }
-
-        for (const sector of map.sectors) {
-            const type = sector.type;
-            const action = sectorAnimations[type]?.(map, sector);
-            if (action) {
-                this.actions.push(action);
-            }
-        }
+        this.synchronizeActions();
     }
 
-    dispose() {
-        clearInterval(this.frameInterval);
-    }
-
-    private frameTick() {
+    frameTick() {
         this.currentTick += 1;
 
         this.actions.forEach(action => action());
@@ -134,5 +111,28 @@ export class DoomGame {
         }
 
         this.map.renderThings.forEach(thing => thing.tick());
+    }
+
+    // Why a public function? Because "edit" mode can change these while
+    // rendering the map and we want them to update
+    synchronizeActions() {
+        this.actions = [];
+        for (const wall of this.map.linedefs) {
+            if (wall.special === 48) {
+                wall.xOffset = writable(0);
+                this.actions.push(() => wall.xOffset.update(n => n += 1));
+            } else if (wall.special === 85) {
+                wall.xOffset = writable(0);
+                this.actions.push(() => wall.xOffset.update(n => n += 1));
+            }
+        }
+
+        for (const sector of this.map.sectors) {
+            const type = sector.type;
+            const action = sectorAnimations[type]?.(this.map, sector);
+            if (action) {
+                this.actions.push(action);
+            }
+        }
     }
 }

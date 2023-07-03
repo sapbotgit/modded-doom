@@ -1,9 +1,5 @@
 <script lang="ts">
-    import {
-        Canvas,
-        PerspectiveCamera,
-    } from "@threlte/core";
-
+    import { Canvas, PerspectiveCamera } from "@threlte/core";
     import { MapTextures } from './Texture';
     import type { DoomMap, DoomWad, Thing as DoomThing, RenderThing } from "../doomwad";
     import Stats from './Debug/Stats.svelte';
@@ -16,10 +12,15 @@
     import SkyBox from "./SkyBox.svelte";
     import Thing from "./Thing.svelte";
     import { ToRadians } from "./Math";
+    import { writable } from "svelte/store";
+    import EditPanel from "./Editor/EditPanel.svelte";
+
     export let wad: DoomWad;
     export let map: DoomMap;
 
     const playerHeight = 41;
+
+    let { renderThings } = map
 
     $: p1 = map.things.find(e => e.type === 1);
     $: zFloor = map.findSector(p1.x, p1.y).zFloor;
@@ -45,39 +46,76 @@
         return true;
     }
 
-    $: things = map.renderThings.filter(isVisible)
+    let frameInterval: number
+    const editor = writable({
+        updateThings: () => renderThings = renderThings,
+        active: true,
+        selected: null,
+    });
+    const textures = new MapTextures(wad);
+    const settings = {
+        useTextures: true,
+    };
+
+    $: things = renderThings.filter(isVisible)
     $: if (map) {
+        clearInterval(frameInterval);
+
         // create context
         const game = new DoomGame(map);
         game.playerPosition.set(position)
-        const textures = new MapTextures(wad);
-        const settings = {
-            useTextures: true,
-        };
+        frameInterval = window.setInterval(() => game.frameTick(), 1000 / 35);
 
-        setContext<DoomContext>('doom-context', { textures, game, wad, settings });
-        onDestroy(() => game.dispose());
+        setContext<DoomContext>('doom-context', { textures, game, wad, settings, editor });
+        onDestroy(() => clearInterval(frameInterval));
     }
 </script>
 
-<Canvas size={{ width: 800, height: 600 }}>
-    <Stats />
+<div>
+    <div id="lock-message">
+        Controls: WASD
+        <br>
+        Click to lock
+    </div>
+    <Canvas size={{ width: 800, height: 600 }}>
+        <Stats />
 
-    <PerspectiveCamera lookAt={target(p1)} {position} far={100000} fov={70}>
-        <FirstPersonControls {map} />
-    </PerspectiveCamera>
+        <PerspectiveCamera lookAt={target(p1)} {position} far={100000} fov={70}>
+            <FirstPersonControls {map} />
+        </PerspectiveCamera>
 
-    <SkyBox {map} />
+        <SkyBox {map} />
 
-    {#each map.linedefs as linedef}
-        <Wall {linedef} />
-    {/each}
+        {#each map.linedefs as linedef}
+            <Wall {linedef} />
+        {/each}
 
-    {#each map.renderSectors as renderSector, i}
-        <Flats {renderSector} index={i} />
-    {/each}
+        {#each map.renderSectors as renderSector, i}
+            <Flats {renderSector} index={i} />
+        {/each}
 
-    {#each things as thing}
-        <Thing {wad} {map} {thing} />
-    {/each}
-</Canvas>
+        {#each things as thing}
+            {#key thing}
+                <Thing {map} {thing} />
+            {/key}
+        {/each}
+    </Canvas>
+
+    <EditPanel {map} />
+</div>
+
+<style>
+    div {
+        display: flex;
+        flex-direction: row;
+        position: relative;
+    }
+
+    #lock-message {
+        background: rgba(.5,.5,.5,.5);
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+    }
+</style>
