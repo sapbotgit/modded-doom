@@ -34,7 +34,6 @@
         <WallSegment
             {linedef} {useLeft}
             {width} {angle} {mid} {top} {height}
-            sidedef={useLeft ? linedef.left : linedef.right}
             type={'upper'}
         />
     {/if}
@@ -45,7 +44,6 @@
         <WallSegment
             {linedef} {useLeft}
             {width} {angle} {mid} {top} {height}
-            sidedef={useLeft ? linedef.left : linedef.right}
             type={'lower'}
         />
     {/if}
@@ -56,14 +54,12 @@
         <WallSegment
             {linedef} useLeft
             {width} {angle} {mid} {top} {height}
-            sidedef={linedef.left}
         />
     {/if}
     {#if $middleR}
         <WallSegment
             {linedef}
             {width} {angle} {mid} {height} {top}
-            sidedef={linedef.right}
         />
     {/if}
 {:else}
@@ -72,6 +68,5 @@
     <WallSegment
         {linedef}
         {width} {angle} {mid} {top} {height}
-        sidedef={linedef.right}
     />
 {/if}

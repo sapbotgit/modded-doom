@@ -1,15 +1,21 @@
 <script lang="ts">
     import { MeshStandardMaterial, PlaneGeometry, type MeshStandardMaterialParameters } from "three";
-    import type { LineDef, SideDef, Vertex } from "../doomwad";
+    import type { LineDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
 
     export let linedef: LineDef;
-    export let sidedef: SideDef;
     export let useLeft = false;
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
 
-    $: texture = sidedef[type];
+    // In MAP29 in Doom2, the teleports in the blood only have right texture but useLeft is true soo...
+    // and it's not alone. There are other instance in MAP29 and MAP22. So is it a bug or am I using segs wrong?
+    // (actually, I'm not using segs here but I tried and it didn't seem to help)
+    $: textureL = linedef.left?.[type];
+    $: textureR = linedef.right[type];
+    $: texture = useLeft ? ($textureL ?? $textureR) : ($textureR ?? $textureL);
+
+    const sidedef = useLeft ? linedef.left : linedef.right
     const { yOffset: sdYOffset, xOffset: sdXOffset } = sidedef
     const { xOffset, flags } = linedef;
 
@@ -93,5 +99,5 @@
     position={{ x: mid.x, y: top - height * .5, z: -mid.y }}
     rotation={{ y: angle + offset }}
     geometry={new PlaneGeometry(width, height)}
-    material={material($texture, flags, $sdXOffset, $sdYOffset, $xOffset ?? 0, $light, $editor.selected)}
+    material={material(texture, flags, $sdXOffset, $sdYOffset, $xOffset ?? 0, $light, $editor.selected)}
 />

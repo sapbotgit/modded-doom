@@ -66,7 +66,7 @@ export interface Vertex {
     y: number;
 }
 
-interface Seg {
+export interface Seg {
     vx1: Vertex;
     vx2: Vertex;
     angle: number;

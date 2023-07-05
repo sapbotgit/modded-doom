@@ -35,10 +35,16 @@
     }
 </script>
 
-<Mesh
-    interactive={$editor.active}
-    {geometry}
-    material={material(textureName, $light, $editor.selected)}
-    position={{ x: 0, y: vertical, z: 0 }}
-    on:click={hit}
-/>
+<!--
+    TODO: for a level editor, it would actually be useful to still draw this so
+    we can click on it and edit. Something to think about (same for Wall.svelte)
+-->
+{#if textureName !== 'F_SKY1'}
+    <Mesh
+        interactive={$editor.active}
+        {geometry}
+        material={material(textureName, $light, $editor.selected)}
+        position={{ x: 0, y: vertical, z: 0 }}
+        on:click={hit}
+    />
+{/if}

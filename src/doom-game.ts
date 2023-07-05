@@ -71,7 +71,7 @@ const fireFlicker = (map: DoomMap, sector: Sector) => {
         if (--ticks) return;
         ticks = 4;
         const amount = randInt(0, 2) * 16;
-        sector.light.set(Math.min(max - amount, min));
+        sector.light.set(Math.max(max - amount, min));
     }
 };
 
