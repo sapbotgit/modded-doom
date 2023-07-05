@@ -49,7 +49,7 @@
     let frameInterval: number
     const editor = writable({
         updateThings: () => renderThings = renderThings,
-        active: true,
+        active: false,
         selected: null,
     });
     const textures = new MapTextures(wad);
@@ -72,11 +72,11 @@
 </script>
 
 <div>
-    <div id="lock-message">
+    <!-- <div id="lock-message">
         Controls: WASD
         <br>
         Click to lock
-    </div>
+    </div> -->
     <Canvas size={{ width: 800, height: 600 }}>
         <Stats />
 

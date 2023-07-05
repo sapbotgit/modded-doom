@@ -113,13 +113,13 @@
     };
 
     let vec = new Vector3();
-    // const domRoot = renderer.domElement;
-    const lockElement = document.getElementById('lock-message');
+    const domRoot = renderer.domElement;
+    const lockElement = domRoot//document.getElementById('lock-message');
     lockElement.addEventListener( 'click', function () {
         controls.lock();
     });
-    controls.addEventListener('lock', () => lockElement.style.display = 'none');
-    controls.addEventListener('unlock', () => lockElement.style.display = 'block');
+    // controls.addEventListener('lock', () => lockElement.style.display = 'none');
+    // controls.addEventListener('unlock', () => lockElement.style.display = 'block');
 
     if (!canLookUp) {
         controls.maxPolarAngle = HALF_PI;
