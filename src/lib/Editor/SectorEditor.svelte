@@ -15,24 +15,24 @@
     }
 
     // https://doomwiki.org/wiki/Sector
-    const types = [
-        'Normal',
-        'Blink random',
-        'Blink 0.5 second',
-        'Blink 1.0 second',
-        '20% damage per second plus light blink 0.5 second',
-        '10% damage per second',
-        '5% damage per second',
-        'Oscillates',
-        'Player entering this sector gets credit for finding a secret',
-        '30 seconds after level start, ceiling closes like a door',
-        "20% damage per second. The level ends when the player's health drops below 11% and is touching the floor. Player health cannot drop below 1% while anywhere in a sector with this sector type.",
-        'Blink 1.0 second, synchronized',
-        'Blink 0.5 second, synchronized',
-        '300 seconds after level start, ceiling opens like a door',
-        '20% damage per second',
-        'Flickers randomly',
-    ];
+    const types = {
+        0: 'Normal',
+        1: 'Blink random',
+        2: 'Blink 0.5 second',
+        3: 'Blink 1.0 second',
+        4: '20% damage per second plus light blink 0.5 second',
+        5: '10% damage per second',
+        7: '5% damage per second',
+        8: 'Oscillates',
+        9: 'Player entering this sector gets credit for finding a secret',
+        10: '30 seconds after level start, ceiling closes like a door',
+        11: "20% damage per second. The level ends when the player's health drops below 11% and is touching the floor. Player health cannot drop below 1% while anywhere in a sector with this sector type.",
+        12: 'Blink 1.0 second, synchronized',
+        13: 'Blink 0.5 second, synchronized',
+        14: '300 seconds after level start, ceiling opens like a door',
+        16: '20% damage per second',
+        17: 'Flickers randomly',
+    };
 
     function changeType(n: number) {
         sector.type = n;
@@ -46,8 +46,8 @@
     <button on:click={toggleSelector}>{types[sector.type]}</button>
     {#if showSelector}
         <div class="selector">
-            {#each types as t, i}
-                <button on:click={() => changeType(i)}>{t}</button>
+            {#each Object.keys(types) as t, i}
+                <button on:click={() => changeType(i)}>{types[t]}</button>
             {/each}
         </div>
     {/if}

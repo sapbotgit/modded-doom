@@ -49,7 +49,7 @@
     let frameInterval: number
     const editor = writable({
         updateThings: () => renderThings = renderThings,
-        active: false,
+        active: true,
         selected: null,
     });
     const textures = new MapTextures(wad);
