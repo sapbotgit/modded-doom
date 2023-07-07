@@ -701,7 +701,7 @@ function subsectorVerts(ssec: SubSector, bspLines: Vertex[][]) {
             // the constants here are a little bit of trial and error but E1M1 had a
             // couple of subsectors in the zigzag room that helped
             let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .1);
-            let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -100);
+            let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1000);
             if (insideBsp && insideSeg) {
                 verts.push(point);
             }

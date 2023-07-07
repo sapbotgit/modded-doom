@@ -1,16 +1,17 @@
 <script lang="ts">
     import { Color } from "three";
-    import type { DoomMap, DoomWad, LineDef, Sector, Thing, SideDef, Vertex, RenderThing, RenderSector } from "../../doomwad";
+    import type { DoomMap, DoomWad, LineDef, Sector, Thing, Vertex, RenderThing, RenderSector } from "../../doomwad";
     import { ToRadians, intersectionPoint, signedLineDistance } from '../Math';
     import { MFFlags } from "../../doom-things-info";
+
     export let wad: DoomWad;
     export let map: DoomMap;
 
-    const svgStartSector = true;
-    const svgBspBoxes = false;
-    const svgVertexes = false;
-    const svgSubSectors = false;
-    const svgThings = true;
+    let svgStartSector = true;
+    let svgBspBoxes = false;
+    let svgVertexes = false;
+    let svgSubSectors = true;
+    let svgThings = false;
 
     let sect: Sector;
     const padding = 40;
@@ -50,6 +51,7 @@
 
     let selectedRs: RenderSector;
     function clickSubsect(rs: RenderSector) {
+        console.log('rs',rs)
         selectedRs = rs;
     }
 
@@ -143,6 +145,13 @@
     }
 </script>
 
+<div>
+    <label><input type="checkbox" bind:checked={svgStartSector} /> Highlight current sector</label>
+    <label><input type="checkbox" bind:checked={svgBspBoxes} /> Bsp bounding boxes</label>
+    <label><input type="checkbox" bind:checked={svgVertexes} /> Map vertexes</label>
+    <label><input type="checkbox" bind:checked={svgSubSectors} /> Sub sectors</label>
+    <label><input type="checkbox" bind:checked={svgThings} /> Things</label>
+</div>
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <svg viewBox="{left} {top} {width} {height}" on:click={touchMap} bind:this={svg}>
     <defs>
@@ -268,5 +277,6 @@
     svg {
         /* invert top and bottom */
         transform: scaley(-1);
+        /* scale: 5; */
     }
 </style>

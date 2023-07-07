@@ -71,10 +71,13 @@
         texture2.offset.set((xOffset + sdXOffset) * invTextureWidth, yOffset * invTextureHeight);
         let color = textures.lightColor(light);
 
-        const params: MeshStandardMaterialParameters = { map: texture2, alphaTest: 1, color };
+        const params: MeshStandardMaterialParameters = { map: texture2, color };
         if (selected === linedef) {
             params.emissive = 'magenta';
             params.emissiveIntensity = 0.1;
+        }
+        if (linedef.flags & 0x0004) {
+            params.alphaTest = 1;
         }
         // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
         // and we get a ~25% performance boost. I'd rather keep this and figure out a way to cull

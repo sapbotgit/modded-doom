@@ -11,7 +11,7 @@
   let debugMap: DoomMap;
   let mapNames = [];
   (async () => {
-    const buffer = await fetch('doom2.wad').then(e => e.arrayBuffer());
+    const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
     // debugMap = wad.readMap(mapNames[0]);
