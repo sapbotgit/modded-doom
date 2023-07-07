@@ -36,20 +36,21 @@
 
     const { game } = useDoom();
 
-    const freeFly = true;
-    const canLookUp = true;
+    const freeFly = false;
+    const canLookUp = freeFly && true;
 
     let moveForward = false;
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
     let run = false;
+    let slow = false;
     let canJump = false;
 
     const velocity = new Vector3();
     const direction = new Vector3();
 
-    const keydown = (event) => {
+    const keydown = (event: KeyboardEvent) => {
         switch (event.code) {
             case "ArrowUp":
             case "KeyW":
@@ -76,6 +77,11 @@
                 run = true;
                 break;
 
+            case 'AltLeft':
+            case 'AltRight':
+                slow = true;
+                break;
+
             case "Space":
                 if (canJump === true) velocity.y += 350;
                 canJump = false;
@@ -83,7 +89,7 @@
         }
     };
 
-    const keyup = (event) => {
+    const keyup = (event: KeyboardEvent) => {
         switch (event.code) {
             case "ArrowUp":
             case "KeyW":
@@ -108,6 +114,11 @@
             case 'ShiftLeft':
             case 'ShiftRight':
                 run = false;
+                break;
+
+            case 'AltLeft':
+            case 'AltRight':
+                slow = false;
                 break;
         }
     };
@@ -142,7 +153,7 @@
             direction.x = Number(moveRight) - Number(moveLeft);
             direction.normalize(); // ensure consistent movements in all directions
 
-            const speed = run ? 8000.0 : 4000.0
+            const speed = slow ? 500.0 : run ? 8000.0 : 4000.0
             if (moveForward || moveBackward)
                 velocity.z -= direction.z * speed * delta;
             if (moveLeft || moveRight)

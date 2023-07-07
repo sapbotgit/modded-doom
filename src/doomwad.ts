@@ -237,10 +237,10 @@ export class DoomMap {
             }
             // is Left https://stackoverflow.com/questions/1560492
             const cross = (node.v2.x - node.v1.x) * (y - node.v1.y) - (node.v2.y - node.v1.y) * (x - node.v1.x);
-            if (cross > 0) {
-                node = node.childLeft
-            } else {
+            if (cross <= 0) {
                 node = node.childRight;
+            } else {
+                node = node.childLeft
             }
         }
     }
@@ -521,7 +521,7 @@ export class DoomWad {
         if (typeof pic === 'string') {
             return pic;
         }
-        const { width, height, data } = pic;
+        const { width, height, data, xOffset, yOffset } = pic;
 
         let buffer = new Uint8Array(4 * width * height);
         var size = width * height;
@@ -540,7 +540,7 @@ export class DoomWad {
             }
         }
 
-        return { width, height, buffer };
+        return { width, height, buffer, xOffset, yOffset };
     }
 
     private readFlat(lump: any) {
@@ -580,6 +580,7 @@ export class DoomWad {
         // let height = lumpData.contents[3] << 8 | lumpData.contents[2];
         let width = dv.getUint16(0, true);
         let height = dv.getUint16(2, true);
+        // these seem to only be used for sprites
         let xOffset = dv.getUint16(4, true);
         let yOffset = dv.getUint16(6, true);
         if (width > 2048 || height > 2048) {
@@ -595,13 +596,13 @@ export class DoomWad {
             }
         }
 
-        var columns = [];
+        let columns = [];
         for (let i = 0; i < width; i++) {
             columns[i] = dv.getUint32(8 + (i * 4), true);
         }
 
-        var position = 0;
-        var pixelCount = 0;
+        let position = 0;
+        let pixelCount = 0;
         for (let i = 0; i < width; i++) {
             position = columns[i];
 
@@ -623,7 +624,7 @@ export class DoomWad {
             }
         }
 
-        return { width, height, data };
+        return { width, height, xOffset, yOffset, data };
     }
 }
 

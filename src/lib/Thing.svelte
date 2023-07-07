@@ -19,13 +19,15 @@
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
+    $: texture = textures.get(frame.name, 'sprite');
     $: sector = map.findSector($position.x, $position.y);
     $: zFloor = sector.zFloor;
     $: zCeil = sector.zCeil;
     $: light = sector.light;
-    $: texture = textures.get(frame.name, 'sprite');
-    $: height = texture.userData.height * .5;
-    $: yPos = thing.fromFloor ? $zFloor + height : $zCeil - height;
+    $: halfHeight = texture.userData.height * .5;
+    $: yPos = thing.fromFloor ? $zFloor + halfHeight : $zCeil - halfHeight;
+    $: xOffset = texture.userData.xOffset - texture.userData.width * .5;
+    $: yOffset = texture.userData.yOffset - texture.userData.height;
 
     $: color = $sprite.fullbright ? 'white' : textures.lightColor($light);
 
@@ -55,7 +57,11 @@
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
     rotation={{ y: $playerDirection }}
-    position={{ x: $position.x, z: -$position.y, y: yPos }}
+    position={{
+        x:  ($position.x + xOffset),
+        z: -($position.y + xOffset),
+        y: Math.max(yPos, yPos + yOffset),
+    }}
 >
     {#if $editor.selected === thing}
         <TransformControls

@@ -28,6 +28,8 @@ export class MapTextures {
                 texture.userData = {
                     width: data.width,
                     height: data.height,
+                    xOffset: (data as any).xOffset,
+                    yOffset: (data as any).yOffset,
                     invWidth: 1 / data.width,
                     invHeight: 1 / data.height,
                 }
@@ -52,7 +54,7 @@ export class MapTextures {
     // scale light using a curve to make it look more like doom
     lightColor(light: number) {
         const t = light / 255;
-        const scaled = Math.floor(sineIn(t) * 255);
-        return scaled | scaled << 8 | scaled << 16;
+        light = Math.floor(sineIn(t) * 255);
+        return light | light << 8 | light << 16;
     }
 }

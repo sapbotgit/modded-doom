@@ -5,12 +5,15 @@
     import ThingSprite from "./ThingSprite.svelte";
     import { ToDegrees, ToRadians } from "../Math";
 
-    const { editor } = useDoom();
+    const { editor, textures } = useDoom();
 
     export let map: DoomMap;
     export let thing: RenderThing;
 
-    const { direction } = thing;
+    const { direction, sprite, spec } = thing;
+    const frames = map.wad.spriteFrames(spec.sprite);
+    const frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
+    const texture = textures.get(frame.name, 'sprite');
 
     let showSelector = false;
     let selectorFilter = '';
@@ -93,15 +96,23 @@
 </div>
 <!-- position is edited in Thing.svelte -->
 <div class="direction">
-    <button class:selected={directionButton === 7} on:click={setDirection(315)}>North West</button>
+    <button class:selected={directionButton === 7} on:click={setDirection(315)}>NW</button>
     <button class:selected={directionButton === 6} on:click={setDirection(270)}>North</button>
-    <button class:selected={directionButton === 5} on:click={setDirection(225)}>North East</button>
+    <button class:selected={directionButton === 5} on:click={setDirection(225)}>NE</button>
     <button class:selected={directionButton === 0} on:click={setDirection(0)}>East</button>
-    <span>Direction {Math.floor($direction * ToDegrees)} degrees</span>
+    <span>{Math.floor($direction * ToDegrees)} degrees</span>
     <button class:selected={directionButton === 4} on:click={setDirection(180)}>West</button>
-    <button class:selected={directionButton === 1} on:click={setDirection(45)}>South West</button>
+    <button class:selected={directionButton === 1} on:click={setDirection(45)}>SW</button>
     <button class:selected={directionButton === 2} on:click={setDirection(90)}>South</button>
-    <button class:selected={directionButton === 3} on:click={setDirection(135)}>South East</button>
+    <button class:selected={directionButton === 3} on:click={setDirection(135)}>SE</button>
+</div>
+<div>
+    <span>Sprite Info</span>
+    <div>name: {frame.name}</div>
+    <div>width: {texture.userData.width}</div>
+    <div>height: {texture.userData.height}</div>
+    <div>xOffset: {texture.userData.xOffset}</div>
+    <div>yOffset: {texture.userData.yOffset}</div>
 </div>
 
 <style>
@@ -124,11 +135,19 @@
     }
 
     .direction {
+        align-self: center;
+        padding: 2em 0em;
+        width: 12em;
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
     }
     .direction button.selected {
         background: green;
+    }
+    .direction span {
+        width: 2em;
+        text-align: center;
+        align-self: center;
     }
 
     .selector {
