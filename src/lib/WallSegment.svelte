@@ -4,6 +4,7 @@
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
     import { angleIsVisible } from "./Math";
+    import Wireframe from "./Debug/Wireframe.svelte";
 
     export let seg: Seg;
     export let linedef: LineDef;
@@ -113,4 +114,6 @@
     rotation={{ y: angle }}
     geometry={new PlaneGeometry(width, height)}
     material={material(texture, flags, $xOffset, $yOffset, $animOffset ?? 0, $light, $editor.selected)}
-/>
+>
+    <Wireframe />
+</Mesh>

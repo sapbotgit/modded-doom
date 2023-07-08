@@ -3,6 +3,7 @@
     import type { RenderSector, Sector } from "../doomwad";
     import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, MultiplyBlending, type MeshStandardMaterialParameters, AdditiveBlending, NormalBlending, NoBlending } from "three";
     import { useDoom } from "./useDoom";
+    import Wireframe from "./Debug/Wireframe.svelte";
 
     export let renderSector: RenderSector;
     export let geometry: BufferGeometry;
@@ -11,8 +12,13 @@
     export let color: number;
     export let ceiling = false;
 
+    const { game } = useDoom();
+    const { playerPosition } = game;
+
     const { textures, settings, editor } = useDoom();
     const { light } = renderSector.sector;
+    $: visible = (ceiling && $playerPosition.y <= vertical)
+            || (!ceiling && $playerPosition.y >= vertical);
 
     function material(name: string, light: number, selected: Sector) {
         const params: MeshStandardMaterialParameters = { side: ceiling ? BackSide : FrontSide };
@@ -41,10 +47,13 @@
 -->
 {#if textureName !== 'F_SKY1'}
     <Mesh
+        {visible}
         interactive={$editor.active}
         {geometry}
         material={material(textureName, $light, $editor.selected)}
         position={{ x: 0, y: vertical, z: 0 }}
         on:click={hit}
-    />
+    >
+        <Wireframe />
+    </Mesh>
 {/if}

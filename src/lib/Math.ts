@@ -69,7 +69,7 @@ export function centerSort(verts: Vertex[]) {
         });
 }
 
-
+// TODO: depend on FOV?
 const viewSpan = HALF_PI + QUARTER_PI;
 export function angleIsVisible(viewAngle: number, angle: number) {
     // https://gamedev.stackexchange.com/questions/4467

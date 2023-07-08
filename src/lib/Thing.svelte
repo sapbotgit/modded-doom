@@ -4,6 +4,7 @@
     import { useDoom } from './useDoom';
     import type { DoomMap, RenderThing } from '../doomwad';
     import { EIGHTH_PI, HALF_PI, QUARTER_PI } from './Math';
+    import Wireframe from './Debug/Wireframe.svelte';
 
     const { textures, game, editor } = useDoom();
 
@@ -70,4 +71,5 @@
             on:object-changed={positionChanged}
         />
     {/if}
+    <Wireframe />
 </Mesh>
