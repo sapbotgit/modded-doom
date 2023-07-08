@@ -77,7 +77,7 @@ export interface Seg {
 const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
     vx1: vertexes[item.vertexStart],
     vx2: vertexes[item.vertexEnd],
-    angle: item.angle,
+    angle: (item.angle * Math.PI / 32768),
     linedef: linedefs[item.linedef],
     direction: item.direction,
     offset: item.offset,

@@ -1,19 +1,18 @@
 <script lang="ts">
     import { Canvas, PerspectiveCamera } from "@threlte/core";
     import { MapTextures } from './Texture';
-    import type { DoomMap, DoomWad, Thing as DoomThing, RenderThing } from "../doomwad";
+    import type { DoomMap, DoomWad, Thing as DoomThing } from "../doomwad";
     import Stats from './Debug/Stats.svelte';
-    import Wall from './Wall.svelte';
-    import Flats from './Flats.svelte';
     import { onDestroy, setContext } from "svelte";
     import { DoomGame } from "../doom-game";
     import type { DoomContext } from "./useDoom";
     import FirstPersonControls from "./FirstPersonControls.svelte";
     import SkyBox from "./SkyBox.svelte";
-    import Thing from "./Thing.svelte";
     import { ToRadians } from "./Math";
     import { writable } from "svelte/store";
     import EditPanel from "./Editor/EditPanel.svelte";
+    import SvgMap from './Debug/SvgMap.svelte';
+    import MapGeo from "./MapGeo.svelte";
 
     export let wad: DoomWad;
     export let map: DoomMap;
@@ -25,25 +24,13 @@
     $: p1 = map.things.find(e => e.type === 1);
     $: zFloor = map.findSector(p1.x, p1.y).zFloor;
     $: pZHeight = playerHeight + $zFloor;
-    $: position = ({ x: p1.x, y: pZHeight, z: -p1.y });
+    $: position = { x: p1.x, y: pZHeight, z: -p1.y };
 
     function target(p1: DoomThing) {
         const angRad = p1.angle * ToRadians;
         const tx = 10 * Math.cos(angRad) + p1.x;
         const tz = 10 * -Math.sin(angRad) - p1.y;
         return { x: tx, y: pZHeight, z: tz };
-    }
-
-    // https://doomwiki.org/wiki/Thing_types#Other
-    const invisibleThingTypes = [1, 2, 3, 4, 11, 14, 87, 88, 89];
-    function isVisible(thing: RenderThing) {
-        if (thing.source.flags & 0x0010) {
-            return false;
-        }
-        if (invisibleThingTypes.includes(thing.spec.type)) {
-            return false;
-        }
-        return true;
     }
 
     let frameInterval: number
@@ -57,7 +44,6 @@
         useTextures: true,
     };
 
-    $: things = renderThings.filter(isVisible)
     $: if (map) {
         clearInterval(frameInterval);
 
@@ -86,19 +72,7 @@
 
         <SkyBox {map} />
 
-        {#each map.linedefs as linedef}
-            <Wall {linedef} />
-        {/each}
-
-        {#each map.renderSectors as renderSector, i}
-            <Flats {renderSector} index={i} />
-        {/each}
-
-        {#each things as thing}
-            {#key thing}
-                <Thing {map} {thing} />
-            {/key}
-        {/each}
+        <MapGeo {map} />
     </Canvas>
 
     <EditPanel {map} />

@@ -36,7 +36,7 @@
 
     const { game } = useDoom();
 
-    const freeFly = false;
+    const freeFly = true;
     const canLookUp = freeFly && true;
 
     let moveForward = false;
@@ -140,7 +140,7 @@
     // HACK ALERT: the game should know the player position and the UI "react" to that.
     game.playerPosition.set(controls.camera.position);
     vec.copy(controls.getDirection(vec));
-    game.playerDirection.set(Math.atan2(-vec.z, vec.x) - HALF_PI);
+    game.playerDirection.set(Math.atan2(-vec.z, vec.x));
 
     useFrame((ctx, delta) => {
         if (controls.isLocked === true) {
@@ -168,7 +168,7 @@
 
             // HACK ALERT: the game should know the player position and the UI "react" to that.
             game.playerPosition.set(camera.position);
-            game.playerDirection.set(Math.atan2(-vec.z, vec.x) - HALF_PI);
+            game.playerDirection.set(Math.atan2(-vec.z, vec.x));
 
             const sector = map.findSector(camera.position.x, -camera.position.z);
             if (sector && !freeFly) {

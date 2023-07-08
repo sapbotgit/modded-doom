@@ -68,3 +68,11 @@ export function centerSort(verts: Vertex[]) {
             return d1 - d2;
         });
 }
+
+
+const viewSpan = HALF_PI + QUARTER_PI;
+export function angleIsVisible(viewAngle: number, angle: number) {
+    // https://gamedev.stackexchange.com/questions/4467
+    const ang = Math.PI - Math.abs(Math.abs(viewAngle - angle - HALF_PI) - Math.PI);
+    return (-viewSpan < ang && ang < viewSpan);
+}

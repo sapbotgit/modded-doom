@@ -1,23 +1,14 @@
 <script lang="ts">
     import { MeshStandardMaterial, PlaneGeometry, type MeshStandardMaterialParameters } from "three";
-    import type { LineDef, Vertex } from "../doomwad";
+    import type { LineDef, Seg, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
+    import { angleIsVisible } from "./Math";
 
+    export let seg: Seg;
     export let linedef: LineDef;
-    export let useLeft = false;
+    export let sidedef: SideDef;
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
-
-    // In MAP29 in Doom2, the teleports in the blood only have right texture but useLeft is true soo...
-    // and it's not alone. There are other instance in MAP29 and MAP22. So is it a bug or am I using segs wrong?
-    // (actually, I'm not using segs here but I tried and it didn't seem to help)
-    $: textureL = linedef.left?.[type];
-    $: textureR = linedef.right[type];
-    $: texture = useLeft ? ($textureL ?? $textureR) : ($textureR ?? $textureL);
-
-    const sidedef = useLeft ? linedef.left : linedef.right
-    const { yOffset: sdYOffset, xOffset: sdXOffset } = sidedef
-    const { xOffset, flags } = linedef;
 
     // geometry
     export let width: number;
@@ -26,14 +17,32 @@
     export let mid: Vertex;
     export let angle: number;
 
+    const { game } = useDoom();
+    const { playerDirection } = game;
+
+    // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
+    // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
+    // There may be other places this happens but we correct it by doing a little hack
+    $: textureL = linedef.left?.[type];
+    $: textureR = linedef.right[type];
+    $: texture = seg.direction === 1 ? ($textureL ?? $textureR) : ($textureR ?? $textureL);
+
+    const { yOffset, xOffset } = sidedef;
+    const { xOffset: animOffset, flags } = linedef;
+
     const { wad, settings, textures, editor } = useDoom();
 
-    $: offset = useLeft ? Math.PI : 0;
     const { light } = sidedef.sector;
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
+    $: visible = (true
+        && texture
+        && height > 0
+        && width > 0
+        && angleIsVisible($playerDirection, seg.angle)
+    );
 
-    function material(name: string, flags: number, sdXOffset: number, sdYOffset: number,  xOffset: number, light: number, selected: LineDef) {
+    function material(name: string, flags: number, xOffset: number, yOffset: number,  animOffset: number, light: number, selected: LineDef) {
         if (!name || !settings.useTextures) {
             const color = selected === linedef ? 'magenta' : lineStroke();
             return new MeshStandardMaterial({ color });
@@ -67,8 +76,8 @@
             // peg to floor (bottom left)
             pegging = 0;
         }
-        const yOffset = -sdYOffset + pegging;
-        texture2.offset.set((xOffset + sdXOffset) * invTextureWidth, yOffset * invTextureHeight);
+        texture2.offset.x = (animOffset + xOffset) * invTextureWidth;
+        texture2.offset.y = (-yOffset + pegging) * invTextureHeight;
         let color = textures.lightColor(light);
 
         const params: MeshStandardMaterialParameters = { map: texture2, color };
@@ -97,10 +106,11 @@
 </script>
 
 <Mesh
+    {visible}
     interactive={$editor.active}
     on:click={hit}
     position={{ x: mid.x, y: top - height * .5, z: -mid.y }}
-    rotation={{ y: angle + offset }}
+    rotation={{ y: angle }}
     geometry={new PlaneGeometry(width, height)}
-    material={material(texture, flags, $sdXOffset, $sdYOffset, $xOffset ?? 0, $light, $editor.selected)}
+    material={material(texture, flags, $xOffset, $yOffset, $animOffset ?? 0, $light, $editor.selected)}
 />

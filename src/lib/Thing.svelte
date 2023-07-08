@@ -3,7 +3,7 @@
     import { MeshStandardMaterial, PlaneGeometry, Texture, type MeshStandardMaterialParameters, type ColorRepresentation, Vector3 } from 'three';
     import { useDoom } from './useDoom';
     import type { DoomMap, RenderThing } from '../doomwad';
-    import { EIGHTH_PI, QUARTER_PI } from './Math';
+    import { EIGHTH_PI, HALF_PI, QUARTER_PI } from './Math';
 
     const { textures, game, editor } = useDoom();
 
@@ -56,7 +56,7 @@
     material={material(texture, color, $editor.selected)}
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
-    rotation={{ y: $playerDirection }}
+    rotation={{ y: $playerDirection - HALF_PI }}
     position={{
         x:  ($position.x + xOffset),
         z: -($position.y + xOffset),
