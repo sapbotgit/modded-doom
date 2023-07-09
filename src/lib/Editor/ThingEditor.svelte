@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { RenderThing, type DoomMap } from "../../doomwad";
+    import { MapObject, type DoomMap } from "../../doomwad";
     import { things, thingSpec, type ThingSpec } from '../../doom-things';
     import { useDoom } from "../useDoom";
     import ThingSprite from "./ThingSprite.svelte";
@@ -8,7 +8,7 @@
     const { editor, textures } = useDoom();
 
     export let map: DoomMap;
-    export let thing: RenderThing;
+    export let thing: MapObject;
 
     const { direction, sprite, spec } = thing;
     const frames = map.wad.spriteFrames(spec.sprite);
@@ -24,7 +24,7 @@
     type ParialThingSpec = Omit<ThingSpec, 'mo'>
     function changeType(th: ParialThingSpec) {
         const index = map.renderThings.indexOf(thing);
-        thing = new RenderThing({ ...thing.source, type: th.type });
+        thing = new MapObject(map, { ...thing.source, type: th.type });
         map.renderThings[index] = thing;
         $editor.selected = thing;
         $editor.updateThings(); // kind of a reactivity hack. I'd like to to better...

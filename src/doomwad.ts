@@ -4,10 +4,11 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.ts';
-import { ToRadians, centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
-import { writable, type Writable } from 'svelte/store';
+import { HALF_PI, ToRadians, centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
+import { get, writable, type Writable } from 'svelte/store';
 import { thingSpec, type ThingSpec } from './doom-things';
 import { states, type State, MFFlags, SpriteNames } from './doom-things-info.js';
+import type { Position } from '@threlte/core';
 
 type ThingType = number;
 
@@ -171,7 +172,7 @@ export class DoomMap {
     readonly segs: Seg[];
     readonly nodes: TreeNode[];
     readonly renderSectors: RenderSector[];
-    renderThings: RenderThing[];
+    renderThings: MapObject[];
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
@@ -209,7 +210,7 @@ export class DoomMap {
             n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
         });
         this.renderSectors = buildRenderSectors(this.nodes);
-        this.renderThings = this.things.map(e => new RenderThing(e));
+        this.renderThings = this.things.map(e => new MapObject(this, e));
 
         // apply animations only to the cached textures
         for (const texture of flatTextures.values()) {
@@ -719,19 +720,25 @@ interface Sprite {
 
 const FF_FULLBRIGHT = 0x8000;
 const FF_FRAMEMASK = 0x7fff;
-export class RenderThing {
+export class MapObject {
     readonly spec: ThingSpec;
-    readonly position: Writable<Vertex>;
+    readonly position: Writable<Position>;
     readonly direction: Writable<number>;
+    readonly pitch = writable(0);
+    readonly sector: Writable<Sector>;
     readonly fromFloor: boolean = true;
     readonly sprite = writable<Sprite>(null);
     private state: State;
     private ticks: number;
 
-    constructor(readonly source: Thing) {
+    constructor(private map: DoomMap, readonly source: Thing) {
         this.spec = thingSpec(source.type);
         this.fromFloor = !(this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
-        this.position = writable({ x: source.x, y: source.y });
+
+        const sector = map.findSector(source.x, source.y);
+        this.sector = writable(sector);
+        const z = this.fromFloor ? get(sector.zFloor) : get(sector.zCeil) - this.spec.mo.height;
+        this.position = writable({ x: source.x, y: source.y, z });
         this.direction = writable(Math.PI + source.angle * ToRadians);
         this.setState(this.spec.mo.spawnstate)
     }

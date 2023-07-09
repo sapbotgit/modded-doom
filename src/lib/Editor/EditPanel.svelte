@@ -16,7 +16,7 @@
 </script>
 
 {#if $editor.selected}
-    <div transition:fly={{ x: -10 }}>
+    <div transition:fly|local={{ x: -10 }}>
         <button on:click={close}>X</button>
         {#key $editor.selected}
             {#if 'special' in $editor.selected}

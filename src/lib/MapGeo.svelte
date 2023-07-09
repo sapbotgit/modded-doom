@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { DoomMap, RenderThing } from "../doomwad";
+    import type { DoomMap, MapObject } from "../doomwad";
     import Flats from "./Flats.svelte";
     import Wall from "./Wall.svelte";
     import Thing from "./Thing.svelte";
@@ -8,7 +8,7 @@
 
     // https://doomwiki.org/wiki/Thing_types#Other
     const invisibleThingTypes = [1, 2, 3, 4, 11, 14, 87, 88, 89];
-    function isVisible(thing: RenderThing) {
+    function isVisible(thing: MapObject) {
         if (thing.source.flags & 0x0010) {
             return false;
         }

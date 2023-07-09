@@ -73,6 +73,11 @@ export function centerSort(verts: Vertex[]) {
 const viewSpan = HALF_PI + QUARTER_PI;
 export function angleIsVisible(viewAngle: number, angle: number) {
     // https://gamedev.stackexchange.com/questions/4467
-    const ang = Math.PI - Math.abs(Math.abs(viewAngle - angle - HALF_PI) - Math.PI);
+    const ang = normalizeAngle(viewAngle - angle);
     return (-viewSpan < ang && ang < viewSpan);
+}
+
+export function normalizeAngle(angle: number) {
+    // https://gamedev.stackexchange.com/questions/4467
+    return Math.PI - Math.abs(Math.abs(angle - HALF_PI) - Math.PI);
 }

@@ -1,76 +1,80 @@
 <script lang="ts">
-    import { Canvas, PerspectiveCamera } from "@threlte/core";
-    import { MapTextures } from './Texture';
-    import type { DoomMap, DoomWad, Thing as DoomThing } from "../doomwad";
+    import { Canvas, OrthographicCamera, PerspectiveCamera, type Position, type ThrelteContext } from "@threlte/core";
+    import type { DoomMap, DoomWad } from "../doomwad";
     import Stats from './Debug/Stats.svelte';
-    import { onDestroy, setContext } from "svelte";
-    import { DoomGame } from "../doom-game";
-    import type { DoomContext } from "./useDoom";
-    import FirstPersonControls from "./FirstPersonControls.svelte";
+    import { onDestroy, onMount, setContext } from "svelte";
+    import { createContext } from "./useDoom";
     import SkyBox from "./SkyBox.svelte";
-    import { ToRadians } from "./Math";
-    import { writable } from "svelte/store";
     import EditPanel from "./Editor/EditPanel.svelte";
-    import SvgMap from './Debug/SvgMap.svelte';
     import MapGeo from "./MapGeo.svelte";
     import { Object3D } from "three";
+    import { pointerLockControls } from "./ZAxisPointerLock";
+    import { Clock } from "three";
 
     export let wad: DoomWad;
     export let map: DoomMap;
 
-    const playerHeight = 41;
-
-    let { renderThings } = map
     Object3D.DEFAULT_UP.set(0, 0, 1);
 
-    $: p1 = map.things.find(e => e.type === 1);
-    $: zFloor = map.findSector(p1.x, p1.y).zFloor;
-    $: pZHeight = playerHeight + $zFloor;
-    $: position = ({ x: p1.x, y: p1.y, z: pZHeight });
+    const doomContext = createContext(map);
+    setContext('doom-context', doomContext);
+    const { game, settings } = doomContext;
+    const {
+        direction: playerDirection,
+        position: playerPosition,
+        pitch: playerPitch,
+    } = game.player;
 
-    function target(p1: DoomThing) {
-        const angRad = p1.angle * ToRadians;
-        const tx = 10 * Math.cos(angRad) + p1.x;
-        const ty = 10 * Math.sin(angRad) + p1.y;
-        return { x: tx, y: ty, z: pZHeight };
+    function target(position: Position, direction: number, pitch: number) {
+        const tx = 10 * Math.cos(direction) + position.x;
+        const ty = 10 * Math.sin(direction) + position.y;
+        const tz = 10 * Math.cos(pitch) + position.z;
+        return { x: tx, y: ty, z: tz };
     }
 
-    let frameInterval: number
-    const editor = writable({
-        updateThings: () => renderThings = renderThings,
-        active: true,
-        selected: null,
-    });
-    const textures = new MapTextures(wad);
-    const settings = {
-        useTextures: true,
-    };
+    let clock = new Clock();
+    let dispose = false;
+    let threlteCtx: ThrelteContext;
+    onMount(() => {
+        const interval = 1 / settings.targetFPS;
+        let delta = 0;
+        function update() {
+            if (!dispose) {
+                requestAnimationFrame(update);
+            }
+            delta += clock.getDelta();
 
-    $: if (map) {
-        clearInterval(frameInterval);
-
-        // create context
-        const game = new DoomGame(map);
-        game.playerPosition.set(position)
-        frameInterval = window.setInterval(() => game.frameTick(), 1000 / 35);
-
-        setContext<DoomContext>('doom-context', { textures, game, wad, settings, editor });
-        onDestroy(() => clearInterval(frameInterval));
-    }
+            if (delta > interval) {
+                game.tick(delta);
+                threlteCtx.advance();
+                delta = delta % interval;
+            }
+        }
+        update();
+    })
+    onDestroy(() => dispose = true);
 </script>
 
-<div>
+<div use:pointerLockControls={{ game }}>
     <!-- <div id="lock-message">
         Controls: WASD
         <br>
         Click to lock
     </div> -->
-    <Canvas size={{ width: 800, height: 600 }}>
+    <Canvas size={{ width: 800, height: 600 }} frameloop='never' bind:ctx={threlteCtx}>
         <Stats />
 
-        <PerspectiveCamera lookAt={target(p1)} {position} far={100000} fov={70}>
-            <FirstPersonControls {map} />
-        </PerspectiveCamera>
+        <!-- <OrthographicCamera
+            lookAt={target($playerPosition, $playerDirection)}
+            position={$playerPosition}
+        /> -->
+        <!-- lookAt={target($playerPosition, $playerDirection, $playerPitch)} -->
+        <PerspectiveCamera
+            rotation={{ z: $playerDirection, x: $playerPitch, order: 'ZXY' }}
+            position={$playerPosition}
+            far={100000}
+            fov={70}
+        />
 
         <SkyBox {map} />
 

@@ -3,7 +3,7 @@
     import type { LineDef, Seg, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
-    import { HALF_PI, angleIsVisible } from "./Math";
+    import { HALF_PI, angleIsVisible, signedLineDistance } from "./Math";
     import Wireframe from "./Debug/Wireframe.svelte";
 
     export let seg: Seg;
@@ -19,7 +19,7 @@
     export let angle: number;
 
     const { game } = useDoom();
-    const { playerDirection } = game;
+    const { direction: playerDirection, position: playerPosition } = game.player;
 
     // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
@@ -40,7 +40,7 @@
         && texture
         && height > 0
         && width > 0
-        && angleIsVisible($playerDirection, seg.angle)
+        && angleIsVisible($playerDirection + HALF_PI, seg.angle)
     );
 
     function material(name: string, flags: number, xOffset: number, yOffset: number,  animOffset: number, light: number, selected: LineDef) {

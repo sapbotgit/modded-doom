@@ -13,7 +13,7 @@
     export let ceiling = false;
 
     const { game } = useDoom();
-    const { playerPosition } = game;
+    const { position: playerPosition } = game.player;
 
     const { textures, settings, editor } = useDoom();
     const { light } = renderSector.sector;

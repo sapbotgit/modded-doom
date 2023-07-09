@@ -1,23 +1,27 @@
 import { getContext } from 'svelte'
-import type { DoomWad } from '../doomwad';
-import type { MapTextures } from './Texture';
-import type { DoomGame } from '../doom-game';
-import type { Writable } from 'svelte/store';
+import type { DoomMap } from '../doomwad';
+import { MapTextures } from './Texture';
+import { DoomGame } from '../doom-game';
+import { writable, type Writable } from 'svelte/store';
 
-export interface DoomContext {
-    game: DoomGame;
-    textures: MapTextures;
-    wad: DoomWad;
-    editor: Writable<{
-        updateThings: () => void;
-        active: boolean;
-        selected: any;
-    }>;
-    settings: {
-        useTextures: boolean;
+export const createContext = (map: DoomMap) => {
+    const game = new DoomGame(map);
+
+    const editor = writable({
+        updateThings: () => map.renderThings = map.renderThings,
+        active: true,
+        selected: null,
+    });
+    const textures = new MapTextures(map.wad);
+    const settings = {
+        targetFPS: 120,
+        useTextures: true,
     };
+    const wad = map.wad;
+
+    return { game, textures, editor, settings, wad };
 }
 
-export const useDoom = (): DoomContext => {
-    return getContext<DoomContext>('doom-context')
+export const useDoom = (): ReturnType<typeof createContext> => {
+    return getContext('doom-context')
 }

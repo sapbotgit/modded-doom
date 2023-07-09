@@ -1,20 +1,17 @@
 <script lang="ts">
   import { DoomWad, type DoomMap } from './doom';
   import Map from './lib/Map.svelte';
-  import TextureDebug from './lib/Debug/TextureDebug.svelte';
   import MathDebug from './lib/Debug/MathDebug.svelte';
   import SvgMap from './lib/Debug/SvgMap.svelte';
 
   const svgMap = false;
 
   let wad: DoomWad;
-  let debugMap: DoomMap;
   let mapNames = [];
   (async () => {
     const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
-    // debugMap = wad.readMap(mapNames[0]);
     // selectedMap = wad.readMap('E2M3')
     window.data = wad;
   })();
@@ -43,10 +40,6 @@
     {#key selectedMap.name}
       <Map {wad} map={selectedMap} />
     {/key}
-  {/if}
-
-  {#if debugMap}
-    <TextureDebug {wad} map={debugMap} />
   {/if}
 </main>
 

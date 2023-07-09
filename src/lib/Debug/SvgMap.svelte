@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Color } from "three";
-    import type { DoomMap, DoomWad, LineDef, Sector, Thing, Vertex, RenderThing, RenderSector } from "../../doomwad";
+    import type { DoomMap, DoomWad, LineDef, Sector, Thing, Vertex, MapObject, RenderSector } from "../../doomwad";
     import { ToRadians, intersectionPoint, signedLineDistance } from '../Math';
     import { MFFlags } from "../../doom-things-info";
 
@@ -128,7 +128,7 @@
         // }
     }
 
-    function thingColor(th: RenderThing) {
+    function thingColor(th: MapObject) {
         const c = th.source.type <= 4 ? Color.NAMES.green :
             th.source.type === 11 ? Color.NAMES.lightgreen :
             th.spec.class === 'M' ? Color.NAMES.red :
