@@ -23,9 +23,9 @@
 
     type ParialThingSpec = Omit<ThingSpec, 'mo'>
     function changeType(th: ParialThingSpec) {
-        const index = map.renderThings.indexOf(thing);
+        let index = map.objs.indexOf(thing);
         thing = new MapObject(map, { ...thing.source, type: th.type });
-        map.renderThings[index] = thing;
+        map.objs[index] = thing;
         $editor.selected = thing;
         $editor.updateThings(); // kind of a reactivity hack. I'd like to to better...
 
@@ -51,6 +51,7 @@
     <button on:click={toggleSelector}>{thing.spec.description}</button>
     {#if showSelector}
         <div class="selector">
+            <!-- svelte-ignore a11y-autofocus -->
             <input autofocus type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
             {#each types as t}
                 {#if !selectorFilter.length || t.text.toLowerCase().includes(selectorFilter)}

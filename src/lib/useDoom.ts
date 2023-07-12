@@ -8,7 +8,7 @@ export const createContext = (map: DoomMap) => {
     const game = new DoomGame(map);
 
     const editor = writable({
-        updateThings: () => map.renderThings = map.renderThings,
+        updateThings: () => map.objs = map.objs,
         active: true,
         selected: null,
     });

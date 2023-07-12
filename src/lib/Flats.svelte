@@ -32,8 +32,8 @@
 />
 
 <Flat
-    {geometry} {color} {renderSector}
     ceiling
+    {geometry} {color} {renderSector}
     vertical={$zCeil}
     textureName={$ceilFlat}
 />

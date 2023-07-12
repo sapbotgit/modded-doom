@@ -17,9 +17,9 @@
         }
         return true;
     }
-    $: things = map.renderThings.filter(isVisible)
+    $: things = map.objs.filter(isVisible)
 </script>
-
+objs
 {#each map.renderSectors as renderSector, i}
     <Flats {renderSector} index={i} />
     {#each renderSector.subsec.segs as seg}

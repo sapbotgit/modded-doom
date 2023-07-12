@@ -1,9 +1,7 @@
 import { get, writable } from "svelte/store";
 import type { DoomMap, MapObject, Sector } from "./doomwad";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI } from "./lib/Math";
-
-const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min)) + min;
+import { HALF_PI, randInt } from "./lib/Math";
 
 type Action = () => void;
 
@@ -106,12 +104,12 @@ export class DoomGame {
 
     constructor(private map: DoomMap) {
         this.synchronizeActions();
-        this.player = map.renderThings.find(e => e.source.type === 1);
+        this.player = map.objs.find(e => e.source.type === 1);
         this.input = new GameInput(map, this);
     }
 
     tick(delta: number) {
-        // handle input as quickly as possible
+        // handle input as fast as possible
         this.input.evaluate(delta);
         this.elapsedTime += delta;
 
@@ -126,15 +124,15 @@ export class DoomGame {
 
         this.actions.forEach(action => action());
 
-        // wall/flat animations are 8 ticks
-        if (this.currentTick % 8 === 0) {
-            this.map.animatedTextures.forEach(anim => {
+        // update wall/flat animations
+        this.map.animatedTextures.forEach(anim => {
+            if (this.currentTick % anim.speed === 0) {
                 anim.current = (anim.current + 1) % anim.frames.length;
                 anim.target.set(anim.frames[anim.current]);
-            });
-        }
+            }
+        });
 
-        this.map.renderThings.forEach(thing => thing.tick());
+        this.map.objs.forEach(thing => thing.tick());
     }
 
     // Why a public function? Because "edit" mode can change these while
@@ -147,7 +145,7 @@ export class DoomGame {
                 this.actions.push(() => wall.xOffset.update(n => n += 1));
             } else if (wall.special === 85) {
                 wall.xOffset = writable(0);
-                this.actions.push(() => wall.xOffset.update(n => n += 1));
+                this.actions.push(() => wall.xOffset.update(n => n -= 1));
             }
         }
 
@@ -192,12 +190,9 @@ class GameInput {
         this.obj.position.set(position.x, position.y, position.z + playerHeight);
         this.game.player.position.set(this.obj.position);
 
-        const direction = get(p1.direction);
-        const tx = 10 * Math.cos(direction) + position.x;
-        const ty = 10 * Math.sin(direction) + position.y;
-        this.obj.lookAt(tx, ty, this.obj.position.z);
-        vec.copy(this.getDirection(vec))
-        this.game.player.direction.set(Math.atan2(vec.y, vec.x));
+        euler.x = HALF_PI;
+        euler.z = get(p1.direction) + HALF_PI;
+        this.obj.quaternion.setFromEuler(euler);
     }
 
     evaluate(delta: number) {

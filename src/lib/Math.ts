@@ -6,6 +6,8 @@ export const EIGHTH_PI = Math.PI * 0.125;
 export const ToRadians = Math.PI / 180;
 export const ToDegrees = 180 / Math.PI;
 
+export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min)) + min;
+
 export function signedLineDistance(l: Vertex[], v: Vertex) {
     // https://math.stackexchange.com/questions/274712
     // https://www.xarg.org/book/linear-algebra/2d-perp-product/

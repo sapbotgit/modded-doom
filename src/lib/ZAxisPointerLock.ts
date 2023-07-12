@@ -14,15 +14,15 @@ interface PointerLockControlsParams {
 }
 export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams> =
 (node, params) => {
-    const { game } = params;
     const doc = node.ownerDocument;
+    let { game } = params;
 
     node.addEventListener('click', () => node.requestPointerLock());
     doc.addEventListener('pointerlockchange', pointerlockchange);
     doc.addEventListener('pointerlockerror', pointerlockerror);
 
     const update = (params: PointerLockControlsParams) => {
-
+        game = params.game;
     };
     const destroy = () => {
         unlock();

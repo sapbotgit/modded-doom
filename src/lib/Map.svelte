@@ -1,8 +1,8 @@
 <script lang="ts">
     import { Canvas, OrthographicCamera, PerspectiveCamera, type Position, type ThrelteContext } from "@threlte/core";
-    import type { DoomMap, DoomWad } from "../doomwad";
+    import type { DoomMap } from "../doomwad";
     import Stats from './Debug/Stats.svelte';
-    import { onDestroy, onMount, setContext } from "svelte";
+    import { onMount, setContext } from "svelte";
     import { createContext } from "./useDoom";
     import SkyBox from "./SkyBox.svelte";
     import EditPanel from "./Editor/EditPanel.svelte";
@@ -11,7 +11,6 @@
     import { pointerLockControls } from "./ZAxisPointerLock";
     import { Clock } from "three";
 
-    export let wad: DoomWad;
     export let map: DoomMap;
 
     Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -25,34 +24,25 @@
         pitch: playerPitch,
     } = game.player;
 
-    function target(position: Position, direction: number, pitch: number) {
-        const tx = 10 * Math.cos(direction) + position.x;
-        const ty = 10 * Math.sin(direction) + position.y;
-        const tz = 10 * Math.cos(pitch) + position.z;
-        return { x: tx, y: ty, z: tz };
-    }
-
     let clock = new Clock();
-    let dispose = false;
     let threlteCtx: ThrelteContext;
     onMount(() => {
         const interval = 1 / settings.targetFPS;
         let delta = 0;
+        let frame: number;
         function update() {
-            if (!dispose) {
-                requestAnimationFrame(update);
-            }
+            frame = requestAnimationFrame(update);
             delta += clock.getDelta();
 
             if (delta > interval) {
                 game.tick(delta);
                 threlteCtx.advance();
-                delta = delta % interval;
+                delta = 0;
             }
         }
         update();
-    })
-    onDestroy(() => dispose = true);
+        return () => cancelAnimationFrame(frame);
+    });
 </script>
 
 <div use:pointerLockControls={{ game }}>

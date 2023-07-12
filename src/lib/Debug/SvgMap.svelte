@@ -201,7 +201,7 @@
                 {/each}
                 {#each s.bspLines as bp}
                     {@const p = planeFrom(bp[0], bp[1])}
-                    <line x1={bp[0].x} y1={bp[0].y} x2={bp[1].x} y2={bp[1].y} stroke={'orange'} stroke-width={15}/>
+                    <line x1={bp[0].x} y1={bp[0].y} x2={bp[1].x} y2={bp[1].y} stroke={'orange'} stroke-width={15} />
                     <line x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2} stroke={'orange'} stroke-width={2}/>
                 {/each}
                 {#each bspPoints(s.bspLines) as v}
@@ -243,7 +243,7 @@
     {/if}
 
     {#if svgThings}
-        {#each map.renderThings as th}
+        {#each map.objs as th}
             <circle cx={th.source.x} cy={th.source.y} r={th.spec.mo.radius} stroke={thingColor(th)} stroke-width={3} />
             <line
                 x1={th.source.x}

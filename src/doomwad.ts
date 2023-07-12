@@ -4,7 +4,7 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.ts';
-import { HALF_PI, ToRadians, centerSort, intersectionPoint, signedLineDistance } from './lib/Math.js';
+import { HALF_PI, ToRadians, centerSort, intersectionPoint, randInt, signedLineDistance } from './lib/Math.js';
 import { get, writable, type Writable } from 'svelte/store';
 import { thingSpec, type ThingSpec } from './doom-things';
 import { states, type State, MFFlags, SpriteNames } from './doom-things-info.js';
@@ -157,6 +157,7 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
 export interface AnimatedTexture {
     frames: string[];
     current: number;
+    speed: number;
     target: Writable<string>;
 }
 
@@ -171,7 +172,7 @@ export class DoomMap {
     readonly segs: Seg[];
     readonly nodes: TreeNode[];
     readonly renderSectors: RenderSector[];
-    renderThings: MapObject[];
+    objs: MapObject[];
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
@@ -209,7 +210,7 @@ export class DoomMap {
             n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
         });
         this.renderSectors = buildRenderSectors(this.nodes);
-        this.renderThings = this.things.map(e => new MapObject(this, e));
+        this.objs = this.things.map(e => new MapObject(this, e));
 
         // apply animations only to the cached textures
         for (const texture of flatTextures.values()) {
@@ -221,10 +222,12 @@ export class DoomMap {
     }
 
     private initializeTextureAnimation(wad: DoomWad, target: Writable<string>, animInfoFn: 'animatedWallInfo' | 'animatedFlatInfo') {
+        // wall/flat animations are all 8 ticks each
+        const speed = 8;
         target.subscribe(v => {
             const animInfo = wad[animInfoFn](v);
             if (animInfo) {
-                this.animatedTextures.push({ frames: animInfo[1], current: animInfo[0], target });
+                this.animatedTextures.push({ frames: animInfo[1], current: animInfo[0], target, speed });
             }
         })();
     }
@@ -739,7 +742,11 @@ export class MapObject {
         const z = this.fromFloor ? get(sector.zFloor) : get(sector.zCeil) - this.spec.mo.height;
         this.position = writable({ x: source.x, y: source.y, z });
         this.direction = writable(Math.PI + source.angle * ToRadians);
-        this.setState(this.spec.mo.spawnstate)
+        this.setState(this.spec.mo.spawnstate);
+        // initial spawn sets ticks a little randomly so animations don't all move at the same time
+        if (this.ticks > 0) {
+            this.ticks = randInt(1, this.state.tics);
+        }
     }
 
     tick() {

@@ -38,7 +38,7 @@
     {/if}
 
     {#key selectedMap.name}
-      <Map {wad} map={selectedMap} />
+      <Map map={selectedMap} />
     {/key}
   {/if}
 </main>

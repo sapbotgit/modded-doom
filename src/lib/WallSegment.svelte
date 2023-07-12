@@ -70,7 +70,7 @@
             // peg to floor (bottom left)
             pegging = 0;
         }
-        material.map.offset.x = (($animOffset ?? 0) + $xOffset) * texture2.userData.invWidth;
+        material.map.offset.x = (($animOffset ?? 0) + $xOffset + seg.offset) * texture2.userData.invWidth;
         material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
     }
     $: if ($light) {
