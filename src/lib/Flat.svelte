@@ -12,13 +12,12 @@
     export let color: number;
     export let ceiling = false;
 
-    const { game } = useDoom();
+    const { game, textures, settings, editor } = useDoom();
     const { position: playerPosition } = game.player;
 
-    const { textures, settings, editor } = useDoom();
-    const { light } = renderSector.sector;
     $: visible = (ceiling && $playerPosition.z <= vertical)
             || (!ceiling && $playerPosition.z >= vertical);
+    const { light } = renderSector.sector;
 
     function material(name: string, light: number, selected: Sector) {
         const params: MeshStandardMaterialParameters = { side: ceiling ? BackSide : FrontSide };

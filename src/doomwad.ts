@@ -21,8 +21,7 @@ export interface Thing {
 }
 
 export interface LineDef {
-    v1: Vertex;
-    v2: Vertex;
+    v: Vertex[];
     flags: number;
     special: number;
     tag: number;
@@ -32,8 +31,7 @@ export interface LineDef {
     xOffset?: Writable<number>;
 }
 const toLineDef = (ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
-    v1: vertexes[ld.vertexStartIdx],
-    v2: vertexes[ld.vertexEndIdx],
+    v: [vertexes[ld.vertexStartIdx], vertexes[ld.vertexEndIdx]],
     left: sidedefs[ld.sidedefLeftIdx],
     right: sidedefs[ld.sidedefRightIdx],
     tag: ld.sectorTag,
@@ -133,16 +131,17 @@ interface NodeBounds {
     right: number;
 }
 export interface TreeNode {
-    v1: Vertex;
-    v2: Vertex;
+    v: Vertex[];
     boundsRight: NodeBounds;
     boundsLeft: NodeBounds;
     childRight: TreeNode | SubSector;
     childLeft: TreeNode | SubSector;
 }
 const toNode = (item: any): TreeNode => ({
-    v1: { x: item.xStart, y: item.yStart },
-    v2: { x: item.xStart + item.xChange, y: item.yStart + item.yChange },
+    v: [
+        { x: item.xStart, y: item.yStart },
+        { x: item.xStart + item.xChange, y: item.yStart + item.yChange },
+    ],
     childRight: item.rightChild,
     childLeft: item.leftChild,
     boundsRight: item.rightBounds,
@@ -237,7 +236,7 @@ export class DoomMap {
                 return node.sector;
             }
             // is Left https://stackoverflow.com/questions/1560492
-            const cross = (node.v2.x - node.v1.x) * (y - node.v1.y) - (node.v2.y - node.v1.y) * (x - node.v1.x);
+            const cross = (node.v[1].x - node.v[0].x) * (y - node.v[0].y) - (node.v[1].y - node.v[0].y) * (x - node.v[0].x);
             if (cross <= 0) {
                 node = node.childRight;
             } else {
@@ -666,11 +665,11 @@ function buildRenderSectors(nodes: TreeNode[]) {
     }
 
     function visitNode(node: TreeNode) {
-        bspLines.push([node.v1, node.v2]);
+        bspLines.push(node.v);
         visitNodeChild(node.childLeft);
         bspLines.pop();
 
-        bspLines.push([node.v2, node.v1]);
+        bspLines.push([node.v[1], node.v[0]]);
         visitNodeChild(node.childRight);
         bspLines.pop();
     }

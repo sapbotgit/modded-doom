@@ -3,7 +3,7 @@
     import type { LineDef, Seg, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
-    import { HALF_PI, angleIsVisible, signedLineDistance } from "./Math";
+    import { HALF_PI } from "./Math";
     import Wireframe from "./Debug/Wireframe.svelte";
 
     export let seg: Seg;
@@ -12,14 +12,12 @@
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
 
     // geometry
+    export let visible: boolean;
     export let width: number;
     export let height: number;
     export let top: number;
     export let mid: Vertex;
     export let angle: number;
-
-    const { game } = useDoom();
-    const { direction: playerDirection, position: playerPosition } = game.player;
 
     // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
@@ -36,12 +34,6 @@
     const { light } = sidedef.sector;
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
-    $: visible = (true
-        && texture
-        && height > 0
-        && width > 0
-        && angleIsVisible($playerDirection + HALF_PI, seg.angle)
-    );
 
     function material(name: string, flags: number, xOffset: number, yOffset: number,  animOffset: number, light: number, selected: LineDef) {
         if (!name || !settings.useTextures) {
@@ -107,7 +99,7 @@
 </script>
 
 <Mesh
-    {visible}
+    visible={texture && height > 0 && width > 0 && visible}
     interactive={$editor.active}
     on:click={hit}
     position={{ x: mid.x, y: mid.y, z: top - height * .5 }}

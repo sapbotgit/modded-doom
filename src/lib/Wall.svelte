@@ -1,9 +1,18 @@
 <script lang="ts">
     import type { Seg } from "../doomwad";
+    import { HALF_PI, angleIsVisible, signedLineDistance } from "./Math";
     import WallSegment from "./WallSegment.svelte";
+    import { useDoom } from "./useDoom";
 
     export let seg: Seg;
     const linedef = seg.linedef;
+
+    const { game } = useDoom();
+    const { direction: playerDirection, position: playerPosition } = game.player;
+    $: visible =
+        // true;
+        angleIsVisible($playerDirection + HALF_PI, seg.angle);
+        // signedLineDistance(linedef.v, $playerPosition as any) * (seg.direction ? 1 : -1) < 0;
 
     const mid = {
         x: (seg.vx2.x + seg.vx1.x) * 0.5,
@@ -36,7 +45,7 @@
             {@const top = Math.max($zCeilR, $zCeilL)}
             <WallSegment
                 {seg} {linedef} {sidedef}
-                {width} {angle} {mid} {top} {height}
+                {visible} {width} {angle} {mid} {top} {height}
                 type={'upper'}
             />
         {/if}
@@ -45,7 +54,7 @@
             {@const top = Math.max($zFloorR, $zFloorL)}
             <WallSegment
                 {seg} {linedef} {sidedef}
-                {width} {angle} {mid} {top} {height}
+                {visible} {width} {angle} {mid} {top} {height}
                 type={'lower'}
             />
         {/if}
@@ -55,7 +64,7 @@
             {@const height = top - Math.max($zFloorL, $zFloorR)}
             <WallSegment
                 {seg} {linedef} {sidedef}
-                {width} {angle} {mid} {top} {height}
+                {visible} {width} {angle} {mid} {top} {height}
             />
         {/if}
     {:else}
@@ -63,7 +72,7 @@
         {@const height = top - $zFloorR}
         <WallSegment
             {seg} {linedef} {sidedef}
-            {width} {angle} {mid} {top} {height}
+            {visible} {width} {angle} {mid} {top} {height}
         />
     {/if}
 {/if}

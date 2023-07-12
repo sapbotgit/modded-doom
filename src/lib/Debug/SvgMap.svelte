@@ -29,10 +29,10 @@
         let right = map.vertexes[0].x;
         let bottom = map.vertexes[0].y;
         for (const ld of map.linedefs) {
-            left = Math.min(ld.v1.x, ld.v2.x, left);
-            right = Math.max(ld.v1.x, ld.v2.x, right);
-            top = Math.min(ld.v1.y, ld.v2.y, top);
-            bottom = Math.max(ld.v1.y, ld.v2.y, bottom);
+            left = Math.min(ld.v[0].x, ld.v[1].x, left);
+            right = Math.max(ld.v[0].x, ld.v[1].x, right);
+            top = Math.min(ld.v[0].y, ld.v[1].y, top);
+            bottom = Math.max(ld.v[0].y, ld.v[1].y, bottom);
         }
         width = Math.abs(left - padding) + Math.abs(right + padding);
         height = Math.abs(top - padding) + Math.abs(bottom + padding);
@@ -119,7 +119,7 @@
         //         return;
         //     }
         //     // is Left https://stackoverflow.com/questions/1560492
-        //     const cross = (node.v2.x - node.v1.x) * (cp.y - node.v1.y) - (node.v2.y - node.v1.y) * (cp.x - node.v1.x);
+        //     const cross = (node.v[1].x - node.v[0].x) * (cp.y - node.v[0].y) - (node.v[1].y - node.v[0].y) * (cp.x - node.v[0].x);
         //     if (cross > 0) {
         //         node = node.childLeft
         //     } else {
@@ -213,10 +213,10 @@
 
     {#each map.linedefs as ld}
         <line
-            x1={ld.v1.x}
-            y1={ld.v1.y}
-            x2={ld.v2.x}
-            y2={ld.v2.y}
+            x1={ld.v[0].x}
+            y1={ld.v[0].y}
+            x2={ld.v[1].x}
+            y2={ld.v[1].y}
             stroke={lineStroke(ld)}
             stroke-width={5}
             on:click={() => console.log(ld)}
@@ -232,10 +232,10 @@
     {#if svgStartSector}
         {#each map.linedefs.filter((ld) => ld.right.sector === sect) as ld}
             <line
-                x1={ld.v1.x}
-                y1={ld.v1.y}
-                x2={ld.v2.x}
-                y2={ld.v2.y}
+                x1={ld.v[0].x}
+                y1={ld.v[0].y}
+                x2={ld.v[1].x}
+                y2={ld.v[1].y}
                 stroke={"magenta"}
                 stroke-width={5}
             />
