@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
     import type { RenderSector } from "../doomwad";
-    import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, Color, Camera } from "three";
+    import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, Color } from "three";
     import { useDoom } from "./useDoom";
     import Wireframe from "./Debug/Wireframe.svelte";
 

@@ -8,6 +8,9 @@
 
 <h3>Linedef</h3>
 <div>
+    flags {linedef.flags}
+</div>
+<div>
     {#if linedef.left}
         <h4>Right sidedef</h4>
     {/if}

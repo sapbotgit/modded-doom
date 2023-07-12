@@ -16,6 +16,7 @@
     function createShape(verts: Vertex[]) {
         const shape = new Shape();
         shape.autoClose = true;
+        shape.arcLengthDivisions = 1;
         shape.moveTo(verts[0].x, verts[0].y);
         for (let i = 1; i < verts.length; i++) {
             shape.lineTo(verts[i].x, verts[i].y);

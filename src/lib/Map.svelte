@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Canvas, OrthographicCamera, PerspectiveCamera, type Position, type ThrelteContext } from "@threlte/core";
+    import { Canvas, type ThrelteContext } from "@threlte/core";
     import type { DoomMap } from "../doomwad";
     import Stats from './Debug/Stats.svelte';
     import { onMount, setContext } from "svelte";
@@ -44,7 +44,12 @@
         return () => cancelAnimationFrame(frame);
     });
 </script>
-
+<!--
+<select on:change={ev => game.input.cameraMode = ev.currentTarget.value}>
+    <option>bird</option>
+    <option>1p</option>
+    <option>3p</option>
+</select> -->
 <div use:pointerLockControls={{ game }}>
     <!-- <div id="lock-message">
         Controls: WASD

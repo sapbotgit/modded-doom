@@ -4,7 +4,7 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.ts';
-import { ToRadians, centerSort, intersectionPoint, randInt, signedLineDistance } from './lib/Math.js';
+import { HALF_PI, ToRadians, centerSort, lineLineIntersect, randInt, signedLineDistance } from './lib/Math.js';
 import { get, writable, type Writable } from 'svelte/store';
 import { thingSpec, type ThingSpec } from './doom-things';
 import { states, type State, MFFlags, SpriteNames, StateIndex } from './doom-things-info.js';
@@ -98,28 +98,51 @@ export interface Sector {
         floorFlat: string;
         ceilFlat: string;
     };
+    values: {
+        zFloor: number;
+        zCeil: number;
+        light: number;
+        floorFlat: string;
+        ceilFlat: string;
+    }
     zFloor: Writable<number>;
     zCeil: Writable<number>;
     light: Writable<number>;
     floorFlat: Writable<string>;
     ceilFlat: Writable<string>;
 }
-const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => ({
-    source: {
-        zFloor: sd.floorZ,
-        zCeil: sd.ceilZ,
-        light: sd.light,
-        floorFlat: fixTextureName(sd.floorFlat),
-        ceilFlat: fixTextureName(sd.ceilFlat),
-    },
-    tag: sd.tag,
-    type: sd.specialType,
-    zFloor: writable(sd.floorZ),
-    zCeil: writable(sd.ceilZ),
-    light: writable(sd.light),
-    floorFlat: textures.get(fixTextureName(sd.floorFlat)),
-    ceilFlat: textures.get(fixTextureName(sd.ceilFlat)),
-});
+const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => {
+    const sector = {
+        source: {
+            zFloor: sd.floorZ,
+            zCeil: sd.ceilZ,
+            light: sd.light,
+            floorFlat: fixTextureName(sd.floorFlat),
+            ceilFlat: fixTextureName(sd.ceilFlat),
+        },
+        values: {
+            zFloor: sd.floorZ,
+            zCeil: sd.ceilZ,
+            light: sd.light,
+            floorFlat: fixTextureName(sd.floorFlat),
+            ceilFlat: fixTextureName(sd.ceilFlat),
+        },
+        tag: sd.tag,
+        type: sd.specialType,
+        zFloor: writable(sd.floorZ),
+        zCeil: writable(sd.ceilZ),
+        light: writable(sd.light),
+        floorFlat: textures.get(fixTextureName(sd.floorFlat)),
+        ceilFlat: textures.get(fixTextureName(sd.ceilFlat)),
+    };
+    // so we don't need to use get() on critical code paths (like collision detection)
+    sector.zFloor.subscribe(v => sector.values.zFloor = v);
+    sector.zCeil.subscribe(v => sector.values.zCeil = v);
+    sector.light.subscribe(v => sector.values.light = v);
+    sector.floorFlat.subscribe(v => sector.values.floorFlat = v);
+    sector.ceilFlat.subscribe(v => sector.values.ceilFlat = v);
+    return sector;
+}
 
 export interface SubSector {
     sector: Sector;
@@ -238,11 +261,11 @@ export class DoomMap {
         })();
     }
 
-    findSector(x: number, y: number): Sector {
+    findSubSector(x: number, y: number): SubSector {
         let node: TreeNode | SubSector = this.nodes[this.nodes.length - 1];
         while (true) {
             if ('segs' in node) {
-                return node.sector;
+                return node;
             }
             // is Left https://stackoverflow.com/questions/1560492
             const cross = (node.v[1].x - node.v[0].x) * (y - node.v[0].y) - (node.v[1].y - node.v[0].y) * (x - node.v[0].x);
@@ -252,6 +275,10 @@ export class DoomMap {
                 node = node.childLeft
             }
         }
+    }
+
+    findSector(x: number, y: number): Sector {
+        return this.findSubSector(x, y).sector;
     }
 
     sectorNeighbours(sector: Sector): Sector[] {
@@ -702,7 +729,7 @@ function subsectorVerts(ssec: SubSector, bspLines: Vertex[][]) {
     // https://github.com/cristicbz/rust-doom/blob/6aa7681cee4e181a2b13ecc9acfa3fcaa2df4014/wad/src/visitor.rs#L670
     for (let i = 0; i < bspLines.length - 1; i++) {
         for (let j = i; j < bspLines.length; j++) {
-            let point = intersectionPoint(bspLines[i], bspLines[j]);
+            let point = lineLineIntersect(bspLines[i], bspLines[j]);
             if (!point) {
                 continue;
             }

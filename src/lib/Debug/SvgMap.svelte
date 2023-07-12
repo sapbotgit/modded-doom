@@ -1,8 +1,7 @@
 <script lang="ts">
     import { Color } from "three";
     import type { DoomMap, DoomWad, LineDef, Sector, Thing, Vertex, MapObject, RenderSector } from "../../doomwad";
-    import { ToRadians, intersectionPoint, signedLineDistance } from '../Math';
-    import { MFFlags } from "../../doom-things-info";
+    import { ToRadians, lineLineIntersect, signedLineDistance } from '../Math';
 
     export let wad: DoomWad;
     export let map: DoomMap;
@@ -10,8 +9,8 @@
     let svgStartSector = true;
     let svgBspBoxes = false;
     let svgVertexes = false;
-    let svgSubSectors = true;
-    let svgThings = false;
+    let svgSubSectors = false;
+    let svgThings = true;
 
     let sect: Sector;
     const padding = 40;
@@ -59,7 +58,7 @@
         let points = [];
         for (let i = 0; i < bspLines.length - 1; i++) {
             for (let j = i; j < bspLines.length; j++) {
-                const point = intersectionPoint(bspLines[i], bspLines[j]);
+                const point = lineLineIntersect(bspLines[i], bspLines[j]);
                 if (point) {
                     points.push(point);
                 }
@@ -145,6 +144,9 @@
     }
 </script>
 
+<!-- <div use:pointerLockControls={{ game }}>
+    Click to lock controls
+</div> -->
 <div>
     <label><input type="checkbox" bind:checked={svgStartSector} /> Highlight current sector</label>
     <label><input type="checkbox" bind:checked={svgBspBoxes} /> Bsp bounding boxes</label>
