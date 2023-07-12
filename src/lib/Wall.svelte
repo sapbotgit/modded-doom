@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { Seg } from "../doomwad";
-    import { HALF_PI, angleIsVisible, signedLineDistance } from "./Math";
+    import { HALF_PI, angleIsVisible } from "./Math";
     import WallSegment from "./WallSegment.svelte";
     import { useDoom } from "./useDoom";
 
@@ -8,10 +8,12 @@
     const linedef = seg.linedef;
 
     const { game } = useDoom();
-    const { direction: playerDirection, position: playerPosition } = game.player;
+    const { direction: playerDirection } = game.player;
     $: visible =
         // true;
         angleIsVisible($playerDirection + HALF_PI, seg.angle);
+        // signedLineDistance is actually better (we display less geometry) but overall more expensive
+        // so until we start using bsp, let's keep using the visible angle thing
         // signedLineDistance(linedef.v, $playerPosition as any) * (seg.direction ? 1 : -1) < 0;
 
     const mid = {
@@ -21,7 +23,6 @@
     const vx = seg.vx2.x - seg.vx1.x;
     const vy = seg.vx2.y - seg.vx1.y;
     const width = Math.sqrt(vx * vx + vy * vy);
-    const angle = seg.angle;
 
     const useLeft = seg.direction === 1;
     const sidedef = useLeft ? linedef.left : linedef.right;
@@ -45,7 +46,7 @@
             {@const top = Math.max($zCeilR, $zCeilL)}
             <WallSegment
                 {seg} {linedef} {sidedef}
-                {visible} {width} {angle} {mid} {top} {height}
+                {visible} {width} {height} {top} {mid}
                 type={'upper'}
             />
         {/if}
@@ -54,17 +55,17 @@
             {@const top = Math.max($zFloorR, $zFloorL)}
             <WallSegment
                 {seg} {linedef} {sidedef}
-                {visible} {width} {angle} {mid} {top} {height}
+                {visible} {width} {height} {top} {mid}
                 type={'lower'}
             />
         {/if}
-        <!-- And middle(s) -->
-        {#if $middleL || $middleR}
+        <!-- And middle -->
+        {#if seg.direction === 1 ? $middleL : $middleR}
             {@const top = Math.min($zCeilL, $zCeilR)}
             {@const height = top - Math.max($zFloorL, $zFloorR)}
             <WallSegment
                 {seg} {linedef} {sidedef}
-                {visible} {width} {angle} {mid} {top} {height}
+                {visible} {width} {height} {top} {mid}
             />
         {/if}
     {:else}
@@ -72,7 +73,7 @@
         {@const height = top - $zFloorR}
         <WallSegment
             {seg} {linedef} {sidedef}
-            {visible} {width} {angle} {mid} {top} {height}
-        />
+            {visible} {width} {height} {top} {mid}
+            />
     {/if}
 {/if}

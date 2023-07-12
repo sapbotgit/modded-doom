@@ -113,6 +113,7 @@
     <div>height: {texture.userData.height}</div>
     <div>xOffset: {texture.userData.xOffset}</div>
     <div>yOffset: {texture.userData.yOffset}</div>
+    <div>fullbright: {$sprite.fullbright}</div>
 </div>
 
 <style>

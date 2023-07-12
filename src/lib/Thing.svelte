@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, Texture, type MeshStandardMaterialParameters, type ColorRepresentation } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry, Texture, type MeshStandardMaterialParameters, type ColorRepresentation, Color } from 'three';
     import { useDoom } from './useDoom';
     import type { DoomMap, MapObject } from '../doomwad';
     import { EIGHTH_PI, HALF_PI, QUARTER_PI } from './Math';
@@ -26,15 +26,19 @@
     $: hOffset = texture.userData.xOffset - texture.userData.width * .5;
     $: vOffset = texture.userData.yOffset - texture.userData.height;
 
-    $: color = $sprite.fullbright ? 'white' : textures.lightColor($light);
+    $: material = new MeshStandardMaterial({ alphaTest: 1 });
+    $: if (texture) {
+        material.map = texture;
+    }
+    $: if ($sprite.fullbright || textures.lightColor($light)) {
+        material.color = $sprite.fullbright ? textures.lightColor(255) : textures.lightColor($light);
+    }
 
-    function material(map: Texture, color: ColorRepresentation, selected: MapObject) {
-        const params: MeshStandardMaterialParameters = { map, color, alphaTest: 1 };
-        if (selected === thing) {
-            params.emissive = 'magenta';
-            params.emissiveIntensity = 0.1;
-        }
-        return new MeshStandardMaterial(params);
+    $: if ($editor.selected === thing) {
+        material.emissive = new Color('magenta');
+        material.emissiveIntensity = 0.1;
+    } else {
+        material.emissiveIntensity = 0;
     }
 
     function hit() {
@@ -50,7 +54,7 @@
 <Mesh
     interactive={$editor.active}
     on:click={hit}
-    material={material(texture, color, $editor.selected)}
+    {material}
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
     rotation={{ y: $playerDirection, x: HALF_PI, order:'ZXY' }}

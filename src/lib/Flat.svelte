@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
-    import type { RenderSector, Sector } from "../doomwad";
-    import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, MultiplyBlending, type MeshStandardMaterialParameters, AdditiveBlending, NormalBlending, NoBlending } from "three";
+    import type { RenderSector } from "../doomwad";
+    import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, Color } from "three";
     import { useDoom } from "./useDoom";
     import Wireframe from "./Debug/Wireframe.svelte";
 
@@ -19,20 +19,18 @@
             || (!ceiling && $playerPosition.z >= vertical);
     const { light } = renderSector.sector;
 
-    function material(name: string, light: number, selected: Sector) {
-        const params: MeshStandardMaterialParameters = { side: ceiling ? BackSide : FrontSide };
-        if (settings.useTextures && name) {
-            params.map = textures.get(name, 'flat');
-            params.color = textures.lightColor(light);
-        } else {
-            params.color = color;
-        }
-        if (selected === renderSector.sector) {
-            params.emissive = 'magenta';
-            params.emissiveIntensity = 0.1;
-        }
-        // TODO: use MeshBasic here (and WallSegment and Thing) because we only have one ambient light
-        return new MeshStandardMaterial(params);
+    $: material = new MeshStandardMaterial({ color, side: ceiling ? BackSide : FrontSide });
+    $: if (textureName && settings.useTextures) {
+        material.map = textures.get(textureName, 'flat');
+    }
+    $: if ($light) {
+        material.color = textures.lightColor($light);
+    }
+    $: if ($editor.selected === renderSector.sector) {
+        material.emissive = new Color('magenta');
+        material.emissiveIntensity = 0.1;
+    } else {
+        material.emissiveIntensity = 0;
     }
 
     function hit() {
@@ -49,7 +47,7 @@
         {visible}
         interactive={$editor.active}
         {geometry}
-        material={material(textureName, $light, $editor.selected)}
+        {material}
         position={{ z: vertical }}
         on:click={hit}
     >

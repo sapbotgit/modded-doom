@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry, type MeshStandardMaterialParameters } from "three";
+    import { MeshStandardMaterial, PlaneGeometry, type MeshStandardMaterialParameters, Color } from "three";
     import type { LineDef, Seg, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
@@ -17,7 +17,6 @@
     export let height: number;
     export let top: number;
     export let mid: Vertex;
-    export let angle: number;
 
     // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
@@ -35,24 +34,26 @@
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
 
-    function material(name: string, flags: number, xOffset: number, yOffset: number,  animOffset: number, light: number, selected: LineDef) {
-        if (!name || !settings.useTextures) {
-            const color = selected === linedef ? 'magenta' : lineStroke();
-            return new MeshStandardMaterial({ color });
-        }
-
-        const texture2 = textures.get(name, 'wall').clone();
-
-        const invTextureWidth = texture2.userData.invWidth;
-        const invTextureHeight = texture2.userData.invHeight;
-        texture2.repeat.set(width * invTextureWidth, height * invTextureHeight);
-
+    // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
+    // and we get a ~25% performance boost. I'd rather keep this and figure out a way to cull
+    $: material = new MeshStandardMaterial({ color: lineStroke() });
+    $: texture2 = texture && settings.useTextures ? textures.get(texture, 'wall').clone() : null;
+    $: if (texture2) {
+        texture2.repeat.x = width * texture2.userData.invWidth;
+        texture2.repeat.y = height * texture2.userData.invHeight;
+        material.map = texture2;
+    }
+    $: if (texture2 && (flags || $xOffset || $yOffset || ($animOffset ?? 0))) {
         // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
         // threejs uses 0,0 in bottom left but doom uses 0,0 for top left so we by default
         // "peg" the corner to the top left by offsetting by height
         let pegging = -height;
         if (flags & 0x0004) {
-            // two-sided
+            // two-sided segs with a middle texture need alpha test
+            if (type === 'middle') {
+                material.alphaTest = 1;
+            }
+
             if (type === 'lower' && (flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
                 // TODO: hmmm... the blue wall with the switch at the far side of E3M6 works with Max(ceilR, ceilL)
@@ -69,21 +70,18 @@
             // peg to floor (bottom left)
             pegging = 0;
         }
-        texture2.offset.x = (animOffset + xOffset) * invTextureWidth;
-        texture2.offset.y = (-yOffset + pegging) * invTextureHeight;
-        let color = textures.lightColor(light);
+        material.map.offset.x = (($animOffset ?? 0) + $xOffset) * texture2.userData.invWidth;
+        material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
+    }
+    $: if ($light) {
+        material.color = textures.lightColor($light);
+    }
 
-        const params: MeshStandardMaterialParameters = { map: texture2, color };
-        if (selected === linedef) {
-            params.emissive = 'magenta';
-            params.emissiveIntensity = 0.1;
-        }
-        if (linedef.flags & 0x0004) {
-            params.alphaTest = 1;
-        }
-        // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
-        // and we get a ~25% performance boost. I'd rather keep this and figure out a way to cull
-        return new MeshStandardMaterial(params);
+    $: if ($editor.selected === linedef) {
+        material.emissive = new Color('magenta');
+        material.emissiveIntensity = 0.1;
+    } else {
+        material.emissiveIntensity = 0;
     }
 
     function lineStroke() {
@@ -103,9 +101,9 @@
     interactive={$editor.active}
     on:click={hit}
     position={{ x: mid.x, y: mid.y, z: top - height * .5 }}
-    rotation={{ z: angle, x: HALF_PI, order:'ZXY' }}
+    rotation={{ z: seg.angle, x: HALF_PI, order:'ZXY' }}
     geometry={new PlaneGeometry(width, height)}
-    material={material(texture, flags, $xOffset, $yOffset, $animOffset ?? 0, $light, $editor.selected)}
+    material={material}
 >
     <Wireframe />
 </Mesh>

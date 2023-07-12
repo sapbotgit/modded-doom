@@ -1,4 +1,4 @@
-import { DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
+import { Color, DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import type { DoomWad } from "../doomwad";
 import { sineIn } from 'svelte/easing';
 
@@ -7,8 +7,16 @@ const flatRepeat = 1 / 64;
 
 export class MapTextures {
     private cache = new Map<string, Texture>();
+    private lightCache = new Map<number, Color>;
 
-    constructor(readonly wad: DoomWad) {}
+    constructor(readonly wad: DoomWad) {
+        const maxLight = 255;
+        for (let i = 0; i < maxLight + 1; i++) {
+            // scale light using a curve to make it look more like doom
+            const light = Math.floor(sineIn(i / maxLight) * maxLight);
+            this.lightCache.set(i, new Color(light | light << 8 | light << 16));
+        }
+    }
 
     get(name: string, type: 'wall' | 'flat' | 'sprite') {
         const cacheKey = type[0] + name;
@@ -51,10 +59,7 @@ export class MapTextures {
     }
 
     // TODO: find a better place for this
-    // scale light using a curve to make it look more like doom
     lightColor(light: number) {
-        const t = light / 255;
-        light = Math.floor(sineIn(t) * 255);
-        return light | light << 8 | light << 16;
+        return this.lightCache.get(light);
     }
 }
