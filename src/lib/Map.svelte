@@ -29,15 +29,19 @@
     onMount(() => {
         const interval = 1 / settings.targetFPS;
         let delta = 0;
+        let frameDelta = 0;
         let frame: number;
         function update() {
             frame = requestAnimationFrame(update);
-            delta += clock.getDelta();
+            const d = clock.getDelta();
+            delta += d;
+            frameDelta += d;
 
-            if (delta > interval) {
-                game.tick(delta);
+            if (frameDelta > interval) {
                 threlteCtx.advance();
+                game.tick(delta);
                 delta = 0;
+                frameDelta = frameDelta % interval
             }
         }
         update();

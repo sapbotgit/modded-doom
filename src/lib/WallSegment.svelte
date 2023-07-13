@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry, type MeshStandardMaterialParameters, Color } from "three";
+    import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
     import type { LineDef, Seg, SideDef, Vertex } from "../doomwad";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
@@ -97,7 +97,7 @@
 </script>
 
 <Mesh
-    visible={texture && height > 0 && width > 0 && visible}
+    visible={texture && visible}
     interactive={$editor.active}
     on:click={hit}
     position={{ x: mid.x, y: mid.y, z: top - height * .5 }}

@@ -4,7 +4,7 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.ts';
-import { HALF_PI, ToRadians, centerSort, intersectionPoint, randInt, signedLineDistance } from './lib/Math.js';
+import { ToRadians, centerSort, intersectionPoint, randInt, signedLineDistance } from './lib/Math.js';
 import { get, writable, type Writable } from 'svelte/store';
 import { thingSpec, type ThingSpec } from './doom-things';
 import { states, type State, MFFlags, SpriteNames } from './doom-things-info.js';
@@ -76,7 +76,12 @@ export interface Seg {
 const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
     vx1: vertexes[item.vertexStart],
     vx2: vertexes[item.vertexEnd],
-    angle: (item.angle * Math.PI / 32768),
+    // re-compute this angle because we can be more precise
+    // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
+    // angle: (item.angle * Math.PI / 32768),
+    angle: Math.atan2(
+        vertexes[item.vertexEnd].y - vertexes[item.vertexStart].y,
+        vertexes[item.vertexEnd].x - vertexes[item.vertexStart].x),
     linedef: linedefs[item.linedef],
     direction: item.direction,
     offset: item.offset,

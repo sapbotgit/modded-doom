@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { Seg } from "../doomwad";
-    import { HALF_PI, angleIsVisible } from "./Math";
+    import { HALF_PI, angleIsVisible, signedLineDistance } from "./Math";
     import WallSegment from "./WallSegment.svelte";
     import { useDoom } from "./useDoom";
 
@@ -8,7 +8,7 @@
     const linedef = seg.linedef;
 
     const { game } = useDoom();
-    const { direction: playerDirection } = game.player;
+    const { direction: playerDirection, position: playerPosition } = game.player;
     $: visible =
         // true;
         angleIsVisible($playerDirection + HALF_PI, seg.angle);
@@ -38,42 +38,50 @@
     const skyHack = ($ceilFlatL === 'F_SKY1' && $ceilFlatR === 'F_SKY1');
 </script>
 
-{#if sidedef}
+{#if sidedef && width > 0}
     {#if flags & 0x0004}
         <!-- two-sided so figure out top and bottom -->
         {#if $zCeilL !== $zCeilR && !skyHack}
             {@const height = useLeft ? $zCeilL - $zCeilR : $zCeilR - $zCeilL}
             {@const top = Math.max($zCeilR, $zCeilL)}
-            <WallSegment
-                {seg} {linedef} {sidedef}
-                {visible} {width} {height} {top} {mid}
-                type={'upper'}
-            />
+            {#if height > 0}
+                <WallSegment
+                    {seg} {linedef} {sidedef}
+                    {visible} {width} {height} {top} {mid}
+                    type={'upper'}
+                />
+            {/if}
         {/if}
         {#if $zFloorL !== $zFloorR}
             {@const height = useLeft ? $zFloorR - $zFloorL : $zFloorL - $zFloorR}
             {@const top = Math.max($zFloorR, $zFloorL)}
-            <WallSegment
-                {seg} {linedef} {sidedef}
-                {visible} {width} {height} {top} {mid}
-                type={'lower'}
-            />
+            {#if height > 0}
+                <WallSegment
+                    {seg} {linedef} {sidedef}
+                    {visible} {width} {height} {top} {mid}
+                    type={'lower'}
+                />
+            {/if}
         {/if}
         <!-- And middle -->
         {#if seg.direction === 1 ? $middleL : $middleR}
             {@const top = Math.min($zCeilL, $zCeilR)}
             {@const height = top - Math.max($zFloorL, $zFloorR)}
+            {#if height > 0}
+                <WallSegment
+                    {seg} {linedef} {sidedef}
+                    {visible} {width} {height} {top} {mid}
+                />
+            {/if}
+        {/if}
+    {:else}
+        {@const top = $zCeilR}
+        {@const height = top - $zFloorR}
+        {#if height > 0}
             <WallSegment
                 {seg} {linedef} {sidedef}
                 {visible} {width} {height} {top} {mid}
             />
         {/if}
-    {:else}
-        {@const top = $zCeilR}
-        {@const height = top - $zFloorR}
-        <WallSegment
-            {seg} {linedef} {sidedef}
-            {visible} {width} {height} {top} {mid}
-            />
     {/if}
 {/if}
