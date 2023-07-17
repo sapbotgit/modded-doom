@@ -73,7 +73,7 @@
         material.map.offset.x = (($animOffset ?? 0) + $xOffset + seg.offset) * texture2.userData.invWidth;
         material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
     }
-    $: if ($light) {
+    $: if ($light !== undefined) {
         material.color = textures.lightColor($light);
     }
 

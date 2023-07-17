@@ -10,6 +10,7 @@
     import { Object3D } from "three";
     import { pointerLockControls } from "./ZAxisPointerLock";
     import { Clock } from "three";
+    import Player from "./Player.svelte";
 
     export let map: DoomMap;
 
@@ -18,11 +19,6 @@
     const doomContext = createContext(map);
     setContext('doom-context', doomContext);
     const { game, settings } = doomContext;
-    const {
-        direction: playerDirection,
-        position: playerPosition,
-        pitch: playerPitch,
-    } = game.player;
 
     let clock = new Clock();
     let threlteCtx: ThrelteContext;
@@ -58,21 +54,11 @@
     <Canvas size={{ width: 800, height: 600 }} frameloop='never' bind:ctx={threlteCtx}>
         <Stats />
 
-        <!-- <OrthographicCamera
-            lookAt={target($playerPosition, $playerDirection)}
-            position={$playerPosition}
-        /> -->
-        <!-- lookAt={target($playerPosition, $playerDirection, $playerPitch)} -->
-        <PerspectiveCamera
-            rotation={{ z: $playerDirection, x: $playerPitch, order: 'ZXY' }}
-            position={$playerPosition}
-            far={100000}
-            fov={70}
-        />
-
         <SkyBox {map} />
 
         <MapGeo {map} />
+
+        <Player />
     </Canvas>
 
     <EditPanel {map} />

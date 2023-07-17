@@ -7,8 +7,9 @@ import DoomWadRaw from './doom-wad.ksy.ts';
 import { ToRadians, centerSort, intersectionPoint, randInt, signedLineDistance } from './lib/Math.js';
 import { get, writable, type Writable } from 'svelte/store';
 import { thingSpec, type ThingSpec } from './doom-things';
-import { states, type State, MFFlags, SpriteNames } from './doom-things-info.js';
+import { states, type State, MFFlags, SpriteNames, StateIndex } from './doom-things-info.js';
 import type { Position } from '@threlte/core';
+import { Vector3 } from 'three';
 
 type ThingType = number;
 
@@ -731,22 +732,28 @@ export class MapObject {
     readonly spec: ThingSpec;
     readonly position: Writable<Position>;
     readonly direction: Writable<number>;
-    readonly pitch = writable(0);
-    readonly sector: Writable<Sector>;
+    readonly sector = writable(null);
     readonly fromFloor: boolean = true;
     readonly sprite = writable<Sprite>(null);
+    readonly velocity = new Vector3();
     private state: State;
     private ticks: number;
 
-    constructor(private map: DoomMap, readonly source: Thing) {
+    get currentState() { return this._state; }
+    private _state: StateIndex;
+
+    constructor(map: DoomMap, readonly source: Thing) {
         this.spec = thingSpec(source.type);
         this.fromFloor = !(this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
 
-        const sector = map.findSector(source.x, source.y);
-        this.sector = writable(sector);
-        const z = this.fromFloor ? get(sector.zFloor) : get(sector.zCeil) - this.spec.mo.height;
-        this.position = writable({ x: source.x, y: source.y, z });
         this.direction = writable(Math.PI + source.angle * ToRadians);
+        this.position = writable({ x: source.x, y: source.y, z: 0 });
+        this.position.subscribe(p => {
+            const sector = map.findSector(p.x, p.y);
+            p.z = this.fromFloor ? get(sector.zFloor) : get(sector.zCeil) - this.spec.mo.height;
+            this.sector.set(sector);
+        });
+
         this.setState(this.spec.mo.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
         if (this.ticks > 0) {
@@ -755,6 +762,9 @@ export class MapObject {
     }
 
     tick() {
+        // friction
+        this.velocity.multiplyScalar(.90625);
+
         if (!this.state || this.ticks === -1) {
             return;
         }
@@ -767,7 +777,8 @@ export class MapObject {
         this.setState(this.state.nextState)
     }
 
-    private setState(stateIndex: number) {
+    setState(stateIndex: number) {
+        this._state = stateIndex;
         this.state = states[stateIndex];
         this.ticks = this.state.tics;
 

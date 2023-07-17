@@ -2,14 +2,14 @@ import { getContext } from 'svelte'
 import type { DoomMap } from '../doomwad';
 import { MapTextures } from './Texture';
 import { DoomGame } from '../doom-game';
-import { writable, type Writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 
 export const createContext = (map: DoomMap) => {
     const game = new DoomGame(map);
 
     const editor = writable({
         updateThings: () => map.objs = map.objs,
-        active: true,
+        active: false,
         selected: null,
     });
     const textures = new MapTextures(map.wad);

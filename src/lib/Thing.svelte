@@ -1,24 +1,22 @@
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, Texture, type MeshStandardMaterialParameters, type ColorRepresentation, Color } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry, Color } from 'three';
     import { useDoom } from './useDoom';
-    import type { DoomMap, MapObject } from '../doomwad';
+    import type { MapObject } from '../doomwad';
     import { EIGHTH_PI, HALF_PI, QUARTER_PI } from './Math';
     import Wireframe from './Debug/Wireframe.svelte';
 
-    const { textures, game, editor } = useDoom();
-
     export let thing: MapObject;
-    export let map: DoomMap;
+    export let rotation = 0;
 
-    const { position: playerPosition, direction: playerDirection } = game.player;
+    const { textures, game, editor, wad } = useDoom();
+    const { position: cameraPosition, rotation: cameraRotation } = game.camera;
 
     const { sector, spec, position, sprite, direction } = thing;
-    const { light } = $sector;
-    const frames = map.wad.spriteFrames(spec.sprite);
+    const frames = wad.spriteFrames(spec.sprite);
 
-    $: ang = Math.atan2($position.y - $playerPosition.y, $position.x - $playerPosition.x)
-    $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
+    $: ang = Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
+    $: rot = (Math.floor((ang - $direction - rotation - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
     $: texture = textures.get(frame.name, 'sprite');
@@ -30,8 +28,10 @@
     $: if (texture) {
         material.map = texture;
     }
-    $: if ($sprite.fullbright || textures.lightColor($light)) {
-        material.color = $sprite.fullbright ? textures.lightColor(255) : textures.lightColor($light);
+
+    $: light = $sector.light;
+    $: if ($sprite.fullbright || $light !== undefined) {
+        material.color = textures.lightColor($sprite.fullbright ? 255 : $light);
     }
 
     $: if ($editor.selected === thing) {
@@ -57,7 +57,7 @@
     {material}
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
-    rotation={{ y: $playerDirection, x: HALF_PI, order:'ZXY' }}
+    rotation={{ y: $cameraRotation.z, x: HALF_PI, order:'ZXY' }}
     position={{
         x: ($position.x + hOffset),
         y: ($position.y + hOffset),

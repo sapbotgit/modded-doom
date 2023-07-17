@@ -186,7 +186,7 @@ export const SpriteNames = [
 	"HDB4", "HDB5", "HDB6", "POB1", "POB2", "BRS1", "TLMP", "TLP2",
 ];
 
-enum StateIndex {
+export enum StateIndex {
 	S_NULL,
 	S_LIGHTDONE,
 	S_PUNCH,

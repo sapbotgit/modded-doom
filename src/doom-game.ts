@@ -2,6 +2,7 @@ import { get, writable } from "svelte/store";
 import type { DoomMap, MapObject, Sector } from "./doomwad";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, randInt } from "./lib/Math";
+import { StateIndex } from "./doom-things-info";
 
 type Action = () => void;
 
@@ -98,6 +99,10 @@ export class DoomGame {
     currentTick = 0;
 
     readonly player: MapObject;
+    readonly camera = {
+        rotation: writable(new Euler(0, 0, 0, 'ZXY')),
+        position: writable(new Vector3()),
+    }
     readonly input: GameInput;
 
     private actions: Action[];
@@ -159,6 +164,7 @@ export class DoomGame {
     }
 }
 
+const playerCameraOffset = 41;
 const euler = new Euler(0, 0, 0, 'ZYX');
 const vec = new Vector3();
 class GameInput {
@@ -170,7 +176,8 @@ class GameInput {
     public slow = false;
     public mouse = { x: 0, y: 0 };
 
-    public freeFly = true;
+    public followCam = true;
+    public freeFly = false;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     // Range is 0 to Math.PI radians
@@ -179,42 +186,38 @@ class GameInput {
     // public maxPolarAngle = 0;
     // public minPolarAngle = 0;
 
+    private player: MapObject;
     private obj = new Object3D();
-    private velocity = new Vector3();
     private direction = new Vector3();
 
     constructor(map: DoomMap, private game: DoomGame) {
-        const playerHeight = 41;
-        const p1 = game.player;
-        const position = get(p1.position);
-        this.obj.position.set(position.x, position.y, position.z + playerHeight);
+        this.player = game.player;
+        const position = get(this.player.position);
+        this.obj.position.set(position.x, position.y, position.z);
         this.game.player.position.set(this.obj.position);
 
         euler.x = HALF_PI;
-        euler.z = get(p1.direction) + HALF_PI;
+        euler.z = get(this.player.direction) + HALF_PI;
         this.obj.quaternion.setFromEuler(euler);
     }
 
     evaluate(delta: number) {
         // handle direction movements
-        this.velocity.x -= this.velocity.x * 5.0 * delta;
-        this.velocity.y -= this.velocity.y * 5.0 * delta;
-        this.velocity.z -= 9.8 * 100.0 * delta; // 100.0 = mass
-
         this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
         this.direction.y =  Number(this.moveForward) - Number(this.moveBackward);
         this.direction.normalize(); // ensure consistent movements in all directions
 
-        const speed = this.slow ? 500.0 : this.run ? 8000.0 : 4000.0
+        // const speed = this.slow ? 50.0 : this.run ? 583.33 : 291.66
+        const speed = this.slow ? 5.0 : this.run ? 50 : 25
         if (this.moveForward || this.moveBackward) {
-            this.velocity.y -= this.direction.y * speed * delta;
+            this.player.velocity.addScaledVector(this.forwardVec(), this.direction.y * speed * delta);
         }
         if (this.moveLeft || this.moveRight) {
-            this.velocity.x -= this.direction.x * speed * delta;
+            this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * delta);
         }
 
-        this._moveRight(-this.velocity.x * delta);
-        this._moveForward(-this.velocity.y * delta);
+        // TODO: apply gravity
+        this.obj.position.add(this.player.velocity);
         this.game.player.position.set(this.obj.position);
 
         // handle rotation movements
@@ -224,33 +227,50 @@ class GameInput {
         euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
         this.obj.quaternion.setFromEuler(euler);
         this.obj.updateMatrix();
-        this.game.player.pitch.set(euler.x)
         this.game.player.direction.set(euler.z)
 
         // clear for next eval
         this.mouse.x = 0;
         this.mouse.y = 0;
+
+        // TODO: move this into a "player" class? Maybe this class is the player class?
+        const vel = this.player.velocity.length();
+        if (this.game.player.currentState === StateIndex.S_PLAY && vel > .5) {
+            this.game.player.setState(StateIndex.S_PLAY_RUN1);
+        } else if (vel < 1) {
+            this.game.player.setState(StateIndex.S_PLAY);
+        }
+
+        // update camera
+        this.game.camera.rotation.set(euler);
+        this.game.camera.position.update(vec => {
+            if (this.followCam) {
+                const followDist = 200;
+                vec.x = -Math.sin(-euler.z) * followDist + this.obj.position.x;
+                vec.y = -Math.cos(-euler.z) * followDist + this.obj.position.y;
+                vec.z = Math.cos(-euler.x) * followDist + this.obj.position.z;
+            } else {
+                vec.x = this.obj.position.x;
+                vec.y = this.obj.position.y;
+                vec.z = this.obj.position.z + playerCameraOffset;
+            }
+            return vec;
+        });
     }
 
-    private getDirection(v: Vector3) {
-        return v.set(0, 0, -1).applyQuaternion(this.obj.quaternion);
+    private rightVec() {
+        return vec.setFromMatrixColumn(this.obj.matrix, 0);
     }
 
-    private _moveRight(distance: number) {
-        vec.setFromMatrixColumn(this.obj.matrix, 0);
-        this.obj.position.addScaledVector(vec, distance);
-    }
-
-    private _moveForward(distance: number) {
-        // move forward parallel to the xz-plane
-        // assumes camera.up is y-up
+    private forwardVec() {
         if (this.freeFly) {
             // freelook https://stackoverflow.com/questions/63405094
-            vec.copy(this.getDirection(vec));
+            vec.set(0, 0, -1).applyQuaternion(this.obj.quaternion);
         } else {
+            // move forward parallel to the xy-plane (camera.up is z-up)
             vec.setFromMatrixColumn(this.obj.matrix, 0);
             vec.crossVectors(this.obj.up, vec);
         }
-        this.obj.position.addScaledVector(vec, distance);
+        return vec;
     }
 }

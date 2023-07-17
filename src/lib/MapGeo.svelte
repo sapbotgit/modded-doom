@@ -29,6 +29,6 @@
 
 {#each things as thing}
     {#key thing}
-        <Thing {map} {thing} />
+        <Thing {thing} />
     {/key}
 {/each}
