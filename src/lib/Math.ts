@@ -90,7 +90,7 @@ export function lineCircleIntersect(l: Vertex[], c: Vertex, r: number): Vertex[]
 // Define some common functions for working with vectors
 const add = (a, b) => ({x: a.x + b.x, y: a.y + b.y});
 const sub = (a, b) => ({x: a.x - b.x, y: a.y - b.y});
-const dot = (a, b) => a.x * b.x + a.y * b.y;
+export const dot = (a, b) => a.x * b.x + a.y * b.y;
 const hypot2 = (a, b) => dot(sub(a, b), sub(a, b));
 // Function for projecting some vector a onto b
 function proj(a, b) {
@@ -98,13 +98,13 @@ function proj(a, b) {
     return {x: k * b.x, y: k * b.y};
 }
 
-const vlen = (v: Vertex) => Math.sqrt(v.x * v.x + v.y * v.y);
+const mag = (v: Vertex) => Math.sqrt(v.x * v.x + v.y * v.y);
 const normalize = (v: Vertex) => {
-    const len = vlen(v);
+    const len = mag(v);
     const invLen = len > 0 ? 1 / len : 0;
     return { x: v.x * invLen, y: v.y * invLen };
 }
-const normal = (l: Vertex[]) => {
+export const normal = (l: Vertex[]) => {
     const n = normalize({ x: l[1].x - l[0].x, y: l[1].y - l[0].y });
     return { x: -n.y, y: n.x };
 }
@@ -177,7 +177,7 @@ export function lineCircleSwee3(l: Vertex[], dir: Vertex, c: Vertex, r: number):
     const ha = [l[0], { x: l[0].x + cmn.x * r, y: l[0].y + cmn.y * r }];
     details = lineLineIntersectDetailed(centerMove, ha);
     if (details && details.inBounds()) {
-        const dist = vlen({ x: l[0].x - details.x, y: l[0].y - details.y })
+        const dist = mag({ x: l[0].x - details.x, y: l[0].y - details.y })
         const move = Math.sqrt(r * r - dist * dist);
         lineCircleSweepDetails.x = details.x - move * dn.x
         lineCircleSweepDetails.y = details.y - move * dn.y
@@ -192,7 +192,7 @@ export function lineCircleSwee3(l: Vertex[], dir: Vertex, c: Vertex, r: number):
     const hb = [l[1], { x: l[1].x + cmn.x * r, y: l[1].y + cmn.y * r }];
     details = lineLineIntersectDetailed(centerMove, hb);
     if (details && details.inBounds()) {
-        const dist = vlen({ x: l[1].x - details.x, y: l[1].y - details.y })
+        const dist = mag({ x: l[1].x - details.x, y: l[1].y - details.y })
         const move = Math.sqrt(r * r - dist * dist);
         lineCircleSweepDetails.x = details.x - move * dn.x
         lineCircleSweepDetails.y = details.y - move * dn.y
@@ -220,13 +220,6 @@ export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number)
         return i1[0]//lineCircleSweepDetails;
     }
 
-    // const n = normal(l);
-    // lineCircleSweepDetails.n = n;
-    // if (dot(n, dir) < 0) {
-    //     // direction and line will not cross
-    //     return undefined;
-    // }
-
     const vn = normalize(dir);
     const centerMove = [cr, end];
 
@@ -252,8 +245,8 @@ export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number)
     // if (a && pointOnLine(a, l) && pointOnLine(a, centerMove)) {
     if (a) {
         const p1 = closestPoint(l, cr);
-        const lenAC = vlen({ x: a.x - cr.x, y: a.y - cr.y });
-        const lenP1C = vlen({ x: p1.x - cr.x, y: p1.y - cr.y });
+        const lenAC = mag({ x: a.x - cr.x, y: a.y - cr.y });
+        const lenP1C = mag({ x: p1.x - cr.x, y: p1.y - cr.y });
         const p2 = {
             x: a.x - r * (lenAC / lenP1C) * vn.x,
             y: a.y - r * (lenAC / lenP1C) * vn.y,
@@ -269,8 +262,8 @@ export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number)
             return p2;
         }
 
-        const bDist = vlen({ x: b.x - centerMove[1].x, y: b.y - centerMove[1].y });
-        const aDist = vlen({ x: a.x - centerMove[1].x, y: a.y - centerMove[1].y });
+        const bDist = mag({ x: b.x - centerMove[1].x, y: b.y - centerMove[1].y });
+        const aDist = mag({ x: a.x - centerMove[1].x, y: a.y - centerMove[1].y });
         if (bDist <= r && pointOnLine(b, l)) {
             const x = Math.sqrt(r * r - bDist * bDist);
             lineCircleSweepDetails.x = b.x - x * vn.x;
@@ -292,7 +285,7 @@ export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number)
     // if (dd) {
     //     return dd;
     // }
-    const cDist = vlen({ x: c.x - l[0].x, y: c.y - l[0].y });
+    const cDist = mag({ x: c.x - l[0].x, y: c.y - l[0].y });
     if (cDist <= r  && pointOnLine(c, centerMove)) {
         // return circleCircleSweep(l[0], 0, c, r, dir);
         const x = Math.sqrt(r * r - cDist * cDist);
@@ -306,7 +299,7 @@ export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number)
         };
     }
 
-    const dDist = vlen({ x: d.x - l[1].x, y: d.y - l[1].y });
+    const dDist = mag({ x: d.x - l[1].x, y: d.y - l[1].y });
     // console.log(dDist, pointOnLine(d, centerMove))
     if (dDist <= r && pointOnLine(d, centerMove)) {
         // return circleCircleSweep(l[1], 0, c, r, dir);
@@ -332,7 +325,7 @@ export function lineCircleSweep2(l: Vertex[], dir: Vertex, cr: Vertex, r: number
     // this algorithm basically follows https://ericleong.me/research/circle-line/ but
     // https://stackoverflow.com/questions/7060519 was helpful too
 
-    const magV = vlen(dir);
+    const magV = mag(dir);
     const centerMove = [cr, { x: cr.x + dir.x, y: cr.y + dir.y }];
     const vn = normalize(dir);
     const nl = normalize({ x: l[1].x - l[0].x, y: l[1].y - l[0].y });
@@ -389,7 +382,7 @@ export function lineCircleSweep4(l: Vertex[], dir: Vertex, cr: Vertex, r: number
     const BC = { x: l[1].x - l[0].x, y: l[1].y - l[0].y };
     const N = proj(BA, BC);
     const pN = { x: N.x + l[0].x, y: N.y + l[0].y };
-    const nDist = vlen({ x: pN.x - cr.x, y: pN.y - cr.y });
+    const nDist = mag({ x: pN.x - cr.x, y: pN.y - cr.y });
     if (nDist <= r && pointOnLine(pN, l)) {
         return pN;
     }
@@ -400,7 +393,7 @@ export function lineCircleSweep4(l: Vertex[], dir: Vertex, cr: Vertex, r: number
         const AN = { x: pN.x - cr.x, y: pN.y - cr.y };
         const an = normalize(AN);
         const s = proj(dir, an);
-        const d = vlen(AN) - r;
+        const d = mag(AN) - r;
         const D = {
             x: cr.x + dir.x * (s.x / d),
             y: cr.y + dir.y * (s.y / d),
@@ -415,7 +408,7 @@ export function circleCircleSweep(c1: Vertex, r1: number, c2: Vertex, r2: number
     // https://ericleong.me/research/circle-circle/
     const move = [c2, { x: c2.x + dir.x, y: c2.y + dir.y }];
     const d = closestPoint(move, c1);
-    const dist = vlen({ x: c1.x - d.x, y: c1.y - d.y });
+    const dist = mag({ x: c1.x - d.x, y: c1.y - d.y });
     const r = r1 + r2;
     if (dist <= r) {
         const dn = normalize(dir);
@@ -452,7 +445,7 @@ function pointOnLine(p: Vertex, l: Vertex[]) {
     );
 }
 
-function closestPoint(l: Vertex[], p: Vertex) {
+export function closestPoint(l: Vertex[], p: Vertex) {
     let A1 = l[1].y - l[0].y;
     let B1 = l[0].x - l[1].x;
     let C1 = A1 * l[0].x + (B1) * l[0].y;

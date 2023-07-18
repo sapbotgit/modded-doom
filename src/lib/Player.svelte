@@ -6,11 +6,11 @@
     import { CircleGeometry, MeshBasicMaterial } from "three";
 
     const { game } = useDoom();
-    const { position: cameraPosition, rotation: cameraRotation } = game.camera;
+    const { mode, position: cameraPosition, rotation: cameraRotation } = game.camera;
     const { position: playerPosition } = game.player;
 </script>
 
-{#if game.input.cameraMode !== '1p'}
+{#if $mode !== '1p'}
     <Thing thing={game.player} rotation={-HALF_PI} />
 
     <Mesh

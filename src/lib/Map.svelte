@@ -19,6 +19,7 @@
     const doomContext = createContext(map);
     setContext('doom-context', doomContext);
     const { game, settings } = doomContext;
+    const { mode: cameraMode } = game.camera;
 
     let clock = new Clock();
     let threlteCtx: ThrelteContext;
@@ -44,12 +45,17 @@
         return () => cancelAnimationFrame(frame);
     });
 </script>
-<!--
-<select on:change={ev => game.input.cameraMode = ev.currentTarget.value}>
+
+<select bind:value={$cameraMode}>
     <option>bird</option>
     <option>1p</option>
     <option>3p</option>
-</select> -->
+</select>
+<label>
+    <input type="checkbox" bind:checked={game.input.noclip} />
+    noclip
+</label>
+
 <div use:pointerLockControls={{ game }}>
     <!-- <div id="lock-message">
         Controls: WASD

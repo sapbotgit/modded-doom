@@ -190,17 +190,63 @@ export interface AnimatedTexture {
     target: Writable<string>;
 }
 
+interface Block {
+    linedefs: LineDef[]
+}
+class BlockMap {
+    private map: Block[] = [];
+    private numCols: number;
+    private numRows: number;
+    readonly bounds: NodeBounds;
+
+    constructor(
+        data: { numCols: number, numRows: number, originX: number, originY: number, linedefsInBlock: { linedefs: number[] }[] },
+        linedefs: LineDef[],
+    ) {
+        this.numCols = data.numCols;
+        this.numRows = data.numRows;
+        this.bounds = {
+            top: data.originY + data.numRows * 128,
+            left: data.originX,
+            bottom: data.originY,
+            right: data.originX + data.numCols * 128,
+        }
+        this.map = data.linedefsInBlock.map(block => ({
+            linedefs: block.linedefs
+                .filter((e, i) => e >= 0 && !(i === 0 && e === 0))
+                .map(e => linedefs[e]),
+        }));
+    }
+    // numCols: 36
+    // numRows: 23
+    // originX: -776
+    // originY: -4872
+    query(pos: Vertex) {
+        const inBounds = (
+            pos.x >= this.bounds.left && pos.x <= this.bounds.right
+            && pos.y <= this.bounds.top && pos.y >= this.bounds.bottom
+        );
+        if (!inBounds) {
+            return [];
+        }
+        const col = Math.floor((pos.x - this.bounds.left) / 128)
+        const row = this.numRows - Math.ceil((-pos.y + this.bounds.top) / 128)
+        const index = row * this.numCols + col
+        // console.log(pos, row, col, this.numCols, index)
+        return this.map[index]?.linedefs ?? [];
+    }
+}
+
 export class DoomMap {
     readonly name: string;
     readonly things: Thing[];
     readonly linedefs: LineDef[];
-    readonly sidedefs: SideDef[];
     readonly vertexes: Vertex[];
     readonly sectors: Sector[];
-    readonly subsectors: SubSector[];
     readonly segs: Seg[];
     readonly nodes: TreeNode[];
     readonly renderSectors: RenderSector[];
+    readonly blockmap: BlockMap;
     objs: MapObject[];
 
     readonly animatedTextures: AnimatedTexture[] = [];
@@ -229,17 +275,18 @@ export class DoomMap {
         this.things = wad.raw[index + 1].contents.entries;
         this.sectors = wad.raw[index + 8].contents.entries.map(s => toSector(s, flatTextures));
         this.vertexes = wad.raw[index + 4].contents.entries;
-        this.sidedefs = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
-        this.linedefs = wad.raw[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, this.sidedefs));
+        const sidedefs = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
+        this.linedefs = wad.raw[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, sidedefs));
         this.segs = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
-        this.subsectors = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, this.segs));
+        const subsectors = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, this.segs));
         this.nodes = wad.raw[index + 7].contents.entries.map(d => toNode(d));
         this.nodes.forEach(n => {
-            n.childLeft = assignChild(n.childLeft, this.nodes, this.subsectors);
-            n.childRight = assignChild(n.childRight, this.nodes, this.subsectors);
+            n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
+            n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
         this.renderSectors = buildRenderSectors(this.nodes);
         this.objs = this.things.map(e => new MapObject(this, e));
+        this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
 
         // apply animations only to the cached textures
         for (const texture of flatTextures.values()) {

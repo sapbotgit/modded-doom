@@ -3,8 +3,10 @@
     import Flats from "./Flats.svelte";
     import Wall from "./Wall.svelte";
     import Thing from "./Thing.svelte";
+    import BlockMap from "./Debug/BlockMap.svelte";
 
     export let map: DoomMap;
+
 
     // https://doomwiki.org/wiki/Thing_types#Other
     const invisibleThingTypes = [1, 2, 3, 4, 11, 14, 87, 88, 89];
@@ -19,6 +21,8 @@
     }
     $: things = map.objs.filter(isVisible)
 </script>
+
+<BlockMap {map} />
 
 {#each map.renderSectors as renderSector, i}
     <Flats {renderSector} index={i} />
