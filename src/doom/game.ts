@@ -1,5 +1,5 @@
 import { writable, get } from "svelte/store";
-import type { DoomMap, Sector } from "./Map";
+import { type DoomMap, type Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, randInt } from "./Math";
 import type { MapObject } from "./MapObject";
@@ -165,6 +165,15 @@ export class DoomGame {
     }
 }
 
+const slideMove = (player: MapObject, x: number, y: number) => {
+    // slide along wall instead of moving through it
+    vec.set(x, y, 0);
+    // we are only interested in cancelling xy movement so preserve z
+    const z = player.velocity.z;
+    player.velocity.projectOnVector(vec);
+    player.velocity.z = z;
+};
+
 const playerSpeeds = { // per-tick
     'run': 50,
     'walk': 25,
@@ -210,10 +219,24 @@ class GameInput {
     }
 
     evaluate(delta: number) {
+        // handle rotation movements
+        euler.setFromQuaternion(this.obj.quaternion);
+        euler.z -= this.mouse.x * 0.002 * this.pointerSpeed;
+        euler.x -= this.mouse.y * 0.002 * this.pointerSpeed;
+        euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
+        this.obj.quaternion.setFromEuler(euler);
+        this.obj.updateMatrix();
+        this.game.player.direction.set(euler.z);
+
+        // clear for next eval
+        this.mouse.x = 0;
+        this.mouse.y = 0;
+
         // handle direction movements
         this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
         this.direction.y =  Number(this.moveForward) - Number(this.moveBackward);
         this.direction.normalize(); // ensure consistent movements in all directions
+        // ^^^ this isn't very doom like but I don't want to change it
 
         const dt = delta * delta / frameTickTime;
         const speed = this.slow ? playerSpeeds['crawl?'] : this.run ? playerSpeeds['run'] : playerSpeeds['walk'];
@@ -228,32 +251,22 @@ class GameInput {
         }
 
         if (this.enablePlayerCollisions) {
-            const linedefs = this.map.xyCollisions(this.player, this.player.velocity);
-            for (const linedef of linedefs) {
-                // slide along wall instead of moving through it
-                vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
-                // we are only interested in cancelling xy movement so preserve z
-                const z = this.player.velocity.z;
-                this.player.velocity.projectOnVector(vec);
-                this.player.velocity.z = z;
-            }
+            this.map.xyCollisions(this.player, this.player.velocity,
+                mobj => {
+                    const pos = get(mobj.position);
+                    const dx = this.obj.position.x - pos.x;
+                    const dy = this.obj.position.y - pos.y;
+                    slideMove(this.player, -dy, dx);
+                    return true;
+                },
+                linedef => {
+                    slideMove(this.player, linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y);
+                    return true;
+                });
         }
 
         this.obj.position.add(this.player.velocity);
         this.game.player.position.set(this.obj.position);
-
-        // handle rotation movements
-        euler.setFromQuaternion(this.obj.quaternion);
-        euler.z -= this.mouse.x * 0.002 * this.pointerSpeed;
-        euler.x -= this.mouse.y * 0.002 * this.pointerSpeed;
-        euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
-        this.obj.quaternion.setFromEuler(euler);
-        this.obj.updateMatrix();
-        this.game.player.direction.set(euler.z)
-
-        // clear for next eval
-        this.mouse.x = 0;
-        this.mouse.y = 0;
 
         // TODO: walk bob?
         // update camera

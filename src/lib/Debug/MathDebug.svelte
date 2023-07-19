@@ -1,19 +1,22 @@
 <script lang="ts">
-    import { Vector2, Vector3 } from "three";
+    import { Vector3 } from "three";
     import type { Vertex } from "../../doom";
-    import { lineLineIntersect, lineCircleIntersect, signedLineDistance, lineCircleSweep } from "../../doom/Math";
+    import { lineLineIntersect, lineCircleIntersect, signedLineDistance, lineCircleSweep, circleCircleSweep } from "../../doom/Math";
 
     let p = { x: 80, y: 80 };
     let l1 = [{ x: 10, y: 10}, { x:50, y: 50 }];
     let l2 = [{ x: 10, y: 40}, { x:70, y: 40 }];
     $: intersect = lineLineIntersect(l1, l2);
 
+    let circ2 = { x: 10, y: 10 }
+    let r2 = 4;
     let circ = { x: 80, y: 80 };
     let cvel = { x: 20, y: -20 };
     let r = 8;
     $: circleIntersect = lineCircleIntersect(l2, circ, r);
     $: cw2 = lineCircleSweep(l2, cvel, circ, r);
     $: cw1 = null//lineCircleSweep(l1, cvel, circ, r);
+    $: ccw = circleCircleSweep(circ2, r2, circ, r, cvel)
     $: proj = new Vector3(l2[1].x-l2[0].x, l2[1].y-l2[0].y,0 ).projectOnVector(new Vector3(l1[1].x-l1[0].x, l1[1].y-l1[0].y, 0))
 
     function dragPoint(node: SVGElement, v: Vertex) {
@@ -31,6 +34,7 @@
             p = p;
             cvel = cvel;
             circ = circ;
+            circ2 = circ2;
         }
         const down = (ev) => {
             moveStart.x = ev.screenX;
@@ -75,6 +79,7 @@
 <div>{JSON.stringify(circleIntersect)}</div>
 <svg viewBox="0 0 100 100">
     <circle cx={circ.x} cy={circ.y} r={r} fill="yellow" use:dragPoint={circ} />
+    <circle cx={circ2.x} cy={circ2.y} r={r} fill="blue" use:dragPoint={circ2} />
     {#if cw1}
         <circle cx={cw1.x} cy={cw1.y} r={r} stroke-width={0.7} stroke="orange" fill='transparent' pointer-events='none' />
         <!-- <line x1={l2[0].x} y1={l2[0].y} x2={l2[0].x + cw1.cn.x * 5} y2={l2[0].y + cw1.cn.y * 5} stroke-width={0.5} stroke={'orange'} />
@@ -85,6 +90,10 @@
     {/if}
     {#if cw2}
         <circle cx={cw2.x} cy={cw2.y} r={r} stroke-width={0.4} stroke="green" fill='transparent' pointer-events='none' />
+    {/if}
+
+    {#if ccw}
+        <circle cx={ccw.x} cy={ccw.y} r={r} stroke-width={0.4} stroke="blue" fill='transparent' pointer-events='none' />
     {/if}
 
     {#if circleIntersect}

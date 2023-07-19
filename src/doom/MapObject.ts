@@ -4,7 +4,7 @@ import { StateIndex, type State, MFFlags, SpriteNames, states } from "./doom-thi
 import type { Position } from "@threlte/core";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./Math";
-import type { DoomMap, Thing } from "./Map";
+import { CollisionNoOp, type DoomMap, type Thing } from "./Map";
 
 interface Sprite {
     name: string;
@@ -13,6 +13,7 @@ interface Sprite {
 }
 
 const vec = new Vector3();
+const stopVelocity = 0.001;
 const friction = .90625;
 const FF_FULLBRIGHT = 0x8000;
 const FF_FRAMEMASK = 0x7fff;
@@ -94,12 +95,18 @@ export class MapObject {
     }
 
     protected updatePosition() {
-        const linedefs = this.map.xyCollisions(this, this.velocity);
-        for (const linedef of linedefs) {
-            // slide along wall instead of moving through it
-            vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
-            this.velocity.projectOnVector(vec);
+        if (this.velocity.lengthSq() < stopVelocity) {
+            return;
         }
+
+        this.map.xyCollisions(this, this.velocity,
+            CollisionNoOp,
+            linedef => {
+                // slide along wall instead of moving through it
+                vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+                this.velocity.projectOnVector(vec);
+                return true;
+            });
         this.position.update(pos => {
             pos.x += this.velocity.x;
             pos.y += this.velocity.y;

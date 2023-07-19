@@ -164,6 +164,25 @@ export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number)
     return undefined;
 }
 
+export function circleCircleSweep(c1: Vertex, r1: number, c2: Vertex, r2: number, dir: Vertex): Vertex | undefined {
+    // https://ericleong.me/research/circle-circle/
+    const move = [c2, { x: c2.x + dir.x, y: c2.y + dir.y }];
+    const d = closestPoint(move, c1);
+    const dist = mag({ x: c1.x - d.x, y: c1.y - d.y });
+    const dist2 = mag({ x: move[1].x - c1.x, y: move[1].y - c1.y });
+    const r = r1 + r2;
+    if (dist <= r && (pointOnLine(d, move) || dist2 <= r)) {
+        const dn = normalize(dir);
+        const x = Math.sqrt(r * r - dist * dist);
+        const c = {
+            x: d.x - x * dn.x,
+            y: d.y - x * dn.y,
+        }
+        return c;
+    }
+    return undefined;
+}
+
 export function pointOnLine(p: Vertex, l: Vertex[]) {
     const sd = signedLineDistance(l, p);
     return (

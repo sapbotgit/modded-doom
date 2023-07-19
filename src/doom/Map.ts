@@ -1,8 +1,9 @@
-import { get, writable, type Subscriber, type Writable } from "svelte/store";
+import { get, writable, type Writable } from "svelte/store";
 import type { DoomWad } from "./doomwad";
 import { Vector3 } from "three";
 import { PlayerMapObject, MapObject } from "./MapObject";
-import { centerSort, closestPoint, dot, lineCircleSweep, lineLineIntersect, normal, pointOnLine, signedLineDistance } from "./Math";
+import { centerSort, circleCircleSweep, closestPoint, dot, lineCircleSweep, lineLineIntersect, normal, pointOnLine, signedLineDistance } from "./Math";
+import { MFFlags } from "./doom-things-info";
 
 type ThingType = number;
 
@@ -179,13 +180,26 @@ export interface AnimatedTexture {
 }
 
 interface Block {
-    linedefs: LineDef[]
+    linedefs: LineDef[];
+    things: MapObject[];
 }
+
+
+interface HandleCollision<Type> {
+    (t: Type): boolean;
+}
+export function CollisionNoOp() { return false; }
+
+const leftSide = new Vector3();
+const rightSide = new Vector3();
+const velU = new Vector3();
+const velUR = new Vector3();
 class BlockMap {
     private map: Block[] = [];
     private numCols: number;
     private numRows: number;
     readonly bounds: NodeBounds;
+    private objMap = new Map<MapObject, Block>();
 
     constructor(
         data: { numCols: number, numRows: number, originX: number, originY: number, linedefsInBlock: { linedefs: number[] }[] },
@@ -200,36 +214,134 @@ class BlockMap {
             right: data.originX + data.numCols * 128,
         }
         this.map = data.linedefsInBlock.map(block => ({
+            things: [],
             linedefs: block.linedefs
                 .filter((e, i) => e >= 0 && !(i === 0 && e === 0))
                 .map(e => linedefs[e]),
         }));
     }
 
-    query(pos: Vertex) {
+    watch(mobj: MapObject) {
+        mobj.position.subscribe(pos => {
+            const oldBlock = this.objMap.get(mobj);
+            const idx = this.queryIndex(pos.x, pos.y);
+            if (idx === -1) {
+                console.warn('invalid block', pos);
+                return;
+            }
+            const newBlock = this.map[idx];
+            if (oldBlock === newBlock) {
+                return;
+            }
+
+            // TODO: perf improvement with array manipulation?
+            if (oldBlock) {
+                oldBlock.things = oldBlock.things.filter(e => e !== mobj);
+            }
+            newBlock.things.push(mobj);
+            this.objMap.set(mobj, newBlock);
+        });
+    }
+
+    trace(position: Vector3, radius: number, vel: Vector3) {
+        const unique = (e: any, i: number, arr: any[]) => e && arr.indexOf(e) === i;
+
+        // TODO: this whole function needs a little more testing - especially for high velocity objects
+
+        // trace the left and right bounds of the object along velocity vector, add in the end block,
+        // and return the union of unique linedefs and things from the touched blocks in the blockmap
+        velU.copy(vel).normalize();
+        velUR.set(-velU.y, velU.x, velU.z);
+
+        const endIndex = this.queryIndex(position.x + vel.x + radius, position.y + vel.y + radius);
+        leftSide.copy(position).addScaledVector(velUR, -radius);
+        rightSide.copy(position).addScaledVector(velUR, radius);
+        const blocks = [
+            (endIndex === -1) ? null : this.map[endIndex],
+            ...this.pointTrace(leftSide, vel),
+            ...this.pointTrace(rightSide, vel),
+        ].filter(unique);
+
+        // remove duplicates
+        const linedefs = blocks.map(e => e.linedefs).flat().filter(unique);
+        const things = blocks.map(e => e.things).flat().filter(unique);
+        return { linedefs, things };
+    }
+
+    private pointTrace(start: Vector3, move: Vector3) {
+        // this is close to Doom's P_PathTraverse but based on
+        // http://playtechs.blogspot.com/2007/03/raytracing-on-grid.html
+        let x = Math.floor(start.x);
+        let y = Math.floor(start.y);
+
+        const dt_dx = 1.0 / Math.abs(move.x);
+        const dt_dy = 1.0 / Math.abs(move.y);
+
+        let n = 1;
+        let x_inc: number, y_inc: number;
+        let vNext: number, hNext: number;
+
+        if (move.x === 0) {
+            x_inc = 0;
+            hNext = dt_dx; // infinity
+        } else if (move.x > 0) {
+            x_inc = 1;
+            n += Math.floor(start.x + move.x) - x;
+            hNext = (Math.floor(start.x) + 1 - start.x) * dt_dx;
+        } else {
+            x_inc = -1;
+            n += x - Math.floor(start.x + move.x);
+            hNext = (start.x - Math.floor(start.x)) * dt_dx;
+        }
+
+        if (move.y === 0) {
+            y_inc = 0;
+            vNext = dt_dy; // infinity
+        } else if (move.y > 0) {
+            y_inc = 1;
+            n += Math.floor(start.y + move.y) - y;
+            vNext = (Math.floor(start.y) + 1 - start.y) * dt_dy;
+        } else {
+            y_inc = -1;
+            n += y - Math.floor(start.y + move.y);
+            vNext = (start.y - Math.floor(start.y)) * dt_dy;
+        }
+
+        let blocks: Block[] = [];
+        for (; n > 0; --n) {
+            const index = this.queryIndex(x, y);
+            if (index !== -1) {
+                blocks.push(this.map[index]);
+            }
+
+            if (vNext < hNext) {
+                y += y_inc;
+                vNext += dt_dy;
+            } else {
+                x += x_inc;
+                hNext += dt_dx;
+            }
+        }
+        return blocks;
+    }
+
+    private queryIndex(x: number, y: number) {
         const inBounds = (
-            pos.x >= this.bounds.left && pos.x <= this.bounds.right
-            && pos.y <= this.bounds.top && pos.y >= this.bounds.bottom
+            x >= this.bounds.left && x <= this.bounds.right
+            && y >= this.bounds.bottom && y <= this.bounds.top
         );
         if (!inBounds) {
-            return [];
+            return -1;
         }
-        const col = Math.floor((pos.x - this.bounds.left) / 128)
-        const row = this.numRows - Math.ceil((-pos.y + this.bounds.top) / 128)
-        const index = row * this.numCols + col
-        // console.log(pos, row, col, this.numCols, index)
-        return this.map[index]?.linedefs ?? [];
+        const col = Math.floor((x - this.bounds.left) / 128);
+        const row = this.numRows - Math.ceil((-y + this.bounds.top) / 128);
+        return row * this.numCols + col;
     }
 }
 
+const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 const start = new Vector3();
-const vec = new Vector3();
-const nw = new Vector3();
-const ne = new Vector3();
-const se = new Vector3();
-const sw = new Vector3();
-const moveU = new Vector3();
-const moveUR = new Vector3();
+const end = new Vector3();
 export class DoomMap {
     readonly name: string;
     readonly things: Thing[];
@@ -276,9 +388,9 @@ export class DoomMap {
             n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
-        this.objs = this.things.map(e =>
-            e.type === 1 ? new PlayerMapObject(this, e) : new MapObject(this, e));
+        this.objs = this.things.map(e => this.spawn(e)).filter(e => e);
         this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
+        this.objs.forEach(o => this.blockmap.watch(o));
 
         // apply animations only to the cached textures
         for (const texture of flatTextures.values()) {
@@ -301,6 +413,28 @@ export class DoomMap {
                 this.animatedTextures.push({ frames: animInfo[1], current: animInfo[0], target, speed });
             }
         })();
+    }
+
+    spawn(thing: Thing): MapObject | undefined {
+        if (thing.type === 1) {
+            return new PlayerMapObject(this, thing);
+        }
+        const noSpawn = (false
+            || thing.type === 2
+            || thing.type === 3
+            || thing.type === 4
+            || thing.type === 11
+            || thing.type === 14
+            || thing.type === 87
+            || thing.type === 89
+        );
+        if (noSpawn) {
+            return;
+        }
+        if (thing.flags & 0x0010) {
+            return; // multiplayer only
+        }
+        return new MapObject(this, thing);
     }
 
     findSubSector(x: number, y: number): SubSector {
@@ -338,32 +472,47 @@ export class DoomMap {
         return sectors;
     }
 
-    xyCollisions(obj: MapObject, move: Vector3) {
+    xyCollisions(obj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>) {
         const maxStepSize = 24;
-        const collisions: LineDef[] = [];
 
         const pos = get(obj.position);
         start.set(pos.x, pos.y, pos.z);
-        moveU.copy(move).normalize();
-        moveUR.set(-moveU.y, moveU.x, moveU.z);
+        end.copy(start).add(move);
 
-        let end = vec.set(start.x, start.y, start.z).add(move);
-        nw.copy(end).addScaledVector(moveU, obj.spec.mo.radius);
-        ne.copy(end).addScaledVector(moveUR, -obj.spec.mo.radius);
-        se.copy(end).addScaledVector(moveU, -obj.spec.mo.radius);
-        sw.copy(end).addScaledVector(moveUR, obj.spec.mo.radius);
-        const linedefs = [
-            ...this.blockmap.query(nw),
-            ...this.blockmap.query(ne),
-            ...this.blockmap.query(se),
-            ...this.blockmap.query(sw),
-        ].filter((e, i, arr) => arr.indexOf(e) === i);
-        for (const linedef of linedefs) {
-            checkCollision(linedef);
+        let complete = false;
+        const bquery = this.blockmap.trace(start, obj.spec.mo.radius, move);
+        for (let i = 0; i < bquery.linedefs.length && !complete; i++) {
+            collideLine(bquery.linedefs[i]);
         }
-        return collisions;
+        for (let i = 0; i < bquery.things.length && !complete; i++) {
+            collideThing(bquery.things[i]);
+        }
 
-        function checkCollision(linedef: LineDef) {
+        function collideThing(obj2: MapObject) {
+            // kind of like PIT_CheckThing
+            if (obj2 === obj) {
+                // don't collide with yourself
+                return;
+            }
+            if (!(obj2.spec.mo.flags & hittableThing)) {
+                // not hittable
+                return;
+            }
+            if (obj2.spec.mo.flags & MFFlags.MF_SPECIAL && !(obj2.spec.mo.flags & MFFlags.MF_SOLID)) {
+                // item can be picked up so don't block
+                return;
+            }
+
+            const hit = circleCircleSweep(
+                get(obj2.position) as Vertex, obj2.spec.mo.radius,
+                start, obj.spec.mo.radius, move);
+            if (!hit) {
+                return;
+            }
+            complete = !onThing(obj2);
+        }
+
+        function collideLine(linedef: LineDef) {
             const twoSided = (linedef.flags & 0x0004) !== 0;
             const blocking = (linedef.flags & 0x0001) !== 0;
             if (!blocking || !twoSided) {
@@ -382,8 +531,9 @@ export class DoomMap {
             if (twoSided && !blocking) {
                 const leftFloor = linedef.left.sector.values.zFloor;
                 const rightFloor = linedef.right.sector.values.zFloor;
-                const diff = signedLineDistance(linedef.v, start) > 0 ? leftFloor - rightFloor : rightFloor - leftFloor;
-                if (diff <= maxStepSize) {
+                const stepSize = signedLineDistance(linedef.v, start) > 0
+                    ? leftFloor - rightFloor : rightFloor - leftFloor;
+                if (stepSize <= maxStepSize) {
                     return;
                 }
 
@@ -392,7 +542,7 @@ export class DoomMap {
             }
 
             if (signedLineDistance(linedef.v, end) > 0) {
-                collisions.push(linedef);
+                complete = !onLinedef(linedef)
             }
         }
     }

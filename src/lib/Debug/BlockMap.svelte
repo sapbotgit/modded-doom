@@ -7,7 +7,7 @@
 
     export let map: DoomMap;
 
-    const showBlockmap = true;
+    const showBlockmap = false;
 
     const { game } = useDoom();
     const { position: playerPosition } = game.player;
@@ -23,6 +23,9 @@
     <Object3DInstance
         object={gh}
         rotation={{ x: HALF_PI }}
-        position={{ x: bbox.left + width * .5, y: bbox.top - height * .5, z: $playerPosition.z + 5 }}
+        position={{
+            x: bbox.left + width * .5,
+            y: bbox.bottom + height * .5,
+            z: $playerPosition.z + 1 }}
     />
 {/if}
