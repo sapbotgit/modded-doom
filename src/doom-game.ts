@@ -1,8 +1,8 @@
 import { writable, get } from "svelte/store";
-import type { DoomMap, LineDef, MapObject, Sector, Seg, SubSector, TreeNode } from "./doomwad";
+import type { DoomMap, LineDef, MapObject, Sector } from "./doomwad";
 import { Euler, Object3D, Vector3 } from "three";
 import { StateIndex } from "./doom-things-info";
-import { HALF_PI, QUARTER_PI, lineLineIntersect, lineCircleSweep, lineCircleIntersect, randInt, signedLineDistance, ToDegrees, closestPoint, normal, dot } from "./lib/Math";
+import { HALF_PI, lineCircleSweep, randInt, signedLineDistance, normal, dot } from "./lib/Math";
 
 type Action = () => void;
 
@@ -165,18 +165,14 @@ export class DoomGame {
     }
 }
 
+const playerSpeeds = { // per-tick
+    'run': 50,
+    'walk': 25,
+    'crawl?': 5,
+}
 const playerCameraOffset = 41;
 const euler = new Euler(0, 0, 0, 'ZYX');
 const vec = new Vector3();
-const vec2 = new Vector3();
-const nw = new Vector3();
-const ne = new Vector3();
-const se = new Vector3();
-const sw = new Vector3();
-const move = new Vector3();
-const moveU = new Vector3();
-const moveUR = new Vector3();
-const start = new Vector3();
 class GameInput {
     public moveForward = false;
     public moveBackward = false;
@@ -187,7 +183,7 @@ class GameInput {
     public mouse = { x: 0, y: 0 };
 
     public noclip = false;
-    public freeFly = true;
+    public freeFly = false;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     // Range is 0 to Math.PI radians
@@ -196,7 +192,7 @@ class GameInput {
     // public maxPolarAngle = 0;
     // public minPolarAngle = 0;
 
-    private get enableCollisions() { return !this.noclip; }
+    private get enablePlayerCollisions() { return !this.noclip; }
     private player: MapObject;
     private obj = new Object3D();
     private direction = new Vector3();
@@ -218,21 +214,26 @@ class GameInput {
         this.direction.y =  Number(this.moveForward) - Number(this.moveBackward);
         this.direction.normalize(); // ensure consistent movements in all directions
 
-        // const speed = this.slow ? 50.0 : this.run ? 583.33 : 291.66
-        const speed = this.slow ? 5.0 : this.run ? 50 : 25
+        const dt = delta * delta / frameTickTime;
+        const speed = this.slow ? playerSpeeds['crawl?'] : this.run ? playerSpeeds['run'] : playerSpeeds['walk'];
         if (this.moveForward || this.moveBackward) {
-            this.player.velocity.addScaledVector(this.forwardVec(), this.direction.y * speed * delta);
+            this.player.velocity.addScaledVector(this.forwardVec(), this.direction.y * speed * dt);
         }
         if (this.moveLeft || this.moveRight) {
-            this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * delta);
+            this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * dt);
         }
 
-        // TODO: apply gravity
-
-        start.copy(this.obj.position);
-        move.copy(this.player.velocity);
-        this._adjustForCollision(start, move);
-        this.obj.position.add(move);
+        if (this.enablePlayerCollisions) {
+            const linedefs = this.map.xyCollisions(this.player, this.player.velocity);
+            for (const linedef of linedefs) {
+                // slide along wall instead of moving through it
+                vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+                this.player.velocity.projectOnVector(vec);
+            }
+        }
+        // apply gravity in PlayerMapObject only on ticks
+        this.obj.position.x += this.player.velocity.x;
+        this.obj.position.y += this.player.velocity.y;
         this.game.player.position.set(this.obj.position);
 
         // handle rotation movements
@@ -248,34 +249,27 @@ class GameInput {
         this.mouse.x = 0;
         this.mouse.y = 0;
 
-        // TODO: move this into a "player" class? Maybe this class is the player class?
-        const vel = this.player.velocity.length();
-        if (this.game.player.currentState === StateIndex.S_PLAY && vel > .5) {
-            this.game.player.setState(StateIndex.S_PLAY_RUN1);
-        } else if (vel < 1) {
-            this.game.player.setState(StateIndex.S_PLAY);
-        }
-
         // update camera
+        // TODO: walk bob?
         const mode = get(this.game.camera.mode);
-        this.game.camera.position.update(vec => {
+        this.game.camera.position.update(p => {
             if (mode === '3p') {
                 const followDist = 200;
-                vec.x = -Math.sin(-euler.z) * followDist + this.obj.position.x;
-                vec.y = -Math.cos(-euler.z) * followDist + this.obj.position.y;
-                vec.z = Math.cos(-euler.x) * followDist + this.obj.position.z;
+                p.x = -Math.sin(-euler.z) * followDist + this.obj.position.x;
+                p.y = -Math.cos(-euler.z) * followDist + this.obj.position.y;
+                p.z = Math.cos(-euler.x) * followDist + this.obj.position.z;
             } else if (mode === 'bird') {
                 const followDist = 250;
                 euler.x = 0;
-                vec.x = this.obj.position.x;
-                vec.y = this.obj.position.y;
-                vec.z = followDist + this.obj.position.z;
+                p.x = this.obj.position.x;
+                p.y = this.obj.position.y;
+                p.z = followDist + this.obj.position.z;
             } else {
-                vec.x = this.obj.position.x;
-                vec.y = this.obj.position.y;
-                vec.z = this.obj.position.z + playerCameraOffset;
+                p.x = this.obj.position.x;
+                p.y = this.obj.position.y;
+                p.z = this.obj.position.z + playerCameraOffset;
             }
-            return vec;
+            return p;
         });
         this.game.camera.rotation.set(euler);
     }
@@ -294,87 +288,5 @@ class GameInput {
             vec.crossVectors(this.obj.up, vec);
         }
         return vec;
-    }
-
-    private _adjustForCollision(start: Vector3, move: Vector3) {
-        const maxStepSize = 24;
-
-        moveU.copy(move).normalize();
-        moveUR.set(-moveU.y, moveU.x, moveU.z);
-        const playerRadius = this.game.player.spec.mo.radius;
-
-        let closestLine: LineDef = null;
-        let closestDist = 1e9; // something large
-        const checkCollision2 = (linedef: LineDef): boolean => {
-            if (!(linedef.flags & 0x0004)) {
-                // one sided - don't collide if the direction is going from front-back on the line
-                const n = normal(linedef.v);
-                if (dot(n, move) <= 0) {
-                    // direction and line will not cross
-                    return;
-                }
-            }
-
-            const hit = lineCircleSweep(linedef.v, move, start, playerRadius);
-            // const hit = lineCircleIntersect(linedef.v, end, playerRadius);
-            if (!hit) {
-                return;
-            }
-
-            if (linedef.flags & 0x0004 && !(linedef.flags & 0x0001)) {
-                // two-sided and non-blocking
-                const leftFloor = linedef.left.sector.values.zFloor;
-                const rightFloor = linedef.right.sector.values.zFloor;
-                const diff = signedLineDistance(linedef.v, start) > 0 ? leftFloor - rightFloor : rightFloor - leftFloor;
-                if (diff <= maxStepSize) {
-                    return;
-                }
-
-                // TODO: low ceilings
-                // TODO: triggers from edges that were walked over?
-            }
-
-            if (this.enableCollisions && signedLineDistance(linedef.v, end) > 0) {
-                // slide along wall instead of moving through it
-                vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
-                move.projectOnVector(vec);
-            }
-
-            // const point = closestPoint(linedef.v, end);
-            // const dx = point.x - end.x;
-            // const dy = point.y - end.y;
-            // const distSqToLine =  dx * dx + dy * dy
-            // if (this.enableCollisions && distSqToLine < closestDist && signedLineDistance(linedef.v, end) > 0) {
-            //     closestDist = distSqToLine
-            //     closestLine = linedef;
-            // }
-        }
-
-        let end = vec2.copy(start).add(move);
-        nw.copy(end).addScaledVector(moveU, playerRadius);
-        ne.copy(end).addScaledVector(moveUR, -playerRadius);
-        se.copy(end).addScaledVector(moveU, -playerRadius);
-        sw.copy(end).addScaledVector(moveUR, playerRadius);
-        const linedefs = [
-            ...this.map.blockmap.query(nw),
-            ...this.map.blockmap.query(ne),
-            ...this.map.blockmap.query(se),
-            ...this.map.blockmap.query(sw),
-        ].filter((e, i, arr) => arr.indexOf(e) === i);
-        for (const linedef of linedefs) {
-            checkCollision2(linedef);
-        }
-
-        if (closestLine) {
-            // slide along wall instead of moving through it
-            vec.set(closestLine.v[1].x - closestLine.v[0].x, closestLine.v[1].y - closestLine.v[0].y, 0);
-            move.projectOnVector(vec);
-        }
-
-        // TODO: gravity?
-        // TODO: walk bob?
-        end = vec2.copy(start).add(move);
-        const sec2 = this.map.findSubSector(end.x, end.y);
-        this.obj.position.z = sec2.sector.values.zFloor + playerCameraOffset;
     }
 }

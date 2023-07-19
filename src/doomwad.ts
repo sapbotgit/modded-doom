@@ -4,7 +4,7 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.ts';
-import { HALF_PI, ToRadians, centerSort, lineLineIntersect, randInt, signedLineDistance } from './lib/Math.js';
+import { ToRadians, centerSort, dot, lineCircleSweep, lineLineIntersect, normal, randInt, signedLineDistance } from './lib/Math.js';
 import { get, writable, type Writable } from 'svelte/store';
 import { thingSpec, type ThingSpec } from './doom-things';
 import { states, type State, MFFlags, SpriteNames, StateIndex } from './doom-things-info.js';
@@ -237,6 +237,14 @@ class BlockMap {
     }
 }
 
+const start = new Vector3();
+const vec = new Vector3();
+const nw = new Vector3();
+const ne = new Vector3();
+const se = new Vector3();
+const sw = new Vector3();
+const moveU = new Vector3();
+const moveUR = new Vector3();
 export class DoomMap {
     readonly name: string;
     readonly things: Thing[];
@@ -285,7 +293,8 @@ export class DoomMap {
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
         this.renderSectors = buildRenderSectors(this.nodes);
-        this.objs = this.things.map(e => new MapObject(this, e));
+        this.objs = this.things.map(e =>
+            e.type === 1 ? new PlayerMapObject(this, e) : new MapObject(this, e));
         this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
 
         // apply animations only to the cached textures
@@ -341,6 +350,65 @@ export class DoomMap {
             }
         }
         return sectors;
+    }
+
+    xyCollisions(obj: MapObject, move: Vector3) {
+        const maxStepSize = 24;
+        const collisions: LineDef[] = [];
+
+        const pos = get(obj.position);
+        start.set(pos.x, pos.y, pos.z);
+        moveU.copy(move).normalize();
+        moveUR.set(-moveU.y, moveU.x, moveU.z);
+
+        let end = vec.set(start.x, start.y, start.z).add(move);
+        nw.copy(end).addScaledVector(moveU, obj.spec.mo.radius);
+        ne.copy(end).addScaledVector(moveUR, -obj.spec.mo.radius);
+        se.copy(end).addScaledVector(moveU, -obj.spec.mo.radius);
+        sw.copy(end).addScaledVector(moveUR, obj.spec.mo.radius);
+        const linedefs = [
+            ...this.blockmap.query(nw),
+            ...this.blockmap.query(ne),
+            ...this.blockmap.query(se),
+            ...this.blockmap.query(sw),
+        ].filter((e, i, arr) => arr.indexOf(e) === i);
+        for (const linedef of linedefs) {
+            checkCollision(linedef);
+        }
+        return collisions;
+
+        function checkCollision(linedef: LineDef) {
+            if (!(linedef.flags & 0x0004)) {
+                // one sided - don't collide if the direction is going from front-back on the line
+                const n = normal(linedef.v);
+                if (dot(n, move) <= 0) {
+                    // direction and line will not cross
+                    return;
+                }
+            }
+
+            const hit = lineCircleSweep(linedef.v, move, start, obj.spec.mo.radius);
+            if (!hit) {
+                return;
+            }
+
+            if (linedef.flags & 0x0004 && !(linedef.flags & 0x0001)) {
+                // two-sided and non-blocking
+                const leftFloor = linedef.left.sector.values.zFloor;
+                const rightFloor = linedef.right.sector.values.zFloor;
+                const diff = signedLineDistance(linedef.v, start) > 0 ? leftFloor - rightFloor : rightFloor - leftFloor;
+                if (diff <= maxStepSize) {
+                    return;
+                }
+
+                // TODO: low ceilings
+                // TODO: triggers from edges that were walked over?
+            }
+
+            if (signedLineDistance(linedef.v, end) > 0) {
+                collisions.push(linedef);
+            }
+        }
     }
 }
 
@@ -807,25 +875,29 @@ export class MapObject {
     readonly position: Writable<Position>;
     readonly direction: Writable<number>;
     readonly sector = writable(null);
-    readonly fromFloor: boolean = true;
     readonly sprite = writable<Sprite>(null);
     readonly velocity = new Vector3();
+    public zTarget: number;
     private state: State;
+    private pos: Position;
     private ticks: number;
 
     get currentState() { return this._state; }
     private _state: StateIndex;
 
-    constructor(map: DoomMap, readonly source: Thing) {
+    constructor(private map: DoomMap, readonly source: Thing) {
         this.spec = thingSpec(source.type);
-        this.fromFloor = !(this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
+        const fromFloor = !(this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
 
         this.direction = writable(Math.PI + source.angle * ToRadians);
         this.position = writable({ x: source.x, y: source.y, z: 0 });
         this.position.subscribe(p => {
+            this.pos = p;
             const sector = map.findSector(p.x, p.y);
-            p.z = this.fromFloor ? get(sector.zFloor) : get(sector.zCeil) - this.spec.mo.height;
             this.sector.set(sector);
+        });
+        this.sector.subscribe(sector => {
+            this.zTarget = fromFloor ? sector.values.zFloor : (sector.values.zCeil - this.spec.mo.height);
         });
 
         this.setState(this.spec.mo.spawnstate);
@@ -837,7 +909,16 @@ export class MapObject {
 
     tick() {
         // friction
+        // TODO: avoid friction on z?
         this.velocity.multiplyScalar(.90625);
+        // gravity
+        if (this.pos.z <= this.zTarget) {
+            this.pos.z = this.zTarget;
+            this.velocity.z = 0;
+        } else {
+            this.velocity.z -= 1;
+        }
+        this.updatePosition();
 
         if (!this.state || this.ticks === -1) {
             return;
@@ -860,5 +941,42 @@ export class MapObject {
         const frame = this.state.frame & FF_FRAMEMASK;
         const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
         this.sprite.set({ name, frame, fullbright });
+    }
+
+    protected updatePosition() {
+        const linedefs = this.map.xyCollisions(this, this.velocity);
+        for (const linedef of linedefs) {
+            // slide along wall instead of moving through it
+            vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+            this.velocity.projectOnVector(vec);
+        }
+        this.position.update(pos => {
+            pos.x += this.velocity.x;
+            pos.y += this.velocity.y;
+            pos.z += this.velocity.z;
+            return pos;
+        });
+    }
+}
+
+export class PlayerMapObject extends MapObject {
+    tick() {
+        super.tick();
+
+        const vel = this.velocity.length();
+        if (this.currentState === StateIndex.S_PLAY && vel > .5) {
+            this.setState(StateIndex.S_PLAY_RUN1);
+        } else if (vel < .2) {
+            this.setState(StateIndex.S_PLAY);
+        }
+    }
+
+    protected updatePosition(): void {
+        // only update gravity because xy is updated each frame alredy and we don't
+        // want to apply velocity twice
+        this.position.update(pos => {
+            pos.z += this.velocity.z;
+            return pos;
+        });
     }
 }

@@ -55,6 +55,10 @@
     <input type="checkbox" bind:checked={game.input.noclip} />
     noclip
 </label>
+<label>
+    <input type="checkbox" bind:checked={game.input.freeFly} />
+    Free fly
+</label>
 
 <div use:pointerLockControls={{ game }}>
     <!-- <div id="lock-message">
