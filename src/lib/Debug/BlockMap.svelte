@@ -1,9 +1,9 @@
 <script lang="ts">
     import { GridHelper } from "three";
     import { useDoom } from "../useDoom";
-    import type { DoomMap } from "../../doomwad";
+    import type { DoomMap } from "../../doom";
     import { Object3DInstance } from "@threlte/core";
-    import { HALF_PI } from "../Math";
+    import { HALF_PI } from "../../doom/Math";
 
     export let map: DoomMap;
 

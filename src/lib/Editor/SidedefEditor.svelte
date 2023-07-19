@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { DoomMap, SideDef } from "../../doomwad";
+    import type { DoomMap, SideDef } from "../../doom";
     import SectorEditor from "./SectorEditor.svelte";
     import TextureChooser from "./TextureChooser.svelte";
 

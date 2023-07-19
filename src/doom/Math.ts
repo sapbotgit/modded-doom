@@ -1,4 +1,4 @@
-import type { Vertex } from "../doomwad";
+import type { Vertex } from "./Map";
 
 export const HALF_PI = Math.PI * 0.5;
 export const QUARTER_PI = Math.PI * 0.25;

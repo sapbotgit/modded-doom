@@ -1,7 +1,6 @@
 import { getContext } from 'svelte'
-import type { DoomMap } from '../doomwad';
 import { MapTextures } from './Texture';
-import { DoomGame } from '../doom-game';
+import { type DoomMap, DoomGame } from '../doom';
 import { writable } from 'svelte/store';
 
 export const createContext = (map: DoomMap) => {

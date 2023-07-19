@@ -1,9 +1,8 @@
 <script lang="ts">
-    import { ACESFilmicToneMapping, CineonToneMapping, Color, CubeTexture, CustomToneMapping, DataTexture, LinearSRGBColorSpace, LinearToneMapping, NoToneMapping, ReinhardToneMapping, SRGBColorSpace, sRGBEncoding } from "three";
-    import type { DoomMap } from "../doomwad";
+    import {  Color, CubeTexture, DataTexture, LinearToneMapping,SRGBColorSpace } from "three";
+    import type { DoomMap } from "../doom";
     import { useDoom } from "./useDoom";
     import { AmbientLight, useThrelte } from "@threlte/core";
-    import { HALF_PI, QUARTER_PI } from "./Math";
 
     const { scene, renderer } = useThrelte();
     const { textures } = useDoom();

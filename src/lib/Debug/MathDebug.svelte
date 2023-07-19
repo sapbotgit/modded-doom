@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Vector2, Vector3 } from "three";
-    import type { Vertex } from "../../doomwad";
-    import { lineLineIntersect, lineCircleIntersect, signedLineDistance, lineCircleSweep } from "../Math";
+    import type { Vertex } from "../../doom";
+    import { lineLineIntersect, lineCircleIntersect, signedLineDistance, lineCircleSweep } from "../../doom/Math";
 
     let p = { x: 80, y: 80 };
     let l1 = [{ x: 10, y: 10}, { x:50, y: 50 }];

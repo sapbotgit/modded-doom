@@ -1,6 +1,6 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
-    import type { DoomMap } from "../../doomwad";
+    import type { DoomMap } from "../../doom";
     import { useDoom } from "../useDoom";
     import LinedefEditor from "./LinedefEditor.svelte";
     import SectorEditor from "./SectorEditor.svelte";

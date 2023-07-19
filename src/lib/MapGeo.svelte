@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { DoomMap, MapObject } from "../doomwad";
+    import type { DoomMap, MapObject } from "../doom";
     import Flats from "./Flats.svelte";
     import Wall from "./Wall.svelte";
     import Thing from "./Thing.svelte";

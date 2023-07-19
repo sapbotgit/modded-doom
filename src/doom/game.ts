@@ -1,8 +1,8 @@
 import { writable, get } from "svelte/store";
-import type { DoomMap, LineDef, MapObject, Sector } from "./doomwad";
+import type { DoomMap, Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
-import { StateIndex } from "./doom-things-info";
-import { HALF_PI, lineCircleSweep, randInt, signedLineDistance, normal, dot } from "./lib/Math";
+import { HALF_PI, randInt } from "./Math";
+import type { MapObject } from "./MapObject";
 
 type Action = () => void;
 

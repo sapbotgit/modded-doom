@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { DoomWad } from "../../doomwad";
+    import type { DoomWad } from "../../doom";
     import TextureChoice from "./TextureChoice.svelte";
 
     export let type: 'wall' | 'flat';

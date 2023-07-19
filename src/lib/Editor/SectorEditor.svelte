@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { DoomMap, Sector } from "../../doomwad";
+    import type { DoomMap, Sector } from "../../doom";
     import { useDoom } from "../useDoom";
     import TextureChooser from "./TextureChooser.svelte";
 

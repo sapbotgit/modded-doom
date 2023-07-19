@@ -1,4 +1,3 @@
-import type { Thing } from "./doomwad";
 import { mapObjectInfo, type MapObjectInfo } from './doom-things-info';
 
 // Adapted from https://doomwiki.org/wiki/Thing_types and combined/mixed with

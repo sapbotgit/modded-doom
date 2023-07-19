@@ -2,7 +2,7 @@
     import { Mesh, PerspectiveCamera } from "@threlte/core";
     import { useDoom } from "./useDoom";
     import Thing from "./Thing.svelte";
-    import { HALF_PI } from "./Math";
+    import { HALF_PI } from "../doom/Math";
     import { CircleGeometry, MeshBasicMaterial } from "three";
 
     const { game } = useDoom();

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { DoomMap, LineDef } from "../../doomwad";
+    import type { DoomMap, LineDef } from "../../doom";
     import SidedefEditor from "./SidedefEditor.svelte";
 
     export let map: DoomMap;

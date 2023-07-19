@@ -7,7 +7,7 @@
 // - https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 // - https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/FlyControls.js
 import type { Action } from 'svelte/action';
-import type { DoomGame } from '../doom-game';
+import type { DoomGame } from '../doom';
 
 interface PointerLockControlsParams {
     game: DoomGame;

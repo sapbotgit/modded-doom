@@ -1,9 +1,9 @@
 <script lang="ts">
     import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
-    import type { LineDef, Seg, SideDef, Vertex } from "../doomwad";
+    import type { LineDef, Seg, SideDef, Vertex } from "../doom";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
-    import { HALF_PI } from "./Math";
+    import { HALF_PI } from "../doom/Math";
     import Wireframe from "./Debug/Wireframe.svelte";
 
     export let seg: Seg;

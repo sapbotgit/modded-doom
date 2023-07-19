@@ -1,6 +1,6 @@
 <script lang="ts">
-    import type { Seg } from "../doomwad";
-    import { HALF_PI, angleIsVisible, signedLineDistance } from "./Math";
+    import type { Seg } from "../doom";
+    import { HALF_PI, angleIsVisible, signedLineDistance } from "../doom/Math";
     import WallSegment from "./WallSegment.svelte";
     import { useDoom } from "./useDoom";
 

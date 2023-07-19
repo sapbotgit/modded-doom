@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Color } from "three";
-    import type { DoomMap, DoomWad, LineDef, Sector, Thing, Vertex, MapObject, RenderSector } from "../../doomwad";
-    import { ToRadians, lineLineIntersect, signedLineDistance } from '../Math';
+    import type { DoomMap, DoomWad, LineDef, Sector, Thing, Vertex, MapObject, RenderSector } from "../../doom";
+    import { ToRadians, lineLineIntersect, signedLineDistance } from '../../doom/Math';
 
     export let wad: DoomWad;
     export let map: DoomMap;

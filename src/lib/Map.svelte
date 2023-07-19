@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Canvas, type ThrelteContext } from "@threlte/core";
-    import type { DoomMap } from "../doomwad";
+    import type { DoomMap } from "../doom";
     import Stats from './Debug/Stats.svelte';
     import { onMount, setContext } from "svelte";
     import { createContext } from "./useDoom";

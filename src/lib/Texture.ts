@@ -1,5 +1,5 @@
 import { Color, DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
-import type { DoomWad } from "../doomwad";
+import type { DoomWad } from "../doom";
 import { sineIn } from 'svelte/easing';
 
 // all flats (floors/ceilings) are 64px

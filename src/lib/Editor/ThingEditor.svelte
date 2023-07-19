@@ -1,9 +1,8 @@
 <script lang="ts">
-    import { MapObject, type DoomMap } from "../../doomwad";
-    import { things, thingSpec, type ThingSpec } from '../../doom-things';
+    import { MapObject, type DoomMap, things, thingSpec, type ThingSpec } from "../../doom";
     import { useDoom } from "../useDoom";
     import ThingSprite from "./ThingSprite.svelte";
-    import { ToDegrees, ToRadians } from "../Math";
+    import { ToDegrees, ToRadians } from "../../doom/Math";
 
     const { editor, textures } = useDoom();
 

@@ -1,9 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { useDoom } from "../useDoom";
-    import type { ThingSpec } from "../../doom-things";
-    import type { DoomMap } from "../../doomwad";
-    import { states } from "../../doom-things-info";
+    import { states, type DoomMap, type ThingSpec } from "../../doom";
 
     export let map: DoomMap
     export let spec: ThingSpec;
