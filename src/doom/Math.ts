@@ -100,7 +100,6 @@ export const normal = (l: Vertex[]) => {
     return { x: -n.y, y: n.x };
 }
 
-// export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number): typeof lineCircleSweepDetails | undefined {
 export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number): Vertex | undefined {
     // Some great resources online (as one might expect)
     // this algorithm basically follows https://ericleong.me/research/circle-line/ but
@@ -165,7 +164,7 @@ export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number)
     return undefined;
 }
 
-function pointOnLine(p: Vertex, l: Vertex[]) {
+export function pointOnLine(p: Vertex, l: Vertex[]) {
     const sd = signedLineDistance(l, p);
     return (
         sd > -0.0001 && sd < 0.0001 &&
@@ -174,15 +173,15 @@ function pointOnLine(p: Vertex, l: Vertex[]) {
     );
 }
 
-function closestPoint(l: Vertex[], p: Vertex) {
+export function closestPoint(l: Vertex[], p: Vertex) {
     let A1 = l[1].y - l[0].y;
     let B1 = l[0].x - l[1].x;
-    let C1 = A1 * l[0].x + (B1) * l[0].y;
-    let C2 = -B1 * p.x + A1 * p.y;
     let det = A1 * A1 + B1 * B1;
     if (det === 0) {
         return p;
     } else{
+        let C1 = A1 * l[0].x + B1 * l[0].y;
+        let C2 = -B1 * p.x + A1 * p.y;
         return {
             x: (A1 * C1 - B1 * C2) / det,
             y: (A1 * C2 + B1 * C1) / det,

@@ -1,8 +1,8 @@
-import { get, writable, type Writable } from "svelte/store";
+import { get, writable, type Subscriber, type Writable } from "svelte/store";
 import type { DoomWad } from "./doomwad";
 import { Vector3 } from "three";
 import { PlayerMapObject, MapObject } from "./MapObject";
-import { centerSort, dot, lineCircleSweep, lineLineIntersect, normal, signedLineDistance } from "./Math";
+import { centerSort, closestPoint, dot, lineCircleSweep, lineLineIntersect, normal, pointOnLine, signedLineDistance } from "./Math";
 
 type ThingType = number;
 
@@ -70,12 +70,7 @@ export interface Seg {
 const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
     vx1: vertexes[item.vertexStart],
     vx2: vertexes[item.vertexEnd],
-    // re-compute this angle because we can be more precise
-    // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
-    // angle: (item.angle * Math.PI / 32768),
-    angle: Math.atan2(
-        vertexes[item.vertexEnd].y - vertexes[item.vertexStart].y,
-        vertexes[item.vertexEnd].x - vertexes[item.vertexStart].x),
+    angle: (item.angle * Math.PI / 32768),
     linedef: linedefs[item.linedef],
     direction: item.direction,
     offset: item.offset,
@@ -241,7 +236,6 @@ export class DoomMap {
     readonly linedefs: LineDef[];
     readonly vertexes: Vertex[];
     readonly sectors: Sector[];
-    readonly segs: Seg[];
     readonly nodes: TreeNode[];
     readonly renderSectors: RenderSector[];
     readonly blockmap: BlockMap;
@@ -273,16 +267,15 @@ export class DoomMap {
         this.things = wad.raw[index + 1].contents.entries;
         this.sectors = wad.raw[index + 8].contents.entries.map(s => toSector(s, flatTextures));
         this.vertexes = wad.raw[index + 4].contents.entries;
-        const sidedefs = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
+        const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
         this.linedefs = wad.raw[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, sidedefs));
-        this.segs = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
-        const subsectors = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, this.segs));
+        const segs: Seg[]  = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
+        const subsectors: SubSector[] = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, segs));
         this.nodes = wad.raw[index + 7].contents.entries.map(d => toNode(d));
         this.nodes.forEach(n => {
             n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
-        this.renderSectors = buildRenderSectors(this.nodes);
         this.objs = this.things.map(e =>
             e.type === 1 ? new PlayerMapObject(this, e) : new MapObject(this, e));
         this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
@@ -294,6 +287,9 @@ export class DoomMap {
         for (const texture of wallTextures.values()) {
             this.initializeTextureAnimation(wad, texture, 'animatedWallInfo');
         }
+
+        // must be after fixing segs
+        this.renderSectors = buildRenderSectors(this.nodes);
     }
 
     private initializeTextureAnimation(wad: DoomWad, target: Writable<string>, animInfoFn: 'animatedWallInfo' | 'animatedFlatInfo') {
@@ -402,10 +398,10 @@ export class DoomMap {
     }
 }
 
-
 export interface RenderSector {
     sector: Sector;
     vertexes: Vertex[];
+    segs: Seg[];
     // these are only helpful for debugging. Maybe we can remove them?
     subsec: SubSector;
     bspLines: Vertex[][];
@@ -418,8 +414,8 @@ function buildRenderSectors(nodes: TreeNode[]) {
     function visitNodeChild(child: TreeNode | SubSector) {
         if ('segs' in child) {
             const sector = child.sector;
-            const vertexes = subsectorVerts(child, bspLines);
-            sectors.push({ sector, vertexes, subsec: child, bspLines: [...bspLines] })
+            const vertexes = subsectorVerts(child.segs, bspLines);
+            sectors.push({ sector, vertexes, segs: child.segs, subsec: child, bspLines: [...bspLines] })
         } else {
             visitNode(child);
         }
@@ -439,9 +435,10 @@ function buildRenderSectors(nodes: TreeNode[]) {
     return sectors;
 }
 
-function subsectorVerts(ssec: SubSector, bspLines: Vertex[][]) {
+function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
     // explicit points
-    let segLines = ssec.segs.map(e => [e.vx1, e.vx2]);
+    fixSegs(segs);
+    let segLines = segs.map(e => [e.vx1, e.vx2]);
     let verts = segLines.flat();
 
     // implicit points are much more complicated. It took me a while to actually figure this all out.
@@ -470,4 +467,19 @@ function subsectorVerts(ssec: SubSector, bspLines: Vertex[][]) {
         }
     }
     return centerSort(verts)
+}
+
+function fixSegs(segs: Seg[]) {
+    for (const seg of segs) {
+        if (!pointOnLine(seg.vx1, seg.linedef.v)) {
+            seg.vx1 = closestPoint(seg.linedef.v, seg.vx1);
+        }
+        if (!pointOnLine(seg.vx2, seg.linedef.v)) {
+            seg.vx2 = closestPoint(seg.linedef.v, seg.vx2);
+        }
+
+        // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
+        // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
+        seg.angle = Math.atan2(seg.vx2.y - seg.vx1.y, seg.vx2.x - seg.vx1.x);
+    }
 }

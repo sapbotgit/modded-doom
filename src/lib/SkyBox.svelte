@@ -132,7 +132,7 @@
     ]);
     tx.colorSpace = SRGBColorSpace;
     tx.needsUpdate = true;
-    scene.background = tx;
+    scene.background = tx; //new Color('magenta');
 </script>
 
 <AmbientLight color={'white'} intensity={1} />

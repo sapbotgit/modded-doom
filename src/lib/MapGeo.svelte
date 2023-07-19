@@ -23,7 +23,7 @@
 
 {#each map.renderSectors as renderSector, i}
     <Flats {renderSector} index={i} />
-    {#each renderSector.subsec.segs as seg}
+    {#each renderSector.segs as seg}
         <Wall {seg} />
     {/each}
 {/each}

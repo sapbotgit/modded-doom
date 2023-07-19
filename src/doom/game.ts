@@ -182,7 +182,7 @@ class GameInput {
     public slow = false;
     public mouse = { x: 0, y: 0 };
 
-    public noclip = false;
+    public noclip = true;
     public freeFly = false;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
