@@ -169,6 +169,7 @@ const playerSpeeds = { // per-tick
     'run': 50,
     'walk': 25,
     'crawl?': 5,
+    'gravity': 35,
 }
 const playerCameraOffset = 41;
 const euler = new Euler(0, 0, 0, 'ZYX');
@@ -182,7 +183,7 @@ class GameInput {
     public slow = false;
     public mouse = { x: 0, y: 0 };
 
-    public noclip = true;
+    public noclip = false;
     public freeFly = false;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
@@ -222,18 +223,23 @@ class GameInput {
         if (this.moveLeft || this.moveRight) {
             this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * dt);
         }
+        if (!this.player.onGround) {
+            this.player.velocity.z -= playerSpeeds['gravity'] * dt
+        }
 
         if (this.enablePlayerCollisions) {
             const linedefs = this.map.xyCollisions(this.player, this.player.velocity);
             for (const linedef of linedefs) {
                 // slide along wall instead of moving through it
                 vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+                // we are only interested in cancelling xy movement so preserve z
+                const z = this.player.velocity.z;
                 this.player.velocity.projectOnVector(vec);
+                this.player.velocity.z = z;
             }
         }
-        // apply gravity in PlayerMapObject only on ticks
-        this.obj.position.x += this.player.velocity.x;
-        this.obj.position.y += this.player.velocity.y;
+
+        this.obj.position.add(this.player.velocity);
         this.game.player.position.set(this.obj.position);
 
         // handle rotation movements
@@ -249,8 +255,8 @@ class GameInput {
         this.mouse.x = 0;
         this.mouse.y = 0;
 
-        // update camera
         // TODO: walk bob?
+        // update camera
         const mode = get(this.game.camera.mode);
         this.game.camera.position.update(p => {
             if (mode === '3p') {

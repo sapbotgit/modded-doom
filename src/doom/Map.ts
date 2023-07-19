@@ -364,11 +364,12 @@ export class DoomMap {
         return collisions;
 
         function checkCollision(linedef: LineDef) {
-            if (!(linedef.flags & 0x0004)) {
-                // one sided - don't collide if the direction is going from front-back on the line
+            const twoSided = (linedef.flags & 0x0004) !== 0;
+            const blocking = (linedef.flags & 0x0001) !== 0;
+            if (!blocking || !twoSided) {
+                // don't collide if the direction is going from back to front
                 const n = normal(linedef.v);
                 if (dot(n, move) <= 0) {
-                    // direction and line will not cross
                     return;
                 }
             }
@@ -378,8 +379,7 @@ export class DoomMap {
                 return;
             }
 
-            if (linedef.flags & 0x0004 && !(linedef.flags & 0x0001)) {
-                // two-sided and non-blocking
+            if (twoSided && !blocking) {
                 const leftFloor = linedef.left.sector.values.zFloor;
                 const rightFloor = linedef.right.sector.values.zFloor;
                 const diff = signedLineDistance(linedef.v, start) > 0 ? leftFloor - rightFloor : rightFloor - leftFloor;
@@ -388,7 +388,7 @@ export class DoomMap {
                 }
 
                 // TODO: low ceilings
-                // TODO: triggers from edges that were walked over?
+                // TODO: trigger edges that were walked over?
             }
 
             if (signedLineDistance(linedef.v, end) > 0) {

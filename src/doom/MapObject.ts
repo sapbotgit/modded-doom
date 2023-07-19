@@ -13,6 +13,7 @@ interface Sprite {
 }
 
 const vec = new Vector3();
+const friction = .90625;
 const FF_FULLBRIGHT = 0x8000;
 const FF_FRAMEMASK = 0x7fff;
 export class MapObject {
@@ -27,6 +28,7 @@ export class MapObject {
     private pos: Position;
     private ticks: number;
 
+    get onGround() { return this.pos.z <= this.zTarget; }
     get currentState() { return this._state; }
     private _state: StateIndex;
 
@@ -53,16 +55,10 @@ export class MapObject {
     }
 
     tick() {
-        // friction
-        // TODO: avoid friction on z?
-        this.velocity.multiplyScalar(.90625);
-        // gravity
-        if (this.pos.z <= this.zTarget) {
-            this.pos.z = this.zTarget;
-            this.velocity.z = 0;
-        } else {
-            this.velocity.z -= 1;
-        }
+        // friction (not z because gravity)
+        this.velocity.x *= friction;
+        this.velocity.y *= friction;
+        this.applyGravity();
         this.updatePosition();
 
         if (!this.state || this.ticks === -1) {
@@ -86,6 +82,15 @@ export class MapObject {
         const frame = this.state.frame & FF_FRAMEMASK;
         const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
         this.sprite.set({ name, frame, fullbright });
+    }
+
+    protected applyGravity() {
+        if (this.onGround) {
+            this.pos.z = this.zTarget;
+            this.velocity.z = 0;
+        } else {
+            this.velocity.z -= 1;
+        }
     }
 
     protected updatePosition() {
@@ -115,13 +120,15 @@ export class PlayerMapObject extends MapObject {
             this.setState(StateIndex.S_PLAY);
         }
     }
-
     protected updatePosition(): void {
-        // only update gravity because xy is updated each frame alredy and we don't
-        // want to apply velocity twice
-        this.position.update(pos => {
-            pos.z += this.velocity.z;
-            return pos;
-        });
+        // do nothing here because we already update the position in game input and
+        // we don't want to double add velocity
+    }
+
+    protected applyGravity(): void {
+        if (this.onGround) {
+            super.applyGravity();
+        }
+        // do nothing because we already apply in game input
     }
 }

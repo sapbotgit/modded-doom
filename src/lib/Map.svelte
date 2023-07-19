@@ -18,7 +18,7 @@
 
     const doomContext = createContext(map);
     setContext('doom-context', doomContext);
-    const { game, settings } = doomContext;
+    const { game, settings, editor } = doomContext;
     const { mode: cameraMode } = game.camera;
 
     let clock = new Clock();
@@ -58,6 +58,10 @@
 <label>
     <input type="checkbox" bind:checked={game.input.freeFly} />
     Free fly
+</label>
+<label>
+    <input type="checkbox" bind:checked={$editor.active} on:change={() => $editor.selected = null} />
+    Enable editing
 </label>
 
 <div use:pointerLockControls={{ game }}>
