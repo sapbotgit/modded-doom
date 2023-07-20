@@ -44,6 +44,8 @@
         update();
         return () => cancelAnimationFrame(frame);
     });
+
+    const { freelook } = game.input;
 </script>
 
 <select bind:value={$cameraMode}>
@@ -54,6 +56,10 @@
 <label>
     <input type="checkbox" bind:checked={game.input.noclip} />
     noclip
+</label>
+<label>
+    <input type="checkbox" bind:checked={$freelook} />
+    Free look
 </label>
 <label>
     <input type="checkbox" bind:checked={game.input.freeFly} />

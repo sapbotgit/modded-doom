@@ -4,7 +4,8 @@ import { StateIndex, type State, MFFlags, SpriteNames, states } from "./doom-thi
 import type { Position } from "@threlte/core";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./Math";
-import { CollisionNoOp, type DoomMap, type Thing } from "./Map";
+import { CollisionNoOp, type DoomMap, type Sector, type Thing } from "./Map";
+import type { DoomGame } from "./game";
 
 interface Sprite {
     name: string;
@@ -21,15 +22,17 @@ export class MapObject {
     readonly spec: ThingSpec;
     readonly position: Writable<Position>;
     readonly direction: Writable<number>;
-    readonly sector = writable(null);
+    readonly sector = writable<Sector>(null);
     readonly sprite = writable<Sprite>(null);
     readonly velocity = new Vector3();
-    public zTarget: number;
+    public zCeil: number;
+    public zFloor: number;
     private state: State;
-    private pos: Position;
+    protected pos: Position;
     private ticks: number;
+    private sect: Sector;
 
-    get onGround() { return this.pos.z <= this.zTarget; }
+    get onGround() { return this.pos.z <= this.zFloor; }
     get currentState() { return this._state; }
     private _state: StateIndex;
 
@@ -42,10 +45,15 @@ export class MapObject {
         this.position.subscribe(p => {
             this.pos = p;
             const sector = map.findSector(p.x, p.y);
-            this.sector.set(sector);
+            // svelte stores assume != when value is an object so we have to be a little smarter
+            if (this.sect !== sector) {
+                this.sect = sector;
+                this.sector.set(sector);
+            }
         });
         this.sector.subscribe(sector => {
-            this.zTarget = fromFloor ? sector.values.zFloor : (sector.values.zCeil - this.spec.mo.height);
+            this.zCeil = sector.values.zCeil;
+            this.zFloor = fromFloor ? sector.values.zFloor : (sector.values.zCeil - this.spec.mo.height);
         });
 
         this.setState(this.spec.mo.spawnstate);
@@ -57,8 +65,10 @@ export class MapObject {
 
     tick() {
         // friction (not z because gravity)
-        this.velocity.x *= friction;
-        this.velocity.y *= friction;
+        if (this.onGround) {
+            this.velocity.x *= friction;
+            this.velocity.y *= friction;
+        }
         this.applyGravity();
         this.updatePosition();
 
@@ -87,7 +97,7 @@ export class MapObject {
 
     protected applyGravity() {
         if (this.onGround) {
-            this.pos.z = this.zTarget;
+            this.pos.z = this.zFloor;
             this.velocity.z = 0;
         } else {
             this.velocity.z -= 1;
@@ -116,7 +126,27 @@ export class MapObject {
     }
 }
 
+const bobTime = 35 / 20;
+const playerMaxBob = 16;
+const playerViewHeightDefault = 41;
+const playerViewHeightDefaultHalf = playerViewHeightDefault * .5;
 export class PlayerMapObject extends MapObject {
+    private viewHeight = playerViewHeightDefault;
+    private deltaViewHeight = 0;
+
+    constructor(map: DoomMap, source: Thing) {
+        super(map, source);
+        this.sector.subscribe(sector => {
+            // step up
+            if (this.pos.z < this.zFloor) {
+                this.viewHeight -= this.zFloor - this.pos.z;
+                // this means we change view height by 1, 2, or 3 depending on the step (>> 3 is equivalent to divide by 8 but faster)
+                this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
+                this.pos.z = this.zFloor;
+            }
+        });
+    }
+
     tick() {
         super.tick();
 
@@ -127,6 +157,7 @@ export class PlayerMapObject extends MapObject {
             this.setState(StateIndex.S_PLAY);
         }
     }
+
     protected updatePosition(): void {
         // do nothing here because we already update the position in game input and
         // we don't want to double add velocity
@@ -137,5 +168,34 @@ export class PlayerMapObject extends MapObject {
             super.applyGravity();
         }
         // do nothing because we already apply in game input
+    }
+
+    // P_CalcHeight in p_user.c
+    computeViewHeight(game: DoomGame, delta: number) {
+        // if (alive) {
+        this.viewHeight += this.deltaViewHeight * 35 * delta;
+
+        if (this.viewHeight > playerViewHeightDefault) {
+            this.viewHeight = playerViewHeightDefault;
+            this.deltaViewHeight = 0;
+        }
+        if (this.viewHeight < playerViewHeightDefaultHalf) {
+            this.viewHeight = playerViewHeightDefaultHalf;
+            if (this.deltaViewHeight <= 0) {
+                this.deltaViewHeight = 1;
+            }
+        }
+
+        if (this.deltaViewHeight) {
+            // accelerate delta over time
+            this.deltaViewHeight += this.deltaViewHeight * delta * 4
+        }
+
+        const maxBox = Math.min(this.velocity.lengthSq(), playerMaxBob) / 2;
+        const bob = Math.sin(Math.PI * 2 * bobTime * game.elapsedTime) * maxBox;
+
+        let viewHeight = this.viewHeight + bob;
+        // TODO: check higher than ceiling?
+        return viewHeight;
     }
 }

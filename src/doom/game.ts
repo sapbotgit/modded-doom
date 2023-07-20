@@ -2,7 +2,7 @@ import { writable, get } from "svelte/store";
 import { type DoomMap, type Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, randInt } from "./Math";
-import type { MapObject } from "./MapObject";
+import type { MapObject, PlayerMapObject } from "./MapObject";
 
 type Action = () => void;
 
@@ -92,18 +92,59 @@ const sectorAnimations = {
     17: fireFlicker,
 };
 
+class Camera {
+    private pos = new Vector3();
+    private updatePosition: (pos: Vector3, angle: Euler) => void;
+
+    public playerViewHeight = 0; // only applies for mode=='1p'
+    readonly rotation = writable(new Euler(0, 0, 0, 'ZXY'));
+    readonly position = writable(this.pos);
+    mode = writable<'1p' | '3p' | 'bird'>('1p');
+
+    constructor() {
+        this.mode.subscribe(mode => {
+            if (mode === '3p') {
+                const followDist = 200;
+                this.updatePosition = (position, angle) => {
+                    this.pos.x = -Math.sin(-euler.z) * followDist + position.x;
+                    this.pos.y = -Math.cos(-euler.z) * followDist + position.y;
+                    this.pos.z = Math.cos(-euler.x) * followDist + position.z;
+                    this.position.set(this.pos);
+                    this.rotation.set(angle)
+                };
+            } else if (mode === 'bird') {
+                const followDist = 250;
+                this.updatePosition = (position, angle) => {
+                    this.pos.copy(position);
+                    this.pos.z = position.z + followDist;
+                    this.position.set(this.pos);
+                    angle.x = 0;
+                    this.rotation.set(angle);
+                }
+            } else {
+                this.updatePosition = (position, angle) => {
+                    this.pos.copy(position);
+                    this.pos.z = position.z + this.playerViewHeight;
+                    this.position.set(this.pos);
+                    this.rotation.set(angle);
+                };
+            }
+        });
+    }
+
+    update(position: Vector3, angle: Euler) {
+        this.updatePosition(position, angle);
+    }
+}
+
 const frameTickTime = 1 / 35; // 35 tics/sec
 export class DoomGame {
-    private elapsedTime = 0; // seconds
     private nextTickTime = 0; // seconds
+    elapsedTime = 0; // seconds
     currentTick = 0;
 
     readonly player: MapObject;
-    readonly camera = {
-        rotation: writable(new Euler(0, 0, 0, 'ZXY')),
-        position: writable(new Vector3()),
-        mode: writable<'1p' | '3p' | 'bird'>('1p'),
-    }
+    readonly camera = new Camera();
     readonly input: GameInput;
 
     private actions: Action[];
@@ -180,7 +221,7 @@ const playerSpeeds = { // per-tick
     'crawl?': 5,
     'gravity': 35,
 }
-const playerCameraOffset = 41;
+
 const euler = new Euler(0, 0, 0, 'ZYX');
 const vec = new Vector3();
 class GameInput {
@@ -192,6 +233,7 @@ class GameInput {
     public slow = false;
     public mouse = { x: 0, y: 0 };
 
+    public freelook = writable(true);
     public noclip = false;
     public freeFly = false;
     public pointerSpeed = 1.0;
@@ -199,16 +241,13 @@ class GameInput {
     // Range is 0 to Math.PI radians
     public minPolarAngle = -HALF_PI;
     public maxPolarAngle = HALF_PI;
-    // public maxPolarAngle = 0;
-    // public minPolarAngle = 0;
 
     private get enablePlayerCollisions() { return !this.noclip; }
-    private player: MapObject;
+    private get player() { return this.game.player as PlayerMapObject };
     private obj = new Object3D();
     private direction = new Vector3();
 
     constructor(private map: DoomMap, private game: DoomGame) {
-        this.player = game.player;
         const position = get(this.player.position);
         this.obj.position.set(position.x, position.y, position.z);
         this.game.player.position.set(this.obj.position);
@@ -216,6 +255,15 @@ class GameInput {
         euler.x = HALF_PI;
         euler.z = get(this.player.direction) + HALF_PI;
         this.obj.quaternion.setFromEuler(euler);
+
+        this.freelook.subscribe(val => {
+            if (val) {
+                this.minPolarAngle = -HALF_PI;
+                this.maxPolarAngle = HALF_PI;
+            } else {
+                this.minPolarAngle = this.maxPolarAngle = 0;
+            }
+        })
     }
 
     evaluate(delta: number) {
@@ -240,14 +288,19 @@ class GameInput {
 
         const dt = delta * delta / frameTickTime;
         const speed = this.slow ? playerSpeeds['crawl?'] : this.run ? playerSpeeds['run'] : playerSpeeds['walk'];
-        if (this.moveForward || this.moveBackward) {
-            this.player.velocity.addScaledVector(this.forwardVec(), this.direction.y * speed * dt);
-        }
-        if (this.moveLeft || this.moveRight) {
-            this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * dt);
-        }
-        if (!this.player.onGround) {
-            this.player.velocity.z -= playerSpeeds['gravity'] * dt
+        if (this.player.onGround || this.freeFly) {
+            if (this.moveForward || this.moveBackward) {
+                this.player.velocity.addScaledVector(this.forwardVec(), this.direction.y * speed * dt);
+            }
+            if (this.moveLeft || this.moveRight) {
+                this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * dt);
+            }
+            if (this.freeFly) {
+                // apply z-friction during freefly
+                this.player.velocity.z *= 0.96;
+            }
+        } else {
+            this.player.velocity.z -= playerSpeeds['gravity'] * dt;
         }
 
         if (this.enablePlayerCollisions) {
@@ -268,29 +321,8 @@ class GameInput {
         this.obj.position.add(this.player.velocity);
         this.game.player.position.set(this.obj.position);
 
-        // TODO: walk bob?
-        // update camera
-        const mode = get(this.game.camera.mode);
-        this.game.camera.position.update(p => {
-            if (mode === '3p') {
-                const followDist = 200;
-                p.x = -Math.sin(-euler.z) * followDist + this.obj.position.x;
-                p.y = -Math.cos(-euler.z) * followDist + this.obj.position.y;
-                p.z = Math.cos(-euler.x) * followDist + this.obj.position.z;
-            } else if (mode === 'bird') {
-                const followDist = 250;
-                euler.x = 0;
-                p.x = this.obj.position.x;
-                p.y = this.obj.position.y;
-                p.z = followDist + this.obj.position.z;
-            } else {
-                p.x = this.obj.position.x;
-                p.y = this.obj.position.y;
-                p.z = this.obj.position.z + playerCameraOffset;
-            }
-            return p;
-        });
-        this.game.camera.rotation.set(euler);
+        this.game.camera.playerViewHeight = this.player.computeViewHeight(this.game, delta);
+        this.game.camera.update(this.obj.position, euler);
     }
 
     private rightVec() {
