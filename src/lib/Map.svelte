@@ -11,6 +11,7 @@
     import { pointerLockControls } from "./ZAxisPointerLock";
     import { Clock } from "three";
     import Player from "./Player.svelte";
+    import PlayerInfo from "./Debug/PlayerInfo.svelte";
 
     export let map: DoomMap;
 
@@ -45,6 +46,7 @@
         return () => cancelAnimationFrame(frame);
     });
 
+    let showPlayerInfo = false;
     const { freelook } = game.input;
 </script>
 
@@ -69,24 +71,33 @@
     <input type="checkbox" bind:checked={$editor.active} on:change={() => $editor.selected = null} />
     Enable editing
 </label>
+<label>
+    <input type="checkbox" bind:checked={showPlayerInfo} />
+    Show player info
+</label>
 
-<div use:pointerLockControls={{ game }}>
-    <!-- <div id="lock-message">
-        Controls: WASD
-        <br>
-        Click to lock
-    </div> -->
-    <Canvas size={{ width: 800, height: 600 }} frameloop='never' bind:ctx={threlteCtx}>
-        <Stats />
+<div>
+    <div use:pointerLockControls={{ game }}>
+        <!-- <div id="lock-message">
+            Controls: WASD
+            <br>
+            Click to lock
+        </div> -->
+        <Canvas size={{ width: 800, height: 600 }} frameloop='never' bind:ctx={threlteCtx}>
+            <Stats />
 
-        <SkyBox {map} />
+            <SkyBox {map} />
 
-        <MapGeo {map} />
+            <MapGeo {map} />
 
-        <Player />
-    </Canvas>
+            <Player />
+        </Canvas>
+    </div>
 
     <EditPanel {map} />
+    {#if showPlayerInfo}
+        <PlayerInfo player={game.player} />
+    {/if}
 </div>
 
 <style>

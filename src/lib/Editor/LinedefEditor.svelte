@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { DoomMap, LineDef } from "../../doom";
+    import FlagList from "./FlagList.svelte";
     import SidedefEditor from "./SidedefEditor.svelte";
 
     export let map: DoomMap;
@@ -21,13 +22,13 @@
 
 <h3>Linedef</h3>
 <div>
-    <span>Flags {linedef.flags}</span>
-    {#each flagInfo as [flag, description]}
-        <label>
-            <input type="checkbox" checked={Boolean(linedef.flags & flag)} />
-            {description}
-        </label>
-    {/each}
+    <FlagList info={flagInfo} bind:flags={linedef.flags} />
+</div>
+<div>
+    Special {linedef.special}
+    {#if linedef.special}
+        tag: {linedef.tag}
+    {/if}
 </div>
 <div>
     {#if linedef.left}

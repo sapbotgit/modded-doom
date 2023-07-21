@@ -33,6 +33,11 @@ export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams>
 
     function keydown(ev: KeyboardEvent) {
         switch (ev.code) {
+            case "KeyE":
+            case "Space":
+                game.input.use = true;
+                break;
+
             case "ArrowUp":
             case "KeyW":
                 game.input.moveForward = true;
@@ -67,6 +72,11 @@ export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams>
 
     function keyup(ev: KeyboardEvent) {
         switch (ev.code) {
+            case "KeyE":
+            case "Space":
+                game.input.use = false;
+                break;
+
             case "ArrowUp":
             case "KeyW":
                 game.input.moveForward = false;

@@ -3,11 +3,21 @@
     import { useDoom } from "../useDoom";
     import ThingSprite from "./ThingSprite.svelte";
     import { ToDegrees, ToRadians } from "../../doom/Math";
+    import FlagList from "./FlagList.svelte";
 
     const { editor, textures } = useDoom();
 
     export let map: DoomMap;
     export let thing: MapObject;
+
+    // https://doomwiki.org/wiki/Thing#Flags
+    const flagInfo: [number, string][] = [
+        [0x0001, 'On skill 1 and 2 ("I\'m too young to die." and "Hey, not too rough.")'],
+        [0x0002, 'On skill 3 ("Hurt me plenty.")'],
+        [0x0004, 'On skill 4 and 5 ("Ultra Violence." and "Nightmare!")'],
+        [0x0008, 'Ambush (aka the "deaf" flag)'],
+        [0x0010, 'Multiplayer-only'],
+    ]
 
     const { direction, sprite, spec } = thing;
     const frames = map.wad.spriteFrames(spec.sprite);
@@ -62,37 +72,8 @@
         </div>
     {/if}
 </div>
-<div class="flag-stack">
-    <span>Flags</span>
-    <!--
-        https://doomwiki.org/wiki/Thing#Flags
-        0 	0x0001 	Thing is on skill levels 1 & 2
-        1 	0x0002 	Thing is on skill level 3
-        2 	0x0004 	Thing is on skill levels 4 & 5
-        3 	0x0008 	Thing is waiting in ambush. Commonly known as "deaf" flag.
-                     In fact, it does not render monsters deaf per se.
-        4 	0x0010 	Thing is not in single player
-    -->
-    <label>
-        <input type="checkbox" checked={Boolean(thing.source.flags & 0x0001)} />
-        On skill 1 and 2 ("I'm too young to die." and "Hey, not too rough.")
-    </label>
-    <label>
-        <input type="checkbox" checked={Boolean(thing.source.flags & 0x0002)} />
-        On skill 3 ("Hurt me plenty.")
-    </label>
-    <label>
-        <input type="checkbox" checked={Boolean(thing.source.flags & 0x0004)} />
-        On skill 4 and 5 ("Ultra Violence." and "Nightmare!")
-    </label>
-    <label>
-        <input type="checkbox" checked={Boolean(thing.source.flags & 0x0008)} />
-        Ambush (aka the "deaf" flag)
-    </label>
-    <label>
-        <input type="checkbox" checked={Boolean(thing.source.flags & 0x0010)} />
-        Multiplayer-only
-    </label>
+<div>
+    <FlagList info={flagInfo} bind:flags={thing.source.flags} />
 </div>
 <!-- position is edited in Thing.svelte -->
 <div class="direction">
@@ -119,15 +100,6 @@
 <style>
     div {
         position: relative;
-    }
-
-    .flag-stack {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .flag-stack label {
-        padding-left: 1em;
     }
 
     input[type="text"] {

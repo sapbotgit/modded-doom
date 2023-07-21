@@ -1,10 +1,11 @@
 import { writable, get } from "svelte/store";
 import { type DoomMap, type Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, randInt } from "./Math";
+import { HALF_PI, lineLineIntersect, randInt, signedLineDistance } from "./Math";
 import type { MapObject, PlayerMapObject } from "./MapObject";
+import { createDoorAction } from "./Specials";
 
-type Action = () => void;
+export type Action = () => void;
 
 const lowestLight = (sectors: Sector[], min: number) =>
     sectors.length === 0 ? 0 :
@@ -137,7 +138,8 @@ class Camera {
     }
 }
 
-const frameTickTime = 1 / 35; // 35 tics/sec
+export const ticksPerSecond = 35;
+const frameTickTime = 1 / ticksPerSecond;
 export class DoomGame {
     private nextTickTime = 0; // seconds
     elapsedTime = 0; // seconds
@@ -180,6 +182,17 @@ export class DoomGame {
         });
 
         this.map.objs.forEach(thing => thing.tick());
+    }
+
+    addAction(action: Action) {
+        if (action) {
+            this.actions.push(action);
+        }
+    }
+
+    removeAction(action: Action) {
+        // TODO: perf: recreating an array?
+        this.actions = this.actions.filter(e => e !== action);
     }
 
     // Why a public function? Because "edit" mode can change these while
@@ -231,6 +244,7 @@ class GameInput {
     public moveRight = false;
     public run = false;
     public slow = false;
+    public use = false;
     public mouse = { x: 0, y: 0 };
 
     public freelook = writable(true);
@@ -242,6 +256,7 @@ class GameInput {
     public minPolarAngle = -HALF_PI;
     public maxPolarAngle = HALF_PI;
 
+    private handledUsePress = false; // only one use per button press
     private get enablePlayerCollisions() { return !this.noclip; }
     private get player() { return this.game.player as PlayerMapObject };
     private obj = new Object3D();
@@ -263,7 +278,7 @@ class GameInput {
             } else {
                 this.minPolarAngle = this.maxPolarAngle = 0;
             }
-        })
+        });
     }
 
     evaluate(delta: number) {
@@ -317,6 +332,33 @@ class GameInput {
                     return true;
                 });
         }
+
+        if (this.use && !this.handledUsePress) {
+            this.handledUsePress = false;
+
+            const ang = euler.z + HALF_PI;
+            vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
+            const collisions = this.map.blockmap.trace(this.obj.position, 0, vec);
+            vec.add(this.obj.position);
+            const useLine = [this.obj.position, vec];
+            for (const linedef of collisions.linedefs) {
+                if (signedLineDistance(linedef.v, this.obj.position) < 0) {
+                    // don't hit walls from behind
+                    continue;
+                }
+
+                const hit = lineLineIntersect(linedef.v, useLine, true);
+                if (!hit) {
+                    continue;
+                }
+
+                if (linedef.special) {
+                    createDoorAction(this.game, this.map, linedef);
+                    break;
+                }
+            }
+        }
+        this.handledUsePress = this.use;
 
         this.obj.position.add(this.player.velocity);
         this.game.player.position.set(this.obj.position);

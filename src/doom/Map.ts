@@ -99,6 +99,7 @@ export interface Sector {
     light: Writable<number>;
     floorFlat: Writable<string>;
     ceilFlat: Writable<string>;
+    specialData: any;
 }
 const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => {
     const sector = {
@@ -123,6 +124,7 @@ const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => {
         light: writable(sd.light),
         floorFlat: textures.get(fixTextureName(sd.floorFlat)),
         ceilFlat: textures.get(fixTextureName(sd.ceilFlat)),
+        specialData: null,
     };
     // so we don't need to use get() on critical code paths (like collision detection)
     sector.zFloor.subscribe(v => sector.values.zFloor = v);
@@ -183,7 +185,6 @@ interface Block {
     linedefs: LineDef[];
     things: MapObject[];
 }
-
 
 interface HandleCollision<Type> {
     (t: Type): boolean;
@@ -469,7 +470,7 @@ export class DoomMap {
                 }
             }
         }
-        return sectors;
+        return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
     xyCollisions(obj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>) {
@@ -529,15 +530,16 @@ export class DoomMap {
             }
 
             if (twoSided && !blocking) {
-                const leftFloor = linedef.left.sector.values.zFloor;
-                const rightFloor = linedef.right.sector.values.zFloor;
-                const stepSize = signedLineDistance(linedef.v, start) > 0
-                    ? leftFloor - rightFloor : rightFloor - leftFloor;
-                if (stepSize <= maxStepSize) {
+                const changeDir = signedLineDistance(linedef.v, start);
+                const endSec = changeDir > 0 ? linedef.left.sector : linedef.right.sector;
+                const startSec = changeDir > 0 ? linedef.right.sector : linedef.left.sector;
+
+                const floorChangeOk = (endSec.values.zFloor - startSec.values.zFloor <= maxStepSize);
+                const ceilingFloorGapOk = (endSec.values.zCeil - endSec.values.zFloor >= obj.spec.mo.height);
+
+                if (ceilingFloorGapOk && floorChangeOk) {
                     return;
                 }
-
-                // TODO: low ceilings
                 // TODO: trigger edges that were walked over?
             }
 
@@ -586,8 +588,8 @@ function buildRenderSectors(nodes: TreeNode[]) {
 }
 
 function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
-    // explicit points
     fixSegs(segs);
+    // explicit points
     let segLines = segs.map(e => [e.vx1, e.vx2]);
     let verts = segLines.flat();
 

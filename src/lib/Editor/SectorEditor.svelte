@@ -43,6 +43,9 @@
 
 <h3>Sector</h3>
 <div>
+    Tag: {sector.tag}
+</div>
+<div>
     <button on:click={toggleSelector}>{types[sector.type]}</button>
     {#if showSelector}
         <div class="selector">
