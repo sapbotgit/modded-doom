@@ -6,7 +6,7 @@
     export let map: DoomMap;
     export let sector: Sector;
 
-    const { game } = useDoom();
+    const { game, editor } = useDoom();
     const { light, zCeil, zFloor, floorFlat, ceilFlat } = sector;
 
     let showSelector = false;
@@ -39,11 +39,15 @@
         showSelector = false;
         game.synchronizeActions();
     }
+
+    function tagLinedef() {
+        $editor.selected = map.linedefs.find(e => e.tag === sector.tag)
+    }
 </script>
 
 <h3>Sector</h3>
 <div>
-    Tag: {sector.tag}
+    <button on:click={tagLinedef}>Tag: {sector.tag}</button>
 </div>
 <div>
     <button on:click={toggleSelector}>{types[sector.type]}</button>

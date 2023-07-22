@@ -1,9 +1,9 @@
-import { writable, get } from "svelte/store";
-import { type DoomMap, type Sector } from "./Map";
+import { writable, get, derived, type Readable } from "svelte/store";
+import { type DoomMap, type LineDef, type Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, randInt, signedLineDistance } from "./Math";
 import type { MapObject, PlayerMapObject } from "./MapObject";
-import { createDoorAction } from "./Specials";
+import { createDoorAction, createLiftAction, type TriggerType } from "./Specials";
 
 export type Action = () => void;
 
@@ -102,7 +102,7 @@ class Camera {
     readonly position = writable(this.pos);
     mode = writable<'1p' | '3p' | 'bird'>('1p');
 
-    constructor() {
+    constructor(player: MapObject) {
         this.mode.subscribe(mode => {
             if (mode === '3p') {
                 const followDist = 200;
@@ -138,7 +138,7 @@ class Camera {
     }
 }
 
-export const ticksPerSecond = 35;
+const ticksPerSecond = 35;
 const frameTickTime = 1 / ticksPerSecond;
 export class DoomGame {
     private nextTickTime = 0; // seconds
@@ -146,7 +146,7 @@ export class DoomGame {
     currentTick = 0;
 
     readonly player: MapObject;
-    readonly camera = new Camera();
+    readonly camera: Camera;
     readonly input: GameInput;
 
     private actions: Action[];
@@ -155,6 +155,7 @@ export class DoomGame {
         this.synchronizeActions();
         this.player = map.objs.find(e => e.source.type === 1);
         this.input = new GameInput(map, this);
+        this.camera = new Camera(this.player);
     }
 
     tick(delta: number) {
@@ -193,6 +194,11 @@ export class DoomGame {
     removeAction(action: Action) {
         // TODO: perf: recreating an array?
         this.actions = this.actions.filter(e => e !== action);
+    }
+
+    triggerSpecial(linedef: LineDef, mobj: MapObject, trigger: TriggerType) {
+        createDoorAction(this, this.map, linedef, mobj, trigger);
+        createLiftAction(this, this.map, linedef, mobj, trigger);
     }
 
     // Why a public function? Because "edit" mode can change these while
@@ -248,8 +254,8 @@ class GameInput {
     public mouse = { x: 0, y: 0 };
 
     public freelook = writable(true);
-    public noclip = false;
-    public freeFly = false;
+    public noclip = true;
+    public freeFly = true;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     // Range is 0 to Math.PI radians
@@ -302,8 +308,11 @@ class GameInput {
         // ^^^ this isn't very doom like but I don't want to change it
 
         const dt = delta * delta / frameTickTime;
-        const speed = this.slow ? playerSpeeds['crawl?'] : this.run ? playerSpeeds['run'] : playerSpeeds['walk'];
+        let speed = this.slow ? playerSpeeds['crawl?'] : this.run ? playerSpeeds['run'] : playerSpeeds['walk'];
         if (this.player.onGround || this.freeFly) {
+            if (this.freeFly && !this.slow) {
+                speed *= 2;
+            }
             if (this.moveForward || this.moveBackward) {
                 this.player.velocity.addScaledVector(this.forwardVec(), this.direction.y * speed * dt);
             }
@@ -311,8 +320,10 @@ class GameInput {
                 this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * dt);
             }
             if (this.freeFly) {
-                // apply z-friction during freefly
-                this.player.velocity.z *= 0.96;
+                // apply separate friction during freefly
+                this.player.velocity.multiplyScalar(0.95);
+            } else {
+                this.player.velocity.z = 0;
             }
         } else {
             this.player.velocity.z -= playerSpeeds['gravity'] * dt;
@@ -329,6 +340,10 @@ class GameInput {
                 },
                 linedef => {
                     slideMove(this.player, linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y);
+                    return true;
+                },
+                linedef => {
+                    this.game.triggerSpecial(linedef, this.player, 'W')
                     return true;
                 });
         }
@@ -353,7 +368,7 @@ class GameInput {
                 }
 
                 if (linedef.special) {
-                    createDoorAction(this.game, this.map, linedef);
+                    this.game.triggerSpecial(linedef, this.player, 'S');
                     break;
                 }
             }
@@ -363,7 +378,7 @@ class GameInput {
         this.obj.position.add(this.player.velocity);
         this.game.player.position.set(this.obj.position);
 
-        this.game.camera.playerViewHeight = this.player.computeViewHeight(this.game, delta);
+        this.game.camera.playerViewHeight = this.freeFly ? 41 : this.player.computeViewHeight(this.game, delta);
         this.game.camera.update(this.obj.position, euler);
     }
 

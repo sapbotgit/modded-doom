@@ -8,6 +8,10 @@
     const { game } = useDoom();
     const { mode, position: cameraPosition, rotation: cameraRotation } = game.camera;
     const { position: playerPosition } = game.player;
+
+    // FIXME: camera position isn't always in sync with player z
+    $: camPos = { x: $playerPosition.x, y: $playerPosition.y, z: $playerPosition.z + game.camera.playerViewHeight };
+    // $: camPos = $cameraPosition;
 </script>
 
 {#if $mode !== '1p'}
@@ -22,7 +26,7 @@
 
 <PerspectiveCamera
     rotation={$cameraRotation}
-    position={$cameraPosition}
+    position={camPos}
     far={100000}
     fov={70}
 />

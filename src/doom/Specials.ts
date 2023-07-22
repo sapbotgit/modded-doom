@@ -1,6 +1,17 @@
 // kind of based on p_spec.c
-import type { DoomMap, LineDef } from "./Map";
-import { ticksPerSecond, type DoomGame } from "./game";
+import type { DoomMap, LineDef, Sector } from "./Map";
+import type { MapObject } from "./MapObject";
+import { type DoomGame } from "./game";
+
+// General
+// Push, Switch, Walk, Gun (shoot)
+export type TriggerType = 'P' | 'S' | 'W' | 'G';
+const ticksPerSecond = 35;
+
+const findLowestCeiling = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), Infinity)
+const findLowestFloor = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zFloor), sector.values.zFloor);
 
 // Doors
 const normal = 2;
@@ -9,8 +20,7 @@ type DoorFunction = 'openWaitClose' | 'openAndStay' | 'closeAndStay' | 'closeWai
 const doorDefinition = (type: number, trigger: string, key: 'R' | 'Y' | 'B' | 'No', speed: number, topWaitS: number, func: DoorFunction) => ({
     type,
     function: func,
-    // Push, Switch, Walk, Gun (shoot)
-    trigger: trigger[0] as 'P' | 'S' | 'W' | 'G',
+    trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     speed,
     key: key === 'No' ? undefined : key,
@@ -49,8 +59,6 @@ const doorDefinitions = [
     doorDefinition(107, 'WR', 'No', blaze, -1, 'closeAndStay'),
     doorDefinition(3, 'W1', 'No', normal, -1, 'closeAndStay'),
     doorDefinition(110, 'W1', 'No', blaze, -1, 'closeAndStay'),
-    doorDefinition(196, 'SR', 'No', normal, 30, 'closeWaitOpen'),
-    doorDefinition(175, 'S1', 'No', normal, 30, 'closeWaitOpen'),
     doorDefinition(76, 'WR', 'No', normal, 30, 'closeWaitOpen'),
     doorDefinition(16, 'W1', 'No', normal, 30, 'closeWaitOpen'),
     // Key doors
@@ -68,72 +76,175 @@ const doorDefinitions = [
     doorDefinition(137, 'S1', 'Y', blaze, -1, 'openAndStay'),
 ];
 
-export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef) => {
+export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType) => {
     const def = doorDefinitions.find(e => e.type === linedef.special);
     if (!def) {
-        console.warn('invalid door type', linedef.flags);
+        console.warn('invalid door type', linedef.special);
         return;
     }
+    const validTrigger = (
+        // We P === S but P has the distinction of not needing a sector tag (it's a local door)
+        (trigger === 'S' && def.trigger === 'P')
+        || def.trigger === trigger
+    )
+    if (!validTrigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0; // one time action so clear special
+    }
 
-    // TODO: use def.trigger and def.repeatable?
     // TODO: check for keys? and monsterTrigger?
     // TODO: door collision when closing? Maybe this could be done by a subscription on sector.zCeil/zFloor (to handle general moving floors/ceilings)
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
-    const sector = linedef.left.sector;
-    if (sector.specialData !== null) {
-        // close->open doors should go back open, open->close doors should close, others stay the same
-        if (def.function === 'closeWaitOpen') {
-            sector.specialData = (sector.specialData === 0) ? 1 : -sector.specialData;
+    const sectors = def.trigger === 'P' ? [linedef.left.sector] : map.sectors.filter(e => e.tag === linedef.tag)
+    for (const sector of sectors) {
+        if (sector.specialData !== null) {
+            // close->open doors should go back open, open->close doors should close, others stay the same
+            if (def.function === 'closeWaitOpen') {
+                sector.specialData = (sector.specialData === 0) ? 1 : -sector.specialData;
+            }
+            if (def.function === 'openWaitClose') {
+                sector.specialData = (sector.specialData === 0) ? -1 : -sector.specialData;
+            }
+            continue;
         }
-        if (def.function === 'openWaitClose') {
-            sector.specialData = (sector.specialData === 0) ? -1 : -sector.specialData;
-        }
-        return;
-    }
-    sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
+        sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
 
-    const topHeight = def.type === 16 || def.type === 76
-        ? sector.values.zCeil
-        : (map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), Infinity) - 4);
-    let ticks = 0;
-    const action = () => {
-        if (sector.specialData === 0) {
-            // waiting
-            if (ticks--) {
+        const topHeight = def.type === 16 || def.type === 76
+            ? sector.values.zCeil : (findLowestCeiling(map, sector) - 4);
+        console.log('door',topHeight, )
+        let ticks = 0;
+        const action = () => {
+            if (sector.specialData === 0) {
+                // waiting
+                if (ticks--) {
+                    return;
+                }
+                if (def.function === 'closeWaitOpen' || def.function === 'openWaitClose') {
+                    sector.specialData = def.function === 'openWaitClose' ? -1 : 1;
+                }
                 return;
             }
-            if (def.function === 'closeWaitOpen' || def.function === 'openWaitClose') {
-                sector.specialData = def.function === 'openWaitClose' ? -1 : 1;
-            }
-            return;
+
+            // move door
+            sector.zCeil.update(ceil => {
+                ceil += def.speed * sector.specialData;
+
+                let finished = false;
+                if (ceil > topHeight) {
+                    // hit ceiling
+                    finished = def.function === 'closeWaitOpen' || def.function === 'openAndStay';
+                    ticks = def.topWait;
+                    ceil = topHeight;
+                    sector.specialData = 0;
+                } else if (ceil < sector.values.zFloor) {
+                    // hit floor
+                    finished = def.function === 'openWaitClose' || def.function === 'closeAndStay';
+                    ticks = def.topWait;
+                    ceil = sector.values.zFloor;
+                    sector.specialData = 0;
+                }
+
+                if (finished) {
+                    game.removeAction(action);
+                    sector.specialData = null;
+                }
+                return ceil;
+            });
+        };
+        game.addAction(action);
+    }
+};
+
+// Lifts
+const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed: number) => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    speed,
+    monsterTrigger: trigger.includes('m'),
+    waitTime: waitTimeS * ticksPerSecond,
+});
+
+// Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
+// and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
+// Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
+const slow = 4;
+const fast = 2 * slow;
+const liftDefinitions = [
+    liftDefinition(62, 'SR', 3, slow),
+    liftDefinition(21, 'S1', 3, slow),
+    liftDefinition(88, 'WRm', 3, slow),
+    liftDefinition(10, 'W1m', 3, slow),
+    liftDefinition(123, 'SR', 3, fast),
+    liftDefinition(122, 'S1', 3, fast),
+    liftDefinition(120, 'WR', 3, fast),
+    liftDefinition(121, 'W1', 3, fast),
+];
+
+export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType) => {
+    const def = liftDefinitions.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid lift type', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    for (const sector of sectors) {
+        if (sector.specialData !== null) {
+            // sector is already running an action so don't add another one
+            continue;
         }
 
-        // move door
-        sector.zCeil.update(ceil => {
-            ceil += def.speed * sector.specialData;
+        sector.specialData = -1;
 
-            let finished = false;
-            if (ceil > topHeight) {
-                // hit ceiling
-                finished = def.function === 'closeWaitOpen' || def.function === 'openAndStay';
-                ticks = def.topWait;
-                ceil = topHeight;
-                sector.specialData = 0;
-            } else if (ceil < sector.values.zFloor) {
-                // hit floor
-                finished = def.function === 'openWaitClose' || def.function === 'closeAndStay';
-                ticks = def.topWait;
-                ceil = sector.values.zFloor;
-                sector.specialData = 0;
+        const low = findLowestFloor(map, sector);
+        const high = sector.values.zFloor;
+
+        let ticks = 0;
+        const action = () => {
+            if (sector.specialData === 0) {
+                // waiting
+                if (ticks--) {
+                    return;
+                }
+                sector.specialData = 1;
+                return;
             }
 
-            if (finished) {
-                game.removeAction(action);
-                sector.specialData = null;
-            }
-            return ceil;
-        });
-    };
-    game.addAction(action);
+            // move lift
+            sector.zFloor.update(val => {
+                val += def.speed * sector.specialData;
+
+                let finished = false;
+                if (val < low) {
+                    // hit bottom
+                    ticks = def.waitTime;
+                    val = low;
+                    sector.specialData = 0;
+                } else if (val > high) {
+                    // hit top
+                    finished = true;
+                    ticks = def.waitTime;
+                    val = high;
+                    sector.specialData = 0;
+                }
+
+                if (finished) {
+                    game.removeAction(action);
+                    sector.specialData = null;
+                }
+                return val;
+            });
+        };
+        game.addAction(action);
+    }
 };

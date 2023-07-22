@@ -12,6 +12,7 @@
     import { Clock } from "three";
     import Player from "./Player.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
+    import EditorTagLink from "./Editor/EditorTagLink.svelte";
 
     export let map: DoomMap;
 
@@ -91,6 +92,8 @@
             <MapGeo {map} />
 
             <Player />
+
+            <EditorTagLink {map} />
         </Canvas>
     </div>
 

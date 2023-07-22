@@ -227,7 +227,6 @@ class BlockMap {
             const oldBlock = this.objMap.get(mobj);
             const idx = this.queryIndex(pos.x, pos.y);
             if (idx === -1) {
-                console.warn('invalid block', pos);
                 return;
             }
             const newBlock = this.map[idx];
@@ -356,7 +355,7 @@ export class DoomMap {
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
-    constructor(readonly wad: DoomWad, index) {
+    constructor(readonly wad: DoomWad, index: number) {
         this.name = wad.raw[index].name;
 
         // optimization: use a single writeable per texture name
@@ -473,7 +472,7 @@ export class DoomMap {
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
-    xyCollisions(obj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>) {
+    xyCollisions(obj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>, onSpecial: HandleCollision<LineDef>) {
         const maxStepSize = 24;
 
         const pos = get(obj.position);
@@ -487,6 +486,12 @@ export class DoomMap {
         }
         for (let i = 0; i < bquery.things.length && !complete; i++) {
             collideThing(bquery.things[i]);
+        }
+
+        function triggerSpecial(linedef: LineDef) {
+            if (linedef.special) {
+                onSpecial(linedef);
+            }
         }
 
         function collideThing(obj2: MapObject) {
@@ -520,6 +525,7 @@ export class DoomMap {
                 // don't collide if the direction is going from back to front
                 const n = normal(linedef.v);
                 if (dot(n, move) <= 0) {
+                    triggerSpecial(linedef);
                     return;
                 }
             }
@@ -538,9 +544,9 @@ export class DoomMap {
                 const ceilingFloorGapOk = (endSec.values.zCeil - endSec.values.zFloor >= obj.spec.mo.height);
 
                 if (ceilingFloorGapOk && floorChangeOk) {
+                    triggerSpecial(linedef);
                     return;
                 }
-                // TODO: trigger edges that were walked over?
             }
 
             if (signedLineDistance(linedef.v, end) > 0) {

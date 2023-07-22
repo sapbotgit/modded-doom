@@ -1,7 +1,10 @@
 <script lang="ts">
     import type { DoomMap, LineDef } from "../../doom";
+    import { useDoom } from "../useDoom";
     import FlagList from "./FlagList.svelte";
     import SidedefEditor from "./SidedefEditor.svelte";
+
+    const { editor } = useDoom();
 
     export let map: DoomMap;
     export let linedef: LineDef;
@@ -18,6 +21,10 @@
         [0x0080, 'never shows on automap'],
         [0x0100, 'always shows on automap '],
     ];
+
+    function tagSector() {
+        $editor.selected = map.renderSectors.find(e => e.sector.tag === linedef.tag);
+    }
 </script>
 
 <h3>Linedef</h3>
@@ -27,7 +34,7 @@
 <div>
     Special {linedef.special}
     {#if linedef.special}
-        tag: {linedef.tag}
+        <button on:click={tagSector}>Tag: {linedef.tag}</button>
     {/if}
 </div>
 <div>

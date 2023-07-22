@@ -25,12 +25,13 @@ export class MapObject {
     readonly sector = writable<Sector>(null);
     readonly sprite = writable<Sprite>(null);
     readonly velocity = new Vector3();
-    public zCeil: number;
-    public zFloor: number;
+
     private state: State;
-    protected pos: Position;
     private ticks: number;
     private sect: Sector;
+
+    protected zFloor: number;
+    protected pos: Position;
 
     get onGround() { return this.pos.z <= this.zFloor; }
     get currentState() { return this._state; }
@@ -38,23 +39,63 @@ export class MapObject {
 
     constructor(private map: DoomMap, readonly source: Thing) {
         this.spec = thingSpec(source.type);
-        const fromFloor = !(this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
+        const fromCeiling = (this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
 
         this.direction = writable(Math.PI + source.angle * ToRadians);
         this.position = writable({ x: source.x, y: source.y, z: 0 });
         this.position.subscribe(p => {
             this.pos = p;
             const sector = map.findSector(p.x, p.y);
-            // svelte stores assume != when value is an object so we have to be a little smarter
+            if (!this.sect) {
+                // first time setting sector so set zpos
+                this.pos.z = sector.values.zFloor;
+            }
+            // svelte stores assume != when value is an object so we add a little extra smarts
             if (this.sect !== sector) {
                 this.sect = sector;
                 this.sector.set(sector);
             }
         });
-        this.sector.subscribe(sector => {
-            this.zCeil = sector.values.zCeil;
-            this.zFloor = fromFloor ? sector.values.zFloor : (sector.values.zCeil - this.spec.mo.height);
-        });
+
+        let floorChange: () => void;
+        let ceilChange: () => void;
+        this.sector.subscribe(sect => {
+            // remove old subscriptions
+            floorChange?.();
+            ceilChange?.();
+            let first = true;
+
+            ceilChange = sect.zCeil.subscribe(ceil => {
+                if (fromCeiling) {
+                    this.zFloor = ceil - this.spec.mo.height;
+                    this.pos.z = this.zFloor;
+                    this.position.set(this.pos);
+                }
+
+                // TODO: also check for crushing/collision?
+            });
+            floorChange = sect.zFloor.subscribe(floor => {
+                if (!fromCeiling) {
+                    this.zFloor = floor;
+                    if (first) {
+                        // first floor change is because of sector change so don't change pos.z
+                        // and let object fall
+                        first = false;
+                        return;
+                    }
+                    if (this.onGround || this.velocity.z < stopVelocity) {
+                        this.pos.z = floor;
+                        this.position.set(this.pos);
+                    }
+                }
+
+                // TODO: also check for crushing/collision?
+            });
+            return () => {
+                floorChange?.();
+                ceilChange?.();
+            }
+        })
 
         this.setState(this.spec.mo.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
@@ -97,7 +138,6 @@ export class MapObject {
 
     protected applyGravity() {
         if (this.onGround) {
-            this.pos.z = this.zFloor;
             this.velocity.z = 0;
         } else {
             this.velocity.z -= 1;
@@ -116,7 +156,8 @@ export class MapObject {
                 vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
                 this.velocity.projectOnVector(vec);
                 return true;
-            });
+            },
+            CollisionNoOp);
         this.position.update(pos => {
             pos.x += this.velocity.x;
             pos.y += this.velocity.y;
@@ -138,11 +179,12 @@ export class PlayerMapObject extends MapObject {
         super(map, source);
         this.sector.subscribe(sector => {
             // step up
-            if (this.pos.z < this.zFloor) {
-                this.viewHeight -= this.zFloor - this.pos.z;
+            if (this.pos.z < sector.values.zFloor) {
+                this.viewHeight -= sector.values.zFloor - this.pos.z;
                 // this means we change view height by 1, 2, or 3 depending on the step (>> 3 is equivalent to divide by 8 but faster)
                 this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
-                this.pos.z = this.zFloor;
+                this.pos.z = sector.values.zFloor;
+                this.position.set(this.pos);
             }
         });
     }
@@ -164,9 +206,6 @@ export class PlayerMapObject extends MapObject {
     }
 
     protected applyGravity(): void {
-        if (this.onGround) {
-            super.applyGravity();
-        }
         // do nothing because we already apply in game input
     }
 
