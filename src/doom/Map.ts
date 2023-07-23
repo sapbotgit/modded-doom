@@ -16,6 +16,7 @@ export interface Thing {
 }
 
 export interface LineDef {
+    num: number;
     v: Vertex[];
     flags: number;
     special: number;
@@ -25,7 +26,8 @@ export interface LineDef {
     // derived
     xOffset?: Writable<number>;
 }
-const toLineDef = (ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
+const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
+    num,
     v: [vertexes[ld.vertexStartIdx], vertexes[ld.vertexEndIdx]],
     left: sidedefs[ld.sidedefLeftIdx],
     right: sidedefs[ld.sidedefRightIdx],
@@ -78,6 +80,7 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 });
 
 export interface Sector {
+    rev: Writable<number>;
     tag: number;
     type: number;
     source: {
@@ -117,6 +120,9 @@ const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => {
             floorFlat: fixTextureName(sd.floorFlat),
             ceilFlat: fixTextureName(sd.ceilFlat),
         },
+        // rev is a reactivity hack to allow me to re-assign textures during sector floor/ceiling change
+        // (see Flats.svelte and createFloorAction in Special.ts). We should be able to do better than this
+        rev: writable(1),
         tag: sd.tag,
         type: sd.specialType,
         zFloor: writable(sd.floorZ),
@@ -380,7 +386,7 @@ export class DoomMap {
         this.sectors = wad.raw[index + 8].contents.entries.map(s => toSector(s, flatTextures));
         this.vertexes = wad.raw[index + 4].contents.entries;
         const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
-        this.linedefs = wad.raw[index + 2].contents.entries.map(e => toLineDef(e, this.vertexes, sidedefs));
+        this.linedefs = wad.raw[index + 2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
         const segs: Seg[]  = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
         const subsectors: SubSector[] = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, segs));
         this.nodes = wad.raw[index + 7].contents.entries.map(d => toNode(d));
@@ -525,7 +531,12 @@ export class DoomMap {
                 // don't collide if the direction is going from back to front
                 const n = normal(linedef.v);
                 if (dot(n, move) <= 0) {
-                    triggerSpecial(linedef);
+
+                    // TODO: make this cleaner? we already chek for collision and trigger special below
+                    const hit = lineCircleSweep(linedef.v, move, start, obj.spec.mo.radius);
+                    if (hit) {
+                        triggerSpecial(linedef);
+                    }
                     return;
                 }
             }

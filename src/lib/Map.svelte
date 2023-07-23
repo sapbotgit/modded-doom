@@ -26,6 +26,15 @@
     let clock = new Clock();
     let threlteCtx: ThrelteContext;
     onMount(() => {
+        const spec = [96,30,];
+        for (const linedef of map.linedefs) {
+            if (spec.includes(linedef.special)) {
+                $editor.selected = linedef
+                console.log('special!!')
+                break;
+            }
+        }
+
         const interval = 1 / settings.targetFPS;
         let delta = 0;
         let frameDelta = 0;

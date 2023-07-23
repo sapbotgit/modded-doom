@@ -13,13 +13,9 @@
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
     // selectedMap = wad.readMap('E2M3')
-    window.data = wad;
   })();
 
   let selectedMap: DoomMap = null
-  $: if (selectedMap) {
-    window.map = selectedMap;
-  }
 </script>
 
 <main>

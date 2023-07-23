@@ -63,7 +63,7 @@ export class MapObject {
             // remove old subscriptions
             floorChange?.();
             ceilChange?.();
-            let first = true;
+            let sectorChange = true;
 
             ceilChange = sect.zCeil.subscribe(ceil => {
                 if (fromCeiling) {
@@ -76,14 +76,16 @@ export class MapObject {
             });
             floorChange = sect.zFloor.subscribe(floor => {
                 if (!fromCeiling) {
+                    // check that we are on the ground before updating zFloor because if we were on the ground before
+                    // change, we want to force object to the ground after the change
+                    const onGround = this.onGround;
                     this.zFloor = floor;
-                    if (first) {
-                        // first floor change is because of sector change so don't change pos.z
-                        // and let object fall
-                        first = false;
+                    if (sectorChange) {
+                        // during sector change, don't reset pos.z and let object fall
+                        sectorChange = false;
                         return;
                     }
-                    if (this.onGround || this.velocity.z < stopVelocity) {
+                    if (onGround) {
                         this.pos.z = floor;
                         this.position.set(this.pos);
                     }
@@ -95,7 +97,7 @@ export class MapObject {
                 floorChange?.();
                 ceilChange?.();
             }
-        })
+        });
 
         this.setState(this.spec.mo.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time

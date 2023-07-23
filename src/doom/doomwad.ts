@@ -157,7 +157,7 @@ export class DoomWad {
             return this.textureGraphic(data);
         }
         console.warn('missing texture:' + uname)
-        return 'missing';
+        return null;
     }
 
     spriteFrames(name: string): SpriteFrame[][] {
@@ -202,7 +202,7 @@ export class DoomWad {
         }
 
         console.warn('missing sprite:' + uname)
-        return 'missing';
+        return null;
     }
 
     flatTextureData(name: string) {
@@ -217,7 +217,7 @@ export class DoomWad {
         }
 
         console.warn('missing flat:' + uname)
-        return 'missing';
+        return null;
     }
 
     private lumpByName(name: string) {

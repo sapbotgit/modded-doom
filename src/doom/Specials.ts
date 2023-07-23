@@ -1,4 +1,5 @@
 // kind of based on p_spec.c
+import { get } from "svelte/store";
 import type { DoomMap, LineDef, Sector } from "./Map";
 import type { MapObject } from "./MapObject";
 import { type DoomGame } from "./game";
@@ -7,11 +8,75 @@ import { type DoomGame } from "./game";
 // Push, Switch, Walk, Gun (shoot)
 export type TriggerType = 'P' | 'S' | 'W' | 'G';
 const ticksPerSecond = 35;
+const floorMax = 32000;
+
+type TargetValueFunction = (map: DoomMap, sector: Sector) => number;
 
 const findLowestCeiling = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), Infinity)
-const findLowestFloor = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), floorMax)
+const lowestNeighbourFloor = (map: DoomMap, sector: Sector) =>
     map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zFloor), sector.values.zFloor);
+const highestNeighbourFloor = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.values.zFloor), -floorMax);
+const nextNeighbourFloor = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => sec.values.zFloor > sector.values.zFloor ? Math.min(last, sec.values.zFloor) : last, floorMax);
+const lowestNeighbourCeiling = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), sector.values.zCeil);
+
+const shortestLowerTexture = (map: DoomMap, sector: Sector) => {
+    let target = floorMax;
+    for (const ld of map.linedefs) {
+        if (ld.left?.sector === sector) {
+            // TODO: get and wallTextureData are both a little expensive (esp wallTexturedata), can we do better?
+            const rname = get(ld.right.lower);
+            const rtx = map.wad.wallTextureData(rname);
+            const lname = get(ld.left.lower);
+            const ltx = map.wad.wallTextureData(lname);
+            target = Math.min(target,
+                    (ltx && 'height' in ltx ? ltx.height : Infinity),
+                    (rtx && 'height' in rtx ? rtx.height : Infinity));
+        }
+    }
+    return sector.values.zFloor + target;
+};
+const floorValue = (map: DoomMap, sector: Sector) => sector.values.zFloor;
+const adjust = (fn: TargetValueFunction, change: number) => (map: DoomMap, sector: Sector) => fn(map, sector) + change;
+
+type SectorSelectorFunction = (map: DoomMap, sector: Sector, linedef: LineDef) => Sector;
+const selectNum = (map: DoomMap, sector: Sector) => {
+    let line: LineDef = null;
+    for (const ld of map.linedefs) {
+        if (ld.flags & 0x0004) {
+            if (ld.left.sector === sector && ld.right.sector.values.zFloor === sector.values.zFloor) {
+                line = (line && line.num < ld.num) ? line : ld;
+            }
+        }
+    }
+    return line ? line.right.sector : sector;
+}
+
+const selectTrigger = (map: DoomMap, sector: Sector, linedef: LineDef) => {
+    return (linedef.left.sector === sector) ? linedef.right.sector : linedef.left.sector;
+}
+
+// effects
+type EffectFunction = (map: DoomMap, sector: Sector, linedef: LineDef) => void;
+type SectorEffectFunction = (from: Sector, to: Sector) => void;
+const effect = (effects: SectorEffectFunction[], select: SectorSelectorFunction) =>
+    (map: DoomMap, to: Sector, linedef: LineDef) => {
+        const from = select(map, to, linedef);
+        effects.forEach(ef => ef(from, to))
+    };
+
+const assignFloorFlat = (from: Sector, to: Sector) => {
+    to.floorFlat = from.floorFlat;
+    to.rev.update(rev => ++rev);
+}
+
+const assignSectorType = (from: Sector, to: Sector) => {
+    // not need to update rev because the UI doesn't depend on it
+    to.type = from.type;
+}
 
 // Doors
 const normal = 2;
@@ -101,12 +166,17 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
     const sectors = def.trigger === 'P' ? [linedef.left.sector] : map.sectors.filter(e => e.tag === linedef.tag)
     for (const sector of sectors) {
         if (sector.specialData !== null) {
-            // close->open doors should go back open, open->close doors should close, others stay the same
-            if (def.function === 'closeWaitOpen') {
-                sector.specialData = (sector.specialData === 0) ? 1 : -sector.specialData;
-            }
-            if (def.function === 'openWaitClose') {
-                sector.specialData = (sector.specialData === 0) ? -1 : -sector.specialData;
+            if (def.trigger === 'P') {
+                // push doors can be interrupted:
+                // close->open doors should go back open
+                // open->close doors should close
+                // other types continue along
+                if (def.function === 'closeWaitOpen') {
+                    sector.specialData = (sector.specialData === 0) ? 1 : -sector.specialData;
+                }
+                if (def.function === 'openWaitClose') {
+                    sector.specialData = (sector.specialData === 0) ? -1 : -sector.specialData;
+                }
             }
             continue;
         }
@@ -114,7 +184,6 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
 
         const topHeight = def.type === 16 || def.type === 76
             ? sector.values.zCeil : (findLowestCeiling(map, sector) - 4);
-        console.log('door',topHeight, )
         let ticks = 0;
         const action = () => {
             if (sector.specialData === 0) {
@@ -206,7 +275,7 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
 
         sector.specialData = -1;
 
-        const low = findLowestFloor(map, sector);
+        const low = lowestNeighbourFloor(map, sector);
         const high = sector.values.zFloor;
 
         let ticks = 0;
@@ -245,6 +314,112 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
                 return val;
             });
         };
+        game.addAction(action);
+    }
+};
+
+// Floors
+const floorDefinition = (type: number, trigger: string, direction: number, speed: number, effect: EffectFunction, crush: boolean, targetFn: TargetValueFunction) => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    direction,
+    effect,
+    crush,
+    targetFn,
+    speed,
+});
+
+const floorDefinitions = [
+    floorDefinition(23, 'S1', -1, slow, null, false, lowestNeighbourFloor),
+    floorDefinition(60, 'SR', -1, slow, null, false, lowestNeighbourFloor),
+    floorDefinition(82, 'WR', -1, slow, null, false, lowestNeighbourFloor),
+    floorDefinition(38, 'W1', -1, slow, null, false, lowestNeighbourFloor),
+    floorDefinition(84, 'WR', -1, slow, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
+    floorDefinition(37, 'W1', -1, slow, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
+    floorDefinition(69, 'SR', 1, slow, null, false, nextNeighbourFloor),
+    floorDefinition(18, 'S1', 1, slow, null, false, nextNeighbourFloor),
+    floorDefinition(128, 'WR', 1, slow, null, false, nextNeighbourFloor),
+    floorDefinition(119, 'W1', 1, slow, null, false, nextNeighbourFloor),
+    floorDefinition(132, 'SR', 1, fast, null, false, nextNeighbourFloor),
+    floorDefinition(131, 'S1', 1, fast, null, false, nextNeighbourFloor),
+    floorDefinition(129, 'WR', 1, fast, null, false, nextNeighbourFloor),
+    floorDefinition(130, 'W1', 1, fast, null, false, nextNeighbourFloor),
+    floorDefinition(64, 'SR', 1, slow, null, false, lowestNeighbourCeiling),
+    floorDefinition(101, 'S1', 1, slow, null,  false, lowestNeighbourCeiling),
+    floorDefinition(91, 'WR', 1, slow, null, false, lowestNeighbourCeiling),
+    floorDefinition(5, 'W1', 1, slow, null, false, lowestNeighbourCeiling),
+    floorDefinition(24, 'G1', 1, slow, null, false, lowestNeighbourCeiling),
+    floorDefinition(65, 'SR', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(55, 'S1', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(94, 'WR', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(56, 'W1', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(45, 'SR', -1, slow, null,  false, highestNeighbourFloor),
+    floorDefinition(102, 'S1', -1, slow, null, false, highestNeighbourFloor),
+    floorDefinition(83, 'WR', -1, slow, null,  false, highestNeighbourFloor),
+    floorDefinition(19, 'W1', -1, slow, null,  false, highestNeighbourFloor),
+    floorDefinition(70, 'SR', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(71, 'S1', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(98, 'WR', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(36, 'W1', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(92, 'WR', 1, slow, null, false, adjust(floorValue, 24)),
+    floorDefinition(58, 'W1', 1, slow, null, false, adjust(floorValue, 24)),
+    floorDefinition(93, 'WR', 1, slow, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
+    floorDefinition(59, 'W1', 1, slow, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
+    floorDefinition(96, 'WR', 1, slow, null, false, shortestLowerTexture),
+    floorDefinition(30, 'W1', 1, slow, null, false, shortestLowerTexture),
+    floorDefinition(140, 'S1', 1, slow, null, false, adjust(floorValue, 512)),
+];
+
+export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType) => {
+    const def = floorDefinitions.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid floor special', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    // TODO: crushing?
+
+    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    for (const sector of sectors) {
+        if (sector.specialData !== null) {
+            continue;
+        }
+
+        if (def.direction > 0) {
+            def.effect?.(map, sector, linedef);
+        }
+
+        sector.specialData = def.direction;
+        const target = def.targetFn(map, sector);
+        const action = () => {
+            let finished = false;
+
+            sector.zFloor.update(val => {
+                val += def.direction;
+
+                if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
+                    finished = true;
+                    val = target;
+                }
+
+                return val;
+            });
+
+            if (finished) {
+                sector.specialData = null;
+                game.removeAction(action);
+                if (def.direction < 0) {
+                    def.effect?.(map, sector, linedef);
+                }
+            }
+        }
         game.addAction(action);
     }
 };

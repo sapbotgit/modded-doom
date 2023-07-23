@@ -1,9 +1,9 @@
-import { writable, get, derived, type Readable } from "svelte/store";
+import { writable, get } from "svelte/store";
 import { type DoomMap, type LineDef, type Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, randInt, signedLineDistance } from "./Math";
 import type { MapObject, PlayerMapObject } from "./MapObject";
-import { createDoorAction, createLiftAction, type TriggerType } from "./Specials";
+import { createDoorAction, createFloorAction, createLiftAction, type TriggerType } from "./Specials";
 
 export type Action = () => void;
 
@@ -199,6 +199,7 @@ export class DoomGame {
     triggerSpecial(linedef: LineDef, mobj: MapObject, trigger: TriggerType) {
         createDoorAction(this, this.map, linedef, mobj, trigger);
         createLiftAction(this, this.map, linedef, mobj, trigger);
+        createFloorAction(this, this.map, linedef, mobj, trigger);
     }
 
     // Why a public function? Because "edit" mode can change these while
@@ -258,7 +259,6 @@ class GameInput {
     public freeFly = true;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
-    // Range is 0 to Math.PI radians
     public minPolarAngle = -HALF_PI;
     public maxPolarAngle = HALF_PI;
 

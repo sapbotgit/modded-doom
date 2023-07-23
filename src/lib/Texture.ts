@@ -26,7 +26,7 @@ export class MapTextures {
                 type === 'flat' ? 'flatTextureData' :
                 'spriteTextureData';
             const data = this.wad[loadFn](name);
-            if (typeof data === 'object') {
+            if (data) {
                 texture = new DataTexture(data.buffer, data.width, data.height)
                 texture.wrapS = RepeatWrapping;
                 texture.wrapT = RepeatWrapping;
