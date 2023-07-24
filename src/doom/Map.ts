@@ -25,6 +25,8 @@ export interface LineDef {
     left?: SideDef;
     // derived
     xOffset?: Writable<number>;
+    // For game processing
+    buttonTimer: any;
 }
 const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
     num,
@@ -34,6 +36,7 @@ const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]
     tag: ld.sectorTag,
     special: ld.lineType,
     flags: ld.flags,
+    buttonTimer: null,
 });
 
 export interface SideDef {
@@ -102,6 +105,7 @@ export interface Sector {
     light: Writable<number>;
     floorFlat: Writable<string>;
     ceilFlat: Writable<string>;
+    // Game processing data
     specialData: any;
 }
 const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => {

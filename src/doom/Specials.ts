@@ -9,6 +9,9 @@ import { type DoomGame } from "./game";
 export type TriggerType = 'P' | 'S' | 'W' | 'G';
 const ticksPerSecond = 35;
 const floorMax = 32000;
+export interface SpecialDefinition {
+    repeatable: boolean;
+}
 
 type TargetValueFunction = (map: DoomMap, sector: Sector) => number;
 
@@ -141,7 +144,7 @@ const doorDefinitions = [
     doorDefinition(137, 'S1', 'Y', blaze, -1, 'openAndStay'),
 ];
 
-export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType) => {
+export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
     const def = doorDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid door type', linedef.special);
@@ -163,6 +166,7 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
     // TODO: door collision when closing? Maybe this could be done by a subscription on sector.zCeil/zFloor (to handle general moving floors/ceilings)
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
+    let triggered = false;
     const sectors = def.trigger === 'P' ? [linedef.left.sector] : map.sectors.filter(e => e.tag === linedef.tag)
     for (const sector of sectors) {
         if (sector.specialData !== null) {
@@ -180,6 +184,7 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
             }
             continue;
         }
+        triggered = true;
         sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
 
         const topHeight = def.type === 16 || def.type === 76
@@ -225,6 +230,8 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
         };
         game.addAction(action);
     }
+
+    return triggered ? def : undefined;
 };
 
 // Lifts
@@ -253,7 +260,7 @@ const liftDefinitions = [
     liftDefinition(121, 'W1', 3, fast),
 ];
 
-export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType) => {
+export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
     const def = liftDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid lift type', linedef.special);
@@ -266,6 +273,7 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
         linedef.special = 0;
     }
 
+    let triggered = false;
     const sectors = map.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         if (sector.specialData !== null) {
@@ -273,6 +281,7 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
             continue;
         }
 
+        triggered = true;
         sector.specialData = -1;
 
         const low = lowestNeighbourFloor(map, sector);
@@ -316,6 +325,7 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
         };
         game.addAction(action);
     }
+    return triggered ? def : undefined;
 };
 
 // Floors
@@ -371,7 +381,7 @@ const floorDefinitions = [
     floorDefinition(140, 'S1', 1, slow, null, false, adjust(floorValue, 512)),
 ];
 
-export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType) => {
+export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
     const def = floorDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid floor special', linedef.special);
@@ -386,12 +396,14 @@ export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef
 
     // TODO: crushing?
 
+    let triggered = false;
     const sectors = map.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         if (sector.specialData !== null) {
             continue;
         }
 
+        triggered = true;
         if (def.direction > 0) {
             def.effect?.(map, sector, linedef);
         }
@@ -422,4 +434,5 @@ export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef
         }
         game.addAction(action);
     }
+    return triggered ? def : undefined;
 };

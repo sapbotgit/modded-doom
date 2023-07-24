@@ -1,9 +1,9 @@
-import { writable, get } from "svelte/store";
+import { writable, get, type Writable } from "svelte/store";
 import { type DoomMap, type LineDef, type Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, randInt, signedLineDistance } from "./Math";
 import type { MapObject, PlayerMapObject } from "./MapObject";
-import { createDoorAction, createFloorAction, createLiftAction, type TriggerType } from "./Specials";
+import { createDoorAction, createFloorAction, createLiftAction, type SpecialDefinition, type TriggerType } from "./Specials";
 
 export type Action = () => void;
 
@@ -197,9 +197,47 @@ export class DoomGame {
     }
 
     triggerSpecial(linedef: LineDef, mobj: MapObject, trigger: TriggerType) {
-        createDoorAction(this, this.map, linedef, mobj, trigger);
-        createLiftAction(this, this.map, linedef, mobj, trigger);
-        createFloorAction(this, this.map, linedef, mobj, trigger);
+        const special =
+            createDoorAction(this, this.map, linedef, mobj, trigger) ??
+            createLiftAction(this, this.map, linedef, mobj, trigger) ??
+            createFloorAction(this, this.map, linedef, mobj, trigger);
+        if (special && trigger !== 'W') {
+            // TODO: if special is already triggered (eg. by walking over a line) the switch shouldn't trigger
+            if (this.tryToggle(special, linedef, linedef.right.upper)) {
+                return;
+            }
+            if (this.tryToggle(special, linedef, linedef.right.middle)) {
+                return;
+            }
+            if (this.tryToggle(special, linedef, linedef.right.lower)) {
+                return;
+            }
+        }
+    }
+
+    private tryToggle(special: SpecialDefinition, linedef: LineDef, tex: Writable<string>) {
+        const name = get(tex);
+        const toggle = this.map.wad.switchToggle(name);
+        if (toggle) {
+            if (special.repeatable && !linedef.buttonTimer) {
+                let ticks = 35; // 1 sec
+                const action = () => {
+                    if (--ticks) {
+                        return;
+                    }
+                    // restore original state
+                    tex.set(name);
+                    linedef.buttonTimer = null;
+                    this.removeAction(action);
+                }
+
+                linedef.buttonTimer = action;
+                this.addAction(action);
+            }
+            tex.set(toggle);
+            return true;
+        }
+        return false;
     }
 
     // Why a public function? Because "edit" mode can change these while
