@@ -531,10 +531,11 @@ export class DoomMap {
         function collideLine(linedef: LineDef) {
             const twoSided = (linedef.flags & 0x0004) !== 0;
             const blocking = (linedef.flags & 0x0001) !== 0;
+            // FIXME: this condition isn't right. See the yellow key lift in E1M7, because of the normal we walk through the wall :(
             if (!blocking || !twoSided) {
                 // don't collide if the direction is going from back to front
                 const n = normal(linedef.v);
-                if (dot(n, move) <= 0) {
+                if (dot(n, move) < 0) {
 
                     // TODO: make this cleaner? we already chek for collision and trigger special below
                     const hit = lineCircleSweep(linedef.v, move, start, obj.spec.mo.radius);
@@ -556,9 +557,10 @@ export class DoomMap {
                 const startSec = changeDir > 0 ? linedef.right.sector : linedef.left.sector;
 
                 const floorChangeOk = (endSec.values.zFloor - startSec.values.zFloor <= maxStepSize);
-                const ceilingFloorGapOk = (endSec.values.zCeil - endSec.values.zFloor >= obj.spec.mo.height);
+                const transitionGapOk = (endSec.values.zCeil - startSec.values.zFloor >= obj.spec.mo.height);
+                const newCeilingFloorGapOk = (endSec.values.zCeil - endSec.values.zFloor >= obj.spec.mo.height);
 
-                if (ceilingFloorGapOk && floorChangeOk) {
+                if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk) {
                     triggerSpecial(linedef);
                     return;
                 }

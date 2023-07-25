@@ -293,8 +293,8 @@ class GameInput {
     public mouse = { x: 0, y: 0 };
 
     public freelook = writable(true);
-    public noclip = true;
-    public freeFly = true;
+    public noclip = false;
+    public freeFly = false;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     public minPolarAngle = -HALF_PI;
@@ -360,11 +360,13 @@ class GameInput {
             if (this.freeFly) {
                 // apply separate friction during freefly
                 this.player.velocity.multiplyScalar(0.95);
-            } else {
-                this.player.velocity.z = 0;
             }
         } else {
-            this.player.velocity.z -= playerSpeeds['gravity'] * dt;
+            if (this.player.velocity.z === 0) {
+                this.player.velocity.z -= playerSpeeds['gravity'] * dt * 2;
+            } else {
+                this.player.velocity.z -= playerSpeeds['gravity'] * dt;
+            }
         }
 
         if (this.enablePlayerCollisions) {

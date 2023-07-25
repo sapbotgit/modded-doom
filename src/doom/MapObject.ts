@@ -82,6 +82,7 @@ export class MapObject {
                     this.zFloor = floor;
                     if (sectorChange) {
                         // during sector change, don't reset pos.z and let object fall
+                        this.applyGravity();
                         sectorChange = false;
                         return;
                     }
@@ -138,6 +139,7 @@ export class MapObject {
         this.sprite.set({ name, frame, fullbright });
     }
 
+    // make more like P_ZMovement?
     protected applyGravity() {
         if (this.onGround) {
             this.velocity.z = 0;
@@ -146,6 +148,7 @@ export class MapObject {
         }
     }
 
+    // make more like P_XYMovement?
     protected updatePosition() {
         if (this.velocity.lengthSq() < stopVelocity) {
             return;
@@ -179,16 +182,6 @@ export class PlayerMapObject extends MapObject {
 
     constructor(map: DoomMap, source: Thing) {
         super(map, source);
-        this.sector.subscribe(sector => {
-            // step up
-            if (this.pos.z < sector.values.zFloor) {
-                this.viewHeight -= sector.values.zFloor - this.pos.z;
-                // this means we change view height by 1, 2, or 3 depending on the step (>> 3 is equivalent to divide by 8 but faster)
-                this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
-                this.pos.z = sector.values.zFloor;
-                this.position.set(this.pos);
-            }
-        });
     }
 
     tick() {
@@ -208,7 +201,23 @@ export class PlayerMapObject extends MapObject {
     }
 
     protected applyGravity(): void {
-        // do nothing because we already apply in game input
+        // smooth step up
+        if (this.pos.z < this.zFloor) {
+            this.viewHeight -= this.zFloor - this.pos.z;
+            // this means we change view height by 1, 2, or 3 depending on the step (>> 3 is equivalent to divide by 8 but faster)
+            this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
+        }
+
+        if (this.onGround) {
+            if (this.velocity.z < -8) {
+                // if we hit the ground hard, drop the screen a bit
+                this.deltaViewHeight = this.velocity.z >> 3;
+            }
+            this.velocity.z = 0;
+
+            this.pos.z = this.zFloor;
+            this.position.set(this.pos);
+        }
     }
 
     // P_CalcHeight in p_user.c
@@ -226,10 +235,13 @@ export class PlayerMapObject extends MapObject {
                 this.deltaViewHeight = 1;
             }
         }
-
         if (this.deltaViewHeight) {
-            // accelerate delta over time
-            this.deltaViewHeight += this.deltaViewHeight * delta * 4
+            // small acceleration of delta over time
+            this.deltaViewHeight += delta / 4;
+        }
+
+        if (this.viewHeight < playerViewHeightDefault && this.deltaViewHeight === 0) {
+            this.deltaViewHeight = 1;
         }
 
         const maxBox = Math.min(this.velocity.lengthSq(), playerMaxBob) / 2;
