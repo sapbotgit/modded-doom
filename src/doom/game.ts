@@ -3,7 +3,7 @@ import { type DoomMap, type LineDef, type Sector } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, randInt, signedLineDistance } from "./Math";
 import type { MapObject, PlayerMapObject } from "./MapObject";
-import { createDoorAction, createFloorAction, createLiftAction, type SpecialDefinition, type TriggerType } from "./Specials";
+import { createCeilingAction, createCrusherCeilingAction, createDoorAction, createFloorAction, createLiftAction, type SpecialDefinition, type TriggerType } from "./Specials";
 
 export type Action = () => void;
 
@@ -186,7 +186,7 @@ export class DoomGame {
     }
 
     addAction(action: Action) {
-        if (action) {
+        if (action && this.actions.indexOf(action) === -1) {
             this.actions.push(action);
         }
     }
@@ -200,7 +200,9 @@ export class DoomGame {
         const special =
             createDoorAction(this, this.map, linedef, mobj, trigger) ??
             createLiftAction(this, this.map, linedef, mobj, trigger) ??
-            createFloorAction(this, this.map, linedef, mobj, trigger);
+            createFloorAction(this, this.map, linedef, mobj, trigger) ??
+            createCeilingAction(this, this.map, linedef, mobj, trigger) ??
+            createCrusherCeilingAction(this, this.map, linedef, mobj, trigger);
         if (special && trigger !== 'W') {
             // TODO: if special is already triggered (eg. by walking over a line) the switch shouldn't trigger
             if (this.tryToggle(special, linedef, linedef.right.upper)) {
@@ -293,8 +295,8 @@ class GameInput {
     public mouse = { x: 0, y: 0 };
 
     public freelook = writable(true);
-    public noclip = false;
-    public freeFly = false;
+    public noclip = true;
+    public freeFly = true;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     public minPolarAngle = -HALF_PI;

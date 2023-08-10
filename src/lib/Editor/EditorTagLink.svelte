@@ -9,16 +9,12 @@
     const { editor } = useDoom();
 
     const mapHeight = map.sectors.reduce((top, sec) => Math.max(sec.values.zCeil, top), -Infinity);
-    const material = new MeshBasicMaterial({ color: 'cyan' });
+    const lineMaterial = new MeshBasicMaterial({ color: 'cyan' });
+    const sectorMaterial = new MeshBasicMaterial({ color: 'magenta' });
 
-    $: item1 = ($editor.selected && 'tag' in $editor.selected && $editor.selected.tag > 0) ? $editor.selected : null;
-    $: item2 = !item1 ? null :
-        'zFloor' in item1
-            ? map.linedefs.find(e => e.tag === item1.tag)
-            : map.sectors.find(e => e.tag === item1.tag);
-    $: position1 = position(item1);
-    $: position2 = position(item2);
-    $: connectorLine = createShape(position1, position2)
+    $: tag = ($editor.selected && 'tag' in $editor.selected && $editor.selected.tag > 0) ? $editor.selected.tag : null;
+    $: linedefs = (!tag ? [] : map.linedefs.filter(e => e.tag === tag)) as LineDef[];
+    $: sectors = (!tag ? [] : map.sectors.filter(e => e.tag === tag)) as Sector[];
 
     function createShape(position1: Vector3, position2: Vector3) {
         const geo = new BufferGeometry().setFromPoints([
@@ -56,17 +52,23 @@
     const boxSize = 24;
 </script>
 
-{#if item1 && item2}
+{#each sectors ?? [] as sector}
+    {@const sectorPosition = position(sector)}
     <Mesh
-        {material}
-        position={position1}
-        geometry={new BoxGeometry(boxSize, boxSize, boxSize)}
-    />
-    <Mesh
-        {material}
-        position={position2}
+        material={sectorMaterial}
+        position={position(sector)}
         geometry={new BoxGeometry(boxSize, boxSize, boxSize)}
     />
 
-    <Object3DInstance object={connectorLine} />
-{/if}
+    {#each linedefs ?? [] as linedef}
+        {@const linedefPosition = position(linedef)}
+        <Mesh
+            material={lineMaterial}
+            position={linedefPosition}
+            geometry={new BoxGeometry(boxSize, boxSize, boxSize)}
+        />
+
+        {@const connectorLine = createShape(linedefPosition, sectorPosition)}
+        <Object3DInstance object={connectorLine} />
+    {/each}
+{/each}

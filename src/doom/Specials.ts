@@ -25,6 +25,9 @@ const nextNeighbourFloor = (map: DoomMap, sector: Sector) =>
     map.sectorNeighbours(sector).reduce((last, sec) => sec.values.zFloor > sector.values.zFloor ? Math.min(last, sec.values.zFloor) : last, floorMax);
 const lowestNeighbourCeiling = (map: DoomMap, sector: Sector) =>
     map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), sector.values.zCeil);
+const highestNeighbourCeiling = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.values.zCeil), -floorMax);
+const floorHeight = (map: DoomMap, sector: Sector) => sector.values.zFloor;
 
 const shortestLowerTexture = (map: DoomMap, sector: Sector) => {
     let target = floorMax;
@@ -432,6 +435,164 @@ export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef
                 }
             }
         }
+        game.addAction(action);
+    }
+    return triggered ? def : undefined;
+};
+
+// Ceilings
+const ceilingSlow = 1;
+const ceilingFast = ceilingSlow * 2;
+const ceilingDefinition = (type: number, trigger: string, direction: number, speed: number, targetFn: TargetValueFunction) => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    direction,
+    targetFn,
+    speed,
+});
+
+const ceilingDefinitions = [
+    ceilingDefinition(40, 'W1', 1, ceilingSlow, highestNeighbourCeiling),
+    ceilingDefinition(41, 'S1', -1, ceilingFast, floorHeight),
+    ceilingDefinition(43, 'SR', -1, ceilingFast, floorHeight),
+    ceilingDefinition(44, 'W1', -1, ceilingSlow, adjust(floorHeight, 8)),
+    ceilingDefinition(72, 'WR', -1, ceilingSlow, adjust(floorHeight, 8)),
+];
+
+export const createCeilingAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+    const def = ceilingDefinitions.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid ceiling special', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    // TODO: crushing?
+
+    let triggered = false;
+    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    for (const sector of sectors) {
+        if (sector.specialData !== null) {
+            continue;
+        }
+
+        triggered = true;
+
+        sector.specialData = def.direction;
+        const target = def.targetFn(map, sector);
+        const action = () => {
+            let finished = false;
+
+            sector.zCeil.update(val => {
+                val += def.speed * def.direction;
+
+                if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
+                    finished = true;
+                    val = target;
+                }
+
+                return val;
+            });
+
+            if (finished) {
+                sector.specialData = null;
+                game.removeAction(action);
+            }
+        }
+        game.addAction(action);
+    }
+    return triggered ? def : undefined;
+};
+
+// Crusher Ceilings
+const crusherCeilingDefinition = (type: number, trigger: string, speed: number, triggerType: 'start' | 'stop') => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    direction: -1,
+    silent: type === 141 ? true : false,
+    targetFn: adjust(floorHeight, 8),
+    stopper: triggerType === 'stop',
+    speed,
+});
+
+const crusherCeilingDefinitions = [
+    crusherCeilingDefinition(49, 'S1', ceilingSlow, 'start'),
+    crusherCeilingDefinition(73, 'WR', ceilingSlow, 'start'),
+    crusherCeilingDefinition(25, 'W1', ceilingSlow, 'start'),
+    crusherCeilingDefinition(77, 'WR', ceilingFast, 'start'),
+    crusherCeilingDefinition(6, 'W1', ceilingFast, 'start'),
+    crusherCeilingDefinition(141, 'W1', ceilingSlow, 'start'),
+    crusherCeilingDefinition(74, 'WR', null, 'stop'),
+    crusherCeilingDefinition(57, 'W1', null, 'stop'),
+];
+
+export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+    const def = crusherCeilingDefinitions.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid crusher special', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    // TODO: actually damage things (like barrels, monsters, and players)
+    // TODO: slow down when crushing? (not for fast crushers though...)
+
+    let triggered = false;
+    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    for (const sector of sectors) {
+        // NOTE: E3M4 has an interesting behaviour in the outdoor room because a sector has only 1 special data.
+        // If you start the crusher before flipping the switch, you cannot flip the switch to get the bonus items.
+        // gzDoom actually handles this properly but chocolate doom (and I assume the original) did not
+        if (def.stopper || sector.specialData !== null) {
+            if (def.stopper) {
+                game.removeAction(sector.specialData);
+            } else {
+                game.addAction(sector.specialData);
+            }
+            continue;
+        }
+
+        triggered = true;
+
+        let direction = def.direction;
+        const top = sector.values.zCeil;
+        const bottom = def.targetFn(map, sector);
+        const action = () => {
+            let finished = false;
+
+            sector.zCeil.update(val => {
+                val += def.speed * direction;
+
+                if (val < bottom) {
+                    finished = true;
+                    val = bottom;
+                }
+                if (val > top) {
+                    finished = true;
+                    val = top;
+                }
+
+                return val;
+            });
+
+            if (finished) {
+                // crushers keep going
+                direction = -direction;
+            }
+        };
+        sector.specialData = action;
         game.addAction(action);
     }
     return triggered ? def : undefined;
