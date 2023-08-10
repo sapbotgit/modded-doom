@@ -12,6 +12,7 @@
     const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
+    // FIXME: there is a bug in plutonia map 12... I haven't dug into it. something about sprites
     // selectedMap = wad.readMap('E2M3')
   })();
 

@@ -3,6 +3,7 @@ import { get } from "svelte/store";
 import type { DoomMap, LineDef, Sector } from "./Map";
 import type { MapObject } from "./MapObject";
 import { type DoomGame } from "./game";
+import { randInt } from "./Math";
 
 // General
 // Push, Switch, Walk, Gun (shoot)
@@ -554,7 +555,7 @@ export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef
     for (const sector of sectors) {
         // NOTE: E3M4 has an interesting behaviour in the outdoor room because a sector has only 1 special data.
         // If you start the crusher before flipping the switch, you cannot flip the switch to get the bonus items.
-        // gzDoom actually handles this properly but chocolate doom (and I assume the original) did not
+        // gzDoom actually handles this but chocolate doom (and I assume the original) did not
         if (def.stopper || sector.specialData !== null) {
             if (def.stopper) {
                 game.removeAction(sector.specialData);
@@ -596,4 +597,147 @@ export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef
         game.addAction(action);
     }
     return triggered ? def : undefined;
+};
+
+// Lighting
+const setLightLevel = (val: number) =>
+    (map: DoomMap, sec: Sector) => val;
+const maxNeighbourLight = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.values.light), 0);
+const minNeighbourLight = (map: DoomMap, sector: Sector) =>
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.light), 255);
+export const lowestLight = (sectors: Sector[], max: number) =>
+    sectors.reduce((last, sec) => Math.min(last, sec.values.light), max);
+
+const createLightingDefinition = (type: number, trigger: string, targetValueFn: TargetValueFunction) => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    targetValueFn,
+});
+
+const lightingDefinitions = [
+    createLightingDefinition(12, 'W1', maxNeighbourLight),
+    createLightingDefinition(80, 'WR', maxNeighbourLight),
+    createLightingDefinition(104, 'W1', minNeighbourLight),
+    createLightingDefinition(17, 'W1', null),
+    createLightingDefinition(35, 'W1', setLightLevel(35)),
+    createLightingDefinition(79, 'WR', setLightLevel(35)),
+    createLightingDefinition(139, 'SR',setLightLevel(35)),
+    createLightingDefinition(13, 'W1', setLightLevel(255)),
+    createLightingDefinition(81, 'WR', setLightLevel(255)),
+    createLightingDefinition(138, 'SR', setLightLevel(255)),
+];
+
+export const createLightingAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+    const def = lightingDefinitions.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid light special', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    let triggered = false;
+    let targetValue = -1;
+    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    for (const sector of sectors) {
+        if (def.type === 17) {
+            // As far as I can tell, type 17 is only used in tnt 09. It's extra special
+            game.addAction(strobeFlash(5, 35)(map, sector));
+        } else {
+            if (targetValue === -1) {
+                targetValue = def.targetValueFn(map, sector);
+            }
+            sector.light.set(targetValue);
+        }
+        triggered = true;
+    }
+    return triggered ? def : undefined;
+};
+
+const strobeFlash =
+    (lightTicks: number, darkTicks: number, synchronized = false) =>
+    (map: DoomMap, sector: Sector) => {
+        const max = sector.source.light;
+        const nearestMin = lowestLight(map.sectorNeighbours(sector), max);
+        const min = (nearestMin === max) ? 0 : nearestMin;
+        let ticks = synchronized ? 1 : randInt(1, 7);
+        return () => {
+            if (--ticks) {
+                return;
+            }
+            sector.light.update(val => {
+                if (val === max) {
+                    ticks = darkTicks;
+                    return min;
+                } else {
+                    ticks = lightTicks;
+                    return max;
+                }
+            });
+        };
+    };
+
+const randomFlicker = (map: DoomMap, sector: Sector) => {
+    const max = sector.source.light;
+    const min = lowestLight(map.sectorNeighbours(sector), max);
+    let ticks = 1;
+    return () => {
+        if (--ticks) {
+            return;
+        }
+        sector.light.update(val => {
+            if (val === max) {
+                ticks = randInt(1, 7);
+                return min;
+            } else {
+                ticks = randInt(1, 64);
+                return max;
+            }
+        });
+    };
+};
+
+const glowLight = (map: DoomMap, sector: Sector) => {
+    const max = sector.source.light;
+    const min = lowestLight(map.sectorNeighbours(sector), max);
+    let step = -8;
+    return () => sector.light.update(val => {
+        val += step;
+        if (val <= min || val >= max) {
+            step = -step;
+            val += step;
+        }
+        return val;
+    });
+};
+
+const fireFlicker = (map: DoomMap, sector: Sector) => {
+    const max = sector.source.light;
+    const min = lowestLight(map.sectorNeighbours(sector), max) + 16;
+    let ticks = 4;
+    return () => {
+        if (--ticks) {
+            return;
+        }
+        ticks = 4;
+        const amount = randInt(0, 2) * 16;
+        sector.light.set(Math.max(max - amount, min));
+    }
+};
+
+export const sectorAnimations = {
+    1: randomFlicker,
+    2: strobeFlash(5, 15),
+    3: strobeFlash(5, 35),
+    4: strobeFlash(5, 35),
+    8: glowLight,
+    12: strobeFlash(5, 35, true),
+    13: strobeFlash(5, 15, true),
+    17: fireFlicker,
 };

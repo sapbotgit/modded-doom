@@ -1,97 +1,11 @@
 import { writable, get, type Writable } from "svelte/store";
-import { type DoomMap, type LineDef, type Sector } from "./Map";
+import { type DoomMap, type LineDef } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, lineLineIntersect, randInt, signedLineDistance } from "./Math";
+import { HALF_PI, lineLineIntersect, signedLineDistance } from "./Math";
 import type { MapObject, PlayerMapObject } from "./MapObject";
-import { createCeilingAction, createCrusherCeilingAction, createDoorAction, createFloorAction, createLiftAction, type SpecialDefinition, type TriggerType } from "./Specials";
+import { applyTeleportAction, createCeilingAction, createCrusherCeilingAction, createDoorAction, createFloorAction, createLiftAction, createLightingAction, sectorAnimations, type SpecialDefinition, type TriggerType } from "./Specials";
 
 export type Action = () => void;
-
-const lowestLight = (sectors: Sector[], min: number) =>
-    sectors.length === 0 ? 0 :
-    sectors.map(s => s.source.light).reduce((last, val) => Math.min(last, val), min);
-
-const randomFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.source.light;
-    const min = lowestLight(map.sectorNeighbours(sector), max);
-    let val = max;
-    let ticks = 1;
-    return () => {
-        if (--ticks) {
-            return;
-        }
-        if (val === max) {
-            ticks = randInt(1, 7);
-            val = min;
-        } else {
-            ticks = randInt(1, 64);
-            val = max;
-        }
-        sector.light.set(val);
-    };
-};
-
-const strobeFlash =
-    (lightTicks: number, darkTicks: number, synchronized = false) =>
-    (map: DoomMap, sector: Sector) => {
-        const max = sector.source.light;
-        const min = lowestLight(map.sectorNeighbours(sector), max);
-        let ticks = synchronized ? 1 : randInt(1, 7);
-        let val = max;
-        return () => {
-            if (--ticks) {
-                return;
-            }
-            if (val === max) {
-                ticks = darkTicks;
-                val = min;
-            } else {
-                ticks = lightTicks;
-                val = max;
-            }
-            sector.light.set(val);
-        };
-    };
-
-const glowLight = (map: DoomMap, sector: Sector) => {
-    const max = sector.source.light;
-    const min = lowestLight(map.sectorNeighbours(sector), max);
-    let val = max;
-    let step = -8;
-    return () => {
-        val += step;
-        if (val <= min || val >= max) {
-            step = -step;
-            val += step;
-        }
-        sector.light.set(val);
-    };
-};
-
-const fireFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.source.light;
-    const min = lowestLight(map.sectorNeighbours(sector), max) + 16;
-    let ticks = 4;
-    return () => {
-        if (--ticks) {
-            return;
-        }
-        ticks = 4;
-        const amount = randInt(0, 2) * 16;
-        sector.light.set(Math.max(max - amount, min));
-    }
-};
-
-const sectorAnimations = {
-    1: randomFlicker,
-    2: strobeFlash(5, 15),
-    3: strobeFlash(5, 35),
-    4: strobeFlash(5, 35),
-    8: glowLight,
-    12: strobeFlash(5, 35, true),
-    13: strobeFlash(5, 15, true),
-    17: fireFlicker,
-};
 
 class Camera {
     private pos = new Vector3();
@@ -202,7 +116,8 @@ export class DoomGame {
             createLiftAction(this, this.map, linedef, mobj, trigger) ??
             createFloorAction(this, this.map, linedef, mobj, trigger) ??
             createCeilingAction(this, this.map, linedef, mobj, trigger) ??
-            createCrusherCeilingAction(this, this.map, linedef, mobj, trigger);
+            createCrusherCeilingAction(this, this.map, linedef, mobj, trigger) ??
+            createLightingAction(this, this.map, linedef, mobj, trigger);
         if (special && trigger !== 'W') {
             // TODO: if special is already triggered (eg. by walking over a line) the switch shouldn't trigger
             if (this.tryToggle(special, linedef, linedef.right.upper)) {
@@ -266,13 +181,13 @@ export class DoomGame {
     }
 }
 
-const slideMove = (player: MapObject, x: number, y: number) => {
+const slideMove = (mobj: MapObject, x: number, y: number) => {
     // slide along wall instead of moving through it
     vec.set(x, y, 0);
     // we are only interested in cancelling xy movement so preserve z
-    const z = player.velocity.z;
-    player.velocity.projectOnVector(vec);
-    player.velocity.z = z;
+    const z = mobj.velocity.z;
+    mobj.velocity.projectOnVector(vec);
+    mobj.velocity.z = z;
 };
 
 const playerSpeeds = { // per-tick
