@@ -197,7 +197,7 @@ interface Block {
 }
 
 interface HandleCollision<Type> {
-    (t: Type): boolean;
+    (t: Type, side?: -1 | 1): boolean;
 }
 export function CollisionNoOp() { return false; }
 
@@ -500,7 +500,11 @@ export class DoomMap {
 
         function triggerSpecial(linedef: LineDef) {
             if (linedef.special) {
-                onSpecial(linedef);
+                const startSide = signedLineDistance(linedef.v, start) < 0 ? -1 : 1;
+                const endSide = signedLineDistance(linedef.v, end) < 0 ? -1 : 1
+                if (startSide !== endSide) {
+                    onSpecial(linedef, endSide);
+                }
             }
         }
 

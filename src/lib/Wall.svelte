@@ -11,7 +11,7 @@
     const { direction: playerDirection, position: playerPosition } = game.player;
     $: visible =
         // true;
-        angleIsVisible($playerDirection + HALF_PI, seg.angle);
+        angleIsVisible($playerDirection + Math.PI, seg.angle);
         // signedLineDistance is actually better (we display less geometry) but overall more expensive
         // so until we start using bsp, let's keep using the visible angle thing
         // signedLineDistance(linedef.v, $playerPosition as any) * (seg.direction ? 1 : -1) < 0;

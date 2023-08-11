@@ -74,6 +74,7 @@ export class MapObject {
 
                 // TODO: also check for crushing/collision?
             });
+
             floorChange = sect.zFloor.subscribe(floor => {
                 if (!fromCeiling) {
                     // check that we are on the ground before updating zFloor because if we were on the ground before
@@ -94,6 +95,7 @@ export class MapObject {
 
                 // TODO: also check for crushing/collision?
             });
+
             return () => {
                 floorChange?.();
                 ceilChange?.();
@@ -137,6 +139,16 @@ export class MapObject {
         const frame = this.state.frame & FF_FRAMEMASK;
         const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
         this.sprite.set({ name, frame, fullbright });
+    }
+
+    teleport(target: Thing, sector: Sector) {
+        this.velocity.set(0, 0, 0);
+        this.pos.x = target.x;
+        this.pos.y = target.y;
+        this.pos.z = sector.values.zFloor;
+        this.position.set(this.pos);
+        this.direction.set(Math.PI + target.angle * ToRadians);
+        // TODO: 18-tick freeze (reaction) time?
     }
 
     // make more like P_ZMovement?
@@ -215,13 +227,16 @@ export class PlayerMapObject extends MapObject {
             }
             this.velocity.z = 0;
 
-            this.pos.z = this.zFloor;
-            this.position.set(this.pos);
+            if (this.pos.z !== this.zFloor) {
+                this.pos.z = this.zFloor;
+                this.position.set(this.pos);
+            }
         }
     }
 
     // P_CalcHeight in p_user.c
-    computeViewHeight(game: DoomGame, delta: number) {
+    computeViewHeight(game: DoomGame) {
+        const delta = game.lastDelta;
         // if (alive) {
         this.viewHeight += this.deltaViewHeight * 35 * delta;
 
@@ -248,6 +263,7 @@ export class PlayerMapObject extends MapObject {
         const bob = Math.sin(Math.PI * 2 * bobTime * game.elapsedTime) * maxBox;
 
         let viewHeight = this.viewHeight + bob;
+
         // TODO: check higher than ceiling?
         return viewHeight;
     }

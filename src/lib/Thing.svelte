@@ -7,7 +7,6 @@
     import Wireframe from './Debug/Wireframe.svelte';
 
     export let thing: MapObject;
-    export let rotation = 0;
 
     const { textures, game, editor, wad } = useDoom();
     const { position: cameraPosition, rotation: cameraRotation } = game.camera;
@@ -16,7 +15,7 @@
     const frames = wad.spriteFrames(spec.sprite);
 
     $: ang = Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
-    $: rot = (Math.floor((ang - $direction - rotation - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
+    $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
     $: texture = textures.get(frame.name, 'sprite');

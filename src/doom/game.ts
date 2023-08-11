@@ -2,53 +2,57 @@ import { writable, get, type Writable } from "svelte/store";
 import { type DoomMap, type LineDef } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, signedLineDistance } from "./Math";
-import type { MapObject, PlayerMapObject } from "./MapObject";
-import { applyTeleportAction, createCeilingAction, createCrusherCeilingAction, createDoorAction, createFloorAction, createLiftAction, createLightingAction, sectorAnimations, type SpecialDefinition, type TriggerType } from "./Specials";
+import { PlayerMapObject, type MapObject } from "./MapObject";
+import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./Specials";
 
 export type Action = () => void;
 
 class Camera {
     private pos = new Vector3();
+    private angle: Euler = new Euler(0, 0, 0, 'ZXY');
+    private freeFly = false;
     private updatePosition: (pos: Vector3, angle: Euler) => void;
 
-    public playerViewHeight = 0; // only applies for mode=='1p'
-    readonly rotation = writable(new Euler(0, 0, 0, 'ZXY'));
+    readonly rotation = writable(this.angle);
     readonly position = writable(this.pos);
     mode = writable<'1p' | '3p' | 'bird'>('1p');
 
-    constructor(player: MapObject) {
+    constructor(player: PlayerMapObject, game: DoomGame) {
         this.mode.subscribe(mode => {
             if (mode === '3p') {
                 const followDist = 200;
                 this.updatePosition = (position, angle) => {
+                    const playerViewHeight = this.freeFly ? 41 : player.computeViewHeight(game);
                     this.pos.x = -Math.sin(-euler.z) * followDist + position.x;
                     this.pos.y = -Math.cos(-euler.z) * followDist + position.y;
-                    this.pos.z = Math.cos(-euler.x) * followDist + position.z;
+                    this.pos.z = Math.cos(-euler.x) * followDist + position.z + playerViewHeight;
                     this.position.set(this.pos);
                     this.rotation.set(angle)
                 };
             } else if (mode === 'bird') {
                 const followDist = 250;
                 this.updatePosition = (position, angle) => {
-                    this.pos.copy(position);
-                    this.pos.z = position.z + followDist;
+                    this.pos.set(position.x, position.y, position.z + followDist);
                     this.position.set(this.pos);
                     angle.x = 0;
                     this.rotation.set(angle);
                 }
             } else {
                 this.updatePosition = (position, angle) => {
-                    this.pos.copy(position);
-                    this.pos.z = position.z + this.playerViewHeight;
+                    const playerViewHeight = this.freeFly ? 41 : player.computeViewHeight(game);
+                    this.pos.set(position.x, position.y, position.z + playerViewHeight);
                     this.position.set(this.pos);
                     this.rotation.set(angle);
                 };
             }
         });
+
+        player.position.subscribe(pos => this.updatePosition(pos as Vector3, this.angle));
     }
 
-    update(position: Vector3, angle: Euler) {
-        this.updatePosition(position, angle);
+    update(angle: Euler, freeFly: boolean) {
+        this.freeFly = freeFly;
+        this.angle = angle;
     }
 }
 
@@ -56,6 +60,7 @@ const ticksPerSecond = 35;
 const frameTickTime = 1 / ticksPerSecond;
 export class DoomGame {
     private nextTickTime = 0; // seconds
+    lastDelta = 0; // seconds
     elapsedTime = 0; // seconds
     currentTick = 0;
 
@@ -69,11 +74,12 @@ export class DoomGame {
         this.synchronizeActions();
         this.player = map.objs.find(e => e.source.type === 1);
         this.input = new GameInput(map, this);
-        this.camera = new Camera(this.player);
+        this.camera = new Camera(this.player as PlayerMapObject, this);
     }
 
     tick(delta: number) {
         // handle input as fast as possible
+        this.lastDelta = delta;
         this.input.evaluate(delta);
         this.elapsedTime += delta;
 
@@ -110,14 +116,8 @@ export class DoomGame {
         this.actions = this.actions.filter(e => e !== action);
     }
 
-    triggerSpecial(linedef: LineDef, mobj: MapObject, trigger: TriggerType) {
-        const special =
-            createDoorAction(this, this.map, linedef, mobj, trigger) ??
-            createLiftAction(this, this.map, linedef, mobj, trigger) ??
-            createFloorAction(this, this.map, linedef, mobj, trigger) ??
-            createCeilingAction(this, this.map, linedef, mobj, trigger) ??
-            createCrusherCeilingAction(this, this.map, linedef, mobj, trigger) ??
-            createLightingAction(this, this.map, linedef, mobj, trigger);
+    triggerSpecial(linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1 = -1) {
+        const special = triggerSpecial(this, this.map, linedef, mobj, trigger, side);
         if (special && trigger !== 'W') {
             // TODO: if special is already triggered (eg. by walking over a line) the switch shouldn't trigger
             if (this.tryToggle(special, linedef, linedef.right.upper)) {
@@ -210,8 +210,8 @@ class GameInput {
     public mouse = { x: 0, y: 0 };
 
     public freelook = writable(true);
-    public noclip = true;
-    public freeFly = true;
+    public noclip = false;
+    public freeFly = false;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     public minPolarAngle = -HALF_PI;
@@ -224,13 +224,13 @@ class GameInput {
     private direction = new Vector3();
 
     constructor(private map: DoomMap, private game: DoomGame) {
-        const position = get(this.player.position);
-        this.obj.position.set(position.x, position.y, position.z);
-        this.game.player.position.set(this.obj.position);
-
         euler.x = HALF_PI;
-        euler.z = get(this.player.direction) + HALF_PI;
-        this.obj.quaternion.setFromEuler(euler);
+        this.player.direction.subscribe(dir => {
+            euler.z = dir + HALF_PI;
+            this.obj.quaternion.setFromEuler(euler);
+            this.obj.updateMatrix();
+            euler.setFromQuaternion(this.obj.quaternion);
+        });
 
         this.freelook.subscribe(val => {
             if (val) {
@@ -244,13 +244,11 @@ class GameInput {
 
     evaluate(delta: number) {
         // handle rotation movements
-        euler.setFromQuaternion(this.obj.quaternion);
         euler.z -= this.mouse.x * 0.002 * this.pointerSpeed;
         euler.x -= this.mouse.y * 0.002 * this.pointerSpeed;
         euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
-        this.obj.quaternion.setFromEuler(euler);
-        this.obj.updateMatrix();
-        this.game.player.direction.set(euler.z);
+        this.player.direction.set(euler.z - HALF_PI);
+        this.game.camera.update(euler, this.freeFly);
 
         // clear for next eval
         this.mouse.x = 0;
@@ -286,12 +284,13 @@ class GameInput {
             }
         }
 
+        const pos = get(this.player.position) as Vector3;
         if (this.enablePlayerCollisions) {
             this.map.xyCollisions(this.player, this.player.velocity,
                 mobj => {
-                    const pos = get(mobj.position);
-                    const dx = this.obj.position.x - pos.x;
-                    const dy = this.obj.position.y - pos.y;
+                    const mpos = get(mobj.position);
+                    const dx = pos.x - mpos.x;
+                    const dy = pos.y - mpos.y;
                     slideMove(this.player, -dy, dx);
                     return true;
                 },
@@ -299,8 +298,8 @@ class GameInput {
                     slideMove(this.player, linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y);
                     return true;
                 },
-                linedef => {
-                    this.game.triggerSpecial(linedef, this.player, 'W')
+                (linedef, side) => {
+                    this.game.triggerSpecial(linedef, this.player, 'W', side)
                     return true;
                 });
         }
@@ -310,11 +309,11 @@ class GameInput {
 
             const ang = euler.z + HALF_PI;
             vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
-            const collisions = this.map.blockmap.trace(this.obj.position, 0, vec);
-            vec.add(this.obj.position);
-            const useLine = [this.obj.position, vec];
+            const collisions = this.map.blockmap.trace(pos, 0, vec);
+            vec.add(pos);
+            const useLine = [pos, vec];
             for (const linedef of collisions.linedefs) {
-                if (signedLineDistance(linedef.v, this.obj.position) < 0) {
+                if (signedLineDistance(linedef.v, pos) < 0) {
                     // don't hit walls from behind
                     continue;
                 }
@@ -332,11 +331,12 @@ class GameInput {
         }
         this.handledUsePress = this.use;
 
-        this.obj.position.add(this.player.velocity);
-        this.game.player.position.set(this.obj.position);
-
-        this.game.camera.playerViewHeight = this.freeFly ? 41 : this.player.computeViewHeight(this.game, delta);
-        this.game.camera.update(this.obj.position, euler);
+        this.player.position.update(pos => {
+            pos.x += this.player.velocity.x;
+            pos.y += this.player.velocity.y;
+            pos.z += this.player.velocity.z;
+            return pos;
+        });
     }
 
     private rightVec() {

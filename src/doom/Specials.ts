@@ -6,6 +6,18 @@ import { type DoomGame } from "./game";
 import { randInt } from "./Math";
 
 // General
+export function triggerSpecial(game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1) {
+    return (
+        createDoorAction(game, map, linedef, mobj, trigger) ??
+        createLiftAction(game, map, linedef, mobj, trigger) ??
+        createFloorAction(game, map, linedef, mobj, trigger) ??
+        createCeilingAction(game, map, linedef, mobj, trigger) ??
+        createCrusherCeilingAction(game, map, linedef, mobj, trigger) ??
+        createLightingAction(game, map, linedef, mobj, trigger) ??
+        applyTeleportAction(game, map, linedef, mobj, trigger, side)
+    );
+}
+
 // Push, Switch, Walk, Gun (shoot)
 export type TriggerType = 'P' | 'S' | 'W' | 'G';
 const ticksPerSecond = 35;
@@ -740,4 +752,52 @@ export const sectorAnimations = {
     12: strobeFlash(5, 35, true),
     13: strobeFlash(5, 15, true),
     17: fireFlicker,
+};
+
+// Teleports
+const createTeleportDefinition = (type: number, trigger: string) => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    movePlayer: (type === 97 || type === 39),
+    moveMonster: true,
+});
+
+const teleportDefinitions = [
+    createTeleportDefinition(39, 'W1'),
+    createTeleportDefinition(97, 'WR'),
+    createTeleportDefinition(126, 'WR'),
+    createTeleportDefinition(125, 'W1'),
+];
+
+export const applyTeleportAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+    if (side === 1) {
+        // don't triggering teleports when leaving the teleport space
+        return;
+    }
+    const def = teleportDefinitions.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid teleport special', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    let triggered = false;
+    const teleports = map.things.filter(e => e.type === 14)
+    for (const tp of teleports) {
+        let sector = map.findSector(tp.x, tp.y);
+        // TODO: check for monster/player-only teleports
+        // TODO: for monster teleports, check space is blocked
+        if (sector.tag === linedef.tag) {
+            mobj.teleport(tp, sector);
+            triggered = true;
+            break;
+        }
+    }
+    return triggered ? def : undefined;
 };

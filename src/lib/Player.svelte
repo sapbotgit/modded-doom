@@ -9,13 +9,11 @@
     const { mode, position: cameraPosition, rotation: cameraRotation } = game.camera;
     const { position: playerPosition } = game.player;
 
-    // FIXME: camera position isn't always in sync with player z
-    $: camPos = { x: $playerPosition.x, y: $playerPosition.y, z: $playerPosition.z + game.camera.playerViewHeight };
-    // $: camPos = $cameraPosition;
+    $: camPos = $cameraPosition;
 </script>
 
 {#if $mode !== '1p'}
-    <Thing thing={game.player} rotation={-HALF_PI} />
+    <Thing thing={game.player} />
 
     <Mesh
         geometry={new CircleGeometry(game.player.spec.mo.radius)}
