@@ -430,6 +430,7 @@ export class DoomMap {
             return new PlayerMapObject(this, thing);
         }
         const noSpawn = (false
+            || thing.type === 0 // plutonia map 12, what?!
             || thing.type === 2
             || thing.type === 3
             || thing.type === 4
@@ -557,13 +558,13 @@ export class DoomMap {
 
             if (twoSided && !blocking) {
                 const changeDir = signedLineDistance(linedef.v, start);
-                const endSec = changeDir > 0 ? linedef.left.sector : linedef.right.sector;
-                const startSec = changeDir > 0 ? linedef.right.sector : linedef.left.sector;
+                const endSect = changeDir > 0 ? linedef.left.sector : linedef.right.sector;
 
-                const floorChangeOk = (endSec.values.zFloor - startSec.values.zFloor <= maxStepSize);
-                const transitionGapOk = (endSec.values.zCeil - startSec.values.zFloor >= obj.spec.mo.height);
-                const newCeilingFloorGapOk = (endSec.values.zCeil - endSec.values.zFloor >= obj.spec.mo.height);
+                const floorChangeOk = (endSect.values.zFloor - start.z <= maxStepSize);
+                const transitionGapOk = (endSect.values.zCeil - start.z >= obj.spec.mo.height);
+                const newCeilingFloorGapOk = (endSect.values.zCeil - endSect.values.zFloor >= obj.spec.mo.height);
 
+                // console.log('[f,t,cf]',[floorChangeOk,transitionGapOk,newCeilingFloorGapOk])
                 if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk) {
                     triggerSpecial(linedef);
                     return;

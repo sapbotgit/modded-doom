@@ -1,7 +1,7 @@
 import { writable, get, type Writable } from "svelte/store";
 import { type DoomMap, type LineDef } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, QUARTER_PI, lineLineIntersect, signedLineDistance } from "./Math";
+import { HALF_PI, lineLineIntersect, signedLineDistance } from "./Math";
 import { PlayerMapObject, type MapObject } from "./MapObject";
 import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./Specials";
 
@@ -78,8 +78,9 @@ export class DoomGame {
     }
 
     tick(delta: number) {
-        // handle input as fast as possible
+        // lastDelta is a hack. we need a cleaner game loop
         this.lastDelta = delta;
+        // handle input as fast as possible
         this.input.evaluate(delta);
         this.elapsedTime += delta;
 
