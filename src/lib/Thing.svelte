@@ -3,7 +3,7 @@
     import { MeshStandardMaterial, PlaneGeometry, Color } from 'three';
     import { useDoom } from './useDoom';
     import type { MapObject } from '../doom';
-    import { EIGHTH_PI, HALF_PI, QUARTER_PI } from '../doom/Math';
+    import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToDegrees, normalizeAngle } from '../doom/Math';
     import Wireframe from './Debug/Wireframe.svelte';
 
     export let thing: MapObject;

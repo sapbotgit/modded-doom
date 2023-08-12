@@ -1,7 +1,7 @@
 import { writable, get, type Writable } from "svelte/store";
 import { type DoomMap, type LineDef } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, lineLineIntersect, signedLineDistance } from "./Math";
+import { HALF_PI, QUARTER_PI, lineLineIntersect, signedLineDistance } from "./Math";
 import { PlayerMapObject, type MapObject } from "./MapObject";
 import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./Specials";
 
@@ -15,11 +15,11 @@ class Camera {
 
     readonly rotation = writable(this.angle);
     readonly position = writable(this.pos);
-    mode = writable<'1p' | '3p' | 'bird'>('1p');
+    mode = writable<'1p' | '3p' | 'bird' | 'ortho'>('1p');
 
     constructor(player: PlayerMapObject, game: DoomGame) {
         this.mode.subscribe(mode => {
-            if (mode === '3p') {
+            if (mode === '3p' || mode === 'ortho') {
                 const followDist = 200;
                 this.updatePosition = (position, angle) => {
                     const playerViewHeight = this.freeFly ? 41 : player.computeViewHeight(game);

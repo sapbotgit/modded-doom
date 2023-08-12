@@ -35,7 +35,7 @@
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
 
     // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
-    // and we get a ~25% performance boost. I'd rather keep this and figure out a way to cull
+    // and we get a ~25% performance boost. I'd rather keep this and use the BSP to cull walls
     $: material = new MeshStandardMaterial({ color: lineStroke() });
     $: texture2 = texture && settings.useTextures ? textures.get(texture, 'wall').clone() : null;
     $: if (texture2) {

@@ -63,6 +63,7 @@
 
 <select bind:value={$cameraMode}>
     <option>bird</option>
+    <option>ortho</option>
     <option>1p</option>
     <option>3p</option>
 </select>

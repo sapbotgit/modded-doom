@@ -1,8 +1,7 @@
 <script lang="ts">
-    import { Mesh, PerspectiveCamera } from "@threlte/core";
+    import { Mesh, OrthographicCamera, PerspectiveCamera } from "@threlte/core";
     import { useDoom } from "./useDoom";
     import Thing from "./Thing.svelte";
-    import { HALF_PI } from "../doom/Math";
     import { CircleGeometry, MeshBasicMaterial } from "three";
 
     const { game } = useDoom();
@@ -22,9 +21,17 @@
     />
 {/if}
 
-<PerspectiveCamera
-    rotation={$cameraRotation}
-    position={camPos}
-    far={100000}
-    fov={70}
-/>
+{#if $mode === 'ortho'}
+    <OrthographicCamera
+        rotation={$cameraRotation}
+        position={camPos}
+        far={100000}
+    />
+{:else}
+    <PerspectiveCamera
+        rotation={$cameraRotation}
+        position={camPos}
+        far={100000}
+        fov={70}
+    />
+{/if}
