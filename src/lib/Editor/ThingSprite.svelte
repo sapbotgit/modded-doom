@@ -1,16 +1,15 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { useDoom } from "../useDoom";
-    import { states, type DoomMap, type ThingSpec } from "../../doom";
+    import { type DoomMap, type State } from "../../doom";
 
-    export let map: DoomMap
-    export let spec: ThingSpec;
+    export let map: DoomMap;
+    export let state: State;
+    export let frames: any[][];
     export let text: string;
 
     const { textures } = useDoom();
 
-    const frames = map.wad.spriteFrames(spec.sprite);
-    const state = states[spec.mo.spawnstate];
     const frameNum = state.frame & 0x7fff;
     const frame = frames[frameNum][8] ?? frames[frameNum][0];
     const data = textures.get(frame.name, 'sprite').image;

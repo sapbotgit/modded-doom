@@ -15,7 +15,7 @@
     <Thing thing={game.player} />
 
     <Mesh
-        geometry={new CircleGeometry(game.player.spec.mo.radius)}
+        geometry={new CircleGeometry(game.player.info.radius)}
         position={{ x: $playerPosition.x, y: $playerPosition.y, z: $playerPosition.z + 1 }}
         material={new MeshBasicMaterial({ color: 'green' })}
     />

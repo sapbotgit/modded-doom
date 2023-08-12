@@ -1,6 +1,6 @@
 import { writable, type Writable } from "svelte/store";
 import { thingSpec, type ThingSpec } from "./doom-things";
-import { StateIndex, type State, MFFlags, SpriteNames, states } from "./doom-things-info";
+import { StateIndex, type State, MFFlags, SpriteNames, states, type MapObjectInfo } from "./doom-things-info";
 import type { Position } from "@threlte/core";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./Math";
@@ -19,7 +19,11 @@ const friction = .90625;
 const FF_FULLBRIGHT = 0x8000;
 const FF_FRAMEMASK = 0x7fff;
 export class MapObject {
-    readonly spec: ThingSpec;
+    private static objectCounter = 0;
+    readonly id = MapObject.objectCounter++;
+
+    // readonly spec: ThingSpec;
+    readonly info: MapObjectInfo;
     readonly position: Writable<Position>;
     readonly direction: Writable<number>;
     readonly sector = writable<Sector>(null);
@@ -37,9 +41,9 @@ export class MapObject {
     get currentState() { return this._state; }
     private _state: StateIndex;
 
-    constructor(private map: DoomMap, readonly source: Thing) {
-        this.spec = thingSpec(source.type);
-        const fromCeiling = (this.spec.mo.flags & MFFlags.MF_SPAWNCEILING);
+    constructor(private map: DoomMap, readonly source: Thing, info?: MapObjectInfo ) {
+        this.info = info ?? thingSpec(source.type).mo;
+        const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
 
         this.direction = writable(Math.PI + source.angle * ToRadians);
         this.position = writable({ x: source.x, y: source.y, z: 0 });
@@ -67,7 +71,7 @@ export class MapObject {
 
             ceilChange = sect.zCeil.subscribe(ceil => {
                 if (fromCeiling) {
-                    this.zFloor = ceil - this.spec.mo.height;
+                    this.zFloor = ceil - this.info.height;
                     this.pos.z = this.zFloor;
                     this.position.set(this.pos);
                 }
@@ -102,7 +106,7 @@ export class MapObject {
             }
         });
 
-        this.setState(this.spec.mo.spawnstate);
+        this.setState(this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
         if (this.ticks > 0) {
             this.ticks = randInt(1, this.state.tics);
@@ -131,6 +135,11 @@ export class MapObject {
     }
 
     setState(stateIndex: number) {
+        if (stateIndex === 0) {
+            this.map.destroy(this);
+            return;
+        }
+
         this._state = stateIndex;
         this.state = states[stateIndex];
         this.ticks = this.state.tics;

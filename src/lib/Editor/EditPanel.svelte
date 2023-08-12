@@ -21,8 +21,8 @@
         {#key $editor.selected}
             {#if 'special' in $editor.selected}
                 <LinedefEditor {map} linedef={$editor.selected} />
-            {:else if 'spec' in $editor.selected}
-                    <ThingEditor {map} thing={$editor.selected} />
+            {:else if 'info' in $editor.selected}
+                <ThingEditor {map} thing={$editor.selected} />
             {:else if 'zFloor' in $editor.selected}
                 <SectorEditor {map} sector={$editor.selected} />
             {/if}

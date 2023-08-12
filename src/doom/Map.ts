@@ -362,6 +362,8 @@ export class DoomMap {
     readonly renderSectors: RenderSector[];
     readonly blockmap: BlockMap;
     objs: MapObject[];
+    // don't love this rev hack... we need a list with a subscribe method
+    readonly rev = writable(1);
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
@@ -398,7 +400,7 @@ export class DoomMap {
             n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
-        this.objs = this.things.map(e => this.spawn(e)).filter(e => e);
+        this.objs = this.things.map(e => this.spawnThing(e)).filter(e => e);
         this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
         this.objs.forEach(o => this.blockmap.watch(o));
 
@@ -425,7 +427,7 @@ export class DoomMap {
         })();
     }
 
-    spawn(thing: Thing): MapObject | undefined {
+    private spawnThing(thing: Thing): MapObject | undefined {
         if (thing.type === 1) {
             return new PlayerMapObject(this, thing);
         }
@@ -446,6 +448,18 @@ export class DoomMap {
             return; // multiplayer only
         }
         return new MapObject(this, thing);
+    }
+
+    spawn(mobj: MapObject) {
+        this.objs.push(mobj);
+        this.rev.update(v => v += 1);
+        return mobj;
+    }
+
+    destroy(mobj: MapObject) {
+        // TODO: perf?
+        this.objs = this.objs.filter(e => e !== mobj);
+        this.rev.update(rev => rev += 1);
     }
 
     findSubSector(x: number, y: number): SubSector {
@@ -491,7 +505,7 @@ export class DoomMap {
         end.copy(start).add(move);
 
         let complete = false;
-        const bquery = this.blockmap.trace(start, obj.spec.mo.radius, move);
+        const bquery = this.blockmap.trace(start, obj.info.radius, move);
         for (let i = 0; i < bquery.linedefs.length && !complete; i++) {
             collideLine(bquery.linedefs[i]);
         }
@@ -515,18 +529,18 @@ export class DoomMap {
                 // don't collide with yourself
                 return;
             }
-            if (!(obj2.spec.mo.flags & hittableThing)) {
+            if (!(obj2.info.flags & hittableThing)) {
                 // not hittable
                 return;
             }
-            if (obj2.spec.mo.flags & MFFlags.MF_SPECIAL && !(obj2.spec.mo.flags & MFFlags.MF_SOLID)) {
+            if (obj2.info.flags & MFFlags.MF_SPECIAL && !(obj2.info.flags & MFFlags.MF_SOLID)) {
                 // item can be picked up so don't block
                 return;
             }
 
             const hit = circleCircleSweep(
-                get(obj2.position) as Vertex, obj2.spec.mo.radius,
-                start, obj.spec.mo.radius, move);
+                get(obj2.position) as Vertex, obj2.info.radius,
+                start, obj.info.radius, move);
             if (!hit) {
                 return;
             }
@@ -539,11 +553,13 @@ export class DoomMap {
             // FIXME: this condition isn't right. See the yellow key lift in E1M7, because of the normal we walk through the wall :(
             if (!blocking || !twoSided) {
                 // don't collide if the direction is going from back to front
+                // const side = signedLineDistance(linedef.v, start) < 0 ? -1 : 1;
+                // if (side < 0) {
                 const n = normal(linedef.v);
                 if (dot(n, move) < 0) {
 
                     // TODO: make this cleaner? we already chek for collision and trigger special below
-                    const hit = lineCircleSweep(linedef.v, move, start, obj.spec.mo.radius);
+                    const hit = lineCircleSweep(linedef.v, move, start, obj.info.radius);
                     if (hit) {
                         triggerSpecial(linedef);
                     }
@@ -551,7 +567,7 @@ export class DoomMap {
                 }
             }
 
-            const hit = lineCircleSweep(linedef.v, move, start, obj.spec.mo.radius);
+            const hit = lineCircleSweep(linedef.v, move, start, obj.info.radius);
             if (!hit) {
                 return;
             }
@@ -561,8 +577,8 @@ export class DoomMap {
                 const endSect = changeDir > 0 ? linedef.left.sector : linedef.right.sector;
 
                 const floorChangeOk = (endSect.values.zFloor - start.z <= maxStepSize);
-                const transitionGapOk = (endSect.values.zCeil - start.z >= obj.spec.mo.height);
-                const newCeilingFloorGapOk = (endSect.values.zCeil - endSect.values.zFloor >= obj.spec.mo.height);
+                const transitionGapOk = (endSect.values.zCeil - start.z >= obj.info.height);
+                const newCeilingFloorGapOk = (endSect.values.zCeil - endSect.values.zFloor >= obj.info.height);
 
                 // console.log('[f,t,cf]',[floorChangeOk,transitionGapOk,newCeilingFloorGapOk])
                 if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk) {

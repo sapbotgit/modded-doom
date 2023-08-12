@@ -1,13 +1,18 @@
 <script lang="ts">
-    import type { DoomMap } from "../doom";
+    import type { DoomMap, MapObject } from "../doom";
     import Flats from "./Flats.svelte";
     import Wall from "./Wall.svelte";
     import Thing from "./Thing.svelte";
     import BlockMap from "./Debug/BlockMap.svelte";
 
     export let map: DoomMap;
+    const { rev } = map;
+
     // don't render player here (it's in Player.svelte)
-    $: things = map.objs.filter(e => e.source.type !== 1);
+    let things: MapObject[] = [];
+    $: if ($rev) {
+        things = map.objs.filter(e => e.source.type !== 1);
+    }
 </script>
 
 <BlockMap {map} />
@@ -19,8 +24,6 @@
     {/each}
 {/each}
 
-{#each things as thing}
-    {#key thing}
-        <Thing {thing} />
-    {/key}
+{#each things as thing (thing.id)}
+    <Thing {thing} />
 {/each}

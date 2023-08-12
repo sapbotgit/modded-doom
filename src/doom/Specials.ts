@@ -1,9 +1,13 @@
 // kind of based on p_spec.c
 import { get } from "svelte/store";
 import type { DoomMap, LineDef, Sector } from "./Map";
-import type { MapObject } from "./MapObject";
+import { MapObject } from "./MapObject";
 import { type DoomGame } from "./game";
-import { randInt } from "./Math";
+import { ToRadians, randInt } from "./Math";
+import { MapObjectIndex, mapObjectInfo } from "./doom-things-info";
+
+// TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
+// all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
 
 // General
 export function triggerSpecial(game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1) {
@@ -791,9 +795,19 @@ export const applyTeleportAction = (game: DoomGame, map: DoomMap, linedef: LineD
     const teleports = map.things.filter(e => e.type === 14)
     for (const tp of teleports) {
         let sector = map.findSector(tp.x, tp.y);
+
         // TODO: check for monster/player-only teleports
         // TODO: for monster teleports, check space is blocked
+
         if (sector.tag === linedef.tag) {
+            // teleport fog in old and new locations
+            const pos = get(mobj.position);
+            // TODO: I don't love creating a "thing" just to create a map object. Probably should decouple MapObject and Thing
+            map.spawn(new MapObject(map, { type: 0, angle: 0, flags: 0, x: pos.x, y: pos.y }, mapObjectInfo[MapObjectIndex.MT_TFOG]));
+            const dir = tp.angle * ToRadians;
+            const thing = { type: 0, angle: 0, flags: 0, x: tp.x + 20 * Math.cos(dir), y: tp.y + 20 * Math.sin(dir) };
+            map.spawn(new MapObject(map, thing, mapObjectInfo[MapObjectIndex.MT_TFOG]));
+
             mobj.teleport(tp, sector);
             triggered = true;
             break;

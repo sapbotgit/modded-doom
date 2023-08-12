@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Color } from "three";
-    import type { DoomMap, DoomWad, LineDef, Sector, Thing, Vertex, MapObject, RenderSector } from "../../doom";
+    import { type DoomMap, type DoomWad, type LineDef, type Sector, type Thing, type Vertex, type MapObject, type RenderSector, thingSpec } from "../../doom";
     import { ToRadians, lineLineIntersect, signedLineDistance } from '../../doom/Math';
 
     export let wad: DoomWad;
@@ -128,17 +128,18 @@
     }
 
     function thingColor(th: MapObject) {
+        const spec = thingSpec(th.source.type)
         const c = th.source.type <= 4 ? Color.NAMES.green :
             th.source.type === 11 ? Color.NAMES.lightgreen :
-            th.spec.class === 'M' ? Color.NAMES.red :
-            th.spec.class === 'W' ? Color.NAMES.orange :
-            th.spec.class === 'A' ? Color.NAMES.yellow :
-            th.spec.class === 'I' ? Color.NAMES.blue :
-            th.spec.class === 'P' ? Color.NAMES.indigo :
-            th.spec.class === 'K' ? Color.NAMES.violet :
-            th.spec.class === 'O' ? Color.NAMES.gray :
-            th.spec.class === 'D' ? Color.NAMES.brown :
-            th.spec.class === 'S' ? Color.NAMES.magenta :
+            spec.class === 'M' ? Color.NAMES.red :
+            spec.class === 'W' ? Color.NAMES.orange :
+            spec.class === 'A' ? Color.NAMES.yellow :
+            spec.class === 'I' ? Color.NAMES.blue :
+            spec.class === 'P' ? Color.NAMES.indigo :
+            spec.class === 'K' ? Color.NAMES.violet :
+            spec.class === 'O' ? Color.NAMES.gray :
+            spec.class === 'D' ? Color.NAMES.brown :
+            spec.class === 'S' ? Color.NAMES.magenta :
             Color.NAMES.white;
         return '#' + c.toString(16);
     }
@@ -246,12 +247,12 @@
 
     {#if svgThings}
         {#each map.objs as th}
-            <circle cx={th.source.x} cy={th.source.y} r={th.spec.mo.radius} stroke={thingColor(th)} stroke-width={3} />
+            <circle cx={th.source.x} cy={th.source.y} r={th.info.radius} stroke={thingColor(th)} stroke-width={3} />
             <line
                 x1={th.source.x}
                 y1={th.source.y}
-                x2={th.spec.mo.radius * Math.cos(th.source.angle * ToRadians) + th.source.x}
-                y2={th.spec.mo.radius * Math.sin(th.source.angle * ToRadians) + th.source.y}
+                x2={th.info.radius * Math.cos(th.source.angle * ToRadians) + th.source.x}
+                y2={th.info.radius * Math.sin(th.source.angle * ToRadians) + th.source.y}
                 stroke={thingColor(th)}
                 fill={thingColor(th)}
                 marker-end="url(#arrow)"

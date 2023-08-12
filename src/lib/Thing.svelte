@@ -11,8 +11,8 @@
     const { textures, game, editor, wad } = useDoom();
     const { position: cameraPosition, rotation: cameraRotation } = game.camera;
 
-    const { sector, spec, position, sprite, direction } = thing;
-    const frames = wad.spriteFrames(spec.sprite);
+    const { sector, position, sprite, direction } = thing;
+    const frames = wad.spriteFrames($sprite.name);
 
     $: ang = Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;

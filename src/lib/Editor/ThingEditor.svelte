@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MapObject, type DoomMap, things, thingSpec, type ThingSpec } from "../../doom";
+    import { MapObject, type DoomMap, things, thingSpec, type ThingSpec, type Thing, states, SpriteNames } from "../../doom";
     import { useDoom } from "../useDoom";
     import ThingSprite from "./ThingSprite.svelte";
     import { ToDegrees, ToRadians } from "../../doom/Math";
@@ -19,8 +19,9 @@
         [0x0010, 'Multiplayer-only'],
     ]
 
-    const { direction, sprite, spec } = thing;
-    const frames = map.wad.spriteFrames(spec.sprite);
+    const { direction, sprite } = thing;
+    $: description = thingSpec(thing.source.type).description;
+    const frames = map.wad.spriteFrames($sprite.name);
     const frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
     const texture = textures.get(frame.name, 'sprite');
 
@@ -35,8 +36,8 @@
         let index = map.objs.indexOf(thing);
         thing = new MapObject(map, { ...thing.source, type: th.type });
         map.objs[index] = thing;
+        map.rev.update(e => e += 1);
         $editor.selected = thing;
-        $editor.updateThings(); // kind of a reactivity hack. I'd like to to better...
 
         selectorFilter = '';
         showSelector = false;
@@ -50,14 +51,25 @@
         };
     }
 
-    $: types = things.map(e => ({ value: e, text: `${e.description} (${e.type})` }))
-        // doom2 enemies won't be available in doom1 wads
-        .filter(e => map.wad.spriteFrames(thingSpec(e.value.type).sprite).length > 0)
+    function editorThing(value: any) {
+        const state = states[thingSpec(value.type).mo.spawnstate];
+        const sprite = SpriteNames[state.sprite];
+        const frames = (sprite && map.wad.spriteFrames(sprite)) ?? [];
+        const text = `${value.description} (${value.type})`;
+        if (frames.length === 0) {
+            // if we don't have sprite frames (like for a doom2 enemy but we're using a doom1 wad)
+            // then return null and filter later
+            return null;
+        }
+        return { value, state, frames, text };
+    }
+
+    $: types = things.map(editorThing).filter(e => e)
 </script>
 
 <h3>Thing</h3>
 <div>
-    <button on:click={toggleSelector}>{thing.spec.description}</button>
+    <button on:click={toggleSelector}>{description}</button>
     {#if showSelector}
         <div class="selector">
             <!-- svelte-ignore a11y-autofocus -->
@@ -65,7 +77,7 @@
             {#each types as t}
                 {#if !selectorFilter.length || t.text.toLowerCase().includes(selectorFilter)}
                     <button on:click={() => changeType(t.value)}>
-                        <ThingSprite {map} spec={thingSpec(t.value.type)} text={t.text} />
+                        <ThingSprite {map} frames={t.frames} state={t.state} text={t.text} />
                     </button>
                 {/if}
             {/each}
