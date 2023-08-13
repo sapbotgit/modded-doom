@@ -27,14 +27,14 @@
     let threlteCtx: ThrelteContext;
     onMount(() => {
         // highlight any special linedefs to help with debugging
-        // const spec = [17,];
-        // for (const linedef of map.linedefs) {
-        //     if (spec.includes(linedef.special)) {
-        //         $editor.selected = linedef
-        //         console.log('special!!',linedef.special)
-        //         break;
-        //     }
-        // }
+        const spec = [7,8,127,100,];
+        for (const linedef of map.linedefs) {
+            if (spec.includes(linedef.special)) {
+                $editor.selected = linedef
+                console.log('special!!',linedef.special)
+                break;
+            }
+        }
 
         const interval = 1 / settings.targetFPS;
         let delta = 0;

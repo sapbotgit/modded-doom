@@ -11,6 +11,9 @@ import { MapObjectIndex, mapObjectInfo } from "./doom-things-info";
 
 // General
 export function triggerSpecial(game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1) {
+    if (linedef.special === 9) {
+        return donut(game, map, linedef, mobj, trigger, side);
+    }
     return (
         createDoorAction(game, map, linedef, mobj, trigger) ??
         createLiftAction(game, map, linedef, mobj, trigger) ??
@@ -18,7 +21,8 @@ export function triggerSpecial(game: DoomGame, map: DoomMap, linedef: LineDef, m
         createCeilingAction(game, map, linedef, mobj, trigger) ??
         createCrusherCeilingAction(game, map, linedef, mobj, trigger) ??
         createLightingAction(game, map, linedef, mobj, trigger) ??
-        applyTeleportAction(game, map, linedef, mobj, trigger, side)
+        applyTeleportAction(game, map, linedef, mobj, trigger, side) ??
+        createRisingStairAction(game, map, linedef, mobj, trigger)
     );
 }
 
@@ -815,3 +819,154 @@ export const applyTeleportAction = (game: DoomGame, map: DoomMap, linedef: LineD
     }
     return triggered ? def : undefined;
 };
+
+// Donut (apparently only in E1M2 and E2M2 and map21 of tnt (none in Doom2 or plutonia)
+export const donut = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+    const def = { trigger: 'S', repeatable: false };
+    if (trigger !== def.trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    let triggered = false;
+    const speed = 0.5;
+    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    for (const pillar of sectors) {
+        if (pillar.specialData !== null) {
+            continue;
+        }
+        triggered = true;
+
+        const donut = map.sectorNeighbours(pillar)[0];
+        const model = map.sectorNeighbours(donut).filter(e => e !== pillar)[0];
+        const target = model.values.zFloor;
+
+        pillar.specialData = def;
+        const pillarAction = () => {
+            let finished = false;
+
+            pillar.zFloor.update(val => {
+                val += -speed;
+
+                if (val < target) {
+                    finished = true;
+                    val = target;
+                }
+
+                return val;
+            });
+
+            if (finished) {
+                pillar.specialData = null;
+                game.removeAction(pillarAction);
+            }
+        };
+        game.addAction(pillarAction);
+
+        donut.specialData = def;
+        const donutAction = () => {
+            let finished = false;
+
+            donut.zFloor.update(val => {
+                val += speed;
+
+                if (val > target) {
+                    finished = true;
+                    val = target;
+                }
+
+                return val;
+            });
+
+            if (finished) {
+                assignFloorFlat(model, donut);
+                assignSectorType(model, donut);
+                donut.specialData = null;
+                game.removeAction(donutAction);
+            }
+        };
+        game.addAction(donutAction);
+    }
+    return triggered ? def : undefined;
+};
+
+// Rising Stairs
+const risingStarDefinition = (type: number, trigger: string, speed: number, stepSize: number) => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    repeatable: (trigger[1] === 'R'),
+    direction: 1,
+    stepSize,
+    speed,
+});
+
+const risingStairs = [
+    risingStarDefinition(7, 'S1', .25, 8),
+    risingStarDefinition(8, 'W1', .25, 8),
+    risingStarDefinition(127, 'S1', 4, 16),
+    risingStarDefinition(100, 'W1', 4, 16),
+];
+
+export const createRisingStairAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+    const def = risingStairs.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid riser special', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
+    }
+
+    let triggered = false;
+    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    for (const sector of sectors) {
+        if (sector.specialData !== null) {
+            continue;
+        }
+
+        triggered = true;
+        let target = sector.values.zFloor;
+
+        const flat = sector.values.floorFlat;
+        let base = sector;
+        while (base) {
+            target += def.stepSize;
+            raiseFloorAction(game, base, def, target);
+
+            // find next step to raise
+            const matches = map.sectorNeighbours(base)
+                .filter(e => e.values.floorFlat === flat && e.specialData === null);
+            base = matches.length ? matches[0] : null;
+        }
+    }
+    return triggered ? def : undefined;
+};
+
+function raiseFloorAction(game: DoomGame, sector: Sector, def: { speed: number, direction: number }, target: number) {
+    sector.specialData = def;
+    const action = () => {
+        let finished = false;
+
+        sector.zFloor.update(val => {
+            val += def.direction * def.speed;
+
+            if (val > target) {
+                finished = true;
+                val = target;
+            }
+
+            return val;
+        });
+
+        if (finished) {
+            sector.specialData = null;
+            game.removeAction(action);
+        }
+    }
+    game.addAction(action);
+}
