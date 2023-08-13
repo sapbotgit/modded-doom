@@ -83,7 +83,7 @@ const selectNum = (map: DoomMap, sector: Sector) => {
 }
 
 const selectTrigger = (map: DoomMap, sector: Sector, linedef: LineDef) => {
-    return (linedef.left.sector === sector) ? linedef.right.sector : linedef.left.sector;
+    return (!linedef.left || sector === linedef.left.sector) ? linedef.right.sector : linedef.left.sector;
 }
 
 // effects
@@ -103,6 +103,10 @@ const assignFloorFlat = (from: Sector, to: Sector) => {
 const assignSectorType = (from: Sector, to: Sector) => {
     // not need to update rev because the UI doesn't depend on it
     to.type = from.type;
+}
+
+const zeroSectorType = (from: Sector, to: Sector) => {
+    to.type = 0;
 }
 
 // Doors
@@ -259,11 +263,16 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
 };
 
 // Lifts
-const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed: number) => ({
+const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed: number, direction: number, targetHighFn: TargetValueFunction, actionType: 'normal' | 'perpetual' | 'stop' = 'normal', effect?: EffectFunction) => ({
     type,
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     speed,
+    direction,
+    effect,
+    perpetual: actionType === 'perpetual',
+    targetHighFn,
+    stopper: actionType === 'stop',
     monsterTrigger: trigger.includes('m'),
     waitTime: waitTimeS * ticksPerSecond,
 });
@@ -274,14 +283,27 @@ const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed:
 const slow = 4;
 const fast = 2 * slow;
 const liftDefinitions = [
-    liftDefinition(62, 'SR', 3, slow),
-    liftDefinition(21, 'S1', 3, slow),
-    liftDefinition(88, 'WRm', 3, slow),
-    liftDefinition(10, 'W1m', 3, slow),
-    liftDefinition(123, 'SR', 3, fast),
-    liftDefinition(122, 'S1', 3, fast),
-    liftDefinition(120, 'WR', 3, fast),
-    liftDefinition(121, 'W1', 3, fast),
+    liftDefinition(14, 'S1', 0, .5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(15, 'S1', 0, .5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger)),
+    liftDefinition(20, 'S1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(22, 'W1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(47, 'G1', 0, .5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(66, 'SR', 0, 0.5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger)),
+    liftDefinition(67, 'SR', 0, 0.5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(68, 'SR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(95, 'WR', 0, 0.5, 1, nextNeighbourFloor, 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
+    liftDefinition(54, 'W1', 0, 0, 0, floorValue, 'stop'),
+    liftDefinition(89, 'WR', 0, 0, 0, floorValue, 'stop'),
+    liftDefinition(10, 'W1m', 3, 4, -1, floorValue),
+    liftDefinition(21, 'S1', 3, 4, -1, floorValue),
+    liftDefinition(53, 'SR', 3, 1, -1, highestNeighbourFloor, 'perpetual'),
+    liftDefinition(62, 'SR', 3, 4, -1, floorValue),
+    liftDefinition(87, 'WR', 3, 1, -1, highestNeighbourFloor, 'perpetual'),
+    liftDefinition(88, 'WRm', 3, 4, -1, floorValue),
+    liftDefinition(120, 'WR', 3, 8, -1, floorValue),
+    liftDefinition(121, 'W1', 3, 8, -1, floorValue),
+    liftDefinition(122, 'S1', 3, 8, -1, floorValue),
+    liftDefinition(123, 'SR', 3, 8, -1, floorValue),
 ];
 
 export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
@@ -300,53 +322,63 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
     let triggered = false;
     const sectors = map.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
-        if (sector.specialData !== null) {
+        if (def.stopper || sector.specialData !== null) {
+            if (def.stopper) {
+                game.removeAction(sector.specialData);
+            } else {
+                game.addAction(sector.specialData);
+            }
             // sector is already running an action so don't add another one
             continue;
         }
 
         triggered = true;
-        sector.specialData = -1;
 
         const low = lowestNeighbourFloor(map, sector);
-        const high = sector.values.zFloor;
+        const high = def.targetHighFn(map, sector);
+
+        if (def.direction > 0) {
+            def.effect?.(map, sector, linedef);
+        }
 
         let ticks = 0;
+        let direction = def.direction;
         const action = () => {
-            if (sector.specialData === 0) {
-                // waiting
-                if (ticks--) {
-                    return;
-                }
-                sector.specialData = 1;
+            if (ticks) {
+                ticks--;
                 return;
             }
 
+            let finished = false;
             // move lift
             sector.zFloor.update(val => {
-                val += def.speed * sector.specialData;
+                val += def.speed * direction;
+                console.log(low,high,val)
 
-                let finished = false;
                 if (val < low) {
                     // hit bottom
                     ticks = def.waitTime;
                     val = low;
-                    sector.specialData = 0;
+                    direction = 1;
                 } else if (val > high) {
                     // hit top
-                    finished = true;
+                    finished = !def.perpetual;
                     ticks = def.waitTime;
                     val = high;
-                    sector.specialData = 0;
-                }
-
-                if (finished) {
-                    game.removeAction(action);
-                    sector.specialData = null;
+                    direction = -1;
                 }
                 return val;
             });
+
+            if (finished) {
+                game.removeAction(action);
+                sector.specialData = null;
+                if (def.direction < 0) {
+                    def.effect?.(map, sector, linedef);
+                }
+            }
         };
+        sector.specialData = action;
         game.addAction(action);
     }
     return triggered ? def : undefined;

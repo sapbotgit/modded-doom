@@ -28,6 +28,13 @@
         material.map = texture;
     }
 
+    $: if (thing.source.type === 58) {
+        // this isn't ideal handling of specters but at least it differentiates them from pink demons
+        material.alphaTest = 0;
+        material.transparent = true;
+        material.opacity = .45;
+    }
+
     $: light = $sector.light;
     $: if ($sprite.fullbright || $light !== undefined) {
         material.color = textures.lightColor($sprite.fullbright ? 255 : $light);

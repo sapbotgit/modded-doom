@@ -27,7 +27,7 @@
     let threlteCtx: ThrelteContext;
     onMount(() => {
         // highlight any special linedefs to help with debugging
-        const spec = [7,8,127,100,];
+        const spec = [66,67,68,95,];
         for (const linedef of map.linedefs) {
             if (spec.includes(linedef.special)) {
                 $editor.selected = linedef

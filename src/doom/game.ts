@@ -278,11 +278,7 @@ class GameInput {
                 this.player.velocity.multiplyScalar(0.95);
             }
         } else {
-            if (this.player.velocity.z === 0) {
-                this.player.velocity.z -= playerSpeeds['gravity'] * dt * 2;
-            } else {
-                this.player.velocity.z -= playerSpeeds['gravity'] * dt;
-            }
+            this.player.velocity.z -= playerSpeeds['gravity'] * dt;
         }
 
         const pos = get(this.player.position) as Vector3;
