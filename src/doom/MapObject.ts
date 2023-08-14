@@ -1,7 +1,6 @@
-import { writable, type Writable } from "svelte/store";
-import { thingSpec, type ThingSpec } from "./doom-things";
+import { store, type Store } from "./Store";
+import { thingSpec } from "./doom-things";
 import { StateIndex, type State, MFFlags, SpriteNames, states, type MapObjectInfo } from "./doom-things-info";
-import type { Position } from "@threlte/core";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./Math";
 import { CollisionNoOp, type DoomMap, type Sector, type Thing } from "./Map";
@@ -24,10 +23,10 @@ export class MapObject {
 
     // readonly spec: ThingSpec;
     readonly info: MapObjectInfo;
-    readonly position: Writable<Position>;
-    readonly direction: Writable<number>;
-    readonly sector = writable<Sector>(null);
-    readonly sprite = writable<Sprite>(null);
+    readonly position: Store<Vector3>;
+    readonly direction: Store<number>;
+    readonly sector = store<Sector>(null);
+    readonly sprite = store<Sprite>(null);
     readonly velocity = new Vector3();
 
     private state: State;
@@ -35,9 +34,8 @@ export class MapObject {
     private sect: Sector;
 
     protected zFloor: number;
-    protected pos: Position;
 
-    get onGround() { return this.pos.z <= this.zFloor; }
+    get onGround() { return this.position.val.z <= this.zFloor; }
     get currentState() { return this._state; }
     private _state: StateIndex;
 
@@ -45,14 +43,13 @@ export class MapObject {
         this.info = info ?? thingSpec(source.type).mo;
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
 
-        this.direction = writable(Math.PI + source.angle * ToRadians);
-        this.position = writable({ x: source.x, y: source.y, z: 0 });
+        this.direction = store(Math.PI + source.angle * ToRadians);
+        this.position = store(new Vector3(source.x, source.y, 0));
         this.position.subscribe(p => {
-            this.pos = p;
             const sector = map.findSector(p.x, p.y);
             if (!this.sect) {
                 // first time setting sector so set zpos
-                this.pos.z = sector.values.zFloor;
+                p.z = sector.zFloor.val;
             }
             // svelte stores assume != when value is an object so we add a little extra smarts
             if (this.sect !== sector) {
@@ -72,8 +69,8 @@ export class MapObject {
             ceilChange = sect.zCeil.subscribe(ceil => {
                 if (fromCeiling) {
                     this.zFloor = ceil - this.info.height;
-                    this.pos.z = this.zFloor;
-                    this.position.set(this.pos);
+                    this.position.val.z = this.zFloor;
+                    this.position.set(this.position.val);
                 }
 
                 // TODO: also check for crushing/collision?
@@ -92,8 +89,8 @@ export class MapObject {
                         return;
                     }
                     if (onGround) {
-                        this.pos.z = floor;
-                        this.position.set(this.pos);
+                        this.position.val.z = floor;
+                        this.position.set(this.position.val);
                     }
                 }
 
@@ -152,10 +149,10 @@ export class MapObject {
 
     teleport(target: Thing, sector: Sector) {
         this.velocity.set(0, 0, 0);
-        this.pos.x = target.x;
-        this.pos.y = target.y;
-        this.pos.z = sector.values.zFloor;
-        this.position.set(this.pos);
+        this.position.val.x = target.x;
+        this.position.val.y = target.y;
+        this.position.val.z = sector.zFloor.val;
+        this.position.set(this.position.val);
         this.direction.set(Math.PI + target.angle * ToRadians);
         // TODO: 18-tick freeze (reaction) time?
     }
@@ -163,6 +160,7 @@ export class MapObject {
     // make more like P_ZMovement?
     protected applyGravity() {
         if (this.onGround) {
+            this.position.val.z = this.zFloor;
             this.velocity.z = 0;
         } else {
             this.velocity.z -= 1;
@@ -223,8 +221,8 @@ export class PlayerMapObject extends MapObject {
 
     protected applyGravity(): void {
         // smooth step up
-        if (this.pos.z < this.zFloor) {
-            this.viewHeight -= this.zFloor - this.pos.z;
+        if (this.position.val.z < this.zFloor) {
+            this.viewHeight -= this.zFloor - this.position.val.z;
             // this means we change view height by 1, 2, or 3 depending on the step (>> 3 is equivalent to divide by 8 but faster)
             this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
         }
@@ -236,9 +234,9 @@ export class PlayerMapObject extends MapObject {
             }
             this.velocity.z = 0;
 
-            if (this.pos.z !== this.zFloor) {
-                this.pos.z = this.zFloor;
-                this.position.set(this.pos);
+            if (this.position.val.z !== this.zFloor) {
+                this.position.val.z = this.zFloor;
+                this.position.set(this.position.val);
             }
         }
     }

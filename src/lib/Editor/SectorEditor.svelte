@@ -45,7 +45,7 @@
     }
 </script>
 
-<h3>Sector</h3>
+<h3>Sector ({sector.num})</h3>
 <div>
     <button on:click={tagLinedef}>Tag: {sector.tag}</button>
 </div>
@@ -83,13 +83,13 @@
     -->
     <label>
         <input type="text" inputmode="numeric" pattern="[0-9]*" bind:value={$zCeil} />
-        Ceiling height {$zCeil} (diff: {$zCeil - $zFloor}) (original {sector.source.zCeil})
+        Ceiling height {$zCeil} (diff: {$zCeil - $zFloor}) (original {sector.zCeil.initial})
     </label>
 </div>
 <div>
     <label>
         <input type="text" inputmode="numeric" pattern="[0-9]*" bind:value={$zFloor} />
-        Floor height {$zFloor} (diff: {$zCeil - $zFloor}) (original {sector.source.zFloor})
+        Floor height {$zFloor} (diff: {$zCeil - $zFloor}) (original {sector.zFloor.initial})
     </label>
 </div>
 <div>

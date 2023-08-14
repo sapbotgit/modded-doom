@@ -97,7 +97,7 @@
 </script>
 
 <Mesh
-    visible={texture && visible}
+    {visible}
     interactive={$editor.active}
     on:click={hit}
     position={{ x: mid.x, y: mid.y, z: top - height * .5 }}

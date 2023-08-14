@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {  Color, CubeTexture, DataTexture, LinearToneMapping,SRGBColorSpace } from "three";
+    import {  Color, CubeTexture, DataTexture, LinearToneMapping, SRGBColorSpace } from "three";
     import type { DoomMap } from "../doom";
     import { useDoom } from "./useDoom";
     import { AmbientLight, useThrelte } from "@threlte/core";
@@ -135,4 +135,4 @@
     scene.background = tx; //new Color('magenta');
 </script>
 
-<AmbientLight color={'white'} intensity={1} />
+<AmbientLight color={'white'} intensity={4} />

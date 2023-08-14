@@ -1,4 +1,4 @@
-import { get, writable, type Writable } from "svelte/store";
+import { store, type Store } from "./Store";
 import type { DoomWad } from "./doomwad";
 import { Vector3 } from "three";
 import { PlayerMapObject, MapObject } from "./MapObject";
@@ -24,7 +24,7 @@ export interface LineDef {
     right?: SideDef;
     left?: SideDef;
     // derived
-    xOffset?: Writable<number>;
+    xOffset?: Store<number>;
     // For game processing
     buttonTimer: any;
 }
@@ -40,16 +40,16 @@ const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]
 });
 
 export interface SideDef {
-    xOffset: Writable<number>;
-    yOffset: Writable<number>;
+    xOffset: Store<number>;
+    yOffset: Store<number>;
     sector: Sector;
-    upper: Writable<string>;
-    lower: Writable<string>;
-    middle: Writable<string>;
+    upper: Store<string>;
+    lower: Store<string>;
+    middle: Store<string>;
 }
-const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Writable<string>>): SideDef => ({
-    xOffset: writable(sd.offsetX),
-    yOffset: writable(sd.offsetY),
+const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Store<string>>): SideDef => ({
+    xOffset: store(sd.offsetX),
+    yOffset: store(sd.offsetY),
     sector: sectors[sd.sectorId],
     lower: textures.get(fixTextureName(sd.lowerTextureName)),
     middle: textures.get(fixTextureName(sd.normalTextureName)),
@@ -83,65 +83,33 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 });
 
 export interface Sector {
-    rev: Writable<number>;
+    num: number;
+    rev: Store<number>;
     tag: number;
     type: number;
-    source: {
-        zFloor: number;
-        zCeil: number;
-        light: number;
-        floorFlat: string;
-        ceilFlat: string;
-    };
-    values: {
-        zFloor: number;
-        zCeil: number;
-        light: number;
-        floorFlat: string;
-        ceilFlat: string;
-    }
-    zFloor: Writable<number>;
-    zCeil: Writable<number>;
-    light: Writable<number>;
-    floorFlat: Writable<string>;
-    ceilFlat: Writable<string>;
+    zFloor: Store<number>;
+    zCeil: Store<number>;
+    light: Store<number>;
+    floorFlat: Store<string>;
+    ceilFlat: Store<string>;
     // Game processing data
     specialData: any;
 }
-const toSector = (sd: any, textures: Map<string, Writable<string>>): Sector => {
+const toSector = (num: number, sd: any, textures: Map<string, Store<string>>): Sector => {
     const sector = {
-        source: {
-            zFloor: sd.floorZ,
-            zCeil: sd.ceilZ,
-            light: sd.light,
-            floorFlat: fixTextureName(sd.floorFlat),
-            ceilFlat: fixTextureName(sd.ceilFlat),
-        },
-        values: {
-            zFloor: sd.floorZ,
-            zCeil: sd.ceilZ,
-            light: sd.light,
-            floorFlat: fixTextureName(sd.floorFlat),
-            ceilFlat: fixTextureName(sd.ceilFlat),
-        },
+        num,
         // rev is a reactivity hack to allow me to re-assign textures during sector floor/ceiling change
         // (see Flats.svelte and createFloorAction in Special.ts). We should be able to do better than this
-        rev: writable(1),
+        rev: store(1),
         tag: sd.tag,
         type: sd.specialType,
-        zFloor: writable(sd.floorZ),
-        zCeil: writable(sd.ceilZ),
-        light: writable(sd.light),
+        zFloor: store(sd.floorZ),
+        zCeil: store(sd.ceilZ),
+        light: store(sd.light),
         floorFlat: textures.get(fixTextureName(sd.floorFlat)),
         ceilFlat: textures.get(fixTextureName(sd.ceilFlat)),
         specialData: null,
     };
-    // so we don't need to use get() on critical code paths (like collision detection)
-    sector.zFloor.subscribe(v => sector.values.zFloor = v);
-    sector.zCeil.subscribe(v => sector.values.zCeil = v);
-    sector.light.subscribe(v => sector.values.light = v);
-    sector.floorFlat.subscribe(v => sector.values.floorFlat = v);
-    sector.ceilFlat.subscribe(v => sector.values.ceilFlat = v);
     return sector;
 }
 
@@ -188,7 +156,7 @@ export interface AnimatedTexture {
     frames: string[];
     current: number;
     speed: number;
-    target: Writable<string>;
+    target: Store<string>;
 }
 
 interface Block {
@@ -363,7 +331,7 @@ export class DoomMap {
     readonly blockmap: BlockMap;
     objs: MapObject[];
     // don't love this rev hack... we need a list with a subscribe method
-    readonly rev = writable(1);
+    readonly rev = store(1);
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
@@ -371,25 +339,25 @@ export class DoomMap {
         this.name = wad.raw[index].name;
 
         // optimization: use a single writeable per texture name
-        const wallTextures = new Map<string, Writable<string>>();
+        const wallTextures = new Map<string, Store<string>>();
         for (const sidedef of wad.raw[index + 3].contents.entries) {
             const lower = fixTextureName(sidedef.lowerTextureName);
             const middle = fixTextureName(sidedef.normalTextureName);
             const upper = fixTextureName(sidedef.upperTextureName);
-            wallTextures.set(lower, writable(lower));
-            wallTextures.set(middle, writable(middle));
-            wallTextures.set(upper, writable(upper));
+            wallTextures.set(lower, store(lower));
+            wallTextures.set(middle, store(middle));
+            wallTextures.set(upper, store(upper));
         }
-        const flatTextures = new Map<string, Writable<string>>();
+        const flatTextures = new Map<string, Store<string>>();
         for (const sector of wad.raw[index + 8].contents.entries) {
             const floorFlat = fixTextureName(sector.floorFlat);
             const ceilFlat = fixTextureName(sector.ceilFlat);
-            flatTextures.set(floorFlat, writable(floorFlat));
-            flatTextures.set(ceilFlat, writable(ceilFlat));
+            flatTextures.set(floorFlat, store(floorFlat));
+            flatTextures.set(ceilFlat, store(ceilFlat));
         }
 
         this.things = wad.raw[index + 1].contents.entries;
-        this.sectors = wad.raw[index + 8].contents.entries.map(s => toSector(s, flatTextures));
+        this.sectors = wad.raw[index + 8].contents.entries.map((s, i) => toSector(i, s, flatTextures));
         this.vertexes = wad.raw[index + 4].contents.entries;
         const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
         this.linedefs = wad.raw[index + 2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
@@ -416,7 +384,7 @@ export class DoomMap {
         this.renderSectors = buildRenderSectors(this.nodes);
     }
 
-    private initializeTextureAnimation(wad: DoomWad, target: Writable<string>, animInfoFn: 'animatedWallInfo' | 'animatedFlatInfo') {
+    private initializeTextureAnimation(wad: DoomWad, target: Store<string>, animInfoFn: 'animatedWallInfo' | 'animatedFlatInfo') {
         // wall/flat animations are all 8 ticks each
         const speed = 8;
         target.subscribe(v => {
@@ -500,8 +468,7 @@ export class DoomMap {
     xyCollisions(obj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>, onSpecial: HandleCollision<LineDef>) {
         const maxStepSize = 24;
 
-        const pos = get(obj.position);
-        start.set(pos.x, pos.y, pos.z);
+        start.copy(obj.position.val);
         end.copy(start).add(move);
 
         let complete = false;
@@ -539,7 +506,7 @@ export class DoomMap {
             }
 
             const hit = circleCircleSweep(
-                get(obj2.position) as Vertex, obj2.info.radius,
+                obj2.position.val, obj2.info.radius,
                 start, obj.info.radius, move);
             if (!hit) {
                 return;
@@ -576,9 +543,9 @@ export class DoomMap {
                 const changeDir = signedLineDistance(linedef.v, start);
                 const endSect = changeDir > 0 ? linedef.left.sector : linedef.right.sector;
 
-                const floorChangeOk = (endSect.values.zFloor - start.z <= maxStepSize);
-                const transitionGapOk = (endSect.values.zCeil - start.z >= obj.info.height);
-                const newCeilingFloorGapOk = (endSect.values.zCeil - endSect.values.zFloor >= obj.info.height);
+                const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
+                const transitionGapOk = (endSect.zCeil.val - start.z >= obj.info.height);
+                const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= obj.info.height);
 
                 // console.log('[f,t,cf]',[floorChangeOk,transitionGapOk,newCeilingFloorGapOk])
                 if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk) {

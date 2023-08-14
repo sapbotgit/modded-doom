@@ -1,5 +1,4 @@
 // kind of based on p_spec.c
-import { get } from "svelte/store";
 import type { DoomMap, LineDef, Sector } from "./Map";
 import { MapObject } from "./MapObject";
 import { type DoomGame } from "./game";
@@ -37,36 +36,34 @@ export interface SpecialDefinition {
 type TargetValueFunction = (map: DoomMap, sector: Sector) => number;
 
 const findLowestCeiling = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), floorMax)
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil.val), floorMax)
 const lowestNeighbourFloor = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zFloor), sector.values.zFloor);
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zFloor.val), sector.zFloor.val);
 const highestNeighbourFloor = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.values.zFloor), -floorMax);
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor.val), -floorMax);
 const nextNeighbourFloor = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => sec.values.zFloor > sector.values.zFloor ? Math.min(last, sec.values.zFloor) : last, floorMax);
+    map.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor.val > sector.zFloor.val ? Math.min(last, sec.zFloor.val) : last, floorMax);
 const lowestNeighbourCeiling = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.zCeil), sector.values.zCeil);
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil.val), sector.zCeil.val);
 const highestNeighbourCeiling = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.values.zCeil), -floorMax);
-const floorHeight = (map: DoomMap, sector: Sector) => sector.values.zFloor;
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil.val), -floorMax);
+const floorHeight = (map: DoomMap, sector: Sector) => sector.zFloor.val;
 
 const shortestLowerTexture = (map: DoomMap, sector: Sector) => {
     let target = floorMax;
     for (const ld of map.linedefs) {
         if (ld.left?.sector === sector) {
-            // TODO: get and wallTextureData are both a little expensive (esp wallTexturedata), can we do better?
-            const rname = get(ld.right.lower);
-            const rtx = map.wad.wallTextureData(rname);
-            const lname = get(ld.left.lower);
-            const ltx = map.wad.wallTextureData(lname);
+            // TODO: wallTextureData are both a little expensive (esp wallTexturedata), can we do better?
+            const rtx = map.wad.wallTextureData(ld.right.lower.val);
+            const ltx = map.wad.wallTextureData(ld.left.lower.val);
             target = Math.min(target,
                     (ltx && 'height' in ltx ? ltx.height : Infinity),
                     (rtx && 'height' in rtx ? rtx.height : Infinity));
         }
     }
-    return sector.values.zFloor + target;
+    return sector.zFloor.val + target;
 };
-const floorValue = (map: DoomMap, sector: Sector) => sector.values.zFloor;
+const floorValue = (map: DoomMap, sector: Sector) => sector.zFloor.val;
 const adjust = (fn: TargetValueFunction, change: number) => (map: DoomMap, sector: Sector) => fn(map, sector) + change;
 
 type SectorSelectorFunction = (map: DoomMap, sector: Sector, linedef: LineDef) => Sector;
@@ -74,7 +71,7 @@ const selectNum = (map: DoomMap, sector: Sector) => {
     let line: LineDef = null;
     for (const ld of map.linedefs) {
         if (ld.flags & 0x0004) {
-            if (ld.left.sector === sector && ld.right.sector.values.zFloor === sector.values.zFloor) {
+            if (ld.left.sector === sector && ld.right.sector.zFloor.val === sector.zFloor.val) {
                 line = (line && line.num < ld.num) ? line : ld;
             }
         }
@@ -216,7 +213,7 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
         sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
 
         const topHeight = def.type === 16 || def.type === 76
-            ? sector.values.zCeil : (findLowestCeiling(map, sector) - 4);
+            ? sector.zCeil.val : (findLowestCeiling(map, sector) - 4);
         let ticks = 0;
         const action = () => {
             if (sector.specialData === 0) {
@@ -241,11 +238,11 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
                     ticks = def.topWait;
                     ceil = topHeight;
                     sector.specialData = 0;
-                } else if (ceil < sector.values.zFloor) {
+                } else if (ceil < sector.zFloor.val) {
                     // hit floor
                     finished = def.function === 'openWaitClose' || def.function === 'closeAndStay';
                     ticks = def.topWait;
-                    ceil = sector.values.zFloor;
+                    ceil = sector.zFloor.val;
                     sector.specialData = 0;
                 }
 
@@ -353,7 +350,6 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
             // move lift
             sector.zFloor.update(val => {
                 val += def.speed * direction;
-                console.log(low,high,val)
 
                 if (val < low) {
                     // hit bottom
@@ -620,7 +616,7 @@ export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef
         triggered = true;
 
         let direction = def.direction;
-        const top = sector.values.zCeil;
+        const top = sector.zCeil.val;
         const bottom = def.targetFn(map, sector);
         const action = () => {
             let finished = false;
@@ -655,11 +651,11 @@ export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef
 const setLightLevel = (val: number) =>
     (map: DoomMap, sec: Sector) => val;
 const maxNeighbourLight = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.values.light), 0);
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.light.val), 0);
 const minNeighbourLight = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.values.light), 255);
+    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.light.val), 255);
 export const lowestLight = (sectors: Sector[], max: number) =>
-    sectors.reduce((last, sec) => Math.min(last, sec.values.light), max);
+    sectors.reduce((last, sec) => Math.min(last, sec.light.val), max);
 
 const createLightingDefinition = (type: number, trigger: string, targetValueFn: TargetValueFunction) => ({
     type,
@@ -715,7 +711,7 @@ export const createLightingAction = (game: DoomGame, map: DoomMap, linedef: Line
 const strobeFlash =
     (lightTicks: number, darkTicks: number, synchronized = false) =>
     (map: DoomMap, sector: Sector) => {
-        const max = sector.source.light;
+        const max = sector.light.initial;
         const nearestMin = lowestLight(map.sectorNeighbours(sector), max);
         const min = (nearestMin === max) ? 0 : nearestMin;
         let ticks = synchronized ? 1 : randInt(1, 7);
@@ -736,7 +732,7 @@ const strobeFlash =
     };
 
 const randomFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.source.light;
+    const max = sector.light.initial;
     const min = lowestLight(map.sectorNeighbours(sector), max);
     let ticks = 1;
     return () => {
@@ -756,7 +752,7 @@ const randomFlicker = (map: DoomMap, sector: Sector) => {
 };
 
 const glowLight = (map: DoomMap, sector: Sector) => {
-    const max = sector.source.light;
+    const max = sector.light.initial;
     const min = lowestLight(map.sectorNeighbours(sector), max);
     let step = -8;
     return () => sector.light.update(val => {
@@ -770,7 +766,7 @@ const glowLight = (map: DoomMap, sector: Sector) => {
 };
 
 const fireFlicker = (map: DoomMap, sector: Sector) => {
-    const max = sector.source.light;
+    const max = sector.light.initial;
     const min = lowestLight(map.sectorNeighbours(sector), max) + 16;
     let ticks = 4;
     return () => {
@@ -837,7 +833,7 @@ export const applyTeleportAction = (game: DoomGame, map: DoomMap, linedef: LineD
 
         if (sector.tag === linedef.tag) {
             // teleport fog in old and new locations
-            const pos = get(mobj.position);
+            const pos = mobj.position.val;
             // TODO: I don't love creating a "thing" just to create a map object. Probably should decouple MapObject and Thing
             map.spawn(new MapObject(map, { type: 0, angle: 0, flags: 0, x: pos.x, y: pos.y }, mapObjectInfo[MapObjectIndex.MT_TFOG]));
             const dir = tp.angle * ToRadians;
@@ -873,7 +869,7 @@ export const donut = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapO
 
         const donut = map.sectorNeighbours(pillar)[0];
         const model = map.sectorNeighbours(donut).filter(e => e !== pillar)[0];
-        const target = model.values.zFloor;
+        const target = model.zFloor.val;
 
         pillar.specialData = def;
         const pillarAction = () => {
@@ -962,9 +958,9 @@ export const createRisingStairAction = (game: DoomGame, map: DoomMap, linedef: L
         }
 
         triggered = true;
-        let target = sector.values.zFloor;
+        let target = sector.zFloor.val;
 
-        const flat = sector.values.floorFlat;
+        const flat = sector.floorFlat.val;
         let base = sector;
         while (base) {
             target += def.stepSize;
@@ -972,7 +968,7 @@ export const createRisingStairAction = (game: DoomGame, map: DoomMap, linedef: L
 
             // find next step to raise
             const matches = map.sectorNeighbours(base)
-                .filter(e => e.values.floorFlat === flat && e.specialData === null);
+                .filter(e => e.floorFlat.val === flat && e.specialData === null);
             base = matches.length ? matches[0] : null;
         }
     }

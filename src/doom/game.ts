@@ -1,4 +1,4 @@
-import { writable, get, type Writable } from "svelte/store";
+import { store, type Store } from "./Store";
 import { type DoomMap, type LineDef } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, signedLineDistance } from "./Math";
@@ -13,9 +13,9 @@ class Camera {
     private freeFly = false;
     private updatePosition: (pos: Vector3, angle: Euler) => void;
 
-    readonly rotation = writable(this.angle);
-    readonly position = writable(this.pos);
-    mode = writable<'1p' | '3p' | 'bird' | 'ortho'>('1p');
+    readonly rotation = store(this.angle);
+    readonly position = store(this.pos);
+    mode = store<'1p' | '3p' | 'bird' | 'ortho'>('1p');
 
     constructor(player: PlayerMapObject, game: DoomGame) {
         this.mode.subscribe(mode => {
@@ -133,8 +133,8 @@ export class DoomGame {
         }
     }
 
-    private tryToggle(special: SpecialDefinition, linedef: LineDef, tex: Writable<string>) {
-        const name = get(tex);
+    private tryToggle(special: SpecialDefinition, linedef: LineDef, tex: Store<string>) {
+        const name = tex.val;
         const toggle = this.map.wad.switchToggle(name);
         if (toggle) {
             if (special.repeatable && !linedef.buttonTimer) {
@@ -164,10 +164,10 @@ export class DoomGame {
         this.actions = [];
         for (const wall of this.map.linedefs) {
             if (wall.special === 48) {
-                wall.xOffset = writable(0);
+                wall.xOffset = store(0);
                 this.actions.push(() => wall.xOffset.update(n => n += 1));
             } else if (wall.special === 85) {
-                wall.xOffset = writable(0);
+                wall.xOffset = store(0);
                 this.actions.push(() => wall.xOffset.update(n => n -= 1));
             }
         }
@@ -210,7 +210,7 @@ class GameInput {
     public use = false;
     public mouse = { x: 0, y: 0 };
 
-    public freelook = writable(true);
+    public freelook = store(true);
     public noclip = true;
     public freeFly = false;
     public pointerSpeed = 1.0;
@@ -281,13 +281,12 @@ class GameInput {
             this.player.velocity.z -= playerSpeeds['gravity'] * dt;
         }
 
-        const pos = get(this.player.position) as Vector3;
+        const pos = this.player.position.val;
         if (this.enablePlayerCollisions) {
             this.map.xyCollisions(this.player, this.player.velocity,
                 mobj => {
-                    const mpos = get(mobj.position);
-                    const dx = pos.x - mpos.x;
-                    const dy = pos.y - mpos.y;
+                    const dx = pos.x - mobj.position.val.x;
+                    const dy = pos.y - mobj.position.val.y;
                     slideMove(this.player, -dy, dx);
                     return true;
                 },

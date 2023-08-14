@@ -27,14 +27,14 @@
     let threlteCtx: ThrelteContext;
     onMount(() => {
         // highlight any special linedefs to help with debugging
-        const spec = [66,67,68,95,];
-        for (const linedef of map.linedefs) {
-            if (spec.includes(linedef.special)) {
-                $editor.selected = linedef
-                console.log('special!!',linedef.special)
-                break;
-            }
-        }
+        // const spec = [19,];
+        // for (const linedef of map.linedefs) {
+        //     if (spec.includes(linedef.special)) {
+        //         $editor.selected = linedef
+        //         console.log('special!!',linedef.special)
+        //         break;
+        //     }
+        // }
 
         const interval = 1 / settings.targetFPS;
         let delta = 0;
@@ -45,7 +45,6 @@
             const d = clock.getDelta();
             delta += d;
             frameDelta += d;
-
             if (frameDelta > interval) {
                 threlteCtx.advance();
                 game.tick(delta);

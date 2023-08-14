@@ -1,8 +1,7 @@
 <script lang="ts">
     import { Color, Shape, ShapeGeometry } from "three";
-    import type { RenderSector, Vertex } from "../doom";
+    import type { RenderSector, Store, Vertex } from "../doom";
     import Flat from "./Flat.svelte";
-    import type { Writable } from "svelte/store";
 
     export let index: number;
     export let renderSector: RenderSector;
@@ -12,8 +11,8 @@
     }
     $: color = namedColor(index);
     $: geometry = createShape(renderSector.vertexes);
-    let floorFlat: Writable<string>, ceilFlat: Writable<string>,
-        zFloor: Writable<number>, zCeil: Writable<number>;
+    let floorFlat: Store<string>, ceilFlat: Store<string>,
+        zFloor: Store<number>, zCeil: Store<number>;
     const { rev } = renderSector.sector;
     $: if ($rev) {
         zFloor = renderSector.sector.zFloor;
