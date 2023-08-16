@@ -10,8 +10,8 @@
     const { game } = useDoom();
     const { direction: playerDirection, position: playerPosition } = game.player;
     $: visible =
-        // true;
-        angleIsVisible($playerDirection + Math.PI, seg.angle);
+        true;
+        // angleIsVisible($playerDirection + Math.PI, seg.angle);
         // signedLineDistance is actually better (we display less geometry) but overall more expensive
         // so until we start using bsp, let's keep using the visible angle thing
         // signedLineDistance(linedef.v, $playerPosition as any) * (seg.direction ? 1 : -1) < 0;
@@ -34,8 +34,19 @@
 
     // sky-hack https://doomwiki.org/wiki/Sky_hack
     const { ceilFlat: ceilFlatL } = linedef.left?.sector ?? {};
-    const { ceilFlat: ceilFlatR } = linedef.right.sector
-    const skyHack = ($ceilFlatL === 'F_SKY1' && $ceilFlatR === 'F_SKY1');
+    const { ceilFlat: ceilFlatR } = linedef.right.sector;
+
+    // Detect the skyhack is simple but how it's handled is... messy. How it
+    // works is:
+    // (1) we set render order to 1 for everything non-sky
+    // (2) use giant walls with renderOrder=0, writeColor=false, and writeDepth=true)
+    //   for sky to occlude geometry behind them
+    //
+    // What I really want to do is not draw stuff that occluded but I can't
+    // think of way to do that. Overall we draw way more geometry than needed so
+    // that is something that needs improvement
+    const needSkyWall = $ceilFlatR === 'F_SKY1'
+    const skyHack = ($ceilFlatL === 'F_SKY1' && needSkyWall);
 </script>
 
 {#if sidedef && width > 0}
@@ -74,6 +85,14 @@
                 />
             {/if}
         {/if}
+
+        {#if needSkyWall && !skyHack}
+            <WallSegment
+                skyHack
+                {seg} {linedef} {sidedef}
+                {visible} {width} height={32000 - $zCeilR} top={32000} {mid}
+            />
+        {/if}
     {:else}
         {@const top = $zCeilR}
         {@const height = top - $zFloorR}
@@ -81,6 +100,14 @@
             <WallSegment
                 {seg} {linedef} {sidedef}
                 {visible} {width} {height} {top} {mid}
+            />
+        {/if}
+
+        {#if needSkyWall}
+            <WallSegment
+                skyHack
+                {seg} {linedef} {sidedef}
+                {visible} {width} height={32000 - top} top={32000} {mid}
             />
         {/if}
     {/if}

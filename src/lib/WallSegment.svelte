@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
+    import { MeshStandardMaterial, PlaneGeometry, Color, BackSide, FrontSide } from "three";
     import type { LineDef, Seg, SideDef, Vertex } from "../doom";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
@@ -12,6 +12,7 @@
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
 
     // geometry
+    export let skyHack = false;
     export let visible: boolean;
     export let width: number;
     export let height: number;
@@ -84,6 +85,11 @@
         material.emissiveIntensity = 0;
     }
 
+    $: if (skyHack) {
+        material.colorWrite = false;
+        material.depthWrite = true;
+    }
+
     function lineStroke() {
         return !linedef.left ? wad.palettes[0][176] :
             (linedef.left.sector.zFloor !== linedef.right.sector.zFloor) ? wad.palettes[0][64] :
@@ -97,9 +103,10 @@
 </script>
 
 <Mesh
-    {visible}
+    visible={visible}
     interactive={$editor.active}
     on:click={hit}
+    renderOrder={skyHack ? 0 : 1}
     position={{ x: mid.x, y: mid.y, z: top - height * .5 }}
     rotation={{ z: seg.angle, x: HALF_PI, order:'ZXY' }}
     geometry={new PlaneGeometry(width, height)}

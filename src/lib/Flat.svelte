@@ -48,6 +48,7 @@
         interactive={$editor.active}
         {geometry}
         {material}
+        renderOrder={1}
         position={{ z: vertical }}
         on:click={hit}
     >

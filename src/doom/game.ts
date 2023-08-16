@@ -212,7 +212,7 @@ class GameInput {
 
     public freelook = store(true);
     public noclip = true;
-    public freeFly = false;
+    public freeFly = true;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     public minPolarAngle = -HALF_PI;

@@ -61,6 +61,7 @@
     interactive={$editor.active}
     on:click={hit}
     {material}
+    renderOrder={1}
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
     rotation={{ y: $cameraRotation.z, x: HALF_PI, order:'ZXY' }}
