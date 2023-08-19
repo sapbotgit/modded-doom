@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Canvas, type ThrelteContext } from "@threlte/core";
-    import type { DoomMap } from "../doom";
+    import type { DoomMap, PlayerMapObject } from "../doom";
     import Stats from './Debug/Stats.svelte';
     import { onMount, setContext } from "svelte";
     import { createContext } from "./useDoom";
@@ -13,6 +13,7 @@
     import Player from "./Player.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
     import EditorTagLink from "./Editor/EditorTagLink.svelte";
+    import HUD from "./HUD/HUD.svelte";
 
     export let map: DoomMap;
 
@@ -22,6 +23,7 @@
     setContext('doom-context', doomContext);
     const { game, settings, editor } = doomContext;
     const { mode: cameraMode } = game.camera;
+    const player = game.player as PlayerMapObject;
 
     let clock = new Clock();
     let threlteCtx: ThrelteContext;
@@ -102,6 +104,7 @@
         <PlayerInfo player={game.player} />
     {/if}
 </div>
+<HUD {player} />
 
 <style>
     div {

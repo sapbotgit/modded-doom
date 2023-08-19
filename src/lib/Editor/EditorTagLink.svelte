@@ -2,7 +2,7 @@
     import { Mesh, Object3DInstance } from "@threlte/core";
     import type { DoomMap, LineDef, Sector } from "../../doom";
     import { useDoom } from "../useDoom";
-    import { BoxGeometry, BufferGeometry, Color, DoubleSide, Line, LineBasicMaterial, MeshBasicMaterial, Vector3 } from "three";
+    import { BoxGeometry, BufferGeometry, Color, Line, MeshBasicMaterial, Vector3 } from "three";
     import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 
     export let map: DoomMap;

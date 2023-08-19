@@ -114,16 +114,32 @@ export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams>
         game.input.mouse.y += ev.movementY;
     }
 
+    function mousedown(ev: MouseEvent) {
+        if (ev.buttons & 1) {
+            game.input.attack = true;
+        }
+    }
+
+    function mouseup(ev: MouseEvent) {
+        if ((ev.buttons & 1) === 0) {
+            game.input.attack = false;
+        }
+    }
+
     function lock() {
         doc.addEventListener('keydown', keydown);
         doc.addEventListener('keyup', keyup);
         doc.addEventListener('mousemove', mousemove);
+        doc.addEventListener('mousedown', mousedown);
+        doc.addEventListener('mouseup', mouseup);
     }
 
     function unlock() {
         doc.removeEventListener('keydown', keydown);
         doc.removeEventListener('keyup', keyup);
         doc.removeEventListener('mousemove', mousemove);
+        doc.removeEventListener('mousedown', mousedown);
+        doc.removeEventListener('mouseup', mouseup);
     }
 
     function pointerlockchange(ev: Event) {

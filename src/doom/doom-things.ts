@@ -1,4 +1,56 @@
+import type { MapObject, PlayerInventory, PlayerMapObject } from './MapObject';
 import { mapObjectInfo, type MapObjectInfo } from './doom-things-info';
+
+// pickup functions
+// TODO: some unit testing could probably make these cleaner
+const updateInventory = (fn: (inv: PlayerInventory) => void) =>
+    (player: PlayerMapObject) => {
+        player.inventory.update(inv => {
+            fn(inv);
+            return inv;
+        });
+        return true;
+    }
+const addAmmo = (type: keyof PlayerInventory['ammo'], amount: number) =>
+    (player: PlayerMapObject) => {
+        let added = false;
+        player.inventory.update(inv => {
+            // TOOD: on nightmare and easy, we should give player double ammo
+            if (inv.ammo[type].amount < inv.ammo[type].max) {
+                inv.ammo[type].amount = Math.min(inv.ammo[type].amount + amount, inv.ammo[type].max);
+                added = true;
+            }
+            return inv;
+        });
+        return added;
+    }
+const addhealth = (amount: number, behaviour: 'always' | 'max100') =>
+    (player: PlayerMapObject) => {
+        let added = false;
+        player.health.update(health => {
+            if (behaviour === 'always') {
+                health = Math.min(200, health + amount);
+                added = true;
+            } else if (behaviour === 'max100' && health < 100) {
+                health = Math.min(100, health + amount);
+                added = true;
+            }
+            return health;
+        })
+        return added;
+    }
+
+const addKey = (card: string) =>
+    (player: PlayerMapObject) => {
+        let added = false;
+        player.inventory.update(inv => {
+            inv.keys += card;
+            added = true;
+            return inv;
+        });
+        // TODO: on net games, we don't want to remove keys
+        return added;
+    }
 
 // Adapted from https://doomwiki.org/wiki/Thing_types and combined/mixed with
 // animation/state info from https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/info.c#L135
@@ -27,55 +79,92 @@ const monsters = [
     { type: 3006, class: 'M', description: 'Lost soul' },
 ];
 
-const weapons = [
+const weapons: ThingType[] = [
     { type: 82, class: 'W', description: 'Super shotgun' },
-    { type: 2001, class: 'W', description: 'Shotgun' },
-    { type: 2002, class: 'W', description: 'Chaingun' },
-    { type: 2003, class: 'W', description: 'Rocket launcher' },
-    { type: 2004, class: 'W', description: 'Plasma gun' },
-    { type: 2005, class: 'W', description: 'Chainsaw' },
-    { type: 2006, class: 'W', description: 'BFG9000' },
+    { type: 2001, class: 'W', description: 'Shotgun', onPickup: updateInventory(inv => inv.weapons[3] = true) },
+    { type: 2002, class: 'W', description: 'Chaingun', onPickup: updateInventory(inv => inv.weapons[4] = true) },
+    { type: 2003, class: 'W', description: 'Rocket launcher', onPickup: updateInventory(inv => inv.weapons[5] = true) },
+    { type: 2004, class: 'W', description: 'Plasma gun', onPickup: updateInventory(inv => inv.weapons[6] = true) },
+    { type: 2005, class: 'W', description: 'Chainsaw', onPickup: updateInventory(inv => inv.weapons[1] = true) },
+    { type: 2006, class: 'W', description: 'BFG9000', onPickup: updateInventory(inv => inv.weapons[7] = true) },
 ];
 
-const ammunitions = [
-    { type: 17, class: 'A', description: 'Energy cell pack' },
-    { type: 2007, class: 'A', description: 'Clip' },
-    { type: 2008, class: 'A', description: '4 shotgun shells' },
-    { type: 2010, class: 'A', description: 'Rocket' },
-    { type: 2046, class: 'A', description: 'Box of rockets' },
-    { type: 2047, class: 'A', description: 'Energy cell' },
-    { type: 2048, class: 'A', description: 'Box of bullets' },
-    { type: 2049, class: 'A', description: 'Box of shotgun shells' },
+const ammunitions: ThingType[] = [
+    { type: 17, class: 'A', description: 'Energy cell pack', onPickup: addAmmo('cells', 100) },
+    { type: 2007, class: 'A', description: 'Clip', onPickup: addAmmo('bullets', 5) },
+    { type: 2008, class: 'A', description: '4 shotgun shells', onPickup: addAmmo('shells', 4) },
+    { type: 2010, class: 'A', description: 'Rocket', onPickup: addAmmo('rockets', 1) },
+    { type: 2046, class: 'A', description: 'Box of rockets', onPickup: addAmmo('rockets', 5) },
+    { type: 2047, class: 'A', description: 'Energy cell', onPickup: addAmmo('cells', 20) },
+    { type: 2048, class: 'A', description: 'Box of bullets', onPickup: addAmmo('bullets', 50) },
+    { type: 2049, class: 'A', description: 'Box of shotgun shells', onPickup: addAmmo('shells', 20) },
 ];
 
-const items = [
-    { type: 83, class: 'I', description: 'Megasphere' },
-    { type: 2013, class: 'I', description: 'Supercharge' },
-    { type: 2014, class: 'I', description: 'Health bonus' },
-    { type: 2015, class: 'I', description: 'Armor bonus' },
-    { type: 2022, class: 'I', description: 'Invulnerability' },
-    { type: 2023, class: 'I', description: 'Berserk' },
-    { type: 2024, class: 'I', description: 'Partial invisibility' },
-    { type: 2026, class: 'I', description: 'Computer area map' },
-    { type: 2045, class: 'I', description: 'Light amplification visor' },
+const items: ThingType[] = [
+    { type: 83, class: 'I', description: 'Megasphere',
+        onPickup: (player: PlayerMapObject) => {
+            player.health.set(200);
+            player.inventory.update(inv => {
+                inv.armor = 200;
+                return inv;
+            });
+            return true;
+        }
+    },
+    { type: 2013, class: 'I', description: 'Supercharge', onPickup: addhealth(100, 'always') },
+    { type: 2014, class: 'I', description: 'Health bonus', onPickup: addhealth(1, 'always') },
+    { type: 2015, class: 'I', description: 'Armor bonus', onPickup: updateInventory(inv => inv.armor += 1) },
+    { type: 2022, class: 'I', description: 'Invulnerability', onPickup: updateInventory(inv => inv.items.invincibilityTicks = 30 * 35) },
+    { type: 2023, class: 'I', description: 'Berserk', onPickup: updateInventory(inv => inv.items.berserkTicks = 30 * 35) },
+    { type: 2024, class: 'I', description: 'Partial invisibility', onPickup: updateInventory(inv => inv.items.invisibilityTicks = 30 * 35) },
+    { type: 2026, class: 'I', description: 'Computer area map', onPickup: updateInventory(inv => inv.items.computerMap = true) },
+    { type: 2045, class: 'I', description: 'Light amplification visor', onPickup: updateInventory(inv => inv.items.nightVisionTicks = 30 * 35) },
 ];
 
-const powerups = [
-    { type: 8, class: 'P', description: 'Backpack' },
-    { type: 2011, class: 'P', description: 'Stimpack' },
-    { type: 2012, class: 'P', description: 'Medikit' },
-    { type: 2018, class: 'P', description: 'Armor' },
-    { type: 2019, class: 'P', description: 'Megaarmor' },
-    { type: 2025, class: 'P', description: 'Radiation shielding suit' },
+const powerups: ThingType[] = [
+    { type: 8, class: 'P', description: 'Backpack',
+        onPickup: (player: PlayerMapObject) => {
+            player.inventory.update(inv => {
+                inv.ammo.bullets.max = 400;
+                inv.ammo.shells.max = 100;
+                inv.ammo.rockets.max = 100;
+                inv.ammo.cells.max = 600;
+
+                inv.ammo.bullets.amount = Math.min(inv.ammo.bullets.max, inv.ammo.bullets.amount + 10);
+                inv.ammo.shells.amount = Math.min(inv.ammo.shells.max, inv.ammo.shells.amount + 4);
+                inv.ammo.rockets.amount = Math.min(inv.ammo.rockets.max, inv.ammo.rockets.amount + 1);
+                inv.ammo.cells.amount = Math.min(inv.ammo.cells.max, inv.ammo.cells.amount + 20);
+                return inv;
+            });
+            return true;
+        }
+    },
+    { type: 2011, class: 'P', description: 'Stimpack', onPickup: addhealth(10, 'max100') },
+    { type: 2012, class: 'P', description: 'Medikit', onPickup: addhealth(25, 'max100') },
+    { type: 2018, class: 'P', description: 'Armor',
+        onPickup: (player: PlayerMapObject) => {
+            let changed = false;
+            player.inventory.update(inv => {
+                if (inv.armor < 100) {
+                    inv.armor = 100;
+                    changed = true;
+                }
+                return inv;
+            });
+            return changed;
+        },
+    },
+    { type: 2019, class: 'P', description: 'Megaarmor', onPickup: updateInventory(inv => inv.armor = 200) },
+    { type: 2025, class: 'P', description: 'Radiation shielding suit', onPickup: updateInventory(inv => inv.items.radiationSuitTicks = 30 * 35) },
 ];
 
-const keys = [
-    { type: 5, class: 'K', description: 'Blue keycard' },
-    { type: 6, class: 'K', description: 'Yellow keycard' },
-    { type: 13, class: 'K', description: 'Red keycard' },
-    { type: 38, class: 'K', description: 'Red skull key' },
-    { type: 39, class: 'K', description: 'Yellow skull key' },
-    { type: 40, class: 'K', description: 'Blue skull key' },
+const keys: ThingType[] = [
+    { type: 5, class: 'K', description: 'Blue keycard', onPickup: addKey('B') },
+    { type: 6, class: 'K', description: 'Yellow keycard', onPickup: addKey('Y') },
+    { type: 13, class: 'K', description: 'Red keycard', onPickup: addKey('R') },
+    { type: 38, class: 'K', description: 'Red skull key', onPickup: addKey('r') },
+    { type: 39, class: 'K', description: 'Yellow skull key', onPickup: addKey('y') },
+    { type: 40, class: 'K', description: 'Blue skull key', onPickup: addKey('b') },
 ];
 
 const obstacles = [
@@ -155,10 +244,14 @@ const other = [
     { type: 89, class: 'S', description: 'Monster spawner' },
 ];
 
-export interface ThingSpec {
+interface ThingType {
     type: number;
     class: string; //'M' | 'W' | 'A' | 'I' | 'P' | 'K' | 'O' | 'D' | 'S';
     description: string;
+    onPickup?: (mo: MapObject) => boolean;
+}
+
+export interface ThingSpec extends ThingType {
     mo: MapObjectInfo;
 }
 

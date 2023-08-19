@@ -321,6 +321,15 @@ export class DoomWad {
         return { width, height, buffer };
     }
 
+    public graphic(name: string) {
+        const uname = name.toUpperCase();
+        const lump = this.lumpByName(uname);
+        if (!lump) {
+            return '';
+        }
+        return this.textureGraphic(lump);
+    }
+
     private textureGraphic(lumpData: any) {
         const pic = this.doomPicture(lumpData);
         if (typeof pic === 'string') {
@@ -328,7 +337,7 @@ export class DoomWad {
         }
         const { width, height, data, xOffset, yOffset } = pic;
 
-        let buffer = new Uint8Array(4 * width * height);
+        let buffer = new Uint8ClampedArray(4 * width * height);
         var size = width * height;
         for (var i = 0; i < size; i++) {
             if (data[i] === -1) {

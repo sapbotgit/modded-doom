@@ -176,7 +176,7 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
         return;
     }
     const validTrigger = (
-        // We P === S but P has the distinction of not needing a sector tag (it's a local door)
+        // We treat P === S but P has the distinction of not needing a sector tag (it's a local door)
         (trigger === 'S' && def.trigger === 'P')
         || def.trigger === trigger
     )

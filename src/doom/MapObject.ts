@@ -21,8 +21,8 @@ export class MapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
 
-    // readonly spec: ThingSpec;
     readonly info: MapObjectInfo;
+    readonly health: Store<number>;
     readonly position: Store<Vector3>;
     readonly direction: Store<number>;
     readonly sector = store<Sector>(null);
@@ -39,8 +39,9 @@ export class MapObject {
     get currentState() { return this._state; }
     private _state: StateIndex;
 
-    constructor(private map: DoomMap, readonly source: Thing, info?: MapObjectInfo ) {
+    constructor(protected map: DoomMap, readonly source: Thing, info?: MapObjectInfo ) {
         this.info = info ?? thingSpec(source.type).mo;
+        this.health = store(this.info.spawnhealth);
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
 
         this.direction = store(Math.PI + source.angle * ToRadians);
@@ -191,6 +192,8 @@ export class MapObject {
     }
 }
 
+const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap'>)[] =
+    ['berserkTicks', 'invincibilityTicks', 'invisibilityTicks', 'nightVisionTicks', 'radiationSuitTicks'];
 const bobTime = 35 / 20;
 const playerMaxBob = 16;
 const playerViewHeightDefault = 41;
@@ -199,12 +202,21 @@ export class PlayerMapObject extends MapObject {
     private viewHeight = playerViewHeightDefault;
     private deltaViewHeight = 0;
 
-    constructor(map: DoomMap, source: Thing) {
+    constructor(readonly inventory: Store<PlayerInventory>, map: DoomMap, source: Thing) {
         super(map, source);
     }
 
     tick() {
         super.tick();
+
+        this.inventory.update(inv => {
+            for (const name of tickingItems) {
+                if (inv.items[name]) {
+                    inv.items[name] = Math.max(0, inv.items[name] - 1);
+                }
+            }
+            return inv;
+        });
 
         const vel = this.velocity.length();
         if (this.currentState === StateIndex.S_PLAY && vel > .5) {
@@ -274,4 +286,43 @@ export class PlayerMapObject extends MapObject {
         // TODO: check higher than ceiling?
         return viewHeight;
     }
+
+    // kind of P_TouchSpecialThing in p_inter.c
+    pickup(mobj: MapObject) {
+        const spec = thingSpec(mobj.source.type);
+        if (spec.onPickup) {
+            const pickedUp = thingSpec(mobj.source.type).onPickup(this);
+            if (pickedUp) {
+                this.map.destroy(mobj);
+            }
+        }
+    }
+}
+
+export interface Ammo {
+    amount: number;
+    max: number;
+}
+export interface PlayerInventory {
+    armor: number;
+    ammo: {
+        bullets: Ammo;
+        shells: Ammo;
+        rockets: Ammo;
+        cells: Ammo;
+    },
+    items: {
+        invincibilityTicks: number,
+        invisibilityTicks: number,
+        radiationSuitTicks: number,
+        berserkTicks: number,
+        nightVisionTicks: number,
+        computerMap: boolean,
+    }
+    // weapons:
+    // fist, chainsaw, pistol, shotgun, machine gun, rocket launcher, plasma rifle, bfg
+    weapon: number;
+    weapons: boolean[];
+    // keys
+    keys: string; // RYB or RY or B or...
 }

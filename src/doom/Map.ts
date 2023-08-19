@@ -1,7 +1,7 @@
 import { store, type Store } from "./Store";
 import type { DoomWad } from "./doomwad";
 import { Vector3 } from "three";
-import { PlayerMapObject, MapObject } from "./MapObject";
+import { PlayerMapObject, MapObject, type PlayerInventory } from "./MapObject";
 import { centerSort, circleCircleSweep, closestPoint, dot, lineCircleSweep, lineLineIntersect, normal, pointOnLine, signedLineDistance } from "./Math";
 import { MFFlags } from "./doom-things-info";
 
@@ -212,13 +212,18 @@ class BlockMap {
                 return;
             }
 
-            // TODO: perf improvement with array manipulation?
-            if (oldBlock) {
-                oldBlock.things = oldBlock.things.filter(e => e !== mobj);
-            }
+            this.unwatch(mobj);
             newBlock.things.push(mobj);
             this.objMap.set(mobj, newBlock);
         });
+    }
+
+    unwatch(mobj: MapObject) {
+        // TODO: perf improvement with array manipulation?
+        const oldBlock = this.objMap.get(mobj);
+        if (oldBlock) {
+            oldBlock.things = oldBlock.things.filter(e => e !== mobj);
+        }
     }
 
     trace(position: Vector3, radius: number, vel: Vector3) {
@@ -397,7 +402,27 @@ export class DoomMap {
 
     private spawnThing(thing: Thing): MapObject | undefined {
         if (thing.type === 1) {
-            return new PlayerMapObject(this, thing);
+            const inventory: PlayerInventory = {
+                armor: 0,
+                ammo: {
+                    bullets: { amount: 50, max: 200 },
+                    shells: { amount: 0, max: 50 },
+                    rockets: { amount: 0, max: 50 },
+                    cells: { amount: 0, max: 300 },
+                },
+                items: {
+                    berserkTicks: 0,
+                    invincibilityTicks: 0,
+                    invisibilityTicks: 0,
+                    nightVisionTicks: 0,
+                    radiationSuitTicks: 0,
+                    computerMap: false,
+                },
+                weapon: 2,
+                weapons: [true, false, true, false, false,  false, false, false],
+                keys: '',
+            };
+            return new PlayerMapObject(store(inventory), this, thing);
         }
         const noSpawn = (false
             || thing.type === 0 // plutonia map 12, what?!
@@ -425,6 +450,7 @@ export class DoomMap {
     }
 
     destroy(mobj: MapObject) {
+        this.blockmap.unwatch(mobj);
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);
         this.rev.update(rev => rev += 1);
@@ -498,10 +524,6 @@ export class DoomMap {
             }
             if (!(obj2.info.flags & hittableThing)) {
                 // not hittable
-                return;
-            }
-            if (obj2.info.flags & MFFlags.MF_SPECIAL && !(obj2.info.flags & MFFlags.MF_SOLID)) {
-                // item can be picked up so don't block
                 return;
             }
 

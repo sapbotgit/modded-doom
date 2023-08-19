@@ -4,6 +4,7 @@ import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, signedLineDistance } from "./Math";
 import { PlayerMapObject, type MapObject } from "./MapObject";
 import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./Specials";
+import { MFFlags } from "./doom-things-info";
 
 export type Action = () => void;
 
@@ -62,7 +63,7 @@ export class DoomGame {
     private nextTickTime = 0; // seconds
     lastDelta = 0; // seconds
     elapsedTime = 0; // seconds
-    currentTick = 0;
+    currentTick = store(0);
 
     readonly player: MapObject;
     readonly camera: Camera;
@@ -91,13 +92,13 @@ export class DoomGame {
 
     frameTick() {
         this.nextTickTime = this.nextTickTime + frameTickTime;
-        this.currentTick += 1;
+        this.currentTick.update(tick => tick += 1);
 
         this.actions.forEach(action => action());
 
         // update wall/flat animations
         this.map.animatedTextures.forEach(anim => {
-            if (this.currentTick % anim.speed === 0) {
+            if (this.currentTick.val % anim.speed === 0) {
                 anim.current = (anim.current + 1) % anim.frames.length;
                 anim.target.set(anim.frames[anim.current]);
             }
@@ -138,7 +139,7 @@ export class DoomGame {
         const toggle = this.map.wad.switchToggle(name);
         if (toggle) {
             if (special.repeatable && !linedef.buttonTimer) {
-                let ticks = 35; // 1 sec
+                let ticks = ticksPerSecond; // 1 sec
                 const action = () => {
                     if (--ticks) {
                         return;
@@ -208,11 +209,12 @@ class GameInput {
     public run = false;
     public slow = false;
     public use = false;
+    public attack = false;
     public mouse = { x: 0, y: 0 };
 
     public freelook = store(true);
-    public noclip = true;
-    public freeFly = true;
+    public noclip = false;
+    public freeFly = false;
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
     public minPolarAngle = -HALF_PI;
@@ -285,6 +287,10 @@ class GameInput {
         if (this.enablePlayerCollisions) {
             this.map.xyCollisions(this.player, this.player.velocity,
                 mobj => {
+                    if (mobj.info.flags & MFFlags.MF_SPECIAL) {
+                        this.player.pickup(mobj);
+                        return true;
+                    }
                     const dx = pos.x - mobj.position.val.x;
                     const dy = pos.y - mobj.position.val.y;
                     slideMove(this.player, -dy, dx);
