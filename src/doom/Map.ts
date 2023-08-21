@@ -92,6 +92,8 @@ export interface Sector {
     light: Store<number>;
     floorFlat: Store<string>;
     ceilFlat: Store<string>;
+    // part of skyhack
+    skyHeight?: number;
     // Game processing data
     specialData: any;
 }
@@ -385,7 +387,16 @@ export class DoomMap {
             this.initializeTextureAnimation(wad, texture, 'animatedWallInfo');
         }
 
-        // must be after fixing segs
+        // figure out any sectors that need sky height adjustment
+        for (const sector of this.sectors) {
+            if (sector.ceilFlat.val === 'F_SKY1') {
+                const skyHeight = this.sectorNeighbours(sector)
+                    .filter(e => e.ceilFlat.val === 'F_SKY1')
+                    .reduce((val, sec) => Math.max(val, sec.zCeil.val), sector.zCeil.val);
+                sector.skyHeight = skyHeight;
+            }
+        }
+
         this.renderSectors = buildRenderSectors(this.nodes);
     }
 

@@ -42,6 +42,6 @@
 <Flat
     ceiling
     {geometry} {color} {renderSector}
-    vertical={$zCeil}
+    vertical={renderSector.sector.skyHeight ?? $zCeil}
     textureName={$ceilFlat}
 />

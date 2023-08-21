@@ -1,21 +1,10 @@
 <script lang="ts">
     import type { Seg } from "../doom";
-    import { HALF_PI, angleIsVisible, signedLineDistance } from "../doom/Math";
     import WallSegment from "./WallSegment.svelte";
-    import { useDoom } from "./useDoom";
 
     export let seg: Seg;
-    const linedef = seg.linedef;
 
-    const { game } = useDoom();
-    const { direction: playerDirection, position: playerPosition } = game.player;
-    $: visible =
-        true;
-        // angleIsVisible($playerDirection + Math.PI, seg.angle);
-        // signedLineDistance is actually better (we display less geometry) but overall more expensive
-        // so until we start using bsp, let's keep using the visible angle thing
-        // signedLineDistance(linedef.v, $playerPosition as any) * (seg.direction ? 1 : -1) < 0;
-
+    const visible = true;
     const mid = {
         x: (seg.vx2.x + seg.vx1.x) * 0.5,
         y: (seg.vx2.y + seg.vx1.y) * 0.5,
@@ -24,6 +13,7 @@
     const vy = seg.vx2.y - seg.vx1.y;
     const width = Math.sqrt(vx * vx + vy * vy);
 
+    const linedef = seg.linedef;
     const useLeft = seg.direction === 1;
     const sidedef = useLeft ? linedef.left : linedef.right;
     const { flags } = linedef;
@@ -39,17 +29,28 @@
     // Detect the skyhack is simple but how it's handled is... messy. How it
     // works is:
     // (1) we set render order to 1 for everything non-sky
-    // (2) use giant walls with renderOrder=0, writeColor=false, and writeDepth=true)
-    //   for sky to occlude geometry behind them
+    // (2) put extra walls from top of line to sky with (renderOrder=0, writeColor=false, and writeDepth=true)
+    //   to occlude geometry behind them
     //
-    // What I really want to do is not draw stuff that occluded but I can't
-    // think of way to do that. Overall we draw way more geometry than needed so
-    // that is something that needs improvement
+    // These extra walls are mostly fine but not perfect. If you go close to an edge and look toward the bunker thing
+    // you can see part of the walls occluded which shouldn't be. Interestingly you can see the same thing in gzDoom
+    //
+    // What I really want to do is not draw stuff that occluded but I can't think of way to do that.
+    // Overall we draw way more geometry than needed.
     const needSkyWall = $ceilFlatR === 'F_SKY1'
     const skyHack = ($ceilFlatL === 'F_SKY1' && needSkyWall);
+    const skyHeight = linedef.right.sector.skyHeight;
 </script>
 
 {#if sidedef && width > 0}
+    {#if needSkyWall && !skyHack}
+        <WallSegment
+            skyHack
+            {seg} {linedef} {sidedef}
+            {visible} {width} height={skyHeight - $zCeilR} top={skyHeight} {mid}
+        />
+    {/if}
+
     {#if flags & 0x0004}
         <!-- two-sided so figure out top and bottom -->
         {#if $zCeilL !== $zCeilR && !skyHack}
@@ -86,13 +87,6 @@
             {/if}
         {/if}
 
-        {#if needSkyWall && !skyHack}
-            <WallSegment
-                skyHack
-                {seg} {linedef} {sidedef}
-                {visible} {width} height={32000 - $zCeilR} top={32000} {mid}
-            />
-        {/if}
     {:else}
         {@const top = $zCeilR}
         {@const height = top - $zFloorR}
@@ -100,14 +94,6 @@
             <WallSegment
                 {seg} {linedef} {sidedef}
                 {visible} {width} {height} {top} {mid}
-            />
-        {/if}
-
-        {#if needSkyWall}
-            <WallSegment
-                skyHack
-                {seg} {linedef} {sidedef}
-                {visible} {width} height={32000 - top} top={32000} {mid}
             />
         {/if}
     {/if}

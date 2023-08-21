@@ -33,25 +33,25 @@
         material.emissiveIntensity = 0;
     }
 
+    $: isSky = textureName === 'F_SKY1';
+    $: if (isSky) {
+        material.colorWrite = false;
+        material.depthWrite = true;
+    }
+
     function hit() {
         $editor.selected = renderSector.sector;
     }
 </script>
 
-<!--
-    TODO: for a level editor, it would actually be useful to still draw this so
-    we can click on it and edit. Something to think about (same for Wall.svelte)
--->
-{#if textureName !== 'F_SKY1'}
-    <Mesh
-        {visible}
-        interactive={$editor.active}
-        {geometry}
-        {material}
-        renderOrder={1}
-        position={{ z: vertical }}
-        on:click={hit}
-    >
-        <Wireframe />
-    </Mesh>
-{/if}
+<Mesh
+    {visible}
+    interactive={$editor.active}
+    {geometry}
+    {material}
+    renderOrder={isSky ? 0 : 1}
+    position={{ z: vertical }}
+    on:click={hit}
+>
+    <Wireframe />
+</Mesh>
