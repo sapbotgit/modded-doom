@@ -23,7 +23,7 @@
     setContext('doom-context', doomContext);
     const { game, settings, editor } = doomContext;
     const { mode: cameraMode } = game.camera;
-    const player = game.player as PlayerMapObject;
+    const player = game.player as unknown as PlayerMapObject;
 
     let clock = new Clock();
     let threlteCtx: ThrelteContext;
@@ -80,7 +80,7 @@
 </label>
 
 <div>
-    <div use:pointerLockControls={{ game }}>
+    <div class="game" use:pointerLockControls={{ game }}>
         <!-- <div id="lock-message">
             Controls: WASD
             <br>
@@ -97,6 +97,7 @@
 
             <EditorTagLink {map} />
         </Canvas>
+        <HUD {player} />
     </div>
 
     <EditPanel {map} />
@@ -104,13 +105,16 @@
         <PlayerInfo player={game.player} />
     {/if}
 </div>
-<HUD {player} />
 
 <style>
     div {
         display: flex;
         flex-direction: row;
         position: relative;
+    }
+
+    .game {
+        flex-direction: column;
     }
 
     #lock-message {

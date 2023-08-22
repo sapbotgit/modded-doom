@@ -33,6 +33,28 @@ export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams>
 
     function keydown(ev: KeyboardEvent) {
         switch (ev.code) {
+            case "Digit1":
+                game.input.weaponSelect = 1;
+                break;
+            case "Digit2":
+                game.input.weaponSelect = 2;
+                break;
+            case "Digit3":
+                game.input.weaponSelect = 3;
+                break;
+            case "Digit4":
+                game.input.weaponSelect = 4;
+                break;
+            case "Digit5":
+                game.input.weaponSelect = 5;
+                break;
+            case "Digit6":
+                game.input.weaponSelect = 6;
+                break;
+            case "Digit7":
+                game.input.weaponSelect = 7;
+                break;
+
             case "KeyE":
             case "Space":
                 game.input.use = true;

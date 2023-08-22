@@ -1,8 +1,128 @@
-import type { MapObject, PlayerInventory, PlayerMapObject } from './MapObject';
-import { mapObjectInfo, type MapObjectInfo } from './doom-things-info';
+import { Vector2 } from 'three';
+import { type MapObject, type PlayerMapObject } from './MapObject';
+import { store } from './Store';
+import { mapObjectInfo, StateIndex, type MapObjectInfo, type State, states, SpriteNames, ActionIndex } from './doom-things-info';
+import {
+    FF_FRAMEMASK,
+    FF_FULLBRIGHT,
+    type AmmoType,
+    type PlayerInventory,
+    type Sprite,
+    type PlayerWeapon as IPlayerWeapon,
+    type PlayerMapObject as IPlayerMapObject,
+} from './types';
+
+// I don't love having the logic of weapons and pickup here and especially because we've already
+// got this data spread doom-things and doom-things-info (and ThingType, MapObject, and MapObjectInfo). I'd really like
+// to just put this into one place so if I want to add a new item/weapon/monster I can do that by editing one structure
+// rather than 3. Something to improve for later.
+const weaponTop = 32;
+const weaponBottom = 32 - 128;
+type WeaponThink = (player: IPlayerMapObject, weapon: IPlayerWeapon) => void
+const weaponTickFunctions: { [key: number]: WeaponThink } = {
+    [ActionIndex.NULL]: (player, weapon) => {},
+    [ActionIndex.A_Light0]: () => {},
+    [ActionIndex.A_Light1]: () => {},
+    [ActionIndex.A_Lower]: (player, weapon) => {
+        weapon.position.update(pos => {
+            pos.y -= 6;
+            if (pos.y < weaponBottom) {
+                pos.y = weaponBottom;
+                player.weapon.set(player.nextWeapon);
+            }
+            return pos;
+        });
+    },
+    [ActionIndex.A_Raise]: (player, weapon) => {
+        weapon.position.update(pos => {
+            pos.y += 6;
+            if (pos.y > weaponTop) {
+                pos.y = weaponTop;
+                weapon.ready();
+            }
+            return pos;
+        });
+    },
+    [ActionIndex.A_FirePistol]: () => {},
+    [ActionIndex.A_ReFire]: () => {},
+};
+
+class PlayerWeapon implements IPlayerWeapon {
+    private ticks: number;
+    private state: State;
+    private tickFn: WeaponThink;
+    readonly position = store<Vector2>(new Vector2());
+    readonly sprite = store<Sprite>(null);
+
+    constructor(
+        readonly num: number,
+        readonly ammoType: keyof PlayerInventory['ammo'] | 'none',
+        private upState: StateIndex,
+        private downState: StateIndex,
+        private readyState: StateIndex,
+        private attackState: StateIndex,
+        private flashState: StateIndex,
+    ) {}
+
+    tick(player: PlayerMapObject) {
+        if (!this.state || this.ticks === -1) {
+            return;
+        }
+        this.tickFn?.(player, this)
+        this.ticks -= 1;
+        if (this.ticks > 0) {
+            return;
+        }
+        this.setState(this.state.nextState);
+    }
+
+    activate() { this.setState(this.upState); }
+    deactivate() { this.setState(this.downState); }
+    ready() { this.setState(this.readyState); }
+    fire() { this.setState(this.attackState); }
+    flash() { this.setState(this.flashState); }
+
+    private setState(stateIndex: StateIndex) {
+        this.state = states[stateIndex];
+        this.ticks = this.state.tics;
+        this.tickFn = weaponTickFunctions[this.state.action];
+
+        const name = SpriteNames[this.state.sprite];
+        const frame = this.state.frame & FF_FRAMEMASK;
+        const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
+        this.sprite.set({ name, frame, fullbright });
+    }
+}
+export const weapons = [
+    // chainsaw
+    new PlayerWeapon(1, 'none', StateIndex.S_SAWUP, StateIndex.S_SAWDOWN, StateIndex.S_SAW, StateIndex.S_SAW1, StateIndex.S_NULL),
+    // fist
+    new PlayerWeapon(1, 'none', StateIndex.S_PUNCHUP, StateIndex.S_PUNCHDOWN, StateIndex.S_PUNCH, StateIndex.S_PUNCH1, StateIndex.S_NULL),
+    // pistol
+    new PlayerWeapon(2, 'bullets', StateIndex.S_PISTOLUP, StateIndex.S_PISTOLDOWN, StateIndex.S_PISTOL, StateIndex.S_PISTOL1, StateIndex.S_PISTOLFLASH),
+    // super shotgun
+    // new PlayerWeapon(3, 'shells', StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
+    // shotgun
+    new PlayerWeapon(3, 'shells', StateIndex.S_SGUNUP, StateIndex.S_SGUNDOWN, StateIndex.S_SGUN, StateIndex.S_SGUN1, StateIndex.S_SGUNFLASH1),
+    // chaingun
+    new PlayerWeapon(4, 'bullets', StateIndex.S_CHAINUP, StateIndex.S_CHAINDOWN, StateIndex.S_CHAIN, StateIndex.S_CHAIN1, StateIndex.S_CHAINFLASH1),
+    // rocket launcher
+    new PlayerWeapon(5, 'rockets', StateIndex.S_MISSILEUP, StateIndex.S_MISSILEDOWN, StateIndex.S_MISSILE, StateIndex.S_MISSILE1, StateIndex.S_MISSILEFLASH1),
+    // plasma rifle
+    new PlayerWeapon(6, 'cells', StateIndex.S_PLASMAUP, StateIndex.S_PLASMADOWN, StateIndex.S_PLASMA, StateIndex.S_PLASMA1, StateIndex.S_PLASMAFLASH1),
+    // bfg
+    new PlayerWeapon(7, 'cells', StateIndex.S_BFGUP, StateIndex.S_BFGDOWN, StateIndex.S_BFG, StateIndex.S_BFG1, StateIndex.S_BFGFLASH1),
+];
+
+const clipAmmo: { [k in AmmoType]: number} = {
+    'bullets': 10,
+    'shells': 4,
+    'rockets': 1,
+    'cells': 20,
+};
 
 // pickup functions
-// TODO: some unit testing could probably make these cleaner
+// TODO: a little unit testing could make these cleaner
 const updateInventory = (fn: (inv: PlayerInventory) => void) =>
     (player: PlayerMapObject) => {
         player.inventory.update(inv => {
@@ -11,6 +131,7 @@ const updateInventory = (fn: (inv: PlayerInventory) => void) =>
         });
         return true;
     }
+
 const addAmmo = (type: keyof PlayerInventory['ammo'], amount: number) =>
     (player: PlayerMapObject) => {
         let added = false;
@@ -24,6 +145,7 @@ const addAmmo = (type: keyof PlayerInventory['ammo'], amount: number) =>
         });
         return added;
     }
+
 const addhealth = (amount: number, behaviour: 'always' | 'max100') =>
     (player: PlayerMapObject) => {
         let added = false;
@@ -48,9 +170,26 @@ const addKey = (card: string) =>
             added = true;
             return inv;
         });
-        // TODO: on net games, we don't want to remove keys
+        // TODO: keep keys for net games
         return added;
     }
+
+const giveWeapon = (weapon: PlayerWeapon, type?: keyof PlayerInventory['ammo'], factor?: number) =>
+    (player: PlayerMapObject) => {
+        if (type) {
+            addAmmo(type, clipAmmo[type] * factor)(player);
+        }
+        player.inventory.update(inv => {
+            if (!inv.weapons.includes(weapon)) {
+                inv.weapons.push(weapon);
+                player.nextWeapon = weapon;
+                player.weapon.val.deactivate();
+            }
+            return inv;
+        });
+        // TODO: keep weapons for net games
+        return true;
+    };
 
 // Adapted from https://doomwiki.org/wiki/Thing_types and combined/mixed with
 // animation/state info from https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/info.c#L135
@@ -79,14 +218,14 @@ const monsters = [
     { type: 3006, class: 'M', description: 'Lost soul' },
 ];
 
-const weapons: ThingType[] = [
-    { type: 82, class: 'W', description: 'Super shotgun' },
-    { type: 2001, class: 'W', description: 'Shotgun', onPickup: updateInventory(inv => inv.weapons[3] = true) },
-    { type: 2002, class: 'W', description: 'Chaingun', onPickup: updateInventory(inv => inv.weapons[4] = true) },
-    { type: 2003, class: 'W', description: 'Rocket launcher', onPickup: updateInventory(inv => inv.weapons[5] = true) },
-    { type: 2004, class: 'W', description: 'Plasma gun', onPickup: updateInventory(inv => inv.weapons[6] = true) },
-    { type: 2005, class: 'W', description: 'Chainsaw', onPickup: updateInventory(inv => inv.weapons[1] = true) },
-    { type: 2006, class: 'W', description: 'BFG9000', onPickup: updateInventory(inv => inv.weapons[7] = true) },
+const weaponItems: ThingType[] = [
+    { type: 82, class: 'W', description: 'Super shotgun', onPickup: giveWeapon(weapons[4], 'shells', 2) },
+    { type: 2001, class: 'W', description: 'Shotgun', onPickup: giveWeapon(weapons[3], 'shells', 2) },
+    { type: 2002, class: 'W', description: 'Chaingun', onPickup: giveWeapon(weapons[5], 'bullets', 2) },
+    { type: 2003, class: 'W', description: 'Rocket launcher', onPickup: giveWeapon(weapons[6], 'rockets', 2) },
+    { type: 2004, class: 'W', description: 'Plasma gun', onPickup: giveWeapon(weapons[7], 'cells', 2) },
+    { type: 2005, class: 'W', description: 'Chainsaw', onPickup: giveWeapon(weapons[0]) },
+    { type: 2006, class: 'W', description: 'BFG9000', onPickup: giveWeapon(weapons[8], 'cells', 2) },
 ];
 
 const ammunitions: ThingType[] = [
@@ -255,7 +394,7 @@ export interface ThingSpec extends ThingType {
     mo: MapObjectInfo;
 }
 
-export const things = [monsters, weapons, ammunitions, items, powerups, keys, obstacles, decorations, other].flat();
+export const things = [monsters, weaponItems, ammunitions, items, powerups, keys, obstacles, decorations, other].flat();
 export function thingSpec(type: number): ThingSpec {
     const t = things.find(e => e.type === type);
     const mo =

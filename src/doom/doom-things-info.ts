@@ -1437,7 +1437,7 @@ export enum MFFlags {
 }
 
 // Info.C
-enum ActionIndex {
+export enum ActionIndex {
 	NULL,
 	A_Light0,
 	A_WeaponReady,
@@ -2484,7 +2484,6 @@ export const states = [
 	createState(SpriteIndex.SPR_TLP2, 32770, 4, ActionIndex.NULL, StateIndex.S_TECH2LAMP4, 0, 0),  // S_TECH2LAMP3
 	createState(SpriteIndex.SPR_TLP2, 32771, 4, ActionIndex.NULL, StateIndex.S_TECH2LAMP, 0, 0),  // S_TECH2LAMP4
 ];
-
 
 export enum MapObjectIndex {
     MT_PLAYER,

@@ -287,7 +287,7 @@ export class DoomWad {
     private assemblePatchGraphic(pnames: string[], textureData: any) {
         const { width, height, patches } = textureData;
 
-        const buffer = new Uint8Array(4 * width * height);
+        const buffer = new Uint8ClampedArray(4 * width * height);
         for (const patch of patches) {
             const pname = pnames[patch.patchId];
             const lump = this.lumpByName(pname);
@@ -318,7 +318,7 @@ export class DoomWad {
             }
         }
 
-        return { width, height, buffer };
+        return { width, height, buffer, xOffset: 0, yOffset: 0 };
     }
 
     public graphic(name: string) {
@@ -369,7 +369,7 @@ export class DoomWad {
             data.push(dv.getUint8(j));
         }
 
-        let buffer = new Uint8Array(4 * width * height);
+        let buffer = new Uint8ClampedArray(4 * width * height);
         for (var i = 0; i < size; i++) {
             let col = hexToRgb(this.palettes[0][data[i]]);
             buffer[i * 4 + 0] = col.r;
@@ -378,7 +378,7 @@ export class DoomWad {
             buffer[i * 4 + 3] = 255;
         }
 
-        return { width, height, buffer };
+        return { width, height, buffer, xOffset: 0, yOffset: 0 };
     }
 
     private doomPicture(lump: any) {
@@ -395,8 +395,8 @@ export class DoomWad {
         let width = dv.getUint16(0, true);
         let height = dv.getUint16(2, true);
         // these seem to only be used for sprites
-        let xOffset = dv.getUint16(4, true);
-        let yOffset = dv.getUint16(6, true);
+        let xOffset = dv.getInt16(4, true);
+        let yOffset = dv.getInt16(6, true);
         if (width > 2048 || height > 2048) {
             console.warn('bad pic?',lump, width, height)
             return ''
@@ -421,11 +421,11 @@ export class DoomWad {
             position = columns[i];
 
             let rowStart = 0;
-            while (rowStart != 255) {
+            while (rowStart !== 255) {
                 rowStart = dv.getUint8(position);
                 position += 1;
 
-                if (rowStart == 255) break;
+                if (rowStart === 255) break;
 
                 pixelCount = dv.getUint8(position);
                 position += 2;

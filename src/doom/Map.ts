@@ -1,19 +1,11 @@
 import { store, type Store } from "./Store";
 import type { DoomWad } from "./doomwad";
 import { Vector3 } from "three";
-import { PlayerMapObject, MapObject, type PlayerInventory } from "./MapObject";
+import { PlayerMapObject, MapObject } from "./MapObject";
 import { centerSort, circleCircleSweep, closestPoint, dot, lineCircleSweep, lineLineIntersect, normal, pointOnLine, signedLineDistance } from "./Math";
 import { MFFlags } from "./doom-things-info";
-
-type ThingType = number;
-
-export interface Thing {
-    x: number;
-    y: number;
-    angle: number;
-    type: ThingType;
-    flags: number;
-}
+import { weapons } from "./doom-things";
+import type { PlayerInventory, Sector, Thing } from "./types";
 
 export interface LineDef {
     num: number;
@@ -82,21 +74,6 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
     offset: item.offset,
 });
 
-export interface Sector {
-    num: number;
-    rev: Store<number>;
-    tag: number;
-    type: number;
-    zFloor: Store<number>;
-    zCeil: Store<number>;
-    light: Store<number>;
-    floorFlat: Store<string>;
-    ceilFlat: Store<string>;
-    // part of skyhack
-    skyHeight?: number;
-    // Game processing data
-    specialData: any;
-}
 const toSector = (num: number, sd: any, textures: Map<string, Store<string>>): Sector => {
     const sector = {
         num,
@@ -429,11 +406,12 @@ export class DoomMap {
                     radiationSuitTicks: 0,
                     computerMap: false,
                 },
-                weapon: 2,
-                weapons: [true, false, true, false, false,  false, false, false],
+                weapons: [weapons[1], weapons[2]],
                 keys: '',
             };
-            return new PlayerMapObject(store(inventory), this, thing);
+            const player = new PlayerMapObject(store(inventory), this, thing);
+            player.weapon.set(weapons[2]);
+            return player;
         }
         const noSpawn = (false
             || thing.type === 0 // plutonia map 12, what?!

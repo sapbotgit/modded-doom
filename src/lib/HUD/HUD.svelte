@@ -9,25 +9,19 @@
 
     export let player: PlayerMapObject;
     const inv = player.inventory;
-    const { health } = player;
+    const { health, weapon } = player;
 
     const { wad } = useDoom();
     const background = wad.graphic('STBAR') as any;
     const armsBackground = wad.graphic('STARMS') as any;
-    $: ammoType =
-        ($inv.weapons[2] || $inv.weapons[4]) ? 'bullets' :
-        ($inv.weapons[3]) ? 'shells' :
-        ($inv.weapons[5]) ? 'rockets' :
-        ($inv.weapons[6] || $inv.weapons[7]) ? 'cells' :
-        'none';
-    $: ammo = ammoType in $inv ? $inv[ammoType] : null;
+    $: weaponLights = $inv.weapons.map(e => e.num);
 </script>
 
 <div class="root">
     <DoomPic data={background} />
     <div class="ammo">
-        {#if ammo !== null}
-            <BigNum value={ammo} />
+        {#if $inv.ammo[$weapon.ammoType]}
+            <BigNum value={$inv.ammo[$weapon.ammoType].amount} />
         {/if}
     </div>
     <div class="health">
@@ -35,12 +29,12 @@
     </div>
     <div class="arms">
         <DoomPic data={armsBackground} />
-        <span><SmallNum value={2} altNum={!$inv.weapons[2]} /></span>
-        <span><SmallNum value={3} altNum={!$inv.weapons[3]} /></span>
-        <span><SmallNum value={4} altNum={!$inv.weapons[4]} /></span>
-        <span><SmallNum value={5} altNum={!$inv.weapons[5]} /></span>
-        <span><SmallNum value={6} altNum={!$inv.weapons[6]} /></span>
-        <span><SmallNum value={7} altNum={!$inv.weapons[7]} /></span>
+        <span><SmallNum value={2} altNum={!weaponLights.includes(2)} /></span>
+        <span><SmallNum value={3} altNum={!weaponLights.includes(3)} /></span>
+        <span><SmallNum value={4} altNum={!weaponLights.includes(4)} /></span>
+        <span><SmallNum value={5} altNum={!weaponLights.includes(5)} /></span>
+        <span><SmallNum value={6} altNum={!weaponLights.includes(6)} /></span>
+        <span><SmallNum value={7} altNum={!weaponLights.includes(7)} /></span>
     </div>
     <div class="face">
         <Face {player} />
@@ -87,6 +81,8 @@
     }
 
     .root {
+        align-self: center;
+        width: 320px;
         position: relative;
         transform: scale(2) translate(0px, 25%) ;
     }
@@ -97,7 +93,7 @@
     }
 
     .health {
-        left: 38px;
+        left: 39px;
         top: 3px;
     }
 
@@ -139,7 +135,7 @@
     }
 
     .armor {
-        left: 170px;
+        left: 171px;
         top: 3px;
     }
 

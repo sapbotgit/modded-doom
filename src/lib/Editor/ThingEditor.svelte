@@ -1,9 +1,10 @@
 <script lang="ts">
-    import { MapObject, type DoomMap, things, thingSpec, type ThingSpec, type Thing, states, SpriteNames } from "../../doom";
+    import { type DoomMap, things, thingSpec, type ThingSpec, type Thing, states, SpriteNames } from "../../doom";
     import { useDoom } from "../useDoom";
     import ThingSprite from "./ThingSprite.svelte";
     import { ToDegrees, ToRadians } from "../../doom/Math";
     import FlagList from "./FlagList.svelte";
+    import { MapObject } from "../../doom/MapObject";
 
     const { editor, textures } = useDoom();
 

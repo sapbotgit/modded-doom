@@ -1,23 +1,26 @@
 import { store, type Store } from "./Store";
-import { thingSpec } from "./doom-things";
+import { thingSpec} from "./doom-things";
 import { StateIndex, type State, MFFlags, SpriteNames, states, type MapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./Math";
-import { CollisionNoOp, type DoomMap, type Sector, type Thing } from "./Map";
+import { CollisionNoOp, type DoomMap } from "./Map";
 import type { DoomGame } from "./game";
-
-interface Sprite {
-    name: string;
-    frame: number;
-    fullbright: boolean;
-}
+import {
+    type PlayerInventory,
+    type MapObject as IMapObject,
+    type PlayerMapObject as IPlayerMapObject,
+    type Sprite,
+    FF_FRAMEMASK,
+    FF_FULLBRIGHT,
+    type Sector,
+    type PlayerWeapon,
+    type Thing,
+} from "./types";
 
 const vec = new Vector3();
 const stopVelocity = 0.001;
 const friction = .90625;
-const FF_FULLBRIGHT = 0x8000;
-const FF_FRAMEMASK = 0x7fff;
-export class MapObject {
+export class MapObject implements IMapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
 
@@ -194,20 +197,33 @@ export class MapObject {
 
 const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap'>)[] =
     ['berserkTicks', 'invincibilityTicks', 'invisibilityTicks', 'nightVisionTicks', 'radiationSuitTicks'];
+
 const bobTime = 35 / 20;
 const playerMaxBob = 16;
 const playerViewHeightDefault = 41;
 const playerViewHeightDefaultHalf = playerViewHeightDefault * .5;
-export class PlayerMapObject extends MapObject {
+export class PlayerMapObject extends MapObject implements IPlayerMapObject {
     private viewHeight = playerViewHeightDefault;
     private deltaViewHeight = 0;
 
+    readonly weapon = store<PlayerWeapon>(null);
+    nextWeapon: PlayerWeapon = null;
+
     constructor(readonly inventory: Store<PlayerInventory>, map: DoomMap, source: Thing) {
         super(map, source);
+
+        this.weapon.subscribe(weapon => {
+            if (weapon) {
+                weapon.activate();
+            }
+            this.nextWeapon = null;
+        });
     }
 
     tick() {
         super.tick();
+
+        this.weapon.val.tick(this);
 
         this.inventory.update(inv => {
             for (const name of tickingItems) {
@@ -215,6 +231,7 @@ export class PlayerMapObject extends MapObject {
                     inv.items[name] = Math.max(0, inv.items[name] - 1);
                 }
             }
+
             return inv;
         });
 
@@ -297,32 +314,4 @@ export class PlayerMapObject extends MapObject {
             }
         }
     }
-}
-
-export interface Ammo {
-    amount: number;
-    max: number;
-}
-export interface PlayerInventory {
-    armor: number;
-    ammo: {
-        bullets: Ammo;
-        shells: Ammo;
-        rockets: Ammo;
-        cells: Ammo;
-    },
-    items: {
-        invincibilityTicks: number,
-        invisibilityTicks: number,
-        radiationSuitTicks: number,
-        berserkTicks: number,
-        nightVisionTicks: number,
-        computerMap: boolean,
-    }
-    // weapons:
-    // fist, chainsaw, pistol, shotgun, machine gun, rocket launcher, plasma rifle, bfg
-    weapon: number;
-    weapons: boolean[];
-    // keys
-    keys: string; // RYB or RY or B or...
 }

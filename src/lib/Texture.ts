@@ -1,4 +1,4 @@
-import { Color, DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
+import { ClampToEdgeWrapping, Color, DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import type { DoomWad } from "../doom";
 import { sineIn } from 'svelte/easing';
 
@@ -26,7 +26,7 @@ export class MapTextures {
                 type === 'flat' ? 'flatTextureData' :
                 'spriteTextureData';
             const data = this.wad[loadFn](name);
-            if (data) {
+            if (typeof data === 'object') {
                 texture = new DataTexture(data.buffer, data.width, data.height)
                 texture.wrapS = RepeatWrapping;
                 texture.wrapT = RepeatWrapping;
@@ -36,10 +36,15 @@ export class MapTextures {
                 texture.userData = {
                     width: data.width,
                     height: data.height,
-                    xOffset: (data as any).xOffset,
-                    yOffset: (data as any).yOffset,
+                    xOffset: data.xOffset,
+                    yOffset: data.yOffset,
                     invWidth: 1 / data.width,
                     invHeight: 1 / data.height,
+                }
+
+                if (type === 'sprite') {
+                    texture.wrapS = ClampToEdgeWrapping;
+                    texture.wrapT = ClampToEdgeWrapping;
                 }
 
                 if (type === 'flat') {

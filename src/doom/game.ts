@@ -210,6 +210,7 @@ class GameInput {
     public slow = false;
     public use = false;
     public attack = false;
+    public weaponSelect = 0;
     public mouse = { x: 0, y: 0 };
 
     public freelook = store(true);
@@ -246,6 +247,24 @@ class GameInput {
     }
 
     evaluate(delta: number) {
+        // change weapon
+        if (this.weaponSelect) {
+            let nextWeapon = this.player.inventory.val.weapons.filter(e => e.num === this.weaponSelect);
+            let weapon = this.player.weapon.val;
+            let selectedWeapon =
+                // key press for a weapon we haven't picked up (yet)
+                nextWeapon.length === 0 ? null :
+                nextWeapon.length === 1 ? nextWeapon[0] :
+                // chainsaw and shotgun use the same number slot so we toggle
+                (weapon === nextWeapon[0]) ? nextWeapon[1] : nextWeapon[0];
+            if (selectedWeapon && selectedWeapon !== weapon) {
+                this.player.nextWeapon = selectedWeapon;
+                // once weapon is down, nextWeapon will be activated
+                weapon.deactivate();
+            }
+            this.weaponSelect = 0;
+        }
+
         // handle rotation movements
         euler.z -= this.mouse.x * 0.002 * this.pointerSpeed;
         euler.x -= this.mouse.y * 0.002 * this.pointerSpeed;
