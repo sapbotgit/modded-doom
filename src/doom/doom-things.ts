@@ -1,4 +1,4 @@
-import { Vector2 } from 'three';
+import { Vector2, Vector3 } from 'three';
 import { type MapObject, type PlayerMapObject } from './MapObject';
 import { store } from './Store';
 import { mapObjectInfo, StateIndex, type MapObjectInfo, type State, states, SpriteNames, ActionIndex } from './doom-things-info';
@@ -11,24 +11,39 @@ import {
     type PlayerWeapon as IPlayerWeapon,
     type PlayerMapObject as IPlayerMapObject,
 } from './types';
+import { randInt } from './Math';
 
 // I don't love having the logic of weapons and pickup here and especially because we've already
 // got this data spread doom-things and doom-things-info (and ThingType, MapObject, and MapObjectInfo). I'd really like
 // to just put this into one place so if I want to add a new item/weapon/monster I can do that by editing one structure
 // rather than 3. Something to improve for later.
-const weaponTop = 32;
+export const weaponTop = 32;
 const weaponBottom = 32 - 128;
+const shootDirection = new Vector3();
 type WeaponThink = (player: IPlayerMapObject, weapon: IPlayerWeapon) => void
-const weaponTickFunctions: { [key: number]: WeaponThink } = {
+const weaponActions: { [key: number]: WeaponThink } = {
     [ActionIndex.NULL]: (player, weapon) => {},
-    [ActionIndex.A_Light0]: () => {},
-    [ActionIndex.A_Light1]: () => {},
+    [ActionIndex.A_Light0]: (player, weapon) => {
+        player.extraLight.set(0);
+    },
+    [ActionIndex.A_Light1]: (player, weapon) => {
+        player.extraLight.set(16);
+    },
+    [ActionIndex.A_Light2]: (player, weapon) => {
+        // really?? light up every sector everywhere?
+        player.extraLight.set(32);
+    },
+    [ActionIndex.A_GunFlash]: (player, weapon) => {
+        player.setState(StateIndex.S_PLAY_ATK2);
+        weapon.flash();
+    },
     [ActionIndex.A_Lower]: (player, weapon) => {
         weapon.position.update(pos => {
             pos.y -= 6;
             if (pos.y < weaponBottom) {
                 pos.y = weaponBottom;
                 player.weapon.set(player.nextWeapon);
+                player.nextWeapon = null;
             }
             return pos;
         });
@@ -43,20 +58,199 @@ const weaponTickFunctions: { [key: number]: WeaponThink } = {
             return pos;
         });
     },
-    [ActionIndex.A_FirePistol]: () => {},
-    [ActionIndex.A_ReFire]: () => {},
+    [ActionIndex.A_WeaponReady]: (player, weapon) => {
+        if (player.nextWeapon) {
+            // once weapon is down, nextWeapon will be activated
+            weapon.deactivate();
+            return;
+        }
+
+        if (player.attacking) {
+            weapon.fire();
+        }
+    },
+    [ActionIndex.A_ReFire]: (player, weapon) => {
+        if (player.attacking) {
+            player.refire = true;
+            weapon.fire();
+        } else {
+            player.refire = false;
+        }
+    },
+
+    [ActionIndex.A_Punch]: (player, weapon) => {
+        // TODO: damage infront and spawn puff/blood
+    },
+    [ActionIndex.A_Saw]: (player, weapon) => {
+        // TODO: damage in front and look at target (if there is one) and spawn puff/blood
+    },
+    [ActionIndex.A_FirePistol]: (player, weapon) => {
+        weaponActions[ActionIndex.A_GunFlash](player, weapon);
+        player.inventory.update(inv => {
+            // inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
+            return inv;
+        });
+
+        // TODO: shoot bullet (wip below...)
+        // const dir = player.direction.val + Math.PI;
+        // let aimZ: number;
+        // shootDirection.set(
+        //     Math.cos(dir) * 16 * 64,
+        //     Math.sin(dir) * 16 * 64,
+        //     player.info.height + 8,
+        // );
+        // player.map.trace(player.position.val, shootDirection, 0,
+        //     thing => {
+        //         if (thing === player) {
+        //             return true; // continue, we can't shoot ourselves
+        //         }
+        //         if (!(thing.info.flags & MFFlags.MF_SHOOTABLE)) {
+        //             return true; // thing is not shootable
+        //         }
+
+        //         // hit a thing so stop tracing
+        //         // TODO check top/bottom of object and slope of shot has to be in view angle
+        //         return false;
+        //     },
+        //     linedef => {
+        //         if (!(linedef.flags & 0x004)) {
+        //             // player.map.spawn(new MapObject(player.map, { type: 0, angle: 0, flags: 0, x: pos.x, y: pos.y }, mapObjectInfo[MapObjectIndex.MT_PUFF]));
+        //             return false; // single-sided linedefs always stop shots
+        //         }
+        //         return true;
+        //     });
+    },
+    [ActionIndex.A_FireShotgun]: (player, weapon) => {
+        weaponActions[ActionIndex.A_GunFlash](player, weapon);
+        player.inventory.update(inv => {
+            inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
+            return inv;
+        });
+
+        // TODO: shoot 7 bullets
+    },
+
+    [ActionIndex.A_FireShotgun2]: (player, weapon) => {
+        // BUG: A_GunFlash goes to flash state but super shotgun has 2 flashes (5 tics and 4 ticks)
+        // but we only show the gun frame for 7 so we get an artifact on screen. We can see this bug in
+        // chocolate doom but not gzdoom
+        weaponActions[ActionIndex.A_GunFlash](player, weapon);
+        player.inventory.update(inv => {
+            inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
+            return inv;
+        });
+
+        // TODO: shoot 20 bullets
+    },
+    [ActionIndex.A_OpenShotgun2]: (player, weapon) => {
+    },
+    [ActionIndex.A_LoadShotgun2]: (player, weapon) => {
+    },
+    [ActionIndex.A_CloseShotgun2]: (player, weapon) => {
+        weaponActions[ActionIndex.A_ReFire](player, weapon);
+    },
+
+    [ActionIndex.A_FireCGun]: (player, weapon) => {
+        weapon.flash(weapon.sprite.val.frame);
+        player.setState(StateIndex.S_PLAY_ATK2);
+        player.inventory.update(inv => {
+            inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
+            return inv;
+        });
+
+        // TODO: shoot bullet
+    },
+    [ActionIndex.A_FireMissile]: (player, weapon) => {
+        player.inventory.update(inv => {
+            inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
+            return inv;
+        });
+
+        // TODO: shoot bullet
+    },
+    [ActionIndex.A_FirePlasma]: (player, weapon) => {
+        weapon.flash(randInt(0, 2));
+        // don't go to S_PLAY_ATK2... was that intentional in doom?
+        player.inventory.update(inv => {
+            inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
+            return inv;
+        });
+
+        // TODO: shoot bullet
+    },
+    [ActionIndex.A_FireBFG]: (player, weapon) => {
+        player.inventory.update(inv => {
+            inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
+            return inv;
+        });
+
+        // TODO: shoot bullet
+    },
 };
 
-class PlayerWeapon implements IPlayerWeapon {
+export class SpriteStateMachine {
     private ticks: number;
+    private stateIndex: StateIndex;
     private state: State;
-    private tickFn: WeaponThink;
-    readonly position = store<Vector2>(new Vector2());
     readonly sprite = store<Sprite>(null);
+    get index() { return this.stateIndex; }
+
+    constructor(private stateAction: (action: ActionIndex) => void) {}
+
+    tick() {
+        if (!this.state || this.ticks < 0) {
+            return;
+        }
+        this.ticks -= 1;
+        if (this.ticks === 0) {
+            this.setState(this.state.nextState);
+        }
+    }
+
+    setState(stateIndex: StateIndex) {
+        const lastState = this.state;
+        do {
+            if (stateIndex === StateIndex.S_NULL) {
+                this.sprite.set(null);
+                return;
+            }
+
+            this.state = states[stateIndex];
+            this.stateIndex = stateIndex;
+            this.ticks = this.state.tics;
+            this.stateAction(this.state.action);
+            stateIndex = this.state.nextState;
+        } while (!this.ticks)
+
+        if (this.state === lastState) {
+            // don't change sprite if the state hasn't changed
+            return;
+        }
+        const name = SpriteNames[this.state.sprite];
+        const frame = this.state.frame & FF_FRAMEMASK;
+        const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
+        this.sprite.set({ name, frame, fullbright });
+    }
+
+    randomizeTicks() {
+        if (this.ticks > 0) {
+            this.ticks = randInt(1, this.ticks);
+        }
+    }
+}
+
+class PlayerWeapon implements IPlayerWeapon {
+    private player: PlayerMapObject;
+    private _sprite = new SpriteStateMachine(action => weaponActions[action]?.(this.player, this));
+    private _flashSprite = new SpriteStateMachine(action => weaponActions[action]?.(this.player, this));
+    readonly position = store<Vector2>(new Vector2(0, weaponBottom));
+    readonly sprite = this._sprite.sprite;
+    readonly flashSprite = this._flashSprite.sprite;
 
     constructor(
         readonly num: number,
         readonly ammoType: keyof PlayerInventory['ammo'] | 'none',
+        readonly ammoPerShot: number,
         private upState: StateIndex,
         private downState: StateIndex,
         private readyState: StateIndex,
@@ -64,55 +258,42 @@ class PlayerWeapon implements IPlayerWeapon {
         private flashState: StateIndex,
     ) {}
 
-    tick(player: PlayerMapObject) {
-        if (!this.state || this.ticks === -1) {
-            return;
-        }
-        this.tickFn?.(player, this)
-        this.ticks -= 1;
-        if (this.ticks > 0) {
-            return;
-        }
-        this.setState(this.state.nextState);
+    tick() {
+        this._sprite.tick();
+        this._flashSprite.tick();
     }
 
-    activate() { this.setState(this.upState); }
-    deactivate() { this.setState(this.downState); }
-    ready() { this.setState(this.readyState); }
-    fire() { this.setState(this.attackState); }
-    flash() { this.setState(this.flashState); }
+    activate(player: PlayerMapObject) {
+        this.player = player;
+        this._sprite.setState(this.upState);
+    }
+    deactivate() { this._sprite.setState(this.downState); }
+    ready() { this._sprite.setState(this.readyState); }
+    flash(offset = 0) { this._flashSprite.setState(this.flashState + offset); }
+    fire() {
+        if (this.player.nextWeapon) {
+            // once weapon is down, nextWeapon will be activated
+            this.deactivate();
+            return;
+        }
 
-    private setState(stateIndex: StateIndex) {
-        this.state = states[stateIndex];
-        this.ticks = this.state.tics;
-        this.tickFn = weaponTickFunctions[this.state.action];
-
-        const name = SpriteNames[this.state.sprite];
-        const frame = this.state.frame & FF_FRAMEMASK;
-        const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
-        this.sprite.set({ name, frame, fullbright });
+        if (this.ammoType === 'none' || this.player.inventory.val.ammo[this.ammoType].amount >= this.ammoPerShot) {
+            this.player.setState(StateIndex.S_PLAY_ATK1);
+            this._sprite.setState(this.attackState);
+        }
     }
 }
-export const weapons = [
-    // chainsaw
-    new PlayerWeapon(1, 'none', StateIndex.S_SAWUP, StateIndex.S_SAWDOWN, StateIndex.S_SAW, StateIndex.S_SAW1, StateIndex.S_NULL),
-    // fist
-    new PlayerWeapon(1, 'none', StateIndex.S_PUNCHUP, StateIndex.S_PUNCHDOWN, StateIndex.S_PUNCH, StateIndex.S_PUNCH1, StateIndex.S_NULL),
-    // pistol
-    new PlayerWeapon(2, 'bullets', StateIndex.S_PISTOLUP, StateIndex.S_PISTOLDOWN, StateIndex.S_PISTOL, StateIndex.S_PISTOL1, StateIndex.S_PISTOLFLASH),
-    // super shotgun
-    // new PlayerWeapon(3, 'shells', StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
-    // shotgun
-    new PlayerWeapon(3, 'shells', StateIndex.S_SGUNUP, StateIndex.S_SGUNDOWN, StateIndex.S_SGUN, StateIndex.S_SGUN1, StateIndex.S_SGUNFLASH1),
-    // chaingun
-    new PlayerWeapon(4, 'bullets', StateIndex.S_CHAINUP, StateIndex.S_CHAINDOWN, StateIndex.S_CHAIN, StateIndex.S_CHAIN1, StateIndex.S_CHAINFLASH1),
-    // rocket launcher
-    new PlayerWeapon(5, 'rockets', StateIndex.S_MISSILEUP, StateIndex.S_MISSILEDOWN, StateIndex.S_MISSILE, StateIndex.S_MISSILE1, StateIndex.S_MISSILEFLASH1),
-    // plasma rifle
-    new PlayerWeapon(6, 'cells', StateIndex.S_PLASMAUP, StateIndex.S_PLASMADOWN, StateIndex.S_PLASMA, StateIndex.S_PLASMA1, StateIndex.S_PLASMAFLASH1),
-    // bfg
-    new PlayerWeapon(7, 'cells', StateIndex.S_BFGUP, StateIndex.S_BFGDOWN, StateIndex.S_BFG, StateIndex.S_BFG1, StateIndex.S_BFGFLASH1),
-];
+export const weapons = {
+    'chainsaw': new PlayerWeapon(1, 'none', 0, StateIndex.S_SAWUP, StateIndex.S_SAWDOWN, StateIndex.S_SAW, StateIndex.S_SAW1, StateIndex.S_NULL),
+    'fist': new PlayerWeapon(1, 'none', 0, StateIndex.S_PUNCHUP, StateIndex.S_PUNCHDOWN, StateIndex.S_PUNCH, StateIndex.S_PUNCH1, StateIndex.S_NULL),
+    'pistol': new PlayerWeapon(2, 'bullets', 1, StateIndex.S_PISTOLUP, StateIndex.S_PISTOLDOWN, StateIndex.S_PISTOL, StateIndex.S_PISTOL1, StateIndex.S_PISTOLFLASH),
+    'super shotgun': new PlayerWeapon(3, 'shells', 2, StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
+    'shotgun': new PlayerWeapon(3, 'shells', 1, StateIndex.S_SGUNUP, StateIndex.S_SGUNDOWN, StateIndex.S_SGUN, StateIndex.S_SGUN1, StateIndex.S_SGUNFLASH1),
+    'chaingun': new PlayerWeapon(4, 'bullets', 1, StateIndex.S_CHAINUP, StateIndex.S_CHAINDOWN, StateIndex.S_CHAIN, StateIndex.S_CHAIN1, StateIndex.S_CHAINFLASH1),
+    'rocket launcher': new PlayerWeapon(5, 'rockets', 1, StateIndex.S_MISSILEUP, StateIndex.S_MISSILEDOWN, StateIndex.S_MISSILE, StateIndex.S_MISSILE1, StateIndex.S_MISSILEFLASH1),
+    'plasma rifle': new PlayerWeapon(6, 'cells', 1, StateIndex.S_PLASMAUP, StateIndex.S_PLASMADOWN, StateIndex.S_PLASMA, StateIndex.S_PLASMA1, StateIndex.S_PLASMAFLASH1),
+    'bfg': new PlayerWeapon(7, 'cells', 40, StateIndex.S_BFGUP, StateIndex.S_BFGDOWN, StateIndex.S_BFG, StateIndex.S_BFG1, StateIndex.S_BFGFLASH1),
+};
 
 const clipAmmo: { [k in AmmoType]: number} = {
     'bullets': 10,
@@ -174,16 +355,16 @@ const addKey = (card: string) =>
         return added;
     }
 
-const giveWeapon = (weapon: PlayerWeapon, type?: keyof PlayerInventory['ammo'], factor?: number) =>
+const giveWeapon = (weapon: PlayerWeapon) =>
     (player: PlayerMapObject) => {
-        if (type) {
-            addAmmo(type, clipAmmo[type] * factor)(player);
+        if (weapon.ammoType !== 'none') {
+            addAmmo(weapon.ammoType, clipAmmo[weapon.ammoType] * 2)(player);
         }
         player.inventory.update(inv => {
             if (!inv.weapons.includes(weapon)) {
+                // keep weapons in order
                 inv.weapons.push(weapon);
                 player.nextWeapon = weapon;
-                player.weapon.val.deactivate();
             }
             return inv;
         });
@@ -219,13 +400,13 @@ const monsters = [
 ];
 
 const weaponItems: ThingType[] = [
-    { type: 82, class: 'W', description: 'Super shotgun', onPickup: giveWeapon(weapons[4], 'shells', 2) },
-    { type: 2001, class: 'W', description: 'Shotgun', onPickup: giveWeapon(weapons[3], 'shells', 2) },
-    { type: 2002, class: 'W', description: 'Chaingun', onPickup: giveWeapon(weapons[5], 'bullets', 2) },
-    { type: 2003, class: 'W', description: 'Rocket launcher', onPickup: giveWeapon(weapons[6], 'rockets', 2) },
-    { type: 2004, class: 'W', description: 'Plasma gun', onPickup: giveWeapon(weapons[7], 'cells', 2) },
-    { type: 2005, class: 'W', description: 'Chainsaw', onPickup: giveWeapon(weapons[0]) },
-    { type: 2006, class: 'W', description: 'BFG9000', onPickup: giveWeapon(weapons[8], 'cells', 2) },
+    { type: 82, class: 'W', description: 'Super shotgun', onPickup: giveWeapon(weapons['super shotgun']) },
+    { type: 2001, class: 'W', description: 'Shotgun', onPickup: giveWeapon(weapons['shotgun']) },
+    { type: 2002, class: 'W', description: 'Chaingun', onPickup: giveWeapon(weapons['chaingun']) },
+    { type: 2003, class: 'W', description: 'Rocket launcher', onPickup: giveWeapon(weapons['rocket launcher']) },
+    { type: 2004, class: 'W', description: 'Plasma gun', onPickup: giveWeapon(weapons['plasma rifle']) },
+    { type: 2005, class: 'W', description: 'Chainsaw', onPickup: giveWeapon(weapons['chainsaw']) },
+    { type: 2006, class: 'W', description: 'BFG9000', onPickup: giveWeapon(weapons['bfg']) },
 ];
 
 const ammunitions: ThingType[] = [

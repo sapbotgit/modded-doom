@@ -1,9 +1,10 @@
 // kind of based on p_spec.c
-import type { DoomMap, LineDef, Sector } from "./Map";
+import type { DoomMap } from "./Map";
 import { MapObject } from "./MapObject";
 import { type DoomGame } from "./game";
 import { ToRadians, randInt } from "./Math";
 import { MapObjectIndex, mapObjectInfo } from "./doom-things-info";
+import type { LineDef, Sector } from "./types";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -57,8 +58,8 @@ const shortestLowerTexture = (map: DoomMap, sector: Sector) => {
             const rtx = map.wad.wallTextureData(ld.right.lower.val);
             const ltx = map.wad.wallTextureData(ld.left.lower.val);
             target = Math.min(target,
-                    (ltx && 'height' in ltx ? ltx.height : Infinity),
-                    (rtx && 'height' in rtx ? rtx.height : Infinity));
+                    (typeof ltx === 'object' ? ltx.height : Infinity),
+                    (typeof rtx === 'object' ? rtx.height : Infinity));
         }
     }
     return sector.zFloor.val + target;

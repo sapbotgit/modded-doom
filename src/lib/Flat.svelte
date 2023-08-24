@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
-    import type { RenderSector } from "../doom";
+    import type { PlayerMapObject, RenderSector } from "../doom";
     import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, Color } from "three";
     import { useDoom } from "./useDoom";
     import Wireframe from "./Debug/Wireframe.svelte";
@@ -14,6 +14,7 @@
 
     const { game, textures, settings, editor } = useDoom();
     const { position: cameraPosition } = game.camera;
+    const extraLight = (game.player as unknown as PlayerMapObject).extraLight;
 
     $: visible = (ceiling && $cameraPosition.z <= vertical)
             || (!ceiling && $cameraPosition.z >= vertical);
@@ -24,7 +25,7 @@
         material.map = textures.get(textureName, 'flat');
     }
     $: if ($light !== undefined) {
-        material.color = textures.lightColor($light);
+        material.color = textures.lightColor($light + $extraLight);
     }
     $: if ($editor.selected === renderSector.sector) {
         material.emissive = new Color('magenta');

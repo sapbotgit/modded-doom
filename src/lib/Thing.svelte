@@ -2,7 +2,7 @@
     import { Mesh, TransformControls } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, Color } from 'three';
     import { useDoom } from './useDoom';
-    import type { MapObject } from '../doom';
+    import type { MapObject, PlayerMapObject } from '../doom';
     import { EIGHTH_PI, HALF_PI, QUARTER_PI } from '../doom/Math';
     import Wireframe from './Debug/Wireframe.svelte';
 
@@ -10,6 +10,7 @@
 
     const { textures, game, editor, wad } = useDoom();
     const { position: cameraPosition, rotation: cameraRotation } = game.camera;
+    const extraLight = (game.player as unknown as PlayerMapObject).extraLight;
 
     const { sector, position, sprite, direction } = thing;
     const frames = wad.spriteFrames($sprite.name);
@@ -20,7 +21,7 @@
 
     $: texture = textures.get(frame.name, 'sprite');
     $: zPos = $position.z + texture.userData.height * .5;
-    $: hOffset = texture.userData.xOffset - texture.userData.width * .5;
+    $: hOffset = -texture.userData.xOffset + texture.userData.width * .5;
     $: vOffset = texture.userData.yOffset - texture.userData.height;
 
     $: material = new MeshStandardMaterial({ alphaTest: 1 });
@@ -37,7 +38,7 @@
 
     $: light = $sector.light;
     $: if ($sprite.fullbright || $light !== undefined) {
-        material.color = textures.lightColor($sprite.fullbright ? 255 : $light);
+        material.color = textures.lightColor($extraLight + ($sprite.fullbright ? 255 : $light));
     }
 
     $: if ($editor.selected === thing) {

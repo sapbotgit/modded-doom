@@ -8,7 +8,7 @@
 
     const { game } = useDoom();
     const { mode, position: cameraPosition, rotation: cameraRotation } = game.camera;
-    const player = game.player as PlayerMapObject;
+    const player = game.player as unknown as PlayerMapObject;
     const { position: playerPosition } = player;
 
     $: camPos = $cameraPosition;

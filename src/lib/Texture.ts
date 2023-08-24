@@ -65,6 +65,6 @@ export class MapTextures {
 
     // TODO: find a better place for this
     lightColor(light: number) {
-        return this.lightCache.get(light);
+        return this.lightCache.get(Math.max(0, Math.min(255, light)));
     }
 }

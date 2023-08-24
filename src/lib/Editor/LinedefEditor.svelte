@@ -27,7 +27,7 @@
     }
 </script>
 
-<h3>Linedef</h3>
+<h3>Linedef ({linedef.num})</h3>
 <div>
     <FlagList info={flagInfo} bind:flags={linedef.flags} />
 </div>

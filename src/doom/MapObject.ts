@@ -1,17 +1,14 @@
 import { store, type Store } from "./Store";
-import { thingSpec} from "./doom-things";
-import { StateIndex, type State, MFFlags, SpriteNames, states, type MapObjectInfo } from "./doom-things-info";
+import { SpriteStateMachine, thingSpec } from "./doom-things";
+import { StateIndex, MFFlags, type MapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
-import { randInt, ToRadians } from "./Math";
+import { ToRadians } from "./Math";
 import { CollisionNoOp, type DoomMap } from "./Map";
 import type { DoomGame } from "./game";
 import {
     type PlayerInventory,
     type MapObject as IMapObject,
     type PlayerMapObject as IPlayerMapObject,
-    type Sprite,
-    FF_FRAMEMASK,
-    FF_FULLBRIGHT,
     type Sector,
     type PlayerWeapon,
     type Thing,
@@ -24,25 +21,22 @@ export class MapObject implements IMapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
 
+    private sect: Sector;
+
+    protected _state = new SpriteStateMachine(action => { /* TODO: do action... */ });
+    protected zFloor: number;
+
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
     readonly position: Store<Vector3>;
     readonly direction: Store<number>;
     readonly sector = store<Sector>(null);
-    readonly sprite = store<Sprite>(null);
+    readonly sprite = this._state.sprite;
     readonly velocity = new Vector3();
 
-    private state: State;
-    private ticks: number;
-    private sect: Sector;
-
-    protected zFloor: number;
-
     get onGround() { return this.position.val.z <= this.zFloor; }
-    get currentState() { return this._state; }
-    private _state: StateIndex;
 
-    constructor(protected map: DoomMap, readonly source: Thing, info?: MapObjectInfo ) {
+    constructor(readonly map: DoomMap, readonly source: Thing, info?: MapObjectInfo ) {
         this.info = info ?? thingSpec(source.type).mo;
         this.health = store(this.info.spawnhealth);
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
@@ -107,11 +101,9 @@ export class MapObject implements IMapObject {
             }
         });
 
-        this.setState(this.info.spawnstate);
+        this._state.setState(this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
-        if (this.ticks > 0) {
-            this.ticks = randInt(1, this.state.tics);
-        }
+        this._state.randomizeTicks();
     }
 
     tick() {
@@ -123,16 +115,7 @@ export class MapObject implements IMapObject {
         this.applyGravity();
         this.updatePosition();
 
-        if (!this.state || this.ticks === -1) {
-            return;
-        }
-
-        this.ticks -= 1;
-        if (this.ticks > 0) {
-            return;
-        }
-
-        this.setState(this.state.nextState)
+        this._state.tick();
     }
 
     setState(stateIndex: number) {
@@ -140,15 +123,7 @@ export class MapObject implements IMapObject {
             this.map.destroy(this);
             return;
         }
-
-        this._state = stateIndex;
-        this.state = states[stateIndex];
-        this.ticks = this.state.tics;
-
-        const name = SpriteNames[this.state.sprite];
-        const frame = this.state.frame & FF_FRAMEMASK;
-        const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
-        this.sprite.set({ name, frame, fullbright });
+        this._state.setState(stateIndex)
     }
 
     teleport(target: Thing, sector: Sector) {
@@ -206,6 +181,9 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
     private viewHeight = playerViewHeightDefault;
     private deltaViewHeight = 0;
 
+    attacking = false;
+    refire = false;
+    readonly extraLight = store(0);
     readonly weapon = store<PlayerWeapon>(null);
     nextWeapon: PlayerWeapon = null;
 
@@ -214,16 +192,16 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
 
         this.weapon.subscribe(weapon => {
             if (weapon) {
-                weapon.activate();
+                this.refire = false;
+                weapon.activate(this);
             }
-            this.nextWeapon = null;
         });
     }
 
     tick() {
         super.tick();
 
-        this.weapon.val.tick(this);
+        this.weapon.val.tick();
 
         this.inventory.update(inv => {
             for (const name of tickingItems) {
@@ -236,9 +214,9 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
         });
 
         const vel = this.velocity.length();
-        if (this.currentState === StateIndex.S_PLAY && vel > .5) {
+        if (this._state.index === StateIndex.S_PLAY && vel > .5) {
             this.setState(StateIndex.S_PLAY_RUN1);
-        } else if (vel < .2) {
+        } else if (this._state.index === StateIndex.S_PLAY_RUN1 && vel < .2) {
             this.setState(StateIndex.S_PLAY);
         }
     }

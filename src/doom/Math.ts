@@ -1,4 +1,4 @@
-import type { Vertex } from "./Map";
+import type { Vertex } from "./types";
 
 export const HALF_PI = Math.PI * 0.5;
 export const QUARTER_PI = Math.PI * 0.25;
@@ -192,13 +192,13 @@ export function pointOnLine(p: Vertex, l: Vertex[]) {
     );
 }
 
-export function closestPoint(l: Vertex[], p: Vertex) {
+export function closestPoint(l: Vertex[], p: Vertex): Vertex {
     let A1 = l[1].y - l[0].y;
     let B1 = l[0].x - l[1].x;
     let det = A1 * A1 + B1 * B1;
     if (det === 0) {
         return p;
-    } else{
+    } else {
         let C1 = A1 * l[0].x + B1 * l[0].y;
         let C2 = -B1 * p.x + A1 * p.y;
         return {

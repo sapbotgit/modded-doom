@@ -1,10 +1,11 @@
 import { store, type Store } from "./Store";
-import { type DoomMap, type LineDef } from "./Map";
+import { type DoomMap } from "./Map";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, signedLineDistance } from "./Math";
 import { PlayerMapObject, type MapObject } from "./MapObject";
 import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./Specials";
 import { MFFlags } from "./doom-things-info";
+import type { LineDef } from "./types";
 
 export type Action = () => void;
 
@@ -79,6 +80,7 @@ export class DoomGame {
     }
 
     tick(delta: number) {
+        // delta *= .2
         // lastDelta is a hack. we need a cleaner game loop
         this.lastDelta = delta;
         // handle input as fast as possible
@@ -259,11 +261,12 @@ class GameInput {
                 (weapon === nextWeapon[0]) ? nextWeapon[1] : nextWeapon[0];
             if (selectedWeapon && selectedWeapon !== weapon) {
                 this.player.nextWeapon = selectedWeapon;
-                // once weapon is down, nextWeapon will be activated
-                weapon.deactivate();
             }
             this.weaponSelect = 0;
         }
+
+        // attack
+        this.player.attacking = this.attack;
 
         // handle rotation movements
         euler.z -= this.mouse.x * 0.002 * this.pointerSpeed;

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { MeshStandardMaterial, PlaneGeometry, Color, BackSide, FrontSide } from "three";
-    import type { LineDef, Seg, SideDef, Vertex } from "../doom";
+    import type { LineDef, PlayerMapObject, Seg, SideDef, Vertex } from "../doom";
     import { Mesh } from "@threlte/core";
     import { useDoom } from "./useDoom";
     import { HALF_PI } from "../doom/Math";
@@ -29,8 +29,9 @@
     const { yOffset, xOffset } = sidedef;
     const { xOffset: animOffset, flags } = linedef;
 
-    const { wad, settings, textures, editor } = useDoom();
+    const { wad, settings, textures, editor, game } = useDoom();
 
+    const extraLight = (game.player as unknown as PlayerMapObject).extraLight;
     const { light } = sidedef.sector;
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
@@ -75,7 +76,7 @@
         material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
     }
     $: if ($light !== undefined) {
-        material.color = textures.lightColor($light);
+        material.color = textures.lightColor($light + $extraLight);
     }
 
     $: if ($editor.selected === linedef) {

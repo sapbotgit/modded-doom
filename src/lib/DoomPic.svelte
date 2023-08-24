@@ -1,7 +1,8 @@
 <script lang="ts">
     import { afterUpdate } from "svelte";
+    import type { Graphic } from "../doom";
 
-    export let data: { width: number, height: number, buffer?: Uint8ClampedArray, data?: Uint8ClampedArray };
+    export let data: Graphic;
 
     let canvas: HTMLCanvasElement;
     // TODO: this feels is inefficient... draw a new canvas whenever the picture changes?

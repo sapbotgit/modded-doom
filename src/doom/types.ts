@@ -1,5 +1,4 @@
 // A collection of shared types (interfaces and constants)
-
 import type { Vector2, Vector3 } from "three";
 import type { Store } from "./Store";
 import type { MapObjectInfo, StateIndex } from "./doom-things-info";
@@ -20,6 +19,34 @@ export interface Sector {
     specialData: any;
 }
 
+export interface SideDef {
+    xOffset: Store<number>;
+    yOffset: Store<number>;
+    sector: Sector;
+    upper: Store<string>;
+    lower: Store<string>;
+    middle: Store<string>;
+}
+
+export interface Vertex {
+    x: number;
+    y: number;
+}
+
+export interface LineDef {
+    num: number;
+    v: Vertex[];
+    flags: number;
+    special: number;
+    tag: number;
+    right?: SideDef;
+    left?: SideDef;
+    // derived
+    xOffset?: Store<number>;
+    // For game processing
+    buttonTimer: any;
+}
+
 export const FF_FULLBRIGHT = 0x8000;
 export const FF_FRAMEMASK = 0x7fff;
 export interface Sprite {
@@ -38,8 +65,18 @@ export interface Thing {
     flags: number;
 }
 
+export interface HandleCollision<Type> {
+    (t: Type, side?: -1 | 1): boolean;
+}
+
+export interface IDoomMap {
+    spawn(mobj: MapObject): void
+    trace(start: Vector3, move: Vector3, radius: number, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>): void;
+}
+
 export interface MapObject {
     readonly id: number;
+    readonly map: IDoomMap;
 
     readonly source: Thing;
     readonly info: MapObjectInfo;
@@ -50,12 +87,18 @@ export interface MapObject {
     readonly sprite: Store<Sprite>;
     readonly velocity: Vector3;
 
-    readonly onGround: boolean
+    readonly onGround: boolean;
+
+    setState(state: StateIndex): void; // TODO: use store?
 }
 
 export interface PlayerMapObject extends MapObject {
+    // TODO: merge this with GameInput to really make a good player controller or does that muddle responsibilities?
+    attacking: boolean;
+    refire: boolean;
     readonly inventory: Store<PlayerInventory>;
 
+    readonly extraLight: Store<number>;
     readonly weapon: Store<PlayerWeapon>;
     nextWeapon: PlayerWeapon;
 }
@@ -93,15 +136,17 @@ export interface PlayerInventory {
 export interface PlayerWeapon {
     readonly position: Store<Vector2>;
     readonly sprite: Store<Sprite>;
+    readonly flashSprite: Store<Sprite>;
 
     readonly num: number,
     readonly ammoType: keyof PlayerInventory['ammo'] | 'none',
+    readonly ammoPerShot: number;
 
-    tick(player: PlayerMapObject): void;
+    tick(): void;
 
-    activate(): void;
+    activate(player: PlayerMapObject): void;
     ready(): void;
     deactivate(): void;
     fire(): void;
-    flash(): void;
+    flash(offset?: number): void;
 }

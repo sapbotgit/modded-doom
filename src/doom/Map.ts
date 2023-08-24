@@ -5,21 +5,8 @@ import { PlayerMapObject, MapObject } from "./MapObject";
 import { centerSort, circleCircleSweep, closestPoint, dot, lineCircleSweep, lineLineIntersect, normal, pointOnLine, signedLineDistance } from "./Math";
 import { MFFlags } from "./doom-things-info";
 import { weapons } from "./doom-things";
-import type { PlayerInventory, Sector, Thing } from "./types";
+import type { HandleCollision, IDoomMap, LineDef, PlayerInventory, Sector, SideDef, Thing, Vertex } from "./types";
 
-export interface LineDef {
-    num: number;
-    v: Vertex[];
-    flags: number;
-    special: number;
-    tag: number;
-    right?: SideDef;
-    left?: SideDef;
-    // derived
-    xOffset?: Store<number>;
-    // For game processing
-    buttonTimer: any;
-}
 const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
     num,
     v: [vertexes[ld.vertexStartIdx], vertexes[ld.vertexEndIdx]],
@@ -31,14 +18,6 @@ const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]
     buttonTimer: null,
 });
 
-export interface SideDef {
-    xOffset: Store<number>;
-    yOffset: Store<number>;
-    sector: Sector;
-    upper: Store<string>;
-    lower: Store<string>;
-    middle: Store<string>;
-}
 const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Store<string>>): SideDef => ({
     xOffset: store(sd.offsetX),
     yOffset: store(sd.offsetY),
@@ -50,11 +29,6 @@ const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Store<strin
 
 function fixTextureName(name: string) {
     return !name || name.startsWith('-') ? undefined : name.split('\u0000')[0];
-}
-
-export interface Vertex {
-    x: number;
-    y: number;
 }
 
 export interface Seg {
@@ -143,9 +117,6 @@ interface Block {
     things: MapObject[];
 }
 
-interface HandleCollision<Type> {
-    (t: Type, side?: -1 | 1): boolean;
-}
 export function CollisionNoOp() { return false; }
 
 const leftSide = new Vector3();
@@ -301,10 +272,16 @@ class BlockMap {
     }
 }
 
+const distSqr = (p1: Vertex, p2: Vertex) => {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    return dx * dx + dy * dy;
+};
+
 const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 const start = new Vector3();
 const end = new Vector3();
-export class DoomMap {
+export class DoomMap implements IDoomMap {
     readonly name: string;
     readonly things: Thing[];
     readonly linedefs: LineDef[];
@@ -390,28 +367,7 @@ export class DoomMap {
 
     private spawnThing(thing: Thing): MapObject | undefined {
         if (thing.type === 1) {
-            const inventory: PlayerInventory = {
-                armor: 0,
-                ammo: {
-                    bullets: { amount: 50, max: 200 },
-                    shells: { amount: 0, max: 50 },
-                    rockets: { amount: 0, max: 50 },
-                    cells: { amount: 0, max: 300 },
-                },
-                items: {
-                    berserkTicks: 0,
-                    invincibilityTicks: 0,
-                    invisibilityTicks: 0,
-                    nightVisionTicks: 0,
-                    radiationSuitTicks: 0,
-                    computerMap: false,
-                },
-                weapons: [weapons[1], weapons[2]],
-                keys: '',
-            };
-            const player = new PlayerMapObject(store(inventory), this, thing);
-            player.weapon.set(weapons[2]);
-            return player;
+            return this.spawnPlayer(thing);
         }
         const noSpawn = (false
             || thing.type === 0 // plutonia map 12, what?!
@@ -430,6 +386,32 @@ export class DoomMap {
             return; // multiplayer only
         }
         return new MapObject(this, thing);
+    }
+
+    private spawnPlayer(thing: Thing) {
+        const inventory: PlayerInventory = {
+            armor: 0,
+            ammo: {
+                bullets: { amount: 50, max: 200 },
+                shells: { amount: 40, max: 50 },
+                rockets: { amount: 40, max: 50 },
+                cells: { amount: 200, max: 300 },
+            },
+            items: {
+                berserkTicks: 0,
+                invincibilityTicks: 0,
+                invisibilityTicks: 0,
+                nightVisionTicks: 0,
+                radiationSuitTicks: 0,
+                computerMap: false,
+            },
+            weapons: [weapons['fist'], weapons['pistol']],
+            // weapons: [...Object.values(weapons)],
+            keys: '',
+        };
+        const player = new PlayerMapObject(store(inventory), this, thing);
+        player.weapon.set(weapons['pistol']);
+        return player;
     }
 
     spawn(mobj: MapObject) {
@@ -567,6 +549,36 @@ export class DoomMap {
 
             if (signedLineDistance(linedef.v, end) > 0) {
                 complete = !onLinedef(linedef)
+            }
+        }
+    }
+
+    trace(start: Vector3, move: Vector3, radius: number, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>) {
+        const bquery = this.blockmap.trace(start, radius, move);
+        // sort items from closest to farthest
+        let items = [];
+        for (let i = 0; i < bquery.things.length; i++) {
+            const hit = circleCircleSweep(
+                bquery.things[i].position.val, bquery.things[i].info.radius,
+                start, radius, move);
+            if (!hit) {
+                continue;
+            }
+            items.push([bquery.things[i], distSqr(start, hit)]);
+        }
+        for (let i = 0; i < bquery.linedefs.length; i++) {
+            const hit = lineCircleSweep(bquery.linedefs[i].v, move, start, radius);
+            if (!hit) {
+                continue;
+            }
+            items.push([bquery.linedefs[i], distSqr(start, hit)]);
+        }
+        items.sort((a, b) => a[1] - b[1]);
+
+        for (const item of items) {
+            const checkFn = 'v' in item[0] ? onLinedef : onThing;
+            if (!checkFn(item[0])) {
+                break;
             }
         }
     }

@@ -14,6 +14,15 @@ interface SpriteFrame {
     mirror: boolean;
 }
 
+export interface Graphic {
+    xOffset: number,
+    yOffset: number,
+    width: number,
+    height: number,
+    buffer?: Uint8ClampedArray,
+    data?: Uint8ClampedArray,
+}
+
 export class DoomWad {
     private mapIndex = new Map<string, number>();
     palettes: Palette[] = [];
@@ -250,7 +259,7 @@ export class DoomWad {
         return result;
     }
 
-    spriteTextureData(name: string) {
+    spriteTextureData(name: string): Graphic | string {
         const uname = name.toUpperCase();
         const fStartIndex = this.raw.findIndex(e => e.name === 'S_START');
         const fEndIndex = this.raw.findIndex(e => e.name === 'S_END');
@@ -265,7 +274,7 @@ export class DoomWad {
         return null;
     }
 
-    flatTextureData(name: string) {
+    flatTextureData(name: string): Graphic {
         const uname = name.toUpperCase();
         const fStartIndex = this.raw.findIndex(e => e.name === 'F_START');
         const fEndIndex = this.raw.findIndex(e => e.name === 'F_END');
@@ -284,7 +293,7 @@ export class DoomWad {
         return this.raw.find(p => p.name === name);
     }
 
-    private assemblePatchGraphic(pnames: string[], textureData: any) {
+    private assemblePatchGraphic(pnames: string[], textureData: any): Graphic {
         const { width, height, patches } = textureData;
 
         const buffer = new Uint8ClampedArray(4 * width * height);
@@ -321,7 +330,7 @@ export class DoomWad {
         return { width, height, buffer, xOffset: 0, yOffset: 0 };
     }
 
-    public graphic(name: string) {
+    public graphic(name: string): Graphic | string {
         const uname = name.toUpperCase();
         const lump = this.lumpByName(uname);
         if (!lump) {
@@ -330,7 +339,7 @@ export class DoomWad {
         return this.textureGraphic(lump);
     }
 
-    private textureGraphic(lumpData: any) {
+    private textureGraphic(lumpData: any): Graphic | string {
         const pic = this.doomPicture(lumpData);
         if (typeof pic === 'string') {
             return pic;
@@ -357,7 +366,7 @@ export class DoomWad {
         return { width, height, buffer, xOffset, yOffset };
     }
 
-    private readFlat(lump: any) {
+    private readFlat(lump: any): Graphic {
         const buff = lump.contents as Uint8Array;
         let dv = new DataView(buff.buffer.slice(buff.byteOffset, buff.byteLength + buff.byteOffset));
         const width = 64;
