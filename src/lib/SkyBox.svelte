@@ -1,13 +1,11 @@
 <script lang="ts">
     import {  Color, CubeTexture, DataTexture, LinearToneMapping, SRGBColorSpace } from "three";
-    import type { DoomMap } from "../doom";
-    import { useDoom } from "./useDoom";
+    import { useDoom, useDoomMap } from "./DoomContext";
     import { AmbientLight, useThrelte } from "@threlte/core";
 
     const { scene, renderer } = useThrelte();
     const { textures } = useDoom();
-
-    export let map: DoomMap;
+    const { map } = useDoomMap();
 
     renderer.toneMapping = LinearToneMapping;
     renderer.toneMappingExposure = 1.3;

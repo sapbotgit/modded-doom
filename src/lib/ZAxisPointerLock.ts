@@ -7,22 +7,22 @@
 // - https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/PointerLockControls.js
 // - https://github.com/mrdoob/three.js/blob/master/examples/jsm/controls/FlyControls.js
 import type { Action } from 'svelte/action';
-import type { DoomGame } from '../doom';
+import type { ControllerInput } from '../doom';
 
 interface PointerLockControlsParams {
-    game: DoomGame;
+    input: ControllerInput;
 }
 export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams> =
 (node, params) => {
     const doc = node.ownerDocument;
-    let { game } = params;
+    let { input } = params;
 
     node.addEventListener('click', () => node.requestPointerLock());
     doc.addEventListener('pointerlockchange', pointerlockchange);
     doc.addEventListener('pointerlockerror', pointerlockerror);
 
     const update = (params: PointerLockControlsParams) => {
-        game = params.game;
+        input = params.input;
     };
     const destroy = () => {
         unlock();
@@ -34,60 +34,60 @@ export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams>
     function keydown(ev: KeyboardEvent) {
         switch (ev.code) {
             case "Digit1":
-                game.input.weaponSelect = 1;
+                input.weaponSelect = 1;
                 break;
             case "Digit2":
-                game.input.weaponSelect = 2;
+                input.weaponSelect = 2;
                 break;
             case "Digit3":
-                game.input.weaponSelect = 3;
+                input.weaponSelect = 3;
                 break;
             case "Digit4":
-                game.input.weaponSelect = 4;
+                input.weaponSelect = 4;
                 break;
             case "Digit5":
-                game.input.weaponSelect = 5;
+                input.weaponSelect = 5;
                 break;
             case "Digit6":
-                game.input.weaponSelect = 6;
+                input.weaponSelect = 6;
                 break;
             case "Digit7":
-                game.input.weaponSelect = 7;
+                input.weaponSelect = 7;
                 break;
 
             case "KeyE":
             case "Space":
-                game.input.use = true;
+                input.use = true;
                 break;
 
             case "ArrowUp":
             case "KeyW":
-                game.input.moveForward = true;
+                input.moveForward = true;
                 break;
 
             case "ArrowLeft":
             case "KeyA":
-                game.input.moveLeft = true;
+                input.moveLeft = true;
                 break;
 
             case "ArrowDown":
             case "KeyS":
-                game.input.moveBackward = true;
+                input.moveBackward = true;
                 break;
 
             case "ArrowRight":
             case "KeyD":
-                game.input.moveRight = true;
+                input.moveRight = true;
                 break;
 
             case 'ShiftLeft':
             case 'ShiftRight':
-                game.input.run = true;
+                input.run = true;
                 break;
 
             case 'AltLeft':
             case 'AltRight':
-                game.input.slow = true;
+                input.slow = true;
                 break;
         }
     }
@@ -96,55 +96,55 @@ export const pointerLockControls: Action<HTMLElement, PointerLockControlsParams>
         switch (ev.code) {
             case "KeyE":
             case "Space":
-                game.input.use = false;
+                input.use = false;
                 break;
 
             case "ArrowUp":
             case "KeyW":
-                game.input.moveForward = false;
+                input.moveForward = false;
                 break;
 
             case "ArrowLeft":
             case "KeyA":
-                game.input.moveLeft = false;
+                input.moveLeft = false;
                 break;
 
             case "ArrowDown":
             case "KeyS":
-                game.input.moveBackward = false;
+                input.moveBackward = false;
                 break;
 
             case "ArrowRight":
             case "KeyD":
-                game.input.moveRight = false;
+                input.moveRight = false;
                 break;
 
             case 'ShiftLeft':
             case 'ShiftRight':
-                game.input.run = false;
+                input.run = false;
                 break;
 
             case 'AltLeft':
             case 'AltRight':
-                game.input.slow = false;
+                input.slow = false;
                 break;
         }
     }
 
     function mousemove(ev: MouseEvent) {
-        game.input.mouse.x += ev.movementX;
-        game.input.mouse.y += ev.movementY;
+        input.mouse.x += ev.movementX;
+        input.mouse.y += ev.movementY;
     }
 
     function mousedown(ev: MouseEvent) {
         if (ev.buttons & 1) {
-            game.input.attack = true;
+            input.attack = true;
         }
     }
 
     function mouseup(ev: MouseEvent) {
         if ((ev.buttons & 1) === 0) {
-            game.input.attack = false;
+            input.attack = false;
         }
     }
 

@@ -1,12 +1,12 @@
 <script lang="ts">
-    import type { DoomMap, Sector } from "../../doom";
-    import { useDoom } from "../useDoom";
+    import type { MapRuntime, Sector } from "../../doom";
+    import { useDoom } from "../DoomContext";
     import TextureChooser from "./TextureChooser.svelte";
 
-    export let map: DoomMap;
+    export let map: MapRuntime;
     export let sector: Sector;
 
-    const { game, editor } = useDoom();
+    const { editor, wad } = useDoom();
     const { light, zCeil, zFloor, floorFlat, ceilFlat } = sector;
 
     let showSelector = false;
@@ -37,11 +37,11 @@
     function changeType(n: number) {
         sector.type = n;
         showSelector = false;
-        game.synchronizeActions();
+        map.synchronizeActions();
     }
 
     function tagLinedef() {
-        $editor.selected = map.linedefs.find(e => e.tag === sector.tag)
+        $editor.selected = map.data.linedefs.find(e => e.tag === sector.tag)
     }
 </script>
 
@@ -94,11 +94,11 @@
 </div>
 <div>
     <span>Ceiling</span>
-    <TextureChooser wad={map.wad} type="flat" bind:value={$ceilFlat} />
+    <TextureChooser {wad} type="flat" bind:value={$ceilFlat} />
 </div>
 <div>
     <span>Floor</span>
-    <TextureChooser wad={map.wad} type="flat" bind:value={$floorFlat} />
+    <TextureChooser {wad} type="flat" bind:value={$floorFlat} />
 </div>
 
 

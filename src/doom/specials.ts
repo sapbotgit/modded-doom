@@ -1,28 +1,27 @@
 // kind of based on p_spec.c
-import type { DoomMap } from "./Map";
-import { MapObject } from "./MapObject";
-import { type DoomGame } from "./game";
-import { ToRadians, randInt } from "./Math";
+import { MapObject } from "./map-object";
+import { ToRadians, randInt } from "./math";
 import { MapObjectIndex, mapObjectInfo } from "./doom-things-info";
-import type { LineDef, Sector } from "./types";
+import type { MapRuntime } from "./map-runtime";
+import type { LineDef, Sector } from "./map-data";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
 
 // General
-export function triggerSpecial(game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1) {
+export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1) {
     if (linedef.special === 9) {
-        return donut(game, map, linedef, mobj, trigger, side);
+        return donut(mobj, linedef, trigger, side);
     }
     return (
-        createDoorAction(game, map, linedef, mobj, trigger) ??
-        createLiftAction(game, map, linedef, mobj, trigger) ??
-        createFloorAction(game, map, linedef, mobj, trigger) ??
-        createCeilingAction(game, map, linedef, mobj, trigger) ??
-        createCrusherCeilingAction(game, map, linedef, mobj, trigger) ??
-        createLightingAction(game, map, linedef, mobj, trigger) ??
-        applyTeleportAction(game, map, linedef, mobj, trigger, side) ??
-        createRisingStairAction(game, map, linedef, mobj, trigger)
+        createDoorAction(mobj, linedef, trigger) ??
+        createLiftAction(mobj, linedef, trigger) ??
+        createFloorAction(mobj, linedef, trigger) ??
+        createCeilingAction(mobj, linedef, trigger) ??
+        createCrusherCeilingAction(mobj, linedef, trigger) ??
+        createLightingAction(mobj, linedef, trigger) ??
+        applyTeleportAction(mobj, linedef, trigger, side) ??
+        createRisingStairAction(mobj, linedef, trigger)
     );
 }
 
@@ -34,29 +33,29 @@ export interface SpecialDefinition {
     repeatable: boolean;
 }
 
-type TargetValueFunction = (map: DoomMap, sector: Sector) => number;
+type TargetValueFunction = (map: MapRuntime, sector: Sector) => number;
 
-const findLowestCeiling = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil.val), floorMax)
-const lowestNeighbourFloor = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zFloor.val), sector.zFloor.val);
-const highestNeighbourFloor = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor.val), -floorMax);
-const nextNeighbourFloor = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor.val > sector.zFloor.val ? Math.min(last, sec.zFloor.val) : last, floorMax);
-const lowestNeighbourCeiling = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil.val), sector.zCeil.val);
-const highestNeighbourCeiling = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil.val), -floorMax);
-const floorHeight = (map: DoomMap, sector: Sector) => sector.zFloor.val;
+const findLowestCeiling = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil.val), floorMax)
+const lowestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zFloor.val), sector.zFloor.val);
+const highestNeighbourFloor = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zFloor.val), -floorMax);
+const nextNeighbourFloor = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => sec.zFloor.val > sector.zFloor.val ? Math.min(last, sec.zFloor.val) : last, floorMax);
+const lowestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.zCeil.val), sector.zCeil.val);
+const highestNeighbourCeiling = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.zCeil.val), -floorMax);
+const floorHeight = (map: MapRuntime, sector: Sector) => sector.zFloor.val;
 
-const shortestLowerTexture = (map: DoomMap, sector: Sector) => {
+const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     let target = floorMax;
-    for (const ld of map.linedefs) {
+    for (const ld of map.data.linedefs) {
         if (ld.left?.sector === sector) {
             // TODO: wallTextureData are both a little expensive (esp wallTexturedata), can we do better?
-            const rtx = map.wad.wallTextureData(ld.right.lower.val);
-            const ltx = map.wad.wallTextureData(ld.left.lower.val);
+            const rtx = map.game.wad.wallTextureData(ld.right.lower.val);
+            const ltx = map.game.wad.wallTextureData(ld.left.lower.val);
             target = Math.min(target,
                     (typeof ltx === 'object' ? ltx.height : Infinity),
                     (typeof rtx === 'object' ? rtx.height : Infinity));
@@ -64,13 +63,13 @@ const shortestLowerTexture = (map: DoomMap, sector: Sector) => {
     }
     return sector.zFloor.val + target;
 };
-const floorValue = (map: DoomMap, sector: Sector) => sector.zFloor.val;
-const adjust = (fn: TargetValueFunction, change: number) => (map: DoomMap, sector: Sector) => fn(map, sector) + change;
+const floorValue = (map: MapRuntime, sector: Sector) => sector.zFloor.val;
+const adjust = (fn: TargetValueFunction, change: number) => (map: MapRuntime, sector: Sector) => fn(map, sector) + change;
 
-type SectorSelectorFunction = (map: DoomMap, sector: Sector, linedef: LineDef) => Sector;
-const selectNum = (map: DoomMap, sector: Sector) => {
+type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => Sector;
+const selectNum = (map: MapRuntime, sector: Sector) => {
     let line: LineDef = null;
-    for (const ld of map.linedefs) {
+    for (const ld of map.data.linedefs) {
         if (ld.flags & 0x0004) {
             if (ld.left.sector === sector && ld.right.sector.zFloor.val === sector.zFloor.val) {
                 line = (line && line.num < ld.num) ? line : ld;
@@ -80,15 +79,15 @@ const selectNum = (map: DoomMap, sector: Sector) => {
     return line ? line.right.sector : sector;
 }
 
-const selectTrigger = (map: DoomMap, sector: Sector, linedef: LineDef) => {
+const selectTrigger = (map: MapRuntime, sector: Sector, linedef: LineDef) => {
     return (!linedef.left || sector === linedef.left.sector) ? linedef.right.sector : linedef.left.sector;
 }
 
 // effects
-type EffectFunction = (map: DoomMap, sector: Sector, linedef: LineDef) => void;
+type EffectFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => void;
 type SectorEffectFunction = (from: Sector, to: Sector) => void;
 const effect = (effects: SectorEffectFunction[], select: SectorSelectorFunction) =>
-    (map: DoomMap, to: Sector, linedef: LineDef) => {
+    (map: MapRuntime, to: Sector, linedef: LineDef) => {
         const from = select(map, to, linedef);
         effects.forEach(ef => ef(from, to))
     };
@@ -170,7 +169,8 @@ const doorDefinitions = [
     doorDefinition(137, 'S1', 'Y', blaze, -1, 'openAndStay'),
 ];
 
-export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = doorDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid door type', linedef.special);
@@ -193,7 +193,7 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
     let triggered = false;
-    const sectors = def.trigger === 'P' ? [linedef.left.sector] : map.sectors.filter(e => e.tag === linedef.tag)
+    const sectors = def.trigger === 'P' ? [linedef.left.sector] : map.data.sectors.filter(e => e.tag === linedef.tag)
     for (const sector of sectors) {
         if (sector.specialData !== null) {
             if (def.trigger === 'P') {
@@ -248,13 +248,13 @@ export const createDoorAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
                 }
 
                 if (finished) {
-                    game.removeAction(action);
+                    map.removeAction(action);
                     sector.specialData = null;
                 }
                 return ceil;
             });
         };
-        game.addAction(action);
+        map.addAction(action);
     }
 
     return triggered ? def : undefined;
@@ -304,7 +304,8 @@ const liftDefinitions = [
     liftDefinition(123, 'SR', 3, 8, -1, floorValue),
 ];
 
-export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = liftDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid lift type', linedef.special);
@@ -318,13 +319,13 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
     }
 
     let triggered = false;
-    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         if (def.stopper || sector.specialData !== null) {
             if (def.stopper) {
-                game.removeAction(sector.specialData);
+                map.removeAction(sector.specialData);
             } else {
-                game.addAction(sector.specialData);
+                map.addAction(sector.specialData);
             }
             // sector is already running an action so don't add another one
             continue;
@@ -368,7 +369,7 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
             });
 
             if (finished) {
-                game.removeAction(action);
+                map.removeAction(action);
                 sector.specialData = null;
                 if (def.direction < 0) {
                     def.effect?.(map, sector, linedef);
@@ -376,7 +377,7 @@ export const createLiftAction = (game: DoomGame, map: DoomMap, linedef: LineDef,
             }
         };
         sector.specialData = action;
-        game.addAction(action);
+        map.addAction(action);
     }
     return triggered ? def : undefined;
 };
@@ -434,7 +435,8 @@ const floorDefinitions = [
     floorDefinition(140, 'S1', 1, slow, null, false, adjust(floorValue, 512)),
 ];
 
-export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = floorDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid floor special', linedef.special);
@@ -450,7 +452,7 @@ export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef
     // TODO: crushing?
 
     let triggered = false;
-    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         if (sector.specialData !== null) {
             continue;
@@ -479,13 +481,13 @@ export const createFloorAction = (game: DoomGame, map: DoomMap, linedef: LineDef
 
             if (finished) {
                 sector.specialData = null;
-                game.removeAction(action);
+                map.removeAction(action);
                 if (def.direction < 0) {
                     def.effect?.(map, sector, linedef);
                 }
             }
         }
-        game.addAction(action);
+        map.addAction(action);
     }
     return triggered ? def : undefined;
 };
@@ -510,7 +512,8 @@ const ceilingDefinitions = [
     ceilingDefinition(72, 'WR', -1, ceilingSlow, adjust(floorHeight, 8)),
 ];
 
-export const createCeilingAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = ceilingDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid ceiling special', linedef.special);
@@ -526,7 +529,7 @@ export const createCeilingAction = (game: DoomGame, map: DoomMap, linedef: LineD
     // TODO: crushing?
 
     let triggered = false;
-    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         if (sector.specialData !== null) {
             continue;
@@ -552,10 +555,10 @@ export const createCeilingAction = (game: DoomGame, map: DoomMap, linedef: LineD
 
             if (finished) {
                 sector.specialData = null;
-                game.removeAction(action);
+                map.removeAction(action);
             }
         }
-        game.addAction(action);
+        map.addAction(action);
     }
     return triggered ? def : undefined;
 };
@@ -583,7 +586,8 @@ const crusherCeilingDefinitions = [
     crusherCeilingDefinition(57, 'W1', null, 'stop'),
 ];
 
-export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = crusherCeilingDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid crusher special', linedef.special);
@@ -600,16 +604,16 @@ export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef
     // TODO: slow down when crushing? (not for fast crushers though...)
 
     let triggered = false;
-    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         // NOTE: E3M4 has an interesting behaviour in the outdoor room because a sector has only 1 special data.
         // If you start the crusher before flipping the switch, you cannot flip the switch to get the bonus items.
         // gzDoom actually handles this but chocolate doom (and I assume the original) did not
         if (def.stopper || sector.specialData !== null) {
             if (def.stopper) {
-                game.removeAction(sector.specialData);
+                map.removeAction(sector.specialData);
             } else {
-                game.addAction(sector.specialData);
+                map.addAction(sector.specialData);
             }
             continue;
         }
@@ -643,18 +647,18 @@ export const createCrusherCeilingAction = (game: DoomGame, map: DoomMap, linedef
             }
         };
         sector.specialData = action;
-        game.addAction(action);
+        map.addAction(action);
     }
     return triggered ? def : undefined;
 };
 
 // Lighting
 const setLightLevel = (val: number) =>
-    (map: DoomMap, sec: Sector) => val;
-const maxNeighbourLight = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.light.val), 0);
-const minNeighbourLight = (map: DoomMap, sector: Sector) =>
-    map.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.light.val), 255);
+    (map: MapRuntime, sec: Sector) => val;
+const maxNeighbourLight = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.max(last, sec.light.val), 0);
+const minNeighbourLight = (map: MapRuntime, sector: Sector) =>
+    map.data.sectorNeighbours(sector).reduce((last, sec) => Math.min(last, sec.light.val), 255);
 export const lowestLight = (sectors: Sector[], max: number) =>
     sectors.reduce((last, sec) => Math.min(last, sec.light.val), max);
 
@@ -678,7 +682,8 @@ const lightingDefinitions = [
     createLightingDefinition(138, 'SR', setLightLevel(255)),
 ];
 
-export const createLightingAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = lightingDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid light special', linedef.special);
@@ -693,11 +698,11 @@ export const createLightingAction = (game: DoomGame, map: DoomMap, linedef: Line
 
     let triggered = false;
     let targetValue = -1;
-    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         if (def.type === 17) {
             // As far as I can tell, type 17 is only used in tnt 09. It's extra special
-            game.addAction(strobeFlash(5, 35)(map, sector));
+            map.addAction(strobeFlash(5, 35)(map, sector));
         } else {
             if (targetValue === -1) {
                 targetValue = def.targetValueFn(map, sector);
@@ -711,9 +716,9 @@ export const createLightingAction = (game: DoomGame, map: DoomMap, linedef: Line
 
 const strobeFlash =
     (lightTicks: number, darkTicks: number, synchronized = false) =>
-    (map: DoomMap, sector: Sector) => {
+    (map: MapRuntime, sector: Sector) => {
         const max = sector.light.initial;
-        const nearestMin = lowestLight(map.sectorNeighbours(sector), max);
+        const nearestMin = lowestLight(map.data.sectorNeighbours(sector), max);
         const min = (nearestMin === max) ? 0 : nearestMin;
         let ticks = synchronized ? 1 : randInt(1, 7);
         return () => {
@@ -732,9 +737,9 @@ const strobeFlash =
         };
     };
 
-const randomFlicker = (map: DoomMap, sector: Sector) => {
+const randomFlicker = (map: MapRuntime, sector: Sector) => {
     const max = sector.light.initial;
-    const min = lowestLight(map.sectorNeighbours(sector), max);
+    const min = lowestLight(map.data.sectorNeighbours(sector), max);
     let ticks = 1;
     return () => {
         if (--ticks) {
@@ -752,9 +757,9 @@ const randomFlicker = (map: DoomMap, sector: Sector) => {
     };
 };
 
-const glowLight = (map: DoomMap, sector: Sector) => {
+const glowLight = (map: MapRuntime, sector: Sector) => {
     const max = sector.light.initial;
-    const min = lowestLight(map.sectorNeighbours(sector), max);
+    const min = lowestLight(map.data.sectorNeighbours(sector), max);
     let step = -8;
     return () => sector.light.update(val => {
         val += step;
@@ -766,9 +771,9 @@ const glowLight = (map: DoomMap, sector: Sector) => {
     });
 };
 
-const fireFlicker = (map: DoomMap, sector: Sector) => {
+const fireFlicker = (map: MapRuntime, sector: Sector) => {
     const max = sector.light.initial;
-    const min = lowestLight(map.sectorNeighbours(sector), max) + 16;
+    const min = lowestLight(map.data.sectorNeighbours(sector), max) + 16;
     let ticks = 4;
     return () => {
         if (--ticks) {
@@ -807,11 +812,12 @@ const teleportDefinitions = [
     createTeleportDefinition(125, 'W1'),
 ];
 
-export const applyTeleportAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     if (side === 1) {
         // don't triggering teleports when leaving the teleport space
         return;
     }
+    const map = mobj.map;
     const def = teleportDefinitions.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid teleport special', linedef.special);
@@ -825,9 +831,9 @@ export const applyTeleportAction = (game: DoomGame, map: DoomMap, linedef: LineD
     }
 
     let triggered = false;
-    const teleports = map.things.filter(e => e.type === 14)
+    const teleports = map.data.things.filter(e => e.type === 14)
     for (const tp of teleports) {
-        let sector = map.findSector(tp.x, tp.y);
+        let sector = map.data.findSector(tp.x, tp.y);
 
         // TODO: check for monster/player-only teleports
         // TODO: for monster teleports, check space is blocked
@@ -850,7 +856,8 @@ export const applyTeleportAction = (game: DoomGame, map: DoomMap, linedef: LineD
 };
 
 // Donut (apparently only in E1M2 and E2M2 and map21 of tnt (none in Doom2 or plutonia)
-export const donut = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = { trigger: 'S', repeatable: false };
     if (trigger !== def.trigger) {
         return;
@@ -861,15 +868,15 @@ export const donut = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapO
 
     let triggered = false;
     const speed = 0.5;
-    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const pillar of sectors) {
         if (pillar.specialData !== null) {
             continue;
         }
         triggered = true;
 
-        const donut = map.sectorNeighbours(pillar)[0];
-        const model = map.sectorNeighbours(donut).filter(e => e !== pillar)[0];
+        const donut = map.data.sectorNeighbours(pillar)[0];
+        const model = map.data.sectorNeighbours(donut).filter(e => e !== pillar)[0];
         const target = model.zFloor.val;
 
         pillar.specialData = def;
@@ -889,10 +896,10 @@ export const donut = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapO
 
             if (finished) {
                 pillar.specialData = null;
-                game.removeAction(pillarAction);
+                map.removeAction(pillarAction);
             }
         };
-        game.addAction(pillarAction);
+        map.addAction(pillarAction);
 
         donut.specialData = def;
         const donutAction = () => {
@@ -913,10 +920,10 @@ export const donut = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapO
                 assignFloorFlat(model, donut);
                 assignSectorType(model, donut);
                 donut.specialData = null;
-                game.removeAction(donutAction);
+                map.removeAction(donutAction);
             }
         };
-        game.addAction(donutAction);
+        map.addAction(donutAction);
     }
     return triggered ? def : undefined;
 };
@@ -938,7 +945,8 @@ const risingStairs = [
     risingStarDefinition(100, 'W1', 4, 16),
 ];
 
-export const createRisingStairAction = (game: DoomGame, map: DoomMap, linedef: LineDef, mobj: MapObject, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+    const map = mobj.map;
     const def = risingStairs.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid riser special', linedef.special);
@@ -952,7 +960,7 @@ export const createRisingStairAction = (game: DoomGame, map: DoomMap, linedef: L
     }
 
     let triggered = false;
-    const sectors = map.sectors.filter(e => e.tag === linedef.tag);
+    const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
     for (const sector of sectors) {
         if (sector.specialData !== null) {
             continue;
@@ -965,10 +973,10 @@ export const createRisingStairAction = (game: DoomGame, map: DoomMap, linedef: L
         let base = sector;
         while (base) {
             target += def.stepSize;
-            raiseFloorAction(game, base, def, target);
+            raiseFloorAction(map, base, def, target);
 
             // find next step to raise
-            const matches = map.sectorNeighbours(base)
+            const matches = map.data.sectorNeighbours(base)
                 .filter(e => e.floorFlat.val === flat && e.specialData === null);
             base = matches.length ? matches[0] : null;
         }
@@ -976,7 +984,7 @@ export const createRisingStairAction = (game: DoomGame, map: DoomMap, linedef: L
     return triggered ? def : undefined;
 };
 
-function raiseFloorAction(game: DoomGame, sector: Sector, def: { speed: number, direction: number }, target: number) {
+function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number, direction: number }, target: number) {
     sector.specialData = def;
     const action = () => {
         let finished = false;
@@ -994,8 +1002,8 @@ function raiseFloorAction(game: DoomGame, sector: Sector, def: { speed: number, 
 
         if (finished) {
             sector.specialData = null;
-            game.removeAction(action);
+            map.removeAction(action);
         }
     }
-    game.addAction(action);
+    map.addAction(action);
 }

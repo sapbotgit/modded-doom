@@ -1,9 +1,9 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
-    import type { PlayerMapObject, RenderSector } from "../doom";
     import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, Color } from "three";
-    import { useDoom } from "./useDoom";
+    import { useDoom, useDoomMap } from "./DoomContext";
     import Wireframe from "./Debug/Wireframe.svelte";
+    import type { RenderSector } from "./RenderData";
 
     export let renderSector: RenderSector;
     export let geometry: BufferGeometry;
@@ -12,9 +12,10 @@
     export let color: number;
     export let ceiling = false;
 
-    const { game, textures, settings, editor } = useDoom();
-    const { position: cameraPosition } = game.camera;
-    const extraLight = (game.player as unknown as PlayerMapObject).extraLight;
+    const { map } = useDoomMap();
+    const { textures, settings, editor } = useDoom();
+    const { position: cameraPosition } = map.camera;
+    const extraLight = map.player.extraLight;
 
     $: visible = (ceiling && $cameraPosition.z <= vertical)
             || (!ceiling && $cameraPosition.z >= vertical);

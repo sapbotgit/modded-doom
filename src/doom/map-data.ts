@@ -1,12 +1,34 @@
-import { store, type Store } from "./Store";
-import type { DoomWad } from "./doomwad";
+import { store, type Store } from "./store";
+import type { DoomWad } from "./wad/doomwad";
 import { Vector3 } from "three";
-import { PlayerMapObject, MapObject } from "./MapObject";
-import { centerSort, circleCircleSweep, closestPoint, dot, lineCircleSweep, lineLineIntersect, normal, pointOnLine, signedLineDistance } from "./Math";
+import { MapObject } from "./map-object";
+import { circleCircleSweep, dot, lineCircleSweep, normal, signedLineDistance, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
-import { weapons } from "./doom-things";
-import type { HandleCollision, IDoomMap, LineDef, PlayerInventory, Sector, SideDef, Thing, Vertex } from "./types";
+import type { GameTime } from "./game";
 
+export type Action = (time: GameTime) => void;
+
+export interface Thing {
+    x: number;
+    y: number;
+    angle: number;
+    type: number;
+    flags: number;
+}
+
+export interface LineDef {
+    num: number;
+    v: Vertex[];
+    flags: number;
+    special: number;
+    tag: number;
+    right?: SideDef;
+    left?: SideDef;
+    // derived
+    xOffset?: Store<number>;
+    // For game processing
+    buttonTimer: Action;
+}
 const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
     num,
     v: [vertexes[ld.vertexStartIdx], vertexes[ld.vertexEndIdx]],
@@ -18,6 +40,14 @@ const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]
     buttonTimer: null,
 });
 
+export interface SideDef {
+    xOffset: Store<number>;
+    yOffset: Store<number>;
+    sector: Sector;
+    upper: Store<string>;
+    lower: Store<string>;
+    middle: Store<string>;
+}
 const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Store<string>>): SideDef => ({
     xOffset: store(sd.offsetX),
     yOffset: store(sd.offsetY),
@@ -28,7 +58,7 @@ const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Store<strin
 });
 
 function fixTextureName(name: string) {
-    return !name || name.startsWith('-') ? undefined : name.split('\u0000')[0];
+    return !name || name.startsWith('-') ? undefined : name.split('\u0000')[0].toUpperCase();
 }
 
 export interface Seg {
@@ -48,6 +78,21 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
     offset: item.offset,
 });
 
+export interface Sector {
+    num: number;
+    rev: Store<number>;
+    tag: number;
+    type: number;
+    zFloor: Store<number>;
+    zCeil: Store<number>;
+    light: Store<number>;
+    floorFlat: Store<string>;
+    ceilFlat: Store<string>;
+    // part of skyhack
+    skyHeight?: number;
+    // Game processing data
+    specialData: any;
+}
 const toSector = (num: number, sd: any, textures: Map<string, Store<string>>): Sector => {
     const sector = {
         num,
@@ -117,6 +162,9 @@ interface Block {
     things: MapObject[];
 }
 
+export interface HandleCollision<Type> {
+    (t: Type, side?: -1 | 1): boolean;
+}
 export function CollisionNoOp() { return false; }
 
 const leftSide = new Vector3();
@@ -151,6 +199,9 @@ class BlockMap {
     }
 
     watch(mobj: MapObject) {
+        if (!(mobj.source.flags & hittableThing)) {
+            return;
+        }
         mobj.position.subscribe(pos => {
             const oldBlock = this.objMap.get(mobj);
             const idx = this.queryIndex(pos.x, pos.y);
@@ -281,25 +332,20 @@ const distSqr = (p1: Vertex, p2: Vertex) => {
 const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 const start = new Vector3();
 const end = new Vector3();
-export class DoomMap implements IDoomMap {
-    readonly name: string;
+export class MapData {
     readonly things: Thing[];
     readonly linedefs: LineDef[];
     readonly vertexes: Vertex[];
     readonly sectors: Sector[];
     readonly nodes: TreeNode[];
-    readonly renderSectors: RenderSector[];
     readonly blockmap: BlockMap;
-    objs: MapObject[];
-    // don't love this rev hack... we need a list with a subscribe method
-    readonly rev = store(1);
 
     readonly animatedTextures: AnimatedTexture[] = [];
 
     constructor(readonly wad: DoomWad, index: number) {
-        this.name = wad.raw[index].name;
-
-        // optimization: use a single writeable per texture name
+        // memory optimization by using a single writeable per texture name
+        // TODO: remove this optimization because it doesn't actually save much memory
+        // and it causes some bugs (as caching can)
         const wallTextures = new Map<string, Store<string>>();
         for (const sidedef of wad.raw[index + 3].contents.entries) {
             const lower = fixTextureName(sidedef.lowerTextureName);
@@ -317,6 +363,14 @@ export class DoomMap implements IDoomMap {
             flatTextures.set(ceilFlat, store(ceilFlat));
         }
 
+        // apply animations only to the cached textures
+        for (const texture of flatTextures.values()) {
+            this.initializeTextureAnimation(wad, texture, 'animatedFlatInfo');
+        }
+        for (const texture of wallTextures.values()) {
+            this.initializeTextureAnimation(wad, texture, 'animatedWallInfo');
+        }
+
         this.things = wad.raw[index + 1].contents.entries;
         this.sectors = wad.raw[index + 8].contents.entries.map((s, i) => toSector(i, s, flatTextures));
         this.vertexes = wad.raw[index + 4].contents.entries;
@@ -329,17 +383,7 @@ export class DoomMap implements IDoomMap {
             n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
-        this.objs = this.things.map(e => this.spawnThing(e)).filter(e => e);
         this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
-        this.objs.forEach(o => this.blockmap.watch(o));
-
-        // apply animations only to the cached textures
-        for (const texture of flatTextures.values()) {
-            this.initializeTextureAnimation(wad, texture, 'animatedFlatInfo');
-        }
-        for (const texture of wallTextures.values()) {
-            this.initializeTextureAnimation(wad, texture, 'animatedWallInfo');
-        }
 
         // figure out any sectors that need sky height adjustment
         for (const sector of this.sectors) {
@@ -350,8 +394,6 @@ export class DoomMap implements IDoomMap {
                 sector.skyHeight = skyHeight;
             }
         }
-
-        this.renderSectors = buildRenderSectors(this.nodes);
     }
 
     private initializeTextureAnimation(wad: DoomWad, target: Store<string>, animInfoFn: 'animatedWallInfo' | 'animatedFlatInfo') {
@@ -365,69 +407,7 @@ export class DoomMap implements IDoomMap {
         })();
     }
 
-    private spawnThing(thing: Thing): MapObject | undefined {
-        if (thing.type === 1) {
-            return this.spawnPlayer(thing);
-        }
-        const noSpawn = (false
-            || thing.type === 0 // plutonia map 12, what?!
-            || thing.type === 2
-            || thing.type === 3
-            || thing.type === 4
-            || thing.type === 11
-            || thing.type === 14
-            || thing.type === 87
-            || thing.type === 89
-        );
-        if (noSpawn) {
-            return;
-        }
-        if (thing.flags & 0x0010) {
-            return; // multiplayer only
-        }
-        return new MapObject(this, thing);
-    }
-
-    private spawnPlayer(thing: Thing) {
-        const inventory: PlayerInventory = {
-            armor: 0,
-            ammo: {
-                bullets: { amount: 50, max: 200 },
-                shells: { amount: 40, max: 50 },
-                rockets: { amount: 40, max: 50 },
-                cells: { amount: 200, max: 300 },
-            },
-            items: {
-                berserkTicks: 0,
-                invincibilityTicks: 0,
-                invisibilityTicks: 0,
-                nightVisionTicks: 0,
-                radiationSuitTicks: 0,
-                computerMap: false,
-            },
-            weapons: [weapons['fist'], weapons['pistol']],
-            // weapons: [...Object.values(weapons)],
-            keys: '',
-        };
-        const player = new PlayerMapObject(store(inventory), this, thing);
-        player.weapon.set(weapons['pistol']);
-        return player;
-    }
-
-    spawn(mobj: MapObject) {
-        this.objs.push(mobj);
-        this.rev.update(v => v += 1);
-        return mobj;
-    }
-
-    destroy(mobj: MapObject) {
-        this.blockmap.unwatch(mobj);
-        // TODO: perf?
-        this.objs = this.objs.filter(e => e !== mobj);
-        this.rev.update(rev => rev += 1);
-    }
-
-    findSubSector(x: number, y: number): SubSector {
+    private findSubSector(x: number, y: number): SubSector {
         let node: TreeNode | SubSector = this.nodes[this.nodes.length - 1];
         while (true) {
             if ('segs' in node) {
@@ -462,14 +442,14 @@ export class DoomMap implements IDoomMap {
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
-    xyCollisions(obj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>, onSpecial: HandleCollision<LineDef>) {
+    xyCollisions(mobj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>, onSpecial: HandleCollision<LineDef>) {
         const maxStepSize = 24;
 
-        start.copy(obj.position.val);
+        start.copy(mobj.position.val);
         end.copy(start).add(move);
 
         let complete = false;
-        const bquery = this.blockmap.trace(start, obj.info.radius, move);
+        const bquery = this.blockmap.trace(start, mobj.info.radius, move);
         for (let i = 0; i < bquery.linedefs.length && !complete; i++) {
             collideLine(bquery.linedefs[i]);
         }
@@ -489,7 +469,7 @@ export class DoomMap implements IDoomMap {
 
         function collideThing(obj2: MapObject) {
             // kind of like PIT_CheckThing
-            if (obj2 === obj) {
+            if (obj2 === mobj) {
                 // don't collide with yourself
                 return;
             }
@@ -500,7 +480,7 @@ export class DoomMap implements IDoomMap {
 
             const hit = circleCircleSweep(
                 obj2.position.val, obj2.info.radius,
-                start, obj.info.radius, move);
+                start, mobj.info.radius, move);
             if (!hit) {
                 return;
             }
@@ -519,7 +499,7 @@ export class DoomMap implements IDoomMap {
                 if (dot(n, move) < 0) {
 
                     // TODO: make this cleaner? we already chek for collision and trigger special below
-                    const hit = lineCircleSweep(linedef.v, move, start, obj.info.radius);
+                    const hit = lineCircleSweep(linedef.v, move, start, mobj.info.radius);
                     if (hit) {
                         triggerSpecial(linedef);
                     }
@@ -527,7 +507,7 @@ export class DoomMap implements IDoomMap {
                 }
             }
 
-            const hit = lineCircleSweep(linedef.v, move, start, obj.info.radius);
+            const hit = lineCircleSweep(linedef.v, move, start, mobj.info.radius);
             if (!hit) {
                 return;
             }
@@ -537,10 +517,10 @@ export class DoomMap implements IDoomMap {
                 const endSect = changeDir > 0 ? linedef.left.sector : linedef.right.sector;
 
                 const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
-                const transitionGapOk = (endSect.zCeil.val - start.z >= obj.info.height);
-                const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= obj.info.height);
+                const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
+                const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
 
-                // console.log('[f,t,cf]',[floorChangeOk,transitionGapOk,newCeilingFloorGapOk])
+                // console.log('[zz,f,t,cf]',[floorChangeOk,transitionGapOk,newCeilingFloorGapOk])
                 if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk) {
                     triggerSpecial(linedef);
                     return;
@@ -581,91 +561,5 @@ export class DoomMap implements IDoomMap {
                 break;
             }
         }
-    }
-}
-
-export interface RenderSector {
-    sector: Sector;
-    vertexes: Vertex[];
-    segs: Seg[];
-    // these are only helpful for debugging. Maybe we can remove them?
-    subsec: SubSector;
-    bspLines: Vertex[][];
-}
-
-function buildRenderSectors(nodes: TreeNode[]) {
-    let sectors: RenderSector[] = [];
-    let bspLines = [];
-
-    function visitNodeChild(child: TreeNode | SubSector) {
-        if ('segs' in child) {
-            const sector = child.sector;
-            const vertexes = subsectorVerts(child.segs, bspLines);
-            sectors.push({ sector, vertexes, segs: child.segs, subsec: child, bspLines: [...bspLines] })
-        } else {
-            visitNode(child);
-        }
-    }
-
-    function visitNode(node: TreeNode) {
-        bspLines.push(node.v);
-        visitNodeChild(node.childLeft);
-        bspLines.pop();
-
-        bspLines.push([node.v[1], node.v[0]]);
-        visitNodeChild(node.childRight);
-        bspLines.pop();
-    }
-
-    visitNode(nodes[nodes.length - 1]);
-    return sectors;
-}
-
-function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
-    fixSegs(segs);
-    // explicit points
-    let segLines = segs.map(e => [e.vx1, e.vx2]);
-    let verts = segLines.flat();
-
-    // implicit points are much more complicated. It took me a while to actually figure this all out.
-    // Here are some helpful links:
-    // - https://www.doomworld.com/forum/topic/105730-drawing-flats-from-ssectors/
-    // - https://www.doomworld.com/forum/topic/50442-dooms-floors/
-    // - https://doomwiki.org/wiki/Subsector
-    //
-    // This source code below was particularly helpful and I implemented something quite similar:
-    // https://github.com/cristicbz/rust-doom/blob/6aa7681cee4e181a2b13ecc9acfa3fcaa2df4014/wad/src/visitor.rs#L670
-    for (let i = 0; i < bspLines.length - 1; i++) {
-        for (let j = i; j < bspLines.length; j++) {
-            let point = lineLineIntersect(bspLines[i], bspLines[j]);
-            if (!point) {
-                continue;
-            }
-
-            // The intersection point must lie both within the BSP volume and the segs volume.
-            // the constants here are a little bit of trial and error but E1M1 had a
-            // couple of subsectors in the zigzag room that helped
-            let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .1);
-            let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1000);
-            if (insideBsp && insideSeg) {
-                verts.push(point);
-            }
-        }
-    }
-    return centerSort(verts)
-}
-
-function fixSegs(segs: Seg[]) {
-    for (const seg of segs) {
-        if (!pointOnLine(seg.vx1, seg.linedef.v)) {
-            seg.vx1 = closestPoint(seg.linedef.v, seg.vx1);
-        }
-        if (!pointOnLine(seg.vx2, seg.linedef.v)) {
-            seg.vx2 = closestPoint(seg.linedef.v, seg.vx2);
-        }
-
-        // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
-        // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
-        seg.angle = Math.atan2(seg.vx2.y - seg.vx1.y, seg.vx2.x - seg.vx1.x);
     }
 }

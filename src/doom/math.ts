@@ -1,10 +1,13 @@
-import type { Vertex } from "./types";
-
 export const HALF_PI = Math.PI * 0.5;
 export const QUARTER_PI = Math.PI * 0.25;
 export const EIGHTH_PI = Math.PI * 0.125;
 export const ToRadians = Math.PI / 180;
 export const ToDegrees = 180 / Math.PI;
+
+export interface Vertex {
+    x: number;
+    y: number;
+}
 
 export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min)) + min;
 

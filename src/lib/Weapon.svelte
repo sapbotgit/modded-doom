@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
     import { MeshStandardMaterial, PlaneGeometry } from "three";
-    import { useDoom } from "./useDoom";
+    import { useDoom } from "./DoomContext";
     import Wireframe from "./Debug/Wireframe.svelte";
     import { weaponTop, type PlayerMapObject } from "../doom";
 
@@ -36,6 +36,7 @@
     }
 
     // flash
+    // TODO: lots of repition here (and partially with Thing.svelte too). Maybe we need a Sprite.svelte component?
     $: flashSprite = $weapon.flashSprite;
     $: flashFrames = $flashSprite && wad.spriteFrames($flashSprite.name);
     $: flashFrame = $flashSprite && flashFrames[$flashSprite.frame][0];
@@ -61,7 +62,7 @@
 {#if texture}
     <Mesh
         {material}
-        renderOrder={1}
+        renderOrder={2}
         geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
         scale={frame.mirror ? { x: -1 } : {}}
         {position}
@@ -72,7 +73,7 @@
     {#if flashTexture}
         <Mesh
             material={flashMaterial}
-            renderOrder={1}
+            renderOrder={2}
             geometry={new PlaneGeometry(flashTexture.userData.width, flashTexture.userData.height)}
             scale={flashFrame.mirror ? { x: -1 } : {}}
             position={flashPosition}

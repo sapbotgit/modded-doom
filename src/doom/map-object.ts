@@ -1,29 +1,26 @@
-import { store, type Store } from "./Store";
-import { SpriteStateMachine, thingSpec } from "./doom-things";
+import { store, type Store } from "./store";
+import { thingSpec } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
-import { ToRadians } from "./Math";
-import { CollisionNoOp, type DoomMap } from "./Map";
-import type { DoomGame } from "./game";
-import {
-    type PlayerInventory,
-    type MapObject as IMapObject,
-    type PlayerMapObject as IPlayerMapObject,
-    type Sector,
-    type PlayerWeapon,
-    type Thing,
-} from "./types";
+import { ToRadians } from "./math";
+import { CollisionNoOp, type Sector, type Thing } from "./map-data";
+import type { GameTime } from "./game";
+import { SpriteStateMachine } from "./sprite";
+import type { MapRuntime } from "./map-runtime";
+import type { PlayerWeapon } from "./things";
 
 const vec = new Vector3();
 const stopVelocity = 0.001;
 const friction = .90625;
-export class MapObject implements IMapObject {
+export class MapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
 
     private sect: Sector;
 
-    protected _state = new SpriteStateMachine(action => { /* TODO: do action... */ });
+    protected _state = new SpriteStateMachine(
+        action => { /* TODO: do action... */ },
+        () => this.map.destroy(this));
     protected zFloor: number;
 
     readonly info: MapObjectInfo;
@@ -36,7 +33,7 @@ export class MapObject implements IMapObject {
 
     get onGround() { return this.position.val.z <= this.zFloor; }
 
-    constructor(readonly map: DoomMap, readonly source: Thing, info?: MapObjectInfo ) {
+    constructor(readonly map: MapRuntime, readonly source: Thing, info?: MapObjectInfo ) {
         this.info = info ?? thingSpec(source.type).mo;
         this.health = store(this.info.spawnhealth);
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
@@ -44,7 +41,7 @@ export class MapObject implements IMapObject {
         this.direction = store(Math.PI + source.angle * ToRadians);
         this.position = store(new Vector3(source.x, source.y, 0));
         this.position.subscribe(p => {
-            const sector = map.findSector(p.x, p.y);
+            const sector = map.data.findSector(p.x, p.y);
             if (!this.sect) {
                 // first time setting sector so set zpos
                 p.z = sector.zFloor.val;
@@ -107,8 +104,8 @@ export class MapObject implements IMapObject {
     }
 
     tick() {
-        // friction (not z because gravity)
         if (this.onGround) {
+            // friction (not z because gravity)
             this.velocity.x *= friction;
             this.velocity.y *= friction;
         }
@@ -119,11 +116,7 @@ export class MapObject implements IMapObject {
     }
 
     setState(stateIndex: number) {
-        if (stateIndex === 0) {
-            this.map.destroy(this);
-            return;
-        }
-        this._state.setState(stateIndex)
+        this._state.setState(stateIndex);
     }
 
     teleport(target: Thing, sector: Sector) {
@@ -136,7 +129,7 @@ export class MapObject implements IMapObject {
         // TODO: 18-tick freeze (reaction) time?
     }
 
-    // make more like P_ZMovement?
+    // kind of P_ZMovement
     protected applyGravity() {
         if (this.onGround) {
             this.position.val.z = this.zFloor;
@@ -146,13 +139,13 @@ export class MapObject implements IMapObject {
         }
     }
 
-    // make more like P_XYMovement?
+    // kind of P_XYMovement
     protected updatePosition() {
         if (this.velocity.lengthSq() < stopVelocity) {
             return;
         }
 
-        this.map.xyCollisions(this, this.velocity,
+        this.map.data.xyCollisions(this, this.velocity,
             CollisionNoOp,
             linedef => {
                 // slide along wall instead of moving through it
@@ -177,7 +170,7 @@ const bobTime = 35 / 20;
 const playerMaxBob = 16;
 const playerViewHeightDefault = 41;
 const playerViewHeightDefaultHalf = playerViewHeightDefault * .5;
-export class PlayerMapObject extends MapObject implements IPlayerMapObject {
+export class PlayerMapObject extends MapObject {
     private viewHeight = playerViewHeightDefault;
     private deltaViewHeight = 0;
 
@@ -187,7 +180,7 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
     readonly weapon = store<PlayerWeapon>(null);
     nextWeapon: PlayerWeapon = null;
 
-    constructor(readonly inventory: Store<PlayerInventory>, map: DoomMap, source: Thing) {
+    constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, source);
 
         this.weapon.subscribe(weapon => {
@@ -227,6 +220,9 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
     }
 
     protected applyGravity(): void {
+        if (this.map.game.settings.freeFly.val) {
+            return;
+        }
         // smooth step up
         if (this.position.val.z < this.zFloor) {
             this.viewHeight -= this.zFloor - this.position.val.z;
@@ -249,8 +245,8 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
     }
 
     // P_CalcHeight in p_user.c
-    computeViewHeight(game: DoomGame) {
-        const delta = game.lastDelta;
+    computeViewHeight(time: GameTime) {
+        const delta = time.delta;
         // if (alive) {
         this.viewHeight += this.deltaViewHeight * 35 * delta;
 
@@ -274,7 +270,7 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
         }
 
         const maxBox = Math.min(this.velocity.lengthSq(), playerMaxBob) / 2;
-        const bob = Math.sin(Math.PI * 2 * bobTime * game.elapsedTime) * maxBox;
+        const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * maxBox;
 
         let viewHeight = this.viewHeight + bob;
 
@@ -285,11 +281,39 @@ export class PlayerMapObject extends MapObject implements IPlayerMapObject {
     // kind of P_TouchSpecialThing in p_inter.c
     pickup(mobj: MapObject) {
         const spec = thingSpec(mobj.source.type);
-        if (spec.onPickup) {
-            const pickedUp = thingSpec(mobj.source.type).onPickup(this);
-            if (pickedUp) {
-                this.map.destroy(mobj);
-            }
+        const pickedUp = spec.onPickup?.(this);
+        if (pickedUp) {
+            this.map.destroy(mobj);
         }
     }
+}
+
+export interface Ammo {
+    amount: number;
+    max: number;
+}
+
+export type AmmoType = keyof PlayerInventory['ammo'];
+
+export interface PlayerInventory {
+    armor: number;
+    ammo: {
+        bullets: Ammo;
+        shells: Ammo;
+        rockets: Ammo;
+        cells: Ammo;
+    },
+    items: {
+        invincibilityTicks: number,
+        invisibilityTicks: number,
+        radiationSuitTicks: number,
+        berserkTicks: number,
+        nightVisionTicks: number,
+        computerMap: boolean,
+    }
+    // weapons:
+    // fist, chainsaw, pistol, shotgun, machine gun, rocket launcher, plasma rifle, bfg
+    weapons: PlayerWeapon[];
+    // keys
+    keys: string; // RYB or RY or B or...
 }

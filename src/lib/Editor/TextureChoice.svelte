@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { useDoom } from "../useDoom";
+    import { useDoom } from "../DoomContext";
     import DoomPic from "../DoomPic.svelte";
 
     export let name: string;

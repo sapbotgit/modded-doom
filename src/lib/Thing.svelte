@@ -1,22 +1,23 @@
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, Color } from 'three';
-    import { useDoom } from './useDoom';
-    import type { MapObject, PlayerMapObject } from '../doom';
-    import { EIGHTH_PI, HALF_PI, QUARTER_PI } from '../doom/Math';
+    import { useDoom, useDoomMap } from './DoomContext';
+    import type { MapObject } from '../doom';
+    import { EIGHTH_PI, HALF_PI, QUARTER_PI } from '../doom';
     import Wireframe from './Debug/Wireframe.svelte';
 
     export let thing: MapObject;
 
-    const { textures, game, editor, wad } = useDoom();
-    const { position: cameraPosition, rotation: cameraRotation } = game.camera;
-    const extraLight = (game.player as unknown as PlayerMapObject).extraLight;
+    const { map } = useDoomMap();
+    const { textures, editor, wad } = useDoom();
+    const { position: cameraPosition, rotation: cameraRotation } = map.camera;
+    const extraLight = map.player.extraLight;
 
     const { sector, position, sprite, direction } = thing;
-    const frames = wad.spriteFrames($sprite.name);
 
     $: ang = Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
+    $: frames = wad.spriteFrames($sprite.name);
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
     $: texture = textures.get(frame.name, 'sprite');

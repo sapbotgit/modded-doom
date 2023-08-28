@@ -1,13 +1,13 @@
 <script lang="ts">
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { randInt } from "../../doom/Math";
+    import { randInt } from "../../doom";
     import DoomPic from "../DoomPic.svelte";
-    import { useDoom } from "../useDoom";
+    import { useDoom } from "../DoomContext";
 
     export let player: PlayerMapObject;
 
     const { game, wad } = useDoom();
-    const { currentTick } = game;
+    const { tick } = game.time;
     const { health, inventory } = player;
 
     const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
@@ -25,7 +25,7 @@
     let state = 'STFST00';
     let data = wad.graphic(state) as any;
 
-    $: if ($currentTick) {
+    $: if ($tick) {
         rampageTime = game.input.attack ? rampageTime + 1 : -0;
 
         state =

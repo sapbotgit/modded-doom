@@ -1,10 +1,11 @@
 <script lang="ts">
     import { Color } from "three";
-    import { type DoomMap, type DoomWad, type LineDef, type Sector, type Thing, type Vertex, type MapObject, type RenderSector, thingSpec } from "../../doom";
-    import { ToRadians, lineLineIntersect, signedLineDistance } from '../../doom/Math';
+    import { type MapData, type DoomWad, type LineDef, type Sector, type Thing, type Vertex, type MapObject, thingSpec } from "../../doom";
+    import { ToRadians, lineLineIntersect, signedLineDistance } from '../../doom';
+    import type { RenderSector } from "../RenderData";
 
     export let wad: DoomWad;
-    export let map: DoomMap;
+    export let map: MapData;
 
     let svgStartSector = true;
     let svgBspBoxes = false;
@@ -192,7 +193,7 @@
     {/if}
 
     {#if svgSubSectors}
-        {#each map.renderSectors as s, i}
+        {#each renderSectors as s, i}
             {@const c = namedColor(i)}
             <path class="subsector" d={subsegPath(s)} fill={"#" + c.toString(16)} on:click={() => clickSubsect(s)} />
             {#if s.vertexes.length === 2}

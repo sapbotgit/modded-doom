@@ -1,12 +1,12 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
-    import type { DoomMap } from "../../doom";
-    import { useDoom } from "../useDoom";
+    import type { MapRuntime } from "../../doom";
+    import { useDoom } from "../DoomContext";
     import LinedefEditor from "./LinedefEditor.svelte";
     import SectorEditor from "./SectorEditor.svelte";
     import ThingEditor from "./ThingEditor.svelte";
 
-    export let map: DoomMap;
+    export let map: MapRuntime;
 
     const { editor } = useDoom();
 

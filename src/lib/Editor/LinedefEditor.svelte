@@ -1,14 +1,14 @@
 <script lang="ts">
-    import type { DoomMap, LineDef } from "../../doom";
-    import { useDoom } from "../useDoom";
+    import type { LineDef, MapRuntime } from "../../doom";
+    import { useDoom, useDoomMap } from "../DoomContext";
     import FlagList from "./FlagList.svelte";
     import SidedefEditor from "./SidedefEditor.svelte";
 
-    const { editor } = useDoom();
-
-    export let map: DoomMap;
+    export let map: MapRuntime;
     export let linedef: LineDef;
 
+    const { editor } = useDoom();
+    const { renderSectors } = useDoomMap();
     // https://doomwiki.org/wiki/Linedef
     const flagInfo: [number, string][] = [
         [0x0001, 'blocks players and monsters'],
@@ -23,7 +23,7 @@
     ];
 
     function tagSector() {
-        $editor.selected = map.renderSectors.find(e => e.sector.tag === linedef.tag);
+        $editor.selected = renderSectors.find(e => e.sector.tag === linedef.tag);
     }
 </script>
 

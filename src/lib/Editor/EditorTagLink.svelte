@@ -1,21 +1,22 @@
 <script lang="ts">
     import { Mesh, Object3DInstance } from "@threlte/core";
-    import type { DoomMap, LineDef, Sector } from "../../doom";
-    import { useDoom } from "../useDoom";
+    import type { LineDef, MapRuntime, Sector } from "../../doom";
+    import { useDoom, useDoomMap } from "../DoomContext";
     import { BoxGeometry, BufferGeometry, Color, Line, MeshBasicMaterial, Vector3 } from "three";
     import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 
-    export let map: DoomMap;
+    export let map: MapRuntime;
 
     const { editor } = useDoom();
+    const { renderSectors } = useDoomMap();
 
-    const mapHeight = map.sectors.reduce((top, sec) => Math.max(sec.zCeil.val, top), -Infinity);
+    const mapHeight = map.data.sectors.reduce((top, sec) => Math.max(sec.zCeil.val, top), -Infinity);
     const lineMaterial = new MeshBasicMaterial({ color: 'cyan' });
     const sectorMaterial = new MeshBasicMaterial({ color: 'magenta' });
 
     $: tag = ($editor.selected && 'tag' in $editor.selected && $editor.selected.tag > 0) ? $editor.selected.tag : null;
-    $: linedefs = (!tag ? [] : map.linedefs.filter(e => e.tag === tag)) as LineDef[];
-    $: sectors = (!tag ? [] : map.sectors.filter(e => e.tag === tag)) as Sector[];
+    $: linedefs = (!tag ? [] : map.data.linedefs.filter(e => e.tag === tag)) as LineDef[];
+    $: sectors = (!tag ? [] : map.data.sectors.filter(e => e.tag === tag)) as Sector[];
 
     const createShape = (position1: Vector3, position2: Vector3) => new Line(
         new BufferGeometry().setFromPoints([
@@ -33,7 +34,7 @@
         }
 
         if ('zFloor' in item) {
-            const rsecs = map.renderSectors.filter(e => e.sector === item);
+            const rsecs = renderSectors.filter(e => e.sector === item);
             const verts = rsecs.map(e => e.vertexes).flat();
             verts.forEach(v => {
                 pos.x += v.x;

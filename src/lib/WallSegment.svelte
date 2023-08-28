@@ -1,10 +1,10 @@
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry, Color, BackSide, FrontSide } from "three";
-    import type { LineDef, PlayerMapObject, Seg, SideDef, Vertex } from "../doom";
+    import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
+    import type { LineDef, Seg, SideDef, Vertex } from "../doom";
     import { Mesh } from "@threlte/core";
-    import { useDoom } from "./useDoom";
-    import { HALF_PI } from "../doom/Math";
+    import { HALF_PI } from "../doom";
     import Wireframe from "./Debug/Wireframe.svelte";
+    import { useDoom, useDoomMap } from "./DoomContext";
 
     export let seg: Seg;
     export let linedef: LineDef;
@@ -29,9 +29,10 @@
     const { yOffset, xOffset } = sidedef;
     const { xOffset: animOffset, flags } = linedef;
 
-    const { wad, settings, textures, editor, game } = useDoom();
+    const { wad, settings, textures, editor } = useDoom();
+    const { map } = useDoomMap();
 
-    const extraLight = (game.player as unknown as PlayerMapObject).extraLight;
+    const extraLight = map.player.extraLight;
     const { light } = sidedef.sector;
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector

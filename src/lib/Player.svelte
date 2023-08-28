@@ -1,14 +1,13 @@
 <script lang="ts">
     import { Mesh, OrthographicCamera, PerspectiveCamera } from "@threlte/core";
-    import { useDoom } from "./useDoom";
     import Thing from "./Thing.svelte";
     import { CircleGeometry, MeshBasicMaterial } from "three";
     import Weapon from "./Weapon.svelte";
-    import type { PlayerMapObject } from "../doom";
+    import { useDoomMap } from "./DoomContext";
 
-    const { game } = useDoom();
-    const { mode, position: cameraPosition, rotation: cameraRotation } = game.camera;
-    const player = game.player as unknown as PlayerMapObject;
+    const { map } = useDoomMap();
+    const { mode, position: cameraPosition, rotation: cameraRotation } = map.camera;
+    const player = map.player;
     const { position: playerPosition } = player;
 
     $: camPos = $cameraPosition;

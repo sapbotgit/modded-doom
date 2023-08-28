@@ -2,7 +2,7 @@
     import type { PlayerMapObject } from "../../doom";
     import DoomPic from "../DoomPic.svelte";
     import BigNum from "./BigNum.svelte";
-    import { useDoom } from "../useDoom";
+    import { useDoom } from "../DoomContext";
     import SmallNum from "./SmallNum.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";

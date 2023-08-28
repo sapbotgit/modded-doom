@@ -1,18 +1,15 @@
 <script lang="ts">
     import { GridHelper } from "three";
-    import { useDoom } from "../useDoom";
-    import type { DoomMap } from "../../doom";
+    import { HALF_PI, type MapRuntime } from "../../doom";
     import { Object3DInstance } from "@threlte/core";
-    import { HALF_PI } from "../../doom/Math";
 
-    export let map: DoomMap;
+    export let map: MapRuntime;
 
     const showBlockmap = false;
 
-    const { game } = useDoom();
-    const { position: playerPosition } = game.player;
+    const { position: playerPosition } = map.player;
 
-    const bbox = map.blockmap.bounds;
+    const bbox = map.data.blockmap.bounds;
     const width = bbox.right - bbox.left;
     const height = bbox.top - bbox.bottom;
     const size = Math.max(width, height);

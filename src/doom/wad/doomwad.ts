@@ -4,7 +4,7 @@
 
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.ts';
-import { DoomMap } from './Map.ts';
+import { MapData } from '../map-data.ts';
 
 type RGB = string;
 type Palette = RGB[];
@@ -23,6 +23,8 @@ export interface Graphic {
     data?: Uint8ClampedArray,
 }
 
+// TODO: support pwads
+// TODO: some unit tests on the picture functions would allow more code re-use. It's messy down there.
 export class DoomWad {
     private mapIndex = new Map<string, number>();
     palettes: Palette[] = [];
@@ -150,7 +152,7 @@ export class DoomWad {
 
     readMap(name: string) {
         const index = this.mapIndex.get(name)
-        return new DoomMap(this, index);
+        return index ? new MapData(this, index) : null;
     }
 
     switchToggle(name: string): string | undefined {

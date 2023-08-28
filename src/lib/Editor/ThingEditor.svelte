@@ -1,14 +1,14 @@
 <script lang="ts">
-    import { type DoomMap, things, thingSpec, type ThingSpec, type Thing, states, SpriteNames } from "../../doom";
-    import { useDoom } from "../useDoom";
+    import { things, thingSpec, type ThingSpec, states, SpriteNames, MapRuntime } from "../../doom";
+    import { useDoom } from "../DoomContext";
     import ThingSprite from "./ThingSprite.svelte";
-    import { ToDegrees, ToRadians } from "../../doom/Math";
+    import { ToDegrees, ToRadians } from "../../doom";
     import FlagList from "./FlagList.svelte";
-    import { MapObject } from "../../doom/MapObject";
+    import { MapObject } from "../../doom/map-object";
 
-    const { editor, textures } = useDoom();
+    const { editor, textures, wad} = useDoom();
 
-    export let map: DoomMap;
+    export let map: MapRuntime;
     export let thing: MapObject;
 
     // https://doomwiki.org/wiki/Thing#Flags
@@ -22,7 +22,7 @@
 
     const { direction, sprite } = thing;
     $: description = thingSpec(thing.source.type).description;
-    const frames = map.wad.spriteFrames($sprite.name);
+    const frames = wad.spriteFrames($sprite.name);
     const frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
     const texture = textures.get(frame.name, 'sprite');
 
@@ -55,7 +55,7 @@
     function editorThing(value: any) {
         const state = states[thingSpec(value.type).mo.spawnstate];
         const sprite = SpriteNames[state.sprite];
-        const frames = (sprite && map.wad.spriteFrames(sprite)) ?? [];
+        const frames = (sprite && wad.spriteFrames(sprite)) ?? [];
         const text = `${value.description} (${value.type})`;
         if (frames.length === 0) {
             // if we don't have sprite frames (like for a doom2 enemy but we're using a doom1 wad)
@@ -78,7 +78,7 @@
             {#each types as t}
                 {#if !selectorFilter.length || t.text.toLowerCase().includes(selectorFilter)}
                     <button on:click={() => changeType(t.value)}>
-                        <ThingSprite {map} frames={t.frames} state={t.state} text={t.text} />
+                        <ThingSprite frames={t.frames} state={t.state} text={t.text} />
                     </button>
                 {/if}
             {/each}

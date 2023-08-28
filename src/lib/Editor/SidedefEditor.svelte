@@ -1,11 +1,13 @@
 <script lang="ts">
-    import type { DoomMap, SideDef } from "../../doom";
+    import type { MapRuntime, SideDef } from "../../doom";
+    import { useDoom } from "../DoomContext";
     import SectorEditor from "./SectorEditor.svelte";
     import TextureChooser from "./TextureChooser.svelte";
 
     export let sidedef: SideDef;
-    export let map: DoomMap;
+    export let map: MapRuntime;
 
+    const { wad } = useDoom();
     let { xOffset, yOffset, upper, middle, lower } = sidedef;
 </script>
 
@@ -20,15 +22,15 @@
     </label>
     <div>
         <span>Upper</span>
-        <TextureChooser wad={map.wad} type="wall" bind:value={$upper} />
+        <TextureChooser {wad} type="wall" bind:value={$upper} />
     </div>
     <div>
         <span>Middle</span>
-        <TextureChooser wad={map.wad} type="wall" bind:value={$middle} />
+        <TextureChooser {wad} type="wall" bind:value={$middle} />
     </div>
     <div>
         <span>Lower</span>
-        <TextureChooser wad={map.wad} type="wall" bind:value={$lower} />
+        <TextureChooser {wad} type="wall" bind:value={$lower} />
     </div>
 
     <SectorEditor {map} sector={sidedef.sector} />

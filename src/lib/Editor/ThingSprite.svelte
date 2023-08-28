@@ -1,9 +1,8 @@
 <script lang="ts">
-    import { useDoom } from "../useDoom";
-    import { type DoomMap, type State } from "../../doom";
+    import { useDoom } from "../DoomContext";
+    import { type State } from "../../doom";
     import DoomPic from "../DoomPic.svelte";
 
-    export let map: DoomMap;
     export let state: State;
     export let frames: any[][];
     export let text: string;

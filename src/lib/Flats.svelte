@@ -1,7 +1,8 @@
 <script lang="ts">
     import { Color, Shape, ShapeGeometry } from "three";
-    import type { RenderSector, Store, Vertex } from "../doom";
+    import type { Store, Vertex } from "../doom";
     import Flat from "./Flat.svelte";
+    import type { RenderSector } from "./RenderData";
 
     export let index: number;
     export let renderSector: RenderSector;

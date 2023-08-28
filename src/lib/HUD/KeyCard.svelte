@@ -1,6 +1,6 @@
 <script lang="ts">
     import DoomPic from "../DoomPic.svelte";
-    import { useDoom } from "../useDoom";
+    import { useDoom } from "../DoomContext";
 
     export let key: string;
 
