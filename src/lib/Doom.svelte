@@ -15,15 +15,19 @@
     const { map } = game;
 
     let showPlayerInfo = false;
+    const { wireframe } = settings;
     const { freelook, noclip, freeFly, cameraMode, timescale } = game.settings;
 </script>
 
-<select bind:value={$cameraMode}>
-    <option>bird</option>
-    <option>ortho</option>
-    <option>1p</option>
-    <option>3p</option>
-</select>
+<label>
+    Camera
+    <select bind:value={$cameraMode}>
+        <option>bird</option>
+        <option>ortho</option>
+        <option>1p</option>
+        <option>3p</option>
+    </select>
+</label>
 <label>
     <input type="checkbox" bind:checked={$noclip} />
     noclip
@@ -47,6 +51,14 @@
 <label style="width:6em; display:inline-block">
     <input style="width:100%" type="range" min={0.05} max={2} step={0.05} bind:value={$timescale} />
     Time ({$timescale})x
+</label>
+<label>
+    Show geometry
+    <select bind:value={$wireframe}>
+        <option>none</option>
+        <option>visible</option>
+        <option>all</option>
+    </select>
 </label>
 
 <div>
