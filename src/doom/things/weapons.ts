@@ -2,10 +2,11 @@ import { Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
 import { ActionIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
-import { randInt } from '../math';
+import { HALF_PI, randInt } from '../math';
 import type { PlayerMapObject, PlayerInventory } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
+import { ticksPerSecond, type GameTime } from "../game";
 
 export const weaponTop = 32;
 const weaponBottom = 32 - 128;
@@ -14,10 +15,10 @@ const shootDirection = new Vector3();
 export class PlayerWeapon {
     private player: PlayerMapObject;
     private _sprite = new SpriteStateMachine(
-        action => weaponActions[action]?.(this.player, this),
+        action => weaponActions[action]?.(this.player.map.game.time, this.player, this),
         self => self.sprite.set(null));
     private _flashSprite = new SpriteStateMachine(
-        action => weaponActions[action]?.(this.player, this),
+        action => weaponActions[action]?.(this.player.map.game.time, this.player, this),
         self => self.sprite.set(null));
     readonly position = store<Vector2>(new Vector2(0, weaponBottom));
     readonly sprite = this._sprite.sprite;
@@ -101,28 +102,29 @@ function giveWeapon(weapon: PlayerWeapon) {
     }
 }
 
+const weaponBobTime = 128 / ticksPerSecond;
 // TODO: I'd actually like to remove these from ActionIndex and instead make them completely local to weapon.ts
 // I'd like to do the same thing with StateIndex (move all weapon states to this file so that all weapon related stuff
 // is isolated from other things). Long term, we could also move enemy and other bits to their own files too so that
 // all the declarations for a type of "thing" are in a single place. Something to aspire to.
-type WeaponAction = (player: PlayerMapObject, weapon: PlayerWeapon) => void
+type WeaponAction = (time: GameTime, player: PlayerMapObject, weapon: PlayerWeapon) => void
 const weaponActions: { [key: number]: WeaponAction } = {
-    [ActionIndex.NULL]: (player, weapon) => {},
-    [ActionIndex.A_Light0]: (player, weapon) => {
+    [ActionIndex.NULL]: (time, player, weapon) => {},
+    [ActionIndex.A_Light0]: (time, player, weapon) => {
         player.extraLight.set(0);
     },
-    [ActionIndex.A_Light1]: (player, weapon) => {
+    [ActionIndex.A_Light1]: (time, player, weapon) => {
         player.extraLight.set(16);
     },
-    [ActionIndex.A_Light2]: (player, weapon) => {
+    [ActionIndex.A_Light2]: (time, player, weapon) => {
         // really?? light up every sector everywhere?
         player.extraLight.set(32);
     },
-    [ActionIndex.A_GunFlash]: (player, weapon) => {
+    [ActionIndex.A_GunFlash]: (time, player, weapon) => {
         player.setState(StateIndex.S_PLAY_ATK2);
         weapon.flash();
     },
-    [ActionIndex.A_Lower]: (player, weapon) => {
+    [ActionIndex.A_Lower]: (time, player, weapon) => {
         weapon.position.update(pos => {
             pos.y -= 6;
             if (pos.y < weaponBottom) {
@@ -133,7 +135,7 @@ const weaponActions: { [key: number]: WeaponAction } = {
             return pos;
         });
     },
-    [ActionIndex.A_Raise]: (player, weapon) => {
+    [ActionIndex.A_Raise]: (time, player, weapon) => {
         weapon.position.update(pos => {
             pos.y += 6;
             if (pos.y > weaponTop) {
@@ -143,7 +145,7 @@ const weaponActions: { [key: number]: WeaponAction } = {
             return pos;
         });
     },
-    [ActionIndex.A_WeaponReady]: (player, weapon) => {
+    [ActionIndex.A_WeaponReady]: (time, player, weapon) => {
         if (player.nextWeapon) {
             // once weapon is down, nextWeapon will be activated
             weapon.deactivate();
@@ -153,8 +155,16 @@ const weaponActions: { [key: number]: WeaponAction } = {
         if (player.attacking) {
             weapon.fire();
         }
+
+        // bob the weapon based on movement speed
+        weapon.position.update(pos => {
+            let angle = (weaponBobTime * time.elapsed) * HALF_PI;
+            pos.x = Math.cos(angle) * player.bob;
+            pos.y = weaponTop - (Math.cos(angle * 2 - Math.PI) + 1) * .5 * player.bob;
+            return pos;
+        });
     },
-    [ActionIndex.A_ReFire]: (player, weapon) => {
+    [ActionIndex.A_ReFire]: (time, player, weapon) => {
         if (player.attacking) {
             player.refire = true;
             weapon.fire();
@@ -163,14 +173,14 @@ const weaponActions: { [key: number]: WeaponAction } = {
         }
     },
 
-    [ActionIndex.A_Punch]: (player, weapon) => {
+    [ActionIndex.A_Punch]: (time, player, weapon) => {
         // TODO: damage infront and spawn puff/blood
     },
-    [ActionIndex.A_Saw]: (player, weapon) => {
+    [ActionIndex.A_Saw]: (time, player, weapon) => {
         // TODO: damage in front and look at target (if there is one) and spawn puff/blood
     },
-    [ActionIndex.A_FirePistol]: (player, weapon) => {
-        weaponActions[ActionIndex.A_GunFlash](player, weapon);
+    [ActionIndex.A_FirePistol]: (time, player, weapon) => {
+        weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
         // TODO: shoot bullet (wip below...)
@@ -202,50 +212,50 @@ const weaponActions: { [key: number]: WeaponAction } = {
         //         return true;
         //     });
     },
-    [ActionIndex.A_FireShotgun]: (player, weapon) => {
-        weaponActions[ActionIndex.A_GunFlash](player, weapon);
+    [ActionIndex.A_FireShotgun]: (time, player, weapon) => {
+        weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
         // TODO: shoot 7 bullets
     },
 
-    [ActionIndex.A_FireShotgun2]: (player, weapon) => {
+    [ActionIndex.A_FireShotgun2]: (time, player, weapon) => {
         // BUG: A_GunFlash goes to flash state but super shotgun has 2 flashes (5 tics and 4 ticks)
         // but we only show the gun frame for 7 so we get an artifact on screen. We can see this bug in
         // chocolate doom but not gzdoom
-        weaponActions[ActionIndex.A_GunFlash](player, weapon);
+        weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
         // TODO: shoot 20 bullets
     },
-    [ActionIndex.A_OpenShotgun2]: (player, weapon) => {
+    [ActionIndex.A_OpenShotgun2]: (time, player, weapon) => {
     },
-    [ActionIndex.A_LoadShotgun2]: (player, weapon) => {
+    [ActionIndex.A_LoadShotgun2]: (time, player, weapon) => {
     },
-    [ActionIndex.A_CloseShotgun2]: (player, weapon) => {
-        weaponActions[ActionIndex.A_ReFire](player, weapon);
+    [ActionIndex.A_CloseShotgun2]: (time, player, weapon) => {
+        weaponActions[ActionIndex.A_ReFire](time, player, weapon);
     },
 
-    [ActionIndex.A_FireCGun]: (player, weapon) => {
+    [ActionIndex.A_FireCGun]: (time, player, weapon) => {
         weapon.flash(weapon.sprite.val.frame);
         player.setState(StateIndex.S_PLAY_ATK2);
         useAmmo(player, weapon);
 
         // TODO: shoot bullet
     },
-    [ActionIndex.A_FireMissile]: (player, weapon) => {
+    [ActionIndex.A_FireMissile]: (time, player, weapon) => {
         useAmmo(player, weapon);
 
         // TODO: shoot bullet
     },
-    [ActionIndex.A_FirePlasma]: (player, weapon) => {
+    [ActionIndex.A_FirePlasma]: (time, player, weapon) => {
         weapon.flash(randInt(0, 2));
         // don't go to S_PLAY_ATK2... was that intentional in doom?
         useAmmo(player, weapon);
 
         // TODO: shoot bullet
     },
-    [ActionIndex.A_FireBFG]: (player, weapon) => {
+    [ActionIndex.A_FireBFG]: (time, player, weapon) => {
         useAmmo(player, weapon);
 
         // TODO: shoot bullet

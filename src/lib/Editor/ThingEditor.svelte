@@ -6,7 +6,7 @@
     import FlagList from "./FlagList.svelte";
     import { MapObject } from "../../doom/map-object";
 
-    const { editor, textures, wad} = useDoom();
+    const { editor, textures, wad } = useDoom();
 
     export let map: MapRuntime;
     export let thing: MapObject;

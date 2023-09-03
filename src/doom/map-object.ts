@@ -4,7 +4,7 @@ import { StateIndex, MFFlags, type MapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
 import { ToRadians } from "./math";
 import { CollisionNoOp, type Sector, type Thing } from "./map-data";
-import type { GameTime } from "./game";
+import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon } from "./things";
@@ -166,7 +166,7 @@ export class MapObject {
 const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap'>)[] =
     ['berserkTicks', 'invincibilityTicks', 'invisibilityTicks', 'nightVisionTicks', 'radiationSuitTicks'];
 
-const bobTime = 35 / 20;
+const bobTime = ticksPerSecond / 20;
 const playerMaxBob = 16;
 const playerViewHeightDefault = 41;
 const playerViewHeightDefaultHalf = playerViewHeightDefault * .5;
@@ -174,6 +174,7 @@ export class PlayerMapObject extends MapObject {
     private viewHeight = playerViewHeightDefault;
     private deltaViewHeight = 0;
 
+    bob = 0;
     attacking = false;
     refire = false;
     readonly extraLight = store(0);
@@ -269,8 +270,8 @@ export class PlayerMapObject extends MapObject {
             this.deltaViewHeight = 1;
         }
 
-        const maxBox = Math.min(this.velocity.lengthSq(), playerMaxBob) / 2;
-        const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * maxBox;
+        this.bob = Math.min(this.velocity.lengthSq(), playerMaxBob);
+        const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * this.bob * .5;
 
         let viewHeight = this.viewHeight + bob;
 
