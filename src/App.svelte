@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DoomWad, Game, store, MapRuntime, type Skill } from './doom';
+  import { DoomWad, Game, store, MapRuntime, type Skill, type Picture } from './doom';
   import Doom from './lib/Doom.svelte';
   import MathDebug from './lib/Debug/MathDebug.svelte';
   import SvgMap from './lib/Debug/SvgMap.svelte';

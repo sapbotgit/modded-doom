@@ -21,15 +21,15 @@
         Texture y-offset {$yOffset}
     </label>
     <div>
-        <span>Upper</span>
+        <div>Upper</div>
         <TextureChooser {wad} type="wall" bind:value={$upper} on:change={() => map.initializeTextureAnimation(upper, 'wall')} />
     </div>
     <div>
-        <span>Middle</span>
+        <div>Middle</div>
         <TextureChooser {wad} type="wall" bind:value={$middle} on:change={() => map.initializeTextureAnimation(middle, 'wall')} />
     </div>
     <div>
-        <span>Lower</span>
+        <div>Lower</div>
         <TextureChooser {wad} type="wall" bind:value={$lower} on:change={() => map.initializeTextureAnimation(lower, 'wall')} />
     </div>
 

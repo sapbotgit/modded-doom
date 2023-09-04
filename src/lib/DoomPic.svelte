@@ -1,21 +1,27 @@
+<script lang="ts" context="module">
+    // cache ImageData so we don't always create a new image context when we load a new image
+    const cache = new Map<string, ImageData>();
+</script>
 <script lang="ts">
     import { afterUpdate } from "svelte";
-    import type { Graphic } from "../doom";
+    import { useDoom } from "./DoomContext";
 
-    export let data: Graphic;
+    export let name: string;
+    export let type: 'wall' | 'flat' | 'any' = 'any';
+
+    const { wad } = useDoom();
+    $: data = type === 'any' ? wad.graphic(name) :
+        type === 'wall' ? wad.wallTextureData(name) :
+        wad.flatTextureData(name);
 
     let canvas: HTMLCanvasElement;
-    // TODO: this feels is inefficient... draw a new canvas whenever the picture changes?
-    // Can't we cache these somehow?
     afterUpdate(() => {
         const ctx = canvas.getContext('2d');
-        const imageData = ctx.createImageData(data.width, data.height);
-        const px = data.buffer ?? data.data;
-        for (let i = 0; i < data.width * data.height; i++) {
-            imageData.data[i * 4 + 0] = px[i * 4 + 0];
-            imageData.data[i * 4 + 1] = px[i * 4 + 1];
-            imageData.data[i * 4 + 2] = px[i * 4 + 2];
-            imageData.data[i * 4 + 3] = px[i * 4 + 3];
+        const key = name + type;
+        const imageData = cache.get(key) ?? ctx.createImageData(data.width, data.height);
+        if (!cache.has(key)) {
+            cache.set(key, imageData);
+            data.toBuffer(imageData.data);
         }
         ctx.putImageData(imageData, 0, 0);
     });

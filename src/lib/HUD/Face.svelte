@@ -6,7 +6,7 @@
 
     export let player: PlayerMapObject;
 
-    const { game, wad } = useDoom();
+    const { game } = useDoom();
     const { tick } = game.time;
     const { health, inventory } = player;
 
@@ -23,7 +23,6 @@
 
     $: healthIndex = clamp(painFaces - Math.trunc($health * painDivisor), 1, painFaces) - 1; // -1 because index is from 0 to 4
     let state = 'STFST00';
-    let data = wad.graphic(state) as any;
 
     $: if ($tick) {
         rampageTime = game.input.attack ? rampageTime + 1 : -0;
@@ -36,7 +35,6 @@
             rampageTime > 2 * ticksPerSecond ? faceState(`STFKILL${healthIndex}`, 5, 1) :
             $inventory.items.invincibilityTicks ? faceState('STFGOD0', 4, 1) : // invincibility
             faceState('STFST' + healthIndex + variation, 0, Math.trunc(ticksPerSecond * 0.5)); // straight or left/right eye brow
-        data = wad.graphic(state) as any;
     }
 
     let oldWeapons = [...$inventory.weapons];
@@ -69,4 +67,4 @@
 
 </script>
 
-<DoomPic {data} />
+<DoomPic name={state} />

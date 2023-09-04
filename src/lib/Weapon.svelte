@@ -3,13 +3,12 @@
     import { MeshStandardMaterial, PlaneGeometry } from "three";
     import { useDoom } from "./DoomContext";
     import Wireframe from "./Debug/Wireframe.svelte";
-    import { weaponTop, type PlayerMapObject, HALF_PI } from "../doom";
+    import { weaponTop, type PlayerMapObject } from "../doom";
 
     export let player: PlayerMapObject;
 
-    const { textures, wad, game } = useDoom();
+    const { textures, wad } = useDoom();
     const { sector, weapon } = player;
-    const tick = game.time.tick;
 
     $: sprite = $weapon.sprite;
     $: frames = $sprite && wad.spriteFrames($sprite.name);

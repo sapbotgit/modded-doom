@@ -40,6 +40,8 @@
     const needSkyWall = $ceilFlatR === 'F_SKY1'
     const skyHack = ($ceilFlatL === 'F_SKY1' && needSkyWall);
     const skyHeight = linedef.right.sector.skyHeight;
+
+    // FIXME: what is up with plutonia Map28 and sector 199/198?
 </script>
 
 {#if sidedef && width > 0}

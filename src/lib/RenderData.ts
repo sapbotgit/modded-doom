@@ -11,6 +11,8 @@ import {
     type Vertex,
     type SubSector,
     type Sector,
+    MapRuntime,
+    MapData,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 
@@ -39,8 +41,10 @@ export class MapTextures {
                 type === 'flat' ? 'flatTextureData' :
                 'spriteTextureData';
             const data = this.wad[loadFn](name);
-            if (typeof data === 'object') {
-                texture = new DataTexture(data.buffer, data.width, data.height)
+            if (data) {
+                const buffer = new Uint8ClampedArray(data.width * data.height * 4);
+                data.toBuffer(buffer);
+                texture = new DataTexture(buffer, data.width, data.height)
                 texture.wrapS = RepeatWrapping;
                 texture.wrapT = RepeatWrapping;
                 texture.flipY = true;
@@ -56,6 +60,7 @@ export class MapTextures {
                 }
 
                 if (type === 'sprite') {
+                    // don't wrap sprites
                     texture.wrapS = ClampToEdgeWrapping;
                     texture.wrapT = ClampToEdgeWrapping;
                 }
@@ -71,7 +76,7 @@ export class MapTextures {
             this.cache.set(cacheKey, texture);
         }
         if (!texture) {
-            console.warn('missing texture', name, type)
+            console.warn('missing', type, name, type)
         }
         return texture;
     }
@@ -92,7 +97,7 @@ export interface RenderSector {
     bspLines: Vertex[][];
 }
 
-export function buildRenderSectors(nodes: TreeNode[]) {
+export function buildRenderSectors(map: MapData) {
     let sectors: RenderSector[] = [];
     let bspLines = [];
 
@@ -116,7 +121,7 @@ export function buildRenderSectors(nodes: TreeNode[]) {
         bspLines.pop();
     }
 
-    visitNode(nodes[nodes.length - 1]);
+    visitNode(map.nodes[map.nodes.length - 1]);
     return sectors;
 }
 

@@ -2,7 +2,6 @@
     import type { PlayerMapObject } from "../../doom";
     import DoomPic from "../DoomPic.svelte";
     import BigNum from "./BigNum.svelte";
-    import { useDoom } from "../DoomContext";
     import SmallNum from "./SmallNum.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
@@ -10,15 +9,11 @@
     export let player: PlayerMapObject;
     const inv = player.inventory;
     const { health, weapon } = player;
-
-    const { wad } = useDoom();
-    const background = wad.graphic('STBAR') as any;
-    const armsBackground = wad.graphic('STARMS') as any;
     $: weaponLights = $inv.weapons.map(e => e.num);
 </script>
 
 <div class="root">
-    <DoomPic data={background} />
+    <DoomPic name={'STBAR'} />
     <div class="ammo">
         {#if $inv.ammo[$weapon.ammoType]}
             <BigNum value={$inv.ammo[$weapon.ammoType].amount} />
@@ -28,7 +23,7 @@
         <BigNum value={$health} percent />
     </div>
     <div class="arms">
-        <DoomPic data={armsBackground} />
+        <DoomPic name={'STARMS'} />
         <span><SmallNum value={2} altNum={!weaponLights.includes(2)} /></span>
         <span><SmallNum value={3} altNum={!weaponLights.includes(3)} /></span>
         <span><SmallNum value={4} altNum={!weaponLights.includes(4)} /></span>

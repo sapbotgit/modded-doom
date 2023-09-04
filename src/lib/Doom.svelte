@@ -17,7 +17,7 @@
 
     $: setContext('doom-map', {
         map: $map,
-        renderSectors: buildRenderSectors($map.data.nodes),
+        renderSectors: buildRenderSectors($map.data),
     });
 
     let showPlayerInfo = false;

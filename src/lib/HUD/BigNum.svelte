@@ -1,36 +1,26 @@
 <script lang="ts">
     import DoomPic from "../DoomPic.svelte";
-    import { useDoom } from "../DoomContext";
 
     export let value: number;
     export let percent = false;
 
-    const { wad } = useDoom();
-    const percentGfx = wad.graphic('STTPRCNT') as any;
-
-    // STTNUM1 is 11px instead of 16px like the other numbers so we have to adjust
-    // spacing when we have a 1
-    // $: oneSpace = value % 10 === 1;
-    $: hundredsGfx = wad.graphic(`STTNUM${Math.trunc(value / 100) % 10}`) as any;
-    $: tensGfx = wad.graphic(`STTNUM${Math.trunc(value / 10) % 10}`) as any;
-    $: onesGfx = wad.graphic(`STTNUM${value % 10}`) as any;
     let width = percent ? 64 : 48;
 </script>
 
 <div style={`width:${width}px`}>
     {#if value >= 100}
-        <DoomPic data={hundredsGfx} />
+        <DoomPic name={`STTNUM${Math.trunc(value / 100) % 10}`} />
     {:else}
         <span class="space" />
     {/if}
     {#if value >= 10}
-        <DoomPic data={tensGfx} />
+        <DoomPic name={`STTNUM${Math.trunc(value / 10) % 10}`} />
     {:else}
         <span class="space" />
     {/if}
-    <DoomPic data={onesGfx} />
+    <DoomPic name={`STTNUM${value % 10}`} />
     {#if percent}
-        <DoomPic data={percentGfx} />
+        <DoomPic name={'STTPRCNT'} />
     {/if}
 </div>
 

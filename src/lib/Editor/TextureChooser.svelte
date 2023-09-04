@@ -25,19 +25,29 @@
     const options = type == 'flat' ? wad.flatsNames() : wad.texturesNames();
 </script>
 
-<button on:click={toggleSelector}>{value}</button>
-{#if showSelector}
-    <div class="selector">
-        <input autofocus type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
-        {#each options as o}
-            {#if !selectorFilter.length || o.toLowerCase().includes(selectorFilter)}
-                <button on:click={() => change(o)}>
-                    <TextureChoice name={o} {type} />
-                </button>
-            {/if}
-        {/each}
-    </div>
-{/if}
+<button on:click={toggleSelector}>
+    {#if value}
+        <TextureChoice name={value} {type} />
+    {:else}
+        {value}
+    {/if}
+</button>
+<div>
+    {#if showSelector}
+        <div class="selector">
+            <input autofocus type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
+            <div class="options">
+                {#each options as o}
+                    {#if !selectorFilter.length || o.toLowerCase().includes(selectorFilter)}
+                        <button on:click={() => change(o)}>
+                            <TextureChoice name={o} {type} />
+                        </button>
+                    {/if}
+                {/each}
+            </div>
+        </div>
+    {/if}
+</div>
 
 <style>
     div {
@@ -46,10 +56,20 @@
 
     .selector {
         z-index: 1;
-        overflow-y: scroll;
-        max-height: 30em;
         position: absolute;
+        top: 0;
+        left: 0;
+        max-width: 30em;
         display: flex;
         flex-direction: column;
+        background: #1a1a1a;
+    }
+
+    .options {
+        overflow-y: scroll;
+        max-height: 30em;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
     }
 </style>
