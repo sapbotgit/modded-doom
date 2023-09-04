@@ -85,24 +85,23 @@ const selectTrigger = (map: MapRuntime, sector: Sector, linedef: LineDef) => {
 
 // effects
 type EffectFunction = (map: MapRuntime, sector: Sector, linedef: LineDef) => void;
-type SectorEffectFunction = (from: Sector, to: Sector) => void;
+type SectorEffectFunction = (map: MapRuntime, from: Sector, to: Sector) => void;
 const effect = (effects: SectorEffectFunction[], select: SectorSelectorFunction) =>
     (map: MapRuntime, to: Sector, linedef: LineDef) => {
         const from = select(map, to, linedef);
-        effects.forEach(ef => ef(from, to))
+        effects.forEach(ef => ef(map, from, to))
     };
 
-const assignFloorFlat = (from: Sector, to: Sector) => {
-    to.floorFlat = from.floorFlat;
-    to.rev.update(rev => ++rev);
+const assignFloorFlat = (map: MapRuntime, from: Sector, to: Sector) => {
+    to.floorFlat.set(from.floorFlat.val);
+    map.initializeTextureAnimation(to.floorFlat, 'flat');
 }
 
-const assignSectorType = (from: Sector, to: Sector) => {
-    // not need to update rev because the UI doesn't depend on it
+const assignSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
     to.type = from.type;
 }
 
-const zeroSectorType = (from: Sector, to: Sector) => {
+const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
     to.type = 0;
 }
 
@@ -917,8 +916,8 @@ export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, s
             });
 
             if (finished) {
-                assignFloorFlat(model, donut);
-                assignSectorType(model, donut);
+                assignFloorFlat(map, model, donut);
+                assignSectorType(map, model, donut);
                 donut.specialData = null;
                 map.removeAction(donutAction);
             }

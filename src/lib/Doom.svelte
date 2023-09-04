@@ -6,6 +6,7 @@
     import MapGeo from "./MapGeo.svelte";
     import { pointerLockControls } from "./ZAxisPointerLock";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
+    import { buildRenderSectors } from "./RenderData";
 
     export let game: Game;
 
@@ -13,6 +14,11 @@
     setContext('doom-context', doomContext);
     const { settings, editor } = doomContext;
     const { map } = game;
+
+    $: setContext('doom-map', {
+        map: $map,
+        renderSectors: buildRenderSectors($map.data.nodes),
+    });
 
     let showPlayerInfo = false;
     const { wireframe } = settings;

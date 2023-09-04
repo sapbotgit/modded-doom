@@ -1,10 +1,13 @@
 <script lang="ts">
+    import { createEventDispatcher } from "svelte";
     import type { DoomWad } from "../../doom";
     import TextureChoice from "./TextureChoice.svelte";
 
     export let type: 'wall' | 'flat';
     export let value: string;
     export let wad: DoomWad;
+
+    const dispatch = createEventDispatcher();
 
     let showSelector = false;
     let selectorFilter = '';
@@ -16,6 +19,7 @@
         value = val;
         selectorFilter = '';
         showSelector = false;
+        dispatch('change');
     }
 
     const options = type == 'flat' ? wad.flatsNames() : wad.texturesNames();

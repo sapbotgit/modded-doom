@@ -48,13 +48,13 @@ export interface SideDef {
     lower: Store<string>;
     middle: Store<string>;
 }
-const toSideDef = (sd: any, sectors: Sector[], textures: Map<string, Store<string>>): SideDef => ({
+const toSideDef = (sd: any, sectors: Sector[]): SideDef => ({
     xOffset: store(sd.offsetX),
     yOffset: store(sd.offsetY),
     sector: sectors[sd.sectorId],
-    lower: textures.get(fixTextureName(sd.lowerTextureName)),
-    middle: textures.get(fixTextureName(sd.normalTextureName)),
-    upper: textures.get(fixTextureName(sd.upperTextureName)),
+    lower: store(fixTextureName(sd.lowerTextureName)),
+    middle: store(fixTextureName(sd.normalTextureName)),
+    upper: store(fixTextureName(sd.upperTextureName)),
 });
 
 function fixTextureName(name: string) {
@@ -80,7 +80,6 @@ const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
 
 export interface Sector {
     num: number;
-    rev: Store<number>;
     tag: number;
     type: number;
     zFloor: Store<number>;
@@ -93,7 +92,7 @@ export interface Sector {
     // Game processing data
     specialData: any;
 }
-const toSector = (num: number, sd: any, textures: Map<string, Store<string>>): Sector => {
+const toSector = (num: number, sd: any): Sector => {
     const sector = {
         num,
         // rev is a reactivity hack to allow me to re-assign textures during sector floor/ceiling change
@@ -104,8 +103,8 @@ const toSector = (num: number, sd: any, textures: Map<string, Store<string>>): S
         zFloor: store(sd.floorZ),
         zCeil: store(sd.ceilZ),
         light: store(sd.light),
-        floorFlat: textures.get(fixTextureName(sd.floorFlat)),
-        ceilFlat: textures.get(fixTextureName(sd.ceilFlat)),
+        floorFlat: store(fixTextureName(sd.floorFlat)),
+        ceilFlat: store(fixTextureName(sd.ceilFlat)),
         specialData: null,
     };
     return sector;
@@ -149,13 +148,6 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
         ? ssector[idx & 0x7fff]
         : nodes[idx & 0x7fff];
 };
-
-export interface AnimatedTexture {
-    frames: string[];
-    current: number;
-    speed: number;
-    target: Store<string>;
-}
 
 interface Block {
     linedefs: LineDef[];
@@ -340,41 +332,11 @@ export class MapData {
     readonly nodes: TreeNode[];
     readonly blockmap: BlockMap;
 
-    readonly animatedTextures: AnimatedTexture[] = [];
-
     constructor(readonly wad: DoomWad, index: number) {
-        // memory optimization by using a single writeable per texture name
-        // TODO: remove this optimization because it doesn't actually save much memory
-        // and it causes some bugs (as caching can)
-        const wallTextures = new Map<string, Store<string>>();
-        for (const sidedef of wad.raw[index + 3].contents.entries) {
-            const lower = fixTextureName(sidedef.lowerTextureName);
-            const middle = fixTextureName(sidedef.normalTextureName);
-            const upper = fixTextureName(sidedef.upperTextureName);
-            wallTextures.set(lower, store(lower));
-            wallTextures.set(middle, store(middle));
-            wallTextures.set(upper, store(upper));
-        }
-        const flatTextures = new Map<string, Store<string>>();
-        for (const sector of wad.raw[index + 8].contents.entries) {
-            const floorFlat = fixTextureName(sector.floorFlat);
-            const ceilFlat = fixTextureName(sector.ceilFlat);
-            flatTextures.set(floorFlat, store(floorFlat));
-            flatTextures.set(ceilFlat, store(ceilFlat));
-        }
-
-        // apply animations only to the cached textures
-        for (const texture of flatTextures.values()) {
-            this.initializeTextureAnimation(wad, texture, 'animatedFlatInfo');
-        }
-        for (const texture of wallTextures.values()) {
-            this.initializeTextureAnimation(wad, texture, 'animatedWallInfo');
-        }
-
         this.things = wad.raw[index + 1].contents.entries;
-        this.sectors = wad.raw[index + 8].contents.entries.map((s, i) => toSector(i, s, flatTextures));
+        this.sectors = wad.raw[index + 8].contents.entries.map((s, i) => toSector(i, s));
         this.vertexes = wad.raw[index + 4].contents.entries;
-        const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors, wallTextures));
+        const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
         this.linedefs = wad.raw[index + 2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
         const segs: Seg[]  = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
         const subsectors: SubSector[] = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, segs));
@@ -394,17 +356,6 @@ export class MapData {
                 sector.skyHeight = skyHeight;
             }
         }
-    }
-
-    private initializeTextureAnimation(wad: DoomWad, target: Store<string>, animInfoFn: 'animatedWallInfo' | 'animatedFlatInfo') {
-        // wall/flat animations are all 8 ticks each
-        const speed = 8;
-        target.subscribe(v => {
-            const animInfo = wad[animInfoFn](v);
-            if (animInfo) {
-                this.animatedTextures.push({ frames: animInfo[1], current: animInfo[0], target, speed });
-            }
-        })();
     }
 
     private findSubSector(x: number, y: number): SubSector {

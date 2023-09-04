@@ -7,9 +7,17 @@ import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerT
 import { MFFlags } from "./doom-things-info";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
 
+interface AnimatedTexture {
+    frames: string[];
+    current: number;
+    speed: number;
+    target: Store<string>;
+}
+
 export class MapRuntime {
     readonly data: MapData; // TODO: make this non-public?
     private actions: Action[] = [];
+    private animatedTextures: AnimatedTexture[] = [];
 
     readonly player: PlayerMapObject;
     readonly camera: Camera;
@@ -39,6 +47,22 @@ export class MapRuntime {
         this.objs.forEach(o => this.data.blockmap.watch(o));
 
         this.synchronizeActions();
+
+        // initialize animated textures
+        for (const sector of this.data.sectors) {
+            this.initializeTextureAnimation(sector.ceilFlat, 'flat');
+            this.initializeTextureAnimation(sector.floorFlat, 'flat');
+        }
+        for (const linedef of this.data.linedefs) {
+            this.initializeTextureAnimation(linedef.right.lower, 'wall');
+            this.initializeTextureAnimation(linedef.right.middle, 'wall');
+            this.initializeTextureAnimation(linedef.right.upper, 'wall');
+            if (linedef.left) {
+                this.initializeTextureAnimation(linedef.left.lower, 'wall');
+                this.initializeTextureAnimation(linedef.left.middle, 'wall');
+                this.initializeTextureAnimation(linedef.left.upper, 'wall');
+            }
+        }
     }
 
     dispose() {
@@ -97,11 +121,29 @@ export class MapRuntime {
         }
     }
 
+    initializeTextureAnimation(target: Store<string>, type: 'wall' | 'flat') {
+        if (!target) {
+            return;
+        }
+        // wall/flat animations are all 8 ticks each
+        const animInfoFn = type === 'wall' ? 'animatedWallInfo' : 'animatedFlatInfo';
+        const speed = 8;
+        target.subscribe(v => {
+            const animInfo = this.game.wad[animInfoFn](v);
+            if (animInfo) {
+                this.animatedTextures.push({ frames: animInfo[1], current: animInfo[0], target, speed });
+            } else {
+                // remove animation that was applied to this target
+                this.animatedTextures = this.animatedTextures.filter(e => e.target !== target);
+            }
+        })();
+    }
+
     private tick() {
         this.actions.forEach(action => action(this.game.time));
 
         // update wall/flat animations
-        this.data.animatedTextures.forEach(anim => {
+        this.animatedTextures.forEach(anim => {
             if (this.game.time.tick.val % anim.speed === 0) {
                 anim.current = (anim.current + 1) % anim.frames.length;
                 anim.target.set(anim.frames[anim.current]);

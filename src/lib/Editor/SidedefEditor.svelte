@@ -22,15 +22,15 @@
     </label>
     <div>
         <span>Upper</span>
-        <TextureChooser {wad} type="wall" bind:value={$upper} />
+        <TextureChooser {wad} type="wall" bind:value={$upper} on:change={() => map.initializeTextureAnimation(upper, 'wall')} />
     </div>
     <div>
         <span>Middle</span>
-        <TextureChooser {wad} type="wall" bind:value={$middle} />
+        <TextureChooser {wad} type="wall" bind:value={$middle} on:change={() => map.initializeTextureAnimation(middle, 'wall')} />
     </div>
     <div>
         <span>Lower</span>
-        <TextureChooser {wad} type="wall" bind:value={$lower} />
+        <TextureChooser {wad} type="wall" bind:value={$lower} on:change={() => map.initializeTextureAnimation(lower, 'wall')} />
     </div>
 
     <SectorEditor {map} sector={sidedef.sector} />

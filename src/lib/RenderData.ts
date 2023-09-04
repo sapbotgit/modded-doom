@@ -86,7 +86,7 @@ export interface RenderSector {
     sector: Sector;
     vertexes: Vertex[];
     segs: Seg[];
-    // TODO: MapObjects so we only render them if visible?
+    // TODO: MapObjects so we only render them if the sector is visible?
     // these are only helpful for debugging. Maybe we can remove them?
     subsec: SubSector;
     bspLines: Vertex[][];

@@ -94,11 +94,11 @@
 </div>
 <div>
     <span>Ceiling</span>
-    <TextureChooser {wad} type="flat" bind:value={$ceilFlat} />
+    <TextureChooser {wad} type="flat" bind:value={$ceilFlat} on:change={() => map.initializeTextureAnimation(ceilFlat, 'flat')} />
 </div>
 <div>
     <span>Floor</span>
-    <TextureChooser {wad} type="flat" bind:value={$floorFlat} />
+    <TextureChooser {wad} type="flat" bind:value={$floorFlat} on:change={() => map.initializeTextureAnimation(floorFlat, 'flat')} />
 </div>
 
 

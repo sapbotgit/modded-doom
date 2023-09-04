@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Color, Shape, ShapeGeometry } from "three";
-    import type { Store, Vertex } from "../doom";
+    import type { Vertex } from "../doom";
     import Flat from "./Flat.svelte";
     import type { RenderSector } from "./RenderData";
 
@@ -12,15 +12,7 @@
     }
     $: color = namedColor(index);
     $: geometry = createShape(renderSector.vertexes);
-    let floorFlat: Store<string>, ceilFlat: Store<string>,
-        zFloor: Store<number>, zCeil: Store<number>;
-    const { rev } = renderSector.sector;
-    $: if ($rev) {
-        zFloor = renderSector.sector.zFloor;
-        zCeil = renderSector.sector.zCeil;
-        floorFlat = renderSector.sector.floorFlat;
-        ceilFlat = renderSector.sector.ceilFlat;
-    }
+    const { zFloor, zCeil, floorFlat, ceilFlat } = renderSector.sector;
 
     function createShape(verts: Vertex[]) {
         const shape = new Shape();

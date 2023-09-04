@@ -11,16 +11,13 @@
     import HUD from "./HUD/HUD.svelte";
     import Stats from "./Debug/Stats.svelte";
     import { Clock } from "three";
-    import { onMount, setContext } from "svelte";
-    import { useDoom } from "./DoomContext";
-    import { buildRenderSectors } from "./RenderData";
+    import { onMount } from "svelte";
+    import { useDoom, useDoomMap } from "./DoomContext";
 
     export let map: MapRuntime;
     const { rev } = map;
     const { settings } = useDoom();
-
-    const renderSectors = buildRenderSectors(map.data.nodes);
-    setContext('doom-map', { map, renderSectors });
+    const { renderSectors } = useDoomMap();
 
     let things: MapObject[] = [];
     $: if ($rev) {
