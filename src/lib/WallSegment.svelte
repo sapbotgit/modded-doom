@@ -31,6 +31,7 @@
 
     const { wad, settings, textures, editor } = useDoom();
     const { map } = useDoomMap();
+    const { traceSegs } = map.data.blockmap;
 
     const extraLight = map.player.extraLight;
     const { light } = sidedef.sector;
@@ -83,6 +84,9 @@
     $: if ($editor.selected === linedef) {
         material.emissive = new Color('magenta');
         material.emissiveIntensity = 0.1;
+    } else if ($traceSegs.includes(seg)) {
+        material.emissive = new Color('green');
+        material.emissiveIntensity = 0.3;
     } else {
         material.emissiveIntensity = 0;
     }

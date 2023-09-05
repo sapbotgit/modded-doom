@@ -11,8 +11,8 @@
     const { renderSectors } = useDoomMap();
 
     const mapHeight = map.data.sectors.reduce((top, sec) => Math.max(sec.zCeil.val, top), -Infinity);
-    const lineMaterial = new MeshBasicMaterial({ color: 'cyan' });
-    const sectorMaterial = new MeshBasicMaterial({ color: 'magenta' });
+    const lineMaterial = new MeshBasicMaterial({ depthTest: false, color: 'cyan' });
+    const sectorMaterial = new MeshBasicMaterial({ depthTest: false, color: 'magenta' });
 
     $: tag = ($editor.selected && 'tag' in $editor.selected && $editor.selected.tag > 0) ? $editor.selected.tag : null;
     $: linedefs = (!tag ? [] : map.data.linedefs.filter(e => e.tag === tag)) as LineDef[];
@@ -25,7 +25,7 @@
             new Vector3().copy(position2).setZ(mapHeight),
             position2,
         ]),
-        new LineMaterial({ color:  Color.NAMES.cyan }));
+        new LineMaterial({ depthTest:false, color: Color.NAMES.cyan }));
 
     function position(item: LineDef | Sector) {
         const pos = new Vector3();
@@ -56,6 +56,7 @@
 {#each sectors ?? [] as sector}
     {@const sectorPosition = position(sector)}
     <Mesh
+        renderOrder={2}
         material={sectorMaterial}
         position={sectorPosition}
         geometry={new BoxGeometry(boxSize, boxSize, boxSize)}
@@ -64,12 +65,13 @@
     {#each linedefs ?? [] as linedef}
         {@const linedefPosition = position(linedef)}
         <Mesh
+            renderOrder={2}
             material={lineMaterial}
             position={linedefPosition}
             geometry={new BoxGeometry(boxSize, boxSize, boxSize)}
         />
 
         {@const connectorLine = createShape(linedefPosition, sectorPosition)}
-        <Object3DInstance object={connectorLine} />
+        <Object3DInstance renderOrder={2} object={connectorLine} />
     {/each}
 {/each}

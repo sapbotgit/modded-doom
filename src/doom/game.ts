@@ -104,7 +104,7 @@ export class Game {
         // chunks so the game logic and animation doesn't get messed up
 
         if (this.time.elapsed > this.nextTickTime) {
-            this.nextTickTime = this.nextTickTime + frameTickTime;
+            this.nextTickTime = this.time.elapsed + frameTickTime;
             this.time.tick.update(tick => tick += 1);
             this.time.isTick = true;
         }

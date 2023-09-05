@@ -68,7 +68,7 @@
     $: types = things.map(editorThing).filter(e => e)
 </script>
 
-<h3>Thing</h3>
+<h3>Thing ({thing.id})</h3>
 <div>
     <button on:click={toggleSelector}>{description}</button>
     {#if showSelector}

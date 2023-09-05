@@ -4,6 +4,7 @@
   import MathDebug from './lib/Debug/MathDebug.svelte';
   import SvgMap from './lib/Debug/SvgMap.svelte';
   import { Object3D } from 'three';
+  import TraceDebug from './lib/Debug/TraceDebug.svelte';
 
   const svgMap = false;
 
@@ -19,7 +20,7 @@
     // selectedMap = wad.readMap('E2M3')
   })();
 
-  let difficulty: Skill = 3;
+  let difficulty: Skill = 4;
   $: game = new Game(wad, difficulty, {
       freeFly: store(false),
       freelook: store(true),
@@ -36,6 +37,7 @@
 </script>
 
 <main>
+  <!-- <TraceDebug /> -->
   <!-- <MathDebug /> -->
 
   <button on:click={() => selectedMap = null}>None</button>

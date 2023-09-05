@@ -1,16 +1,16 @@
 import { Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
-import { ActionIndex, StateIndex } from "../doom-things-info";
+import { ActionIndex, MFFlags, MapObjectIndex, StateIndex, mapObjectInfo } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, randInt } from '../math';
-import type { PlayerMapObject, PlayerInventory } from '../map-object';
+import { type PlayerMapObject, type PlayerInventory, MapObject } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond, type GameTime } from "../game";
+import type { HandleTraceHit, LineDef } from "../map-data";
 
 export const weaponTop = 32;
 const weaponBottom = 32 - 128;
-const shootDirection = new Vector3();
 
 export class PlayerWeapon {
     private player: PlayerMapObject;
@@ -183,34 +183,13 @@ const weaponActions: { [key: number]: WeaponAction } = {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        // TODO: shoot bullet (wip below...)
-        // const dir = player.direction.val + Math.PI;
-        // let aimZ: number;
-        // shootDirection.set(
-        //     Math.cos(dir) * 16 * 64,
-        //     Math.sin(dir) * 16 * 64,
-        //     player.info.height + 8,
-        // );
-        // player.map.trace(player.position.val, shootDirection, 0,
-        //     thing => {
-        //         if (thing === player) {
-        //             return true; // continue, we can't shoot ourselves
-        //         }
-        //         if (!(thing.info.flags & MFFlags.MF_SHOOTABLE)) {
-        //             return true; // thing is not shootable
-        //         }
-
-        //         // hit a thing so stop tracing
-        //         // TODO check top/bottom of object and slope of shot has to be in view angle
-        //         return false;
-        //     },
-        //     linedef => {
-        //         if (!(linedef.flags & 0x004)) {
-        //             // player.map.spawn(new MapObject(player.map, { type: 0, angle: 0, flags: 0, x: pos.x, y: pos.y }, mapObjectInfo[MapObjectIndex.MT_PUFF]));
-        //             return false; // single-sided linedefs always stop shots
-        //         }
-        //         return true;
-        //     });
+        tracer.zAim(player);
+        let angle = player.direction.val + Math.PI;
+        if (player.refire) {
+            // TODO: mess up angle slightly
+        }
+        const damage = 5 * randInt(1, 4);
+        tracer.fire(player, angle, damage);
     },
     [ActionIndex.A_FireShotgun]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
@@ -261,6 +240,253 @@ const weaponActions: { [key: number]: WeaponAction } = {
         // TODO: shoot bullet
     },
 };
+
+class ShotTracer {
+    constructor(
+        readonly scanRange = 16 * 64,
+        readonly attackRange = 32 * 64,
+    ) {}
+
+    private start = new Vector3();
+    private direction = new Vector3();
+    private aimSlope = 0;
+    zAim(shooter: MapObject) {
+        const dir = shooter.direction.val + Math.PI;
+        this.start.copy(shooter.position.val);
+        this.start.z += shooter.info.height * .5 + 8;
+        this.direction.set(
+            Math.cos(dir) * this.scanRange,
+            Math.sin(dir) * this.scanRange,
+            0,
+        );
+
+        let aim = aimTrace(shooter, this.start.z, this.scanRange);
+        shooter.map.data.trace(this.start, this.direction, 0, aim.fn);
+        if (!aim.target) {
+            // TODO: adjust angle slightly left and try again
+            // TODO: still nothing? adjust angle slightly right and try one last time
+        }
+
+        this.aimSlope = 0;
+        if (aim.target) {
+            this.aimSlope = aim.slope;
+        }
+    }
+
+    // kind of like PTR_ShootTraverse from p_map.c
+    fire(shooter: MapObject, angle: number, damage: number) {
+        this.direction.set(
+            Math.cos(angle) * this.attackRange,
+            Math.sin(angle) * this.attackRange,
+            0,
+        );
+
+        // this scan function is almost the same as the one we use in zAim but it has a few differences:
+        // 1) it spawns blood/puffs on impact
+        // 2) it spawns nothing on impact with sky
+        // 3) it has a longer range
+        // 4) it does not impact aimSlope (it relies on it being set)
+        // it's useful to have a separate aim and fire function because some weapons (notably the shotgun)
+        // aim once and fire several bullets
+        shooter.map.data.trace(this.start, this.direction, 0, hit => {
+            if ('id' in hit.hit) {
+                const mobj = hit.hit;
+                if (mobj === shooter) {
+                    return true; // can't shoot ourselves
+                }
+                if (!(mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                    return true; // not shootable
+                }
+
+                const dist = this.attackRange * hit.fraction;
+                let thingSlopeTop = (mobj.position.val.z + mobj.info.height - this.start.z) / dist;
+                if (thingSlopeTop < this.aimSlope) {
+                    return true; // shot over thing
+                }
+
+                let thingSlopebottom = (mobj.position.val.z - this.start.z) / dist;
+                if (thingSlopebottom > this.aimSlope) {
+                    return true; // shot under thing
+                }
+
+                if (mobj.info.flags & MFFlags.MF_NOBLOOD) {
+                    this.spawn(mobj, this.bulletHitLocation(10, hit.fraction), MapObjectIndex.MT_PUFF);
+                } else {
+                    this.spawnBlood(mobj, this.bulletHitLocation(10, hit.fraction), damage);
+                }
+                console.log('hit thing',mobj)
+                // TODO: damage mobj
+                return false;
+            } else if ('flags' in hit.hit) {
+                const linedef = hit.hit;
+                if (linedef.special) {
+                    shooter.map.triggerSpecial(linedef, shooter, 'G', hit.side);
+                }
+
+                if (linedef.flags & 0x004) {
+                    const front = hit.side === -1 ? linedef.right : linedef.left;
+                    const back = hit.side === -1 ? linedef.left : linedef.right;
+
+                    const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
+                    const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+
+                    const dist = this.attackRange * hit.fraction;
+                    if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+                        const slope = (openTop - this.start.z) / dist;
+                        if (slope < this.aimSlope) {
+                            return this.hitWallOrSky(shooter, linedef, hit.fraction);
+                        }
+                    }
+                    if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+                        const slope = (openBottom - this.start.z) / dist;
+                        if (slope > this.aimSlope) {
+                            return this.hitWallOrSky(shooter, linedef, hit.fraction);
+                        }
+                    }
+                } else {
+                    return this.hitWallOrSky(shooter, linedef, hit.fraction);
+                }
+            } else {
+                // sector?
+            }
+            return true;
+        });
+    }
+
+    private hitWallOrSky(shooter: MapObject, linedef: LineDef, frac: number) {
+        const spot = this.bulletHitLocation(4, frac);
+        if (linedef.right.sector.ceilFlat.val === 'F_SKY1') {
+            if (spot.z > linedef.right.sector.zCeil.val) {
+                console.log("sky")
+                return false;
+            }
+            if (linedef.left && linedef.left.sector.ceilFlat.val === 'F_SKY1') {
+                console.log("sky-hack")
+                return false;
+            }
+        }
+        this.spawn(shooter, spot, MapObjectIndex.MT_PUFF);
+        return false;
+    }
+
+    private hitLocation = new Vector3();
+    private bulletHitLocation(dist: number, frac: number) {
+        // position the hit location little bit in front of the actual impact
+        frac = frac - dist / this.attackRange;
+        return this.hitLocation.set(
+            frac * this.direction.x + this.start.x,
+            frac * this.direction.y + this.start.y,
+            frac * this.attackRange * this.aimSlope + this.start.z,
+        )
+    }
+
+    private spawn(source: MapObject, position: Vector3, type: MapObjectIndex) {
+        const mobj = new MapObject(
+            source.map, { type: 0, angle: 0, flags: 0, ...position }, mapObjectInfo[type]);
+        return source.map.spawn(mobj);
+    }
+
+    private spawnBlood(source: MapObject, position: Vector3, damage: number) {
+        position.z += randInt(0, 10) - randInt(0, 10);
+        const mobj = this.spawn(source, position, MapObjectIndex.MT_BLOOD);
+        // TODO: randomize sprite ticks..
+
+        if (damage <= 12 && damage >= 9) {
+            mobj.setState(StateIndex.S_BLOOD2);
+        } else if (damage < 9) {
+            mobj.setState(StateIndex.S_BLOOD3);
+        }
+    }
+}
+const tracer = new ShotTracer();
+
+interface AimTrace {
+    target: MapObject;
+    slope: number;
+    fn: HandleTraceHit;
+}
+
+// kind of like PTR_AimTraverse from p_map.c
+function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
+    // TODO: should these depend on FOV or aspect ratio?
+    let slopeTop = 100 / 160;
+    let slopeBottom = -100 / 160;
+    // TODO: avoid object allocation?
+    let result: AimTrace = {
+        target: null,
+        slope: 0,
+        fn: hit => {
+            if ('id' in hit.hit) {
+                if (hit.hit === shooter) {
+                    console.log('self-shot')
+                    return true; // can't shoot ourselves
+                }
+                if (!(hit.hit.info.flags & MFFlags.MF_SHOOTABLE)) {
+                    console.log('not shootable')
+                    return true; // not shootable
+                }
+
+                const mobj = hit.hit;
+                const dist = range * hit.fraction;
+                let thingSlopeTop = (mobj.position.val.z + mobj.info.height - shootZ) / dist;
+                if (thingSlopeTop < slopeBottom) {
+                    console.log('overshoot', thingSlopeTop, slopeBottom)
+                    return true; // shot over thing
+                }
+
+                let thingSlopebottom = (mobj.position.val.z - shootZ) / dist;
+                if (thingSlopebottom > slopeTop) {
+                    console.log('undershoot',mobj.position.val.z,shootZ,dist)
+                    return true; // shot under thing
+                }
+
+                thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
+                thingSlopebottom = Math.max(thingSlopebottom, slopeBottom);
+                result.slope = (thingSlopeTop + thingSlopebottom) * .5;
+                result.target = mobj;
+                console.log('thing',mobj,result.slope)
+                return false;
+            } else if ('flags' in hit.hit) {
+                const linedef = hit.hit;
+                if (linedef.flags & 0x004) {
+                    const front = hit.side === -1 ? linedef.right : linedef.left;
+                    const back = hit.side === -1 ? linedef.left : linedef.right;
+
+                    const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
+                    const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+                    if (openBottom >= openTop) {
+                        // it's a two-sided line but no opening (eg. a closed door or a raised platform)
+                        console.log('closed')
+                        return false;
+                    }
+
+                    const dist = range * hit.fraction;
+                    if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+                        console.log('st', linedef.num, slopeTop, (openTop - shootZ) / dist, openTop, shootZ, dist)
+                        slopeTop = Math.min(slopeTop, (openTop - shootZ) / dist);
+                    }
+                    if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+                        console.log('sb', linedef.num, slopeBottom, (openBottom - shootZ) / dist, openBottom, shootZ, dist)
+                        slopeBottom = Math.max(slopeBottom, (openBottom - shootZ) / dist);
+                    }
+
+                    if (slopeTop <= slopeBottom) {
+                         // we've run out of gap between top and bottom of walls
+                        console.log('no slope', linedef, [slopeTop, slopeBottom], [openTop, openBottom], shootZ, dist)
+                        return false;
+                    }
+                } else {
+                    console.log('wall', linedef)
+                    return false; // single-sided linedefs always stop trace
+                }
+            } else {
+                // sector?
+            }
+            return true;
+        },
+    };
+    return result;
+}
 
 function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {
     player.inventory.update(inv => {

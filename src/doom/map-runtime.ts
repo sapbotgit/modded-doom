@@ -228,10 +228,6 @@ export class MapRuntime {
         }
         return false;
     }
-
-    trace(start: Vector3, move: Vector3, radius: number, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>) {
-        return this.data.trace(start, move, radius, onThing, onLinedef);
-    }
 }
 
 const slideMove = (vel: Vector3, x: number, y: number) => {

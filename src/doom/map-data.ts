@@ -2,7 +2,7 @@ import { store, type Store } from "./store";
 import type { DoomWad } from "./wad/doomwad";
 import { Vector3 } from "three";
 import { MapObject } from "./map-object";
-import { circleCircleSweep, dot, lineCircleSweep, normal, signedLineDistance, type Vertex } from "./math";
+import { circleCircleSweep, dot, lineCircleIntersect, lineCircleSweep, lineLineIntersect, normal, signedLineDistance, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
 
@@ -11,6 +11,7 @@ export type Action = (time: GameTime) => void;
 export interface Thing {
     x: number;
     y: number;
+    z?: number;
     angle: number;
     type: number;
     flags: number;
@@ -154,6 +155,15 @@ interface Block {
     things: MapObject[];
 }
 
+export interface TraceHit {
+    fraction: number; // 0-1 of how far we moved along the desired path
+    point: Vector3; // point of hit (maybe redundant because we can compute it from fraction and we don't use z anyway)
+    side?: -1 | 1; // only for linedefs, did we hit front side (1) or back side (-1)
+    hit: LineDef | Sector | MapObject; // either a wall, ceilng/floor, or thing
+}
+// return true to continue trace, false to stop
+export type HandleTraceHit = (hit: TraceHit) => boolean;
+
 export interface HandleCollision<Type> {
     (t: Type, side?: -1 | 1): boolean;
 }
@@ -163,12 +173,26 @@ const leftSide = new Vector3();
 const rightSide = new Vector3();
 const velU = new Vector3();
 const velUR = new Vector3();
+const traceEnd = new Vector3();
+const lastTrace2 = {
+    start: new Vector3(),
+    end: new Vector3(),
+    tMaxX: 0,
+    tMaxY: 0,
+    tDeltaX: 0,
+    tDeltaY: 0,
+}
 class BlockMap {
     private map: Block[] = [];
     private numCols: number;
     private numRows: number;
     readonly bounds: NodeBounds;
     private objMap = new Map<MapObject, Block>();
+
+    // TODO: remove these after finishing up debugging
+    lastTrace = store<{ row: number, col: number }[]>([]);
+    traceSegs = store<Seg[]>([]);
+    lastTrace2 = store(lastTrace2);
 
     constructor(
         data: { numCols: number, numRows: number, originX: number, originY: number, linedefsInBlock: { linedefs: number[] }[] },
@@ -191,7 +215,7 @@ class BlockMap {
     }
 
     watch(mobj: MapObject) {
-        if (!(mobj.source.flags & hittableThing)) {
+        if (!(mobj.info.flags & hittableThing) || mobj.info.flags & MFFlags.MF_NOBLOCKMAP) {
             return;
         }
         mobj.position.subscribe(pos => {
@@ -242,6 +266,197 @@ class BlockMap {
         const linedefs = blocks.map(e => e.linedefs).flat().filter(unique);
         const things = blocks.map(e => e.things).flat().filter(unique);
         return { linedefs, things };
+    }
+
+    trace2(start: Vector3, vel: Vector3, onBlock: (block: Block) => boolean) {
+        // kind of like Doom's P_PathTraverse but based on
+        // http://www.cse.yorku.ca/~amana/research/grid.pdf
+        // and https://stackoverflow.com/questions/12367071
+        const gridSize = 128;
+        lastTrace2.start.copy(start);
+        lastTrace2.end.copy(start).add(vel);
+
+        // const SIGN = (x:number) => (x > 0 ? 1 : (x < 0 ? -1 : 0))
+        // const FRAC0 = (x:number) => (x - Math.floor(x))
+        // const FRAC1 =(x:number) => (1 - x + Math.floor(x))
+
+        // let dx = SIGN(move.x);
+        // let tDeltaX = (dx != 0) ? Math.min(dx / move.x, 10000000) : 10000000;
+        // let tMaxX = (dx > 0) ? tDeltaX * FRAC1(start.x) : tDeltaX * FRAC0(start.x);
+        // let x = Math.floor((start.x - this.bounds.left) / gridSize);
+
+        // let dy = SIGN(move.y);
+        // let tDeltaY = (dy != 0) ? Math.min(dy / move.y, 10000000) : 10000000;
+        // let tMaxY = (dy > 0) ? tDeltaY * FRAC1(start.y) : tDeltaY * FRAC0(start.y);
+        // let y = this.numRows - Math.ceil((-start.y + this.bounds.top) / 128);
+
+        // let lastTrace = [];
+        // while (true) {
+        //     lastTrace.push({ row: y, col: x });
+
+        //     if (tMaxX < tMaxY) {
+        //         tMaxX = tMaxX + tDeltaX;
+        //         x = x + dx * gridSize;
+        //     } else {
+        //         tMaxY = tMaxY + tDeltaY;
+        //         y = y + dy * gridSize;
+        //     }
+        //     if (tMaxX > 1 && tMaxY > 1) break;
+        // }
+        // this.lastTrace.set(lastTrace);
+
+        const frac = (n: number) => (n % 1) + (n < 0 ? 1 : 0);
+        let lastTrace = [];
+        let startX = (start.x - this.bounds.left) / gridSize;
+        let startY = (start.y - this.bounds.bottom) / gridSize;
+        let x = Math.floor(startX);
+        let y = Math.floor(startY);
+        const sx = Math.sign(vel.x);
+        const sy = Math.sign(vel.y);
+        if (sx === 0 && sy === 0) {
+            return;
+        }
+        let tDeltaX = Math.abs(gridSize / vel.x);
+        let tDeltaY = Math.abs(gridSize / vel.y);
+        let tMaxX = tDeltaX * (vel.x < 0 ? frac(startX) : 1 - frac(startX));
+        let tMaxY = tDeltaY * (vel.y < 0 ? frac(startY) : 1 - frac(startY));
+
+        lastTrace2.tDeltaX = tDeltaX;
+        lastTrace2.tDeltaY = tDeltaY;
+        lastTrace2.tMaxX = tMaxX;
+        lastTrace2.tMaxY = tMaxY;
+        let continueTrace = true;
+        while (continueTrace) {
+            const inBounds = x >= 0 && x <= this.numCols && y >= 0 && y <= this.numRows;
+            if (!inBounds) {
+                break;
+            }
+            lastTrace.push({ row: y, col: x });
+            continueTrace = onBlock(this.map[y * this.numCols + x]);
+
+            if (tMaxX > 1 && tMaxY > 1) {
+                break;
+            }
+            if (tMaxX < tMaxY) {
+                tMaxX = tMaxX + tDeltaX;
+                x = x + sx;
+            } else {
+                tMaxY = tMaxY + tDeltaY;
+                y = y + sy;
+            }
+        }
+        this.lastTrace.set(lastTrace);
+
+        // var dx = Math.abs(move.x);
+        // var dy = Math.abs(move.y);
+        // var sx = (move.x > 0) ? gridSize : -gridSize;
+        // var sy = (move.y > 0) ? gridSize : -gridSize;
+        // var x = start.x;
+        // var y = start.y;
+        // var err = dx - dy;
+
+        // let lastTrace = [];
+        // while(true) {
+        //     const index = this.queryIndex(x, y);
+        //     if (index === -1) {
+        //         break;
+        //     }
+        //     const col = Math.floor((x - this.bounds.left) / 128);
+        //     const row = this.numRows - Math.ceil((-y + this.bounds.top) / 128);
+        //     lastTrace.push({ row, col });
+
+        //    var e2 = err;
+        //    if (e2 > -dy) { err -= dy; x  += sx; }
+        //    if (e2 < dx) { err += dx; y  += sy; }
+        // }
+        // this.lastTrace.set(lastTrace);
+
+        // let dx = Math.abs(move.x) / gridSize;
+        // let dy = Math.abs(move.y) / gridSize;
+        // let slope = dx - dy;
+        // let x = start.x;
+        // let y = start.y;
+        // let x_inc = move.x > 0 ? gridSize : -gridSize;
+        // let y_inc = move.y > 0 ? gridSize : -gridSize;
+
+        // let lastTrace = [];
+        // for (let n = 1 + dx + dy; n > 0; --n) {
+        //     const index = this.queryIndex(x, y);
+        //     if (index !== -1) {
+        //         const col = Math.floor((x - this.bounds.left) / 128);
+        //         const row = this.numRows - Math.ceil((-y + this.bounds.top) / 128);
+        //         lastTrace.push({ row, col });
+        //     }
+
+        //     if (slope > 0) {
+        //         x += x_inc;
+        //         slope -= dy;
+        //     } else {
+        //         y += y_inc;
+        //         slope += dx;
+        //     }
+        // }
+        // this.lastTrace.set(lastTrace);
+
+        // let x = Math.floor(start.x);
+        // let y = Math.floor(start.y);
+
+        // const dt_dx = gridSize / Math.abs(move.x);
+        // const dt_dy = gridSize / Math.abs(move.y);
+
+        // let n = 1;
+        // let x_inc: number, y_inc: number;
+        // let vNext: number, hNext: number;
+
+        // if (move.x === 0) {
+        //     x_inc = 0;
+        //     hNext = dt_dx; // infinity
+        // } else if (move.x > 0) {
+        //     x_inc = gridSize;
+        //     n += Math.floor(start.x + move.x) - x;
+        //     hNext = (Math.floor(start.x) + 1 - start.x) * dt_dx;
+        // } else {
+        //     x_inc = -gridSize;
+        //     n += x - Math.floor(start.x + move.x);
+        //     hNext = (start.x - Math.floor(start.x)) * dt_dx;
+        // }
+
+        // if (move.y === 0) {
+        //     y_inc = 0;
+        //     vNext = dt_dy; // infinity
+        // } else if (move.y > 0) {
+        //     y_inc = gridSize;
+        //     n += Math.floor(start.y + move.y) - y;
+        //     vNext = (Math.floor(start.y) + 1 - start.y) * dt_dy;
+        // } else {
+        //     y_inc = -gridSize;
+        //     n += y - Math.floor(start.y + move.y);
+        //     vNext = (start.y - Math.floor(start.y)) * dt_dy;
+        // }
+
+        // let lastTrace = [];
+        // let blocks: Block[] = [];
+        // for (; n > 0; --n) {
+        //     const index = this.queryIndex(x, y);
+        //     if (index !== -1) {
+        //         const col = Math.floor((x - this.bounds.left) / 128);
+        //         const row = this.numRows - Math.ceil((-y + this.bounds.top) / 128);
+        //         lastTrace.push({ row, col });
+        //         blocks.push(this.map[index]);
+        //     }
+
+        //     if (vNext < hNext) {
+        //         y += y_inc;
+        //         vNext += dt_dy;
+        //     } else {
+        //         x += x_inc;
+        //         hNext += dt_dx;
+        //     }
+        // }
+        // this.lastTrace.set(lastTrace);
+        // return blocks;
+
+        this.lastTrace2.set(lastTrace2);
     }
 
     private pointTrace(start: Vector3, move: Vector3) {
@@ -484,33 +699,100 @@ export class MapData {
         }
     }
 
-    trace(start: Vector3, move: Vector3, radius: number, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>) {
-        const bquery = this.blockmap.trace(start, radius, move);
-        // sort items from closest to farthest
-        let items = [];
-        for (let i = 0; i < bquery.things.length; i++) {
-            const hit = circleCircleSweep(
-                bquery.things[i].position.val, bquery.things[i].info.radius,
-                start, radius, move);
-            if (!hit) {
-                continue;
-            }
-            items.push([bquery.things[i], distSqr(start, hit)]);
-        }
-        for (let i = 0; i < bquery.linedefs.length; i++) {
-            const hit = lineCircleSweep(bquery.linedefs[i].v, move, start, radius);
-            if (!hit) {
-                continue;
-            }
-            items.push([bquery.linedefs[i], distSqr(start, hit)]);
-        }
-        items.sort((a, b) => a[1] - b[1]);
+    trace(start: Vector3, dir: Vector3, radius: number, onHit: HandleTraceHit) {
+        // let segs = [];
+        // let finished = false;
+        // let mline = [start, { x: start.x + move.x, y: start.y + move.y }];
+        // console.log('trace',start, move)
 
-        for (const item of items) {
-            const checkFn = 'v' in item[0] ? onLinedef : onThing;
-            if (!checkFn(item[0])) {
-                break;
+        // function visitNodeChild(child: TreeNode | SubSector) {
+        //     if ('segs' in child) {
+        //         for (const seg of child.segs) {
+        //             const hit = lineLineIntersect([seg.vx1, seg.vx2], mline, true);
+        //             segs.push(seg)
+        //             if (!hit) {
+        //                 continue;
+        //             }
+        //             console.log('hit',seg.linedef.num)
+        //             finished = true;
+        //             break;
+        //         }
+        //     } else {
+        //         visitNode(child);
+        //     }
+        // }
+
+        // function visitNode(node: TreeNode) {
+        //     if (finished) {
+        //         return;
+        //     }
+        //     let side = signedLineDistance(node.v, start);
+        //     if (side < 0) {
+        //         visitNodeChild(node.childLeft);
+        //         visitNodeChild(node.childRight);
+        //     } else {
+        //         visitNodeChild(node.childRight);
+        //         visitNodeChild(node.childLeft);
+        //     }
+        // }
+
+        // visitNode(this.nodes[this.nodes.length - 1]);
+        // this.blockmap.traceSegs.set(segs);
+
+        const invVelLength = 1 / dir.length();
+        traceEnd.copy(start).add(dir);
+        const line = [start, traceEnd];
+        // TODO: instead of an empty array, we could use an object pool to get better memory usage (ie. less alloc/dealloc)
+        let hits: TraceHit[] = [];
+        this.blockmap.trace2(start, dir, block => {
+            hits.length = 0;
+            for (const linedef of block.linedefs) {
+                // because linedefs cut through multiple blocks, we actually may visit linedefs multiple times
+                // maybe we can improve this using bsp?
+                const hit = lineLineIntersect(line, linedef.v, true);
+                if (hit) {
+                    const side = Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
+                    // if (side === -1) {
+                    //     // never hit backside of lines? maybe we can do this if we intersect with segs
+                    //     continue;
+                    // }
+                    const fraction = Math.sqrt(distSqr(start, hit)) * invVelLength;
+                    const z = start.z + dir.z * fraction;
+                    // TODO: check linedef z and maybe continue...
+
+                    const point = new Vector3(hit.x, hit.y, z);
+                    hits.push({ fraction, point, side, hit: linedef });
+                }
             }
-        }
+            for (const thing of block.things) {
+                // TODO: line-box intercept?
+                const hit = lineCircleIntersect(line, thing.position.val, thing.info.radius);
+                if (hit) {
+                    const fraction = Math.sqrt(distSqr(start, hit[0])) * invVelLength;
+                    const z = start.z + dir.z * fraction;
+                    // If we check z here, aim traces won't work (because we need to compute a slope)
+                    // if (z < thing.position.val.z || z > thing.position.val.z + thing.info.height) {
+                    //     // trace is above or below the thing
+                    //     continue;
+                    // }
+                    const point = new Vector3(hit[0].x, hit[0].y, z);
+                    hits.push({ fraction, point, hit: thing });
+                }
+            }
+
+            // TODO: what about hitting floors?
+
+            // sort items from closest to farthest
+            hits.sort((a, b) => a.fraction - b.fraction);
+
+            for (let hit of hits) {
+                const shouldContinue = onHit(hit);
+                if (!shouldContinue) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
     }
 }

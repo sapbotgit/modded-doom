@@ -45,6 +45,9 @@ export class MapObject {
             if (!this.sect) {
                 // first time setting sector so set zpos
                 p.z = sector.zFloor.val;
+                if (source.z !== undefined) {
+                    p.z = source.z;
+                }
             }
             // svelte stores assume != when value is an object so we add a little extra smarts
             if (this.sect !== sector) {
@@ -131,6 +134,9 @@ export class MapObject {
 
     // kind of P_ZMovement
     protected applyGravity() {
+        if (this.info.flags & MFFlags.MF_NOGRAVITY) {
+            return;
+        }
         if (this.onGround) {
             this.position.val.z = this.zFloor;
             this.velocity.z = 0;
