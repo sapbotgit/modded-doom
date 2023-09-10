@@ -11,7 +11,7 @@
 
     const bbox = map.data.blockmap.bounds;
     const width = bbox.right - bbox.left;
-    const height = bbox.top - bbox. bottom;
+    const height = bbox.top - bbox.bottom;
     const size = Math.max(width, height);
     const gh = new GridHelper(size, Math.ceil(size / 128));
 

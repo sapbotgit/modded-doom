@@ -1,6 +1,6 @@
 import { store, type Store } from "./store";
-import { thingSpec } from "./things";
-import { StateIndex, MFFlags, type MapObjectInfo } from "./doom-things-info";
+import { thingSpec, weapons } from "./things";
+import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, mapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
 import { ToRadians } from "./math";
 import { CollisionNoOp, type Sector, type Thing } from "./map-data";
@@ -23,6 +23,15 @@ export class MapObject {
         () => this.map.destroy(this));
     protected zFloor: number;
 
+    protected _attacker: MapObject;
+    get attacker() { return this._attacker; }
+
+    protected _reactiontime: number;
+    get reactiontime() { return this._reactiontime; }
+
+    chaseThreshold = 0;
+    chaseTarget: MapObject;
+
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
     readonly position: Store<Vector3>;
@@ -34,7 +43,7 @@ export class MapObject {
     get onGround() { return this.position.val.z <= this.zFloor; }
 
     constructor(readonly map: MapRuntime, readonly source: Thing, info?: MapObjectInfo ) {
-        this.info = info ?? thingSpec(source.type).mo;
+        this.info = {...(info ?? thingSpec(source.type).mo)};
         this.health = store(this.info.spawnhealth);
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
 
@@ -107,6 +116,8 @@ export class MapObject {
     }
 
     tick() {
+        this._attacker = null;
+
         if (this.onGround) {
             // friction (not z because gravity)
             this.velocity.x *= friction;
@@ -116,6 +127,99 @@ export class MapObject {
         this.updatePosition();
 
         this._state.tick();
+    }
+
+    // kind of like P_DamageMobj
+    // inflictor is the thing doing damage (thing or missle) or null for slime/crushing
+    // source is the thing that shot the missle (or null)
+    damage(amount: number, inflictor?: MapObject, source?: MapObject) {
+        this._attacker = source;
+
+        if (this.info.flags & MFFlags.MF_SKULLFLY) {
+            this.velocity.set(0, 0, 0);
+        }
+
+        const shouldApplyThrust = (inflictor
+            && !(this.info.flags & MFFlags.MF_NOCLIP)
+            && (!source
+                || !(source instanceof PlayerMapObject)
+                || source.weapon.val !== weapons['chainsaw']));
+        if (shouldApplyThrust) {
+            let angle = Math.atan2(this.position.val.y - inflictor.position.val.y, this.position.val.x - inflictor.position.val.x);
+            let thrust = amount * 20 / this.info.mass;
+            // as a nifty effect, make fall forwards sometimes on kill shots (when player is below thing they are shooting at)
+            const shouldFallForward = (amount < 40
+                && amount > this.health.val
+                && this.position.val.z - inflictor.position.val.z > 64
+                && Math.random() > 0.5);
+            if (shouldFallForward) {
+                angle += Math.PI;
+                thrust *= 4;
+            }
+
+            this.velocity.x += thrust * Math.cos(angle);
+            this.velocity.y += thrust * Math.sin(angle);
+        }
+
+        this.health.update(h => h - amount);
+        if (this.health.val <= 0) {
+            this.kill(source);
+            return;
+        }
+
+        this._reactiontime = 0;
+        if (Math.random() < this.info.painchance) {
+            this.info.flags |= MFFlags.MF_JUSTHIT;
+            this.setState(this.info.painstate);
+        }
+
+        const setChaseTarget =
+            (!this.chaseThreshold || this.info.doomednum == 64)
+            && source && this !== source && source.info.doomednum != 64
+        if (setChaseTarget) {
+            this.chaseTarget = source;
+            this.chaseThreshold = 100;
+            if (this._state.index === this.info.spawnstate && this.info.seestate !== StateIndex.S_NULL) {
+                this.setState(this.info.seestate);
+            }
+        }
+    }
+
+    kill(source?: MapObject) {
+        // TODO: this should be moved to A_Fall but we haven't implemented actions for object states (only weapon states)
+        this.info.flags &= ~MFFlags.MF_SOLID;
+
+        this.info.flags |= MFFlags.MF_CORPSE | MFFlags.MF_DROPOFF;
+        this.info.flags &= ~(MFFlags.MF_SHOOTABLE | MFFlags.MF_FLOAT | MFFlags.MF_SKULLFLY);
+        if (this.source.type !== 3006) {
+            this.info.flags &= ~MFFlags.MF_NOGRAVITY;
+        }
+
+        // TODO: if source is player... do some extra stuff
+
+        this.info.height /= 4;
+        if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate) {
+            this.setState(this.info.xdeathstate);
+        }
+        else {
+            this.setState(this.info.deathstate);
+        }
+        // TODO: subtract 0-2 tics
+
+        // Some enemies drop things (guns or ammo) when they die
+        let dropType =
+            (this.source.type === 84 || this.source.type === 3004) ? MapObjectIndex.MT_CLIP :
+            (this.source.type === 9) ? MapObjectIndex.MT_SHOTGUN :
+            (this.source.type === 65) ? MapObjectIndex.MT_CHAINGUN :
+            null;
+        if (dropType) {
+            const pos = this.position.val;
+            const mo = mapObjectInfo[dropType];
+            const mobj = new MapObject(
+                this.map, { angle: 0, flags: 0, type: mo.doomednum, x: pos.x, y: pos.y }, mo);
+            mobj.info.flags |= MFFlags.MF_DROPPED; // special versions of items
+            this.map.spawn(mobj);
+        }
     }
 
     setState(stateIndex: number) {
@@ -181,6 +285,7 @@ export class PlayerMapObject extends MapObject {
     private deltaViewHeight = 0;
 
     bob = 0;
+    damageCount = 0; // mostly for screen fading
     attacking = false;
     refire = false;
     readonly extraLight = store(0);
@@ -219,6 +324,46 @@ export class PlayerMapObject extends MapObject {
         } else if (this._state.index === StateIndex.S_PLAY_RUN1 && vel < .2) {
             this.setState(StateIndex.S_PLAY);
         }
+    }
+
+    damage(amount: number, inflictor?: MapObject, source?: MapObject) {
+        let inv = this.inventory.val;
+        if (inv.items.invincibilityTicks || this.map.game.settings.invicibility.val) {
+            // TODO: doom does damage to invincible players if damage is above 1000 but... why?
+            // TODO: we still need to apply thrust (super.damage())
+            return;
+        }
+        if (this.map.game.skill === 1) {
+            amount *= .5; // half damage in easy skill
+        }
+        if (inv.armor) {
+            let saved = amount / (inv.armorType == 1 ? 3 : 2);
+            if (inv.armor <= saved) {
+                // armor is used up
+                saved = inv.armor;
+                inv.armorType = 0;
+            }
+
+            inv.armor -= saved;
+            this.inventory.set(inv);
+            amount -= saved;
+        }
+
+        // end of game hell hack
+        if (this.sector.val.type == 11 && amount >= this.health.val) {
+            amount = this.health.val - 1;
+        }
+
+        super.damage(amount, inflictor, source);
+
+        this.damageCount = Math.min(this.damageCount + amount, 100);
+        // TODO: haptic feedback for controllers?
+    }
+
+    kill(source?: MapObject) {
+        super.kill(source);
+
+        // TODO: some map stats and drop weapon
     }
 
     protected updatePosition(): void {
@@ -304,6 +449,7 @@ export type AmmoType = keyof PlayerInventory['ammo'];
 
 export interface PlayerInventory {
     armor: number;
+    armorType: 0 | 1 | 2;
     ammo: {
         bullets: Ammo;
         shells: Ammo;

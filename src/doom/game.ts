@@ -66,6 +66,7 @@ export class Game {
     readonly inventory: PlayerStats = {
         health: 100,
         armor: 0,
+        armorType: 0,
         ammo: {
             bullets: { amount: 50, max: 200 },
             shells: { amount: 0, max: 50 },

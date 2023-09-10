@@ -64,7 +64,6 @@
         nextFaceTicks--;
         return state;
     }
-
 </script>
 
 <DoomPic name={state} />

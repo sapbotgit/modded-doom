@@ -186,7 +186,8 @@ const weaponActions: { [key: number]: WeaponAction } = {
         tracer.zAim(player);
         let angle = player.direction.val + Math.PI;
         if (player.refire) {
-            // TODO: mess up angle slightly
+            // mess up angle slightly for refire
+            angle += (Math.random() - Math.random()) * (Math.PI / 30);
         }
         const damage = 5 * randInt(1, 4);
         tracer.fire(player, angle, damage);
@@ -261,10 +262,22 @@ class ShotTracer {
         );
 
         let aim = aimTrace(shooter, this.start.z, this.scanRange);
-        shooter.map.data.trace(this.start, this.direction, 0, aim.fn);
+        shooter.map.data.trace(this.start, this.direction, aim.fn);
         if (!aim.target) {
-            // TODO: adjust angle slightly left and try again
-            // TODO: still nothing? adjust angle slightly right and try one last time
+            // try aiming slightly left to see if we hit a target
+            let dir2 = dir + Math.PI / 40;
+            this.direction.x = Math.cos(dir2) * this.scanRange;
+            this.direction.y = Math.sin(dir2) * this.scanRange;
+            aimTrace(shooter, this.start.z, this.scanRange);
+            shooter.map.data.trace(this.start, this.direction, aim.fn);
+        }
+        if (!aim.target) {
+            // try aiming slightly right to see if we hit a target
+            let dir2 = dir - Math.PI / 40;
+            this.direction.x = Math.cos(dir2) * this.scanRange;
+            this.direction.y = Math.sin(dir2) * this.scanRange;
+            aimTrace(shooter, this.start.z, this.scanRange);
+            shooter.map.data.trace(this.start, this.direction, aim.fn);
         }
 
         this.aimSlope = 0;
@@ -288,7 +301,7 @@ class ShotTracer {
         // 4) it does not impact aimSlope (it relies on it being set)
         // it's useful to have a separate aim and fire function because some weapons (notably the shotgun)
         // aim once and fire several bullets
-        shooter.map.data.trace(this.start, this.direction, 0, hit => {
+        shooter.map.data.trace(this.start, this.direction, hit => {
             if ('id' in hit.hit) {
                 const mobj = hit.hit;
                 if (mobj === shooter) {
@@ -314,8 +327,7 @@ class ShotTracer {
                 } else {
                     this.spawnBlood(mobj, this.bulletHitLocation(10, hit.fraction), damage);
                 }
-                console.log('hit thing',mobj)
-                // TODO: damage mobj
+                mobj.damage(damage, shooter, shooter);
                 return false;
             } else if ('flags' in hit.hit) {
                 const linedef = hit.hit;
@@ -357,11 +369,9 @@ class ShotTracer {
         const spot = this.bulletHitLocation(4, frac);
         if (linedef.right.sector.ceilFlat.val === 'F_SKY1') {
             if (spot.z > linedef.right.sector.zCeil.val) {
-                console.log("sky")
                 return false;
             }
             if (linedef.left && linedef.left.sector.ceilFlat.val === 'F_SKY1') {
-                console.log("sky-hack")
                 return false;
             }
         }
@@ -389,7 +399,7 @@ class ShotTracer {
     private spawnBlood(source: MapObject, position: Vector3, damage: number) {
         position.z += randInt(0, 10) - randInt(0, 10);
         const mobj = this.spawn(source, position, MapObjectIndex.MT_BLOOD);
-        // TODO: randomize sprite ticks..
+        // TODO: subtrac 0-2 sprite tics for aesthetics
 
         if (damage <= 12 && damage >= 9) {
             mobj.setState(StateIndex.S_BLOOD2);
@@ -417,26 +427,22 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
         slope: 0,
         fn: hit => {
             if ('id' in hit.hit) {
-                if (hit.hit === shooter) {
-                    console.log('self-shot')
+                const mobj = hit.hit;
+                if (mobj === shooter) {
                     return true; // can't shoot ourselves
                 }
-                if (!(hit.hit.info.flags & MFFlags.MF_SHOOTABLE)) {
-                    console.log('not shootable')
+                if (!(mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                     return true; // not shootable
                 }
 
-                const mobj = hit.hit;
                 const dist = range * hit.fraction;
                 let thingSlopeTop = (mobj.position.val.z + mobj.info.height - shootZ) / dist;
                 if (thingSlopeTop < slopeBottom) {
-                    console.log('overshoot', thingSlopeTop, slopeBottom)
                     return true; // shot over thing
                 }
 
                 let thingSlopebottom = (mobj.position.val.z - shootZ) / dist;
                 if (thingSlopebottom > slopeTop) {
-                    console.log('undershoot',mobj.position.val.z,shootZ,dist)
                     return true; // shot under thing
                 }
 
@@ -444,7 +450,6 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                 thingSlopebottom = Math.max(thingSlopebottom, slopeBottom);
                 result.slope = (thingSlopeTop + thingSlopebottom) * .5;
                 result.target = mobj;
-                console.log('thing',mobj,result.slope)
                 return false;
             } else if ('flags' in hit.hit) {
                 const linedef = hit.hit;
@@ -455,28 +460,23 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                     const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
                     const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
                     if (openBottom >= openTop) {
-                        // it's a two-sided line but no opening (eg. a closed door or a raised platform)
-                        console.log('closed')
+                        // it's a two-sided line but there is no opening (eg. a closed door or a raised platform)
                         return false;
                     }
 
                     const dist = range * hit.fraction;
                     if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                        console.log('st', linedef.num, slopeTop, (openTop - shootZ) / dist, openTop, shootZ, dist)
                         slopeTop = Math.min(slopeTop, (openTop - shootZ) / dist);
                     }
                     if (front.sector.zFloor.val !== back.sector.zFloor.val) {
-                        console.log('sb', linedef.num, slopeBottom, (openBottom - shootZ) / dist, openBottom, shootZ, dist)
                         slopeBottom = Math.max(slopeBottom, (openBottom - shootZ) / dist);
                     }
 
                     if (slopeTop <= slopeBottom) {
                          // we've run out of gap between top and bottom of walls
-                        console.log('no slope', linedef, [slopeTop, slopeBottom], [openTop, openBottom], shootZ, dist)
                         return false;
                     }
                 } else {
-                    console.log('wall', linedef)
                     return false; // single-sided linedefs always stop trace
                 }
             } else {

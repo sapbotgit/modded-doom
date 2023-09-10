@@ -37,6 +37,8 @@
     //
     // What I really want to do is not draw stuff that occluded but I can't think of way to do that.
     // Overall we draw way more geometry than needed.
+    //
+    // See also E3M6 https://doomwiki.org/wiki/File:E3m6_three.PNG
     const needSkyWall = $ceilFlatR === 'F_SKY1'
     const skyHack = ($ceilFlatL === 'F_SKY1' && needSkyWall);
     const skyHeight = linedef.right.sector.skyHeight;
