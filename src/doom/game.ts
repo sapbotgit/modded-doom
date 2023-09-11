@@ -80,9 +80,10 @@ export class Game {
             nightVisionTicks: 0,
             radiationSuitTicks: 0,
             computerMap: false,
+            berserk: false,
         },
         lastWeapon: weapons['pistol'],
-        weapons: [weapons['fist'], weapons['pistol']],
+        weapons: [weapons['chainsaw'], weapons['fist'], weapons['pistol']],
         keys: '',
     };
     readonly map = store<MapRuntime>(null);
@@ -103,6 +104,8 @@ export class Game {
 
         // TODO: for large deltas (like a few seconds), we should handle it in smaller
         // chunks so the game logic and animation doesn't get messed up
+        // TODO: when loading next map, make sure to clear inventory ticks (invul, light visor)
+        //  and bonuses like computer map, berserk, etc.
 
         if (this.time.elapsed > this.nextTickTime) {
             this.nextTickTime = this.time.elapsed + frameTickTime;

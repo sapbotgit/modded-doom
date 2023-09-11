@@ -2,12 +2,17 @@ import { store, type Store } from "./store";
 import { thingSpec, weapons } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, mapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
-import { ToRadians } from "./math";
+import { randInt, ToRadians } from "./math";
 import { CollisionNoOp, type Sector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon } from "./things";
+
+export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
+    Math.atan2(
+        mobj1.position.val.y - mobj2.position.val.y,
+        mobj1.position.val.x - mobj2.position.val.x);
 
 const vec = new Vector3();
 const stopVelocity = 0.001;
@@ -123,8 +128,8 @@ export class MapObject {
             this.velocity.x *= friction;
             this.velocity.y *= friction;
         }
-        this.applyGravity();
         this.updatePosition();
+        this.applyGravity();
 
         this._state.tick();
     }
@@ -145,7 +150,7 @@ export class MapObject {
                 || !(source instanceof PlayerMapObject)
                 || source.weapon.val !== weapons['chainsaw']));
         if (shouldApplyThrust) {
-            let angle = Math.atan2(this.position.val.y - inflictor.position.val.y, this.position.val.x - inflictor.position.val.x);
+            let angle = angleBetween(this, inflictor);
             let thrust = amount * 20 / this.info.mass;
             // as a nifty effect, make fall forwards sometimes on kill shots (when player is below thing they are shooting at)
             const shouldFallForward = (amount < 40
@@ -200,8 +205,7 @@ export class MapObject {
         this.info.height /= 4;
         if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate) {
             this.setState(this.info.xdeathstate);
-        }
-        else {
+        } else {
             this.setState(this.info.deathstate);
         }
         // TODO: subtract 0-2 tics
@@ -219,6 +223,11 @@ export class MapObject {
                 this.map, { angle: 0, flags: 0, type: mo.doomednum, x: pos.x, y: pos.y }, mo);
             mobj.info.flags |= MFFlags.MF_DROPPED; // special versions of items
             this.map.spawn(mobj);
+
+            // items pop up when dropped (gzdoom has this effect)
+            mobj.velocity.z = randInt(7, 10);
+            // position slightly above the current floor otherwise it will immediately stick to floor
+            mobj.position.val.z += 1;
         }
     }
 
@@ -238,13 +247,13 @@ export class MapObject {
 
     // kind of P_ZMovement
     protected applyGravity() {
-        if (this.info.flags & MFFlags.MF_NOGRAVITY) {
-            return;
-        }
         if (this.onGround) {
-            this.position.val.z = this.zFloor;
             this.velocity.z = 0;
+            this.position.val.z = this.zFloor;
         } else {
+            if (this.info.flags & MFFlags.MF_NOGRAVITY) {
+                return;
+            }
             this.velocity.z -= 1;
         }
     }
@@ -264,16 +273,11 @@ export class MapObject {
                 return true;
             },
             CollisionNoOp);
-        this.position.update(pos => {
-            pos.x += this.velocity.x;
-            pos.y += this.velocity.y;
-            pos.z += this.velocity.z;
-            return pos;
-        });
+        this.position.update(pos => pos.add(this.velocity));
     }
 }
 
-const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap'>)[] =
+const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap' | 'berserk'>)[] =
     ['berserkTicks', 'invincibilityTicks', 'invisibilityTicks', 'nightVisionTicks', 'radiationSuitTicks'];
 
 const bobTime = ticksPerSecond / 20;
@@ -463,6 +467,7 @@ export interface PlayerInventory {
         berserkTicks: number,
         nightVisionTicks: number,
         computerMap: boolean,
+        berserk: boolean,
     }
     // weapons:
     // fist, chainsaw, pistol, shotgun, machine gun, rocket launcher, plasma rifle, bfg

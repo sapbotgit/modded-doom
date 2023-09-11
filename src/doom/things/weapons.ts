@@ -3,7 +3,7 @@ import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, StateIndex, mapObjectInfo } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, randInt } from '../math';
-import { type PlayerMapObject, type PlayerInventory, MapObject } from '../map-object';
+import { type PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond, type GameTime } from "../game";
@@ -102,6 +102,12 @@ function giveWeapon(weapon: PlayerWeapon) {
     }
 }
 
+const meleeRange = 1 * 64;
+const scanRange = 16 * 64;
+const attackRange = 32 * 64;
+const angleNoise = (radius: number) => (Math.random() - Math.random()) * (Math.PI / radius);
+const bulletDamage = () => 5 * randInt(1, 4);
+
 const weaponBobTime = 128 / ticksPerSecond;
 // TODO: I'd actually like to remove these from ActionIndex and instead make them completely local to weapon.ts
 // I'd like to do the same thing with StateIndex (move all weapon states to this file so that all weapon related stuff
@@ -174,29 +180,73 @@ const weaponActions: { [key: number]: WeaponAction } = {
     },
 
     [ActionIndex.A_Punch]: (time, player, weapon) => {
-        // TODO: damage infront and spawn puff/blood
+        let damage = randInt(1, 11) * 2;
+        if (player.inventory.val.items.berserk) {
+            damage *= 10;
+        }
+
+        let angle = player.direction.val + Math.PI + angleNoise(20);
+        const slope = tracer.zAim(player, meleeRange);
+        tracer.fire(player, damage, angle, slope, meleeRange);
+
+        // turn to face target
+        if (tracer.lastTarget) {
+            player.direction.set(angleBetween(player, tracer.lastTarget));
+        }
     },
     [ActionIndex.A_Saw]: (time, player, weapon) => {
-        // TODO: damage in front and look at target (if there is one) and spawn puff/blood
+        let damage = randInt(1, 11) * 2;
+        let angle = player.direction.val + Math.PI + angleNoise(20);
+
+        // use meleerange + 1 se the puff doesn't skip the flash
+        const slope = tracer.zAim(player, meleeRange + 1);
+        tracer.fire(player, damage, angle, slope, meleeRange + 1);
+
+        if (!tracer.lastTarget) {
+            // TODO: play sfx_sawful
+            return;
+        }
+        // TODO: play sfx_sawhit
+
+        // turn to face target
+        player.direction.update(dir => {
+            const newAngle = angleBetween(player, tracer.lastTarget);
+            if (newAngle - dir > Math.PI) {
+                dir = (newAngle - dir > -HALF_PI / 20)
+                    ? newAngle + HALF_PI / 21
+                    : dir - HALF_PI / 20;
+            } else {
+                dir = (newAngle - player.direction.val < HALF_PI / 20)
+                    ? newAngle - HALF_PI / 21
+                    : dir + HALF_PI / 20;
+            }
+            return dir;
+        });
+        // TODO: player think needs to read this to move the player forward
+        ///  ... or we could do it another way (like just adjust velocity here toward the target)
+        player.info.flags |= MFFlags.MF_JUSTATTACKED;
     },
     [ActionIndex.A_FirePistol]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        tracer.zAim(player);
+        const slope = tracer.zAim(player, scanRange);
         let angle = player.direction.val + Math.PI;
         if (player.refire) {
             // mess up angle slightly for refire
-            angle += (Math.random() - Math.random()) * (Math.PI / 30);
+            angle += angleNoise(20);
         }
-        const damage = 5 * randInt(1, 4);
-        tracer.fire(player, angle, damage);
+        tracer.fire(player, bulletDamage(), angle, slope, attackRange);
     },
     [ActionIndex.A_FireShotgun]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        // TODO: shoot 7 bullets
+        const slope = tracer.zAim(player, scanRange);
+        const angle = player.direction.val + Math.PI;
+        for (let i = 0; i < 7; i++) {
+            tracer.fire(player, bulletDamage(), angle + angleNoise(20), slope, attackRange);
+        }
     },
 
     [ActionIndex.A_FireShotgun2]: (time, player, weapon) => {
@@ -206,7 +256,11 @@ const weaponActions: { [key: number]: WeaponAction } = {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        // TODO: shoot 20 bullets
+        const slope = tracer.zAim(player, scanRange);
+        let angle = player.direction.val + Math.PI;
+        for (let i = 0; i < 20; i++) {
+            tracer.fire(player, bulletDamage(), angle + angleNoise(15), slope + angleNoise(30), attackRange);
+        }
     },
     [ActionIndex.A_OpenShotgun2]: (time, player, weapon) => {
     },
@@ -221,7 +275,13 @@ const weaponActions: { [key: number]: WeaponAction } = {
         player.setState(StateIndex.S_PLAY_ATK2);
         useAmmo(player, weapon);
 
-        // TODO: shoot bullet
+        const slope = tracer.zAim(player, scanRange);
+        let angle = player.direction.val + Math.PI;
+        if (player.refire) {
+            // mess up angle slightly for refire
+            angle += angleNoise(20);
+        }
+        tracer.fire(player, bulletDamage(), angle, slope, attackRange);
     },
     [ActionIndex.A_FireMissile]: (time, player, weapon) => {
         useAmmo(player, weapon);
@@ -243,54 +303,49 @@ const weaponActions: { [key: number]: WeaponAction } = {
 };
 
 class ShotTracer {
-    constructor(
-        readonly scanRange = 16 * 64,
-        readonly attackRange = 32 * 64,
-    ) {}
+    private _lastTarget: MapObject;
+    get lastTarget() { return this._lastTarget; };
 
     private start = new Vector3();
     private direction = new Vector3();
-    private aimSlope = 0;
-    zAim(shooter: MapObject) {
+    zAim(shooter: MapObject, range: number) {
         const dir = shooter.direction.val + Math.PI;
         this.start.copy(shooter.position.val);
         this.start.z += shooter.info.height * .5 + 8;
         this.direction.set(
-            Math.cos(dir) * this.scanRange,
-            Math.sin(dir) * this.scanRange,
+            Math.cos(dir) * range,
+            Math.sin(dir) * range,
             0,
         );
 
-        let aim = aimTrace(shooter, this.start.z, this.scanRange);
+        let aim = aimTrace(shooter, this.start.z, range);
         shooter.map.data.trace(this.start, this.direction, aim.fn);
         if (!aim.target) {
             // try aiming slightly left to see if we hit a target
             let dir2 = dir + Math.PI / 40;
-            this.direction.x = Math.cos(dir2) * this.scanRange;
-            this.direction.y = Math.sin(dir2) * this.scanRange;
-            aimTrace(shooter, this.start.z, this.scanRange);
+            this.direction.x = Math.cos(dir2) * range;
+            this.direction.y = Math.sin(dir2) * range;
+            aimTrace(shooter, this.start.z, range);
             shooter.map.data.trace(this.start, this.direction, aim.fn);
         }
         if (!aim.target) {
             // try aiming slightly right to see if we hit a target
             let dir2 = dir - Math.PI / 40;
-            this.direction.x = Math.cos(dir2) * this.scanRange;
-            this.direction.y = Math.sin(dir2) * this.scanRange;
-            aimTrace(shooter, this.start.z, this.scanRange);
+            this.direction.x = Math.cos(dir2) * range;
+            this.direction.y = Math.sin(dir2) * range;
+            aimTrace(shooter, this.start.z, range);
             shooter.map.data.trace(this.start, this.direction, aim.fn);
         }
 
-        this.aimSlope = 0;
-        if (aim.target) {
-            this.aimSlope = aim.slope;
-        }
+        this._lastTarget = aim.target;
+        return aim.target ? aim.slope : 0;
     }
 
     // kind of like PTR_ShootTraverse from p_map.c
-    fire(shooter: MapObject, angle: number, damage: number) {
+    fire(shooter: MapObject, damage: number, angle: number, aimSlope: number, range: number) {
         this.direction.set(
-            Math.cos(angle) * this.attackRange,
-            Math.sin(angle) * this.attackRange,
+            Math.cos(angle) * range,
+            Math.sin(angle) * range,
             0,
         );
 
@@ -311,21 +366,22 @@ class ShotTracer {
                     return true; // not shootable
                 }
 
-                const dist = this.attackRange * hit.fraction;
+                const dist = range * hit.fraction;
                 let thingSlopeTop = (mobj.position.val.z + mobj.info.height - this.start.z) / dist;
-                if (thingSlopeTop < this.aimSlope) {
+                if (thingSlopeTop < aimSlope) {
                     return true; // shot over thing
                 }
 
                 let thingSlopebottom = (mobj.position.val.z - this.start.z) / dist;
-                if (thingSlopebottom > this.aimSlope) {
+                if (thingSlopebottom > aimSlope) {
                     return true; // shot under thing
                 }
 
+                const pos = this.bulletHitLocation(10, hit.fraction, aimSlope, range);
                 if (mobj.info.flags & MFFlags.MF_NOBLOOD) {
-                    this.spawn(mobj, this.bulletHitLocation(10, hit.fraction), MapObjectIndex.MT_PUFF);
+                    this.spawn(mobj, pos, MapObjectIndex.MT_PUFF);
                 } else {
-                    this.spawnBlood(mobj, this.bulletHitLocation(10, hit.fraction), damage);
+                    this.spawnBlood(mobj, pos, damage);
                 }
                 mobj.damage(damage, shooter, shooter);
                 return false;
@@ -342,21 +398,21 @@ class ShotTracer {
                     const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
                     const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
 
-                    const dist = this.attackRange * hit.fraction;
+                    const dist = range * hit.fraction;
                     if (front.sector.zCeil.val !== back.sector.zCeil.val) {
                         const slope = (openTop - this.start.z) / dist;
-                        if (slope < this.aimSlope) {
-                            return this.hitWallOrSky(shooter, linedef, hit.fraction);
+                        if (slope < aimSlope) {
+                            return this.hitWallOrSky(shooter, linedef, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                         }
                     }
                     if (front.sector.zFloor.val !== back.sector.zFloor.val) {
                         const slope = (openBottom - this.start.z) / dist;
-                        if (slope > this.aimSlope) {
-                            return this.hitWallOrSky(shooter, linedef, hit.fraction);
+                        if (slope > aimSlope) {
+                            return this.hitWallOrSky(shooter, linedef, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                         }
                     }
                 } else {
-                    return this.hitWallOrSky(shooter, linedef, hit.fraction);
+                    return this.hitWallOrSky(shooter, linedef, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                 }
             } else {
                 // sector?
@@ -365,8 +421,7 @@ class ShotTracer {
         });
     }
 
-    private hitWallOrSky(shooter: MapObject, linedef: LineDef, frac: number) {
-        const spot = this.bulletHitLocation(4, frac);
+    private hitWallOrSky(shooter: MapObject, linedef: LineDef, spot: Vector3) {
         if (linedef.right.sector.ceilFlat.val === 'F_SKY1') {
             if (spot.z > linedef.right.sector.zCeil.val) {
                 return false;
@@ -379,14 +434,15 @@ class ShotTracer {
         return false;
     }
 
+    // TODO: too many params (and fire() too...), can we refactors these functions a little cleaner?
     private hitLocation = new Vector3();
-    private bulletHitLocation(dist: number, frac: number) {
+    private bulletHitLocation(dist: number, frac: number, slope: number, range: number) {
         // position the hit location little bit in front of the actual impact
-        frac = frac - dist / this.attackRange;
+        frac = frac - dist / range;
         return this.hitLocation.set(
             frac * this.direction.x + this.start.x,
             frac * this.direction.y + this.start.y,
-            frac * this.attackRange * this.aimSlope + this.start.z,
+            frac * range * slope + this.start.z,
         )
     }
 
