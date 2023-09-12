@@ -265,8 +265,25 @@ export class MapObject {
         }
 
         this.map.data.xyCollisions(this, this.velocity,
-            CollisionNoOp,
+            mobj => {
+                if (this.info.flags & MFFlags.MF_MISSILE) {
+                    // TODO: check z above/below object
+                    // TODO: check species (imps don't hit imps, etc.)
+                    if (!(mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                        return !(mobj.info.flags & MFFlags.MF_SOLID);
+                    }
+                    const damage = randInt(1, 9) * this.info.damage;
+                    mobj.damage(damage, this, this.chaseTarget);
+                    this.explode();
+                }
+                return false;
+            },
             linedef => {
+                if (this.info.flags & MFFlags.MF_MISSILE) {
+                    // TODO: check for sky hit and disappear object instead
+                    this.explode();
+                    return false;
+                }
                 // slide along wall instead of moving through it
                 vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
                 this.velocity.projectOnVector(vec);
@@ -274,6 +291,15 @@ export class MapObject {
             },
             CollisionNoOp);
         this.position.update(pos => pos.add(this.velocity));
+    }
+
+    protected explode() {
+        this.velocity.set(0, 0, 0);
+        this.setState(this.info.deathstate);
+        // TODO: randomly subtract 0-2 ticks
+        this.info.flags &= ~MFFlags.MF_MISSILE;
+        // if (this.info.deathsound)
+        // SND: this.info.deathsound
     }
 }
 

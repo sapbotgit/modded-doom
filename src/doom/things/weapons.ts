@@ -2,7 +2,7 @@ import { Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, StateIndex, mapObjectInfo } from "../doom-things-info";
 import { store } from "../store";
-import { HALF_PI, randInt } from '../math';
+import { HALF_PI, ToDegrees, randInt } from '../math';
 import { type PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
@@ -263,8 +263,10 @@ const weaponActions: { [key: number]: WeaponAction } = {
         }
     },
     [ActionIndex.A_OpenShotgun2]: (time, player, weapon) => {
+        // TODO: sound?
     },
     [ActionIndex.A_LoadShotgun2]: (time, player, weapon) => {
+        // TODO: sound?
     },
     [ActionIndex.A_CloseShotgun2]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_ReFire](time, player, weapon);
@@ -285,20 +287,24 @@ const weaponActions: { [key: number]: WeaponAction } = {
     },
     [ActionIndex.A_FireMissile]: (time, player, weapon) => {
         useAmmo(player, weapon);
-
-        // TODO: shoot bullet
+        shootMissile(player, MapObjectIndex.MT_ROCKET);
+    },
+    [ActionIndex.A_Explode]: (time, player, weapon) => {
+        // TODO: implement explode...
     },
     [ActionIndex.A_FirePlasma]: (time, player, weapon) => {
         weapon.flash(randInt(0, 2));
         // don't go to S_PLAY_ATK2... was that intentional in doom?
         useAmmo(player, weapon);
-
-        // TODO: shoot bullet
+        shootMissile(player, MapObjectIndex.MT_PLASMA);
     },
+
     [ActionIndex.A_FireBFG]: (time, player, weapon) => {
         useAmmo(player, weapon);
-
-        // TODO: shoot bullet
+        shootMissile(player, MapObjectIndex.MT_BFG);
+    },
+    [ActionIndex.A_BFGSpray]: (time, player, weapon) => {
+        // TODO: bfg spray
     },
 };
 
@@ -542,6 +548,30 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
         },
     };
     return result;
+}
+
+function shootMissile(player: MapObject, type: MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG) {
+    const slope = tracer.zAim(player, scanRange);
+
+    let angle = player.direction.val + Math.PI;
+    const pos = player.position.val;
+    const mobj = player.map.spawn(new MapObject(
+        player.map,
+        { type: 0, angle: angle * ToDegrees, flags: 0, x: pos.x, y: pos.y, z: pos.z + 32 },
+        mapObjectInfo[type]));
+
+    if (mobj.info.seesound) {
+        // SOUND: mobj.infoseesound
+    }
+
+    // this is kind of an abuse of "chaseTarget" but missles won't ever change anyone anyway. It's used when a missile
+    // hits a target to know who fired it.
+    mobj.chaseTarget = player;
+    mobj.velocity.set(
+        mobj.info.speed * Math.cos(angle),
+        mobj.info.speed * Math.sin(angle),
+        mobj.info.speed * slope,
+    );
 }
 
 function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {

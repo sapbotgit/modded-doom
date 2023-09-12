@@ -83,6 +83,7 @@ export class Game {
             berserk: false,
         },
         lastWeapon: weapons['pistol'],
+        // weapons: [...Object.values(weapons)],
         weapons: [weapons['chainsaw'], weapons['fist'], weapons['pistol']],
         keys: '',
     };

@@ -103,10 +103,8 @@
 <div>
     <span>Sprite Info</span>
     <div>name: {frame.name}</div>
-    <div>width: {texture.userData.width}</div>
-    <div>height: {texture.userData.height}</div>
-    <div>xOffset: {texture.userData.xOffset}</div>
-    <div>yOffset: {texture.userData.yOffset}</div>
+    <div>[width, height]: [{texture.userData.width}, {texture.userData.height}]</div>
+    <div>[xOffset, yOffset]: [{texture.userData.xOffset}, {texture.userData.yOffset}]</div>
     <div>fullbright: {$sprite.fullbright}</div>
 </div>
 

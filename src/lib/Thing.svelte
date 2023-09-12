@@ -21,9 +21,15 @@
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
     $: texture = textures.get(frame.name, 'sprite');
-    $: zPos = $position.z + texture.userData.height * .5;
-    $: hOffset = -texture.userData.xOffset + texture.userData.width * .5;
-    $: vOffset = texture.userData.yOffset - texture.userData.height;
+    $: hOffset = texture.userData.xOffset - (texture.userData.width * .5);
+    // Sprite offset is much more complicated than this but this is simple and looks okay-ish.
+    // https://www.doomworld.com/forum/topic/110008-what-is-this-bs-with-gl-hardware-mode
+    // and https://www.doomworld.com/forum/topic/68145-source-port-sprites-through-the-floor
+    const hackedSprites = ['MISL', 'PLSE', 'BFE1', 'BFS1'];
+    $: vOffset = Math.max(texture.userData.yOffset - texture.userData.height, 0) + (texture.userData.height * .5);
+    $: if (hackedSprites.includes($sprite.name)) {
+        vOffset += texture.userData.yOffset - texture.userData.height;
+    }
 
     $: material = new MeshStandardMaterial({ alphaTest: 1 });
     $: if (texture) {
@@ -63,14 +69,13 @@
     interactive={$editor.active}
     on:click={hit}
     {material}
-    renderOrder={1}
     geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
     scale={frame.mirror ? { x: -1 } : {}}
     rotation={{ y: $cameraRotation.z, x: HALF_PI, order:'ZXY' }}
     position={{
-        x: ($position.x + hOffset),
-        y: ($position.y + hOffset),
-        z: Math.max(zPos, zPos + vOffset),
+        x: $position.x + hOffset,
+        y: $position.y + hOffset,
+        z: $position.z + vOffset,
     }}
 >
     {#if $editor.selected === thing}
