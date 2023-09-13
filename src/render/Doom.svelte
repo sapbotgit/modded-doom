@@ -8,8 +8,8 @@
     import { buildRenderSectors } from "./RenderData";
     import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
-    import MapRoot from "./Level/Root.svelte";
-    import MapContext from "./Level/Context.svelte";
+    import MapRoot from "./Map/Root.svelte";
+    import MapContext from "./Map/Context.svelte";
     import { Clock } from "three";
 
     export let game: Game;

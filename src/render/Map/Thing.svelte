@@ -1,6 +1,19 @@
+<script lang="ts" context="module">
+    const cache = new Map<string, PlaneGeometry>();
+
+    function planeGeometry(textureData: any) {
+        const key = textureData.width + 'x' + textureData.height;
+        let val = cache.get(key)
+        if (!val) {
+            val = new PlaneGeometry(textureData.width, textureData.height);
+            cache.set(key, val);
+        }
+        return val;
+    }
+</script>
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, Color } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry } from 'three';
     import { useDoom, useDoomMap } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI } from '../../doom';
     import Wireframe from '../Debug/Wireframe.svelte';
@@ -30,7 +43,8 @@
         vOffset += texture.userData.yOffset - texture.userData.height;
     }
 
-    $: material = new MeshStandardMaterial({ alphaTest: 1 });
+    $: material = new MeshStandardMaterial({ alphaTest: 1, emissive: 'magenta' });
+    $: material.emissiveIntensity = ($editor.selected === thing) ? 0.1 : 0;
     $: if (texture) {
         material.map = texture;
     }
@@ -47,20 +61,14 @@
         material.color = textures.lightColor($extraLight + ($sprite.fullbright ? 255 : $light));
     }
 
-    $: if ($editor.selected === thing) {
-        material.emissive = new Color('magenta');
-        material.emissiveIntensity = 0.1;
-    } else {
-        material.emissiveIntensity = 0;
-    }
-
     function hit() {
         $editor.selected = thing;
     }
 
     function positionChanged(ev) {
-        $position.x = Math.floor(ev.detail.target.worldPosition.x);
-        $position.y = Math.floor(ev.detail.target.worldPosition.y);
+        position.val.x = Math.floor(ev.detail.target.worldPosition.x);
+        position.val.y = Math.floor(ev.detail.target.worldPosition.y);
+        position.set(position.val);
     }
 </script>
 
@@ -68,7 +76,7 @@
     interactive={$editor.active}
     on:click={hit}
     {material}
-    geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
+    geometry={planeGeometry(texture.userData)}
     scale={frame.mirror ? { x: -1 } : {}}
     rotation={{ y: $cameraRotation.z, x: HALF_PI, order:'ZXY' }}
     position={{

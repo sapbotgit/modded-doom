@@ -16,6 +16,7 @@ interface SpriteFrame {
 // TODO: support pwads
 // TODO: some unit tests on the picture functions would allow more code re-use. It's messy down there.
 export class DoomWad {
+    private spriteFrameTable = new Map<string, SpriteFrame[][]>();
     private mapIndex = new Map<string, number>();
     readonly palettes: Palette[] = [];
     raw: any[];
@@ -234,8 +235,11 @@ export class DoomWad {
     }
 
     spriteFrames(name: string): SpriteFrame[][] {
-        // TODO: cache results for faster map load?
         const uname = name.toUpperCase();
+        if (this.spriteFrameTable.has(uname)) {
+            return this.spriteFrameTable.get(uname)
+        }
+
         const sprites = this.spriteLumps.filter(lump => lump.name.startsWith(uname));
         const frames: (SpriteFrame & { frame: number, rotation: number })[] = [];
         for (const lump of sprites) {
@@ -259,6 +263,7 @@ export class DoomWad {
         for (const frame of frames.map(e => e.frame)) {
             result[frame] = frames.filter(e => e.frame === frame).sort((a, b) => a.rotation - b.rotation);
         }
+        this.spriteFrameTable.set(uname, result);
         return result;
     }
 

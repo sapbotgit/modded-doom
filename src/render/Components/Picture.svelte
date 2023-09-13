@@ -18,10 +18,11 @@
     afterUpdate(() => {
         const ctx = canvas.getContext('2d');
         const key = name + type;
-        const imageData = cache.get(key) ?? ctx.createImageData(data.width, data.height);
-        if (!cache.has(key)) {
-            cache.set(key, imageData);
+        let imageData = cache.get(key)
+        if (!imageData) {
+            imageData = ctx.createImageData(data.width, data.height);
             data.toBuffer(imageData.data);
+            cache.set(key, imageData);
         }
         ctx.putImageData(imageData, 0, 0);
     });

@@ -54,10 +54,15 @@ export class SpriteStateMachine {
             // don't change sprite if the state hasn't changed
             return;
         }
-        const name = SpriteNames[this.state.sprite];
-        const frame = this.state.frame & FF_FRAMEMASK;
-        const fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
-        this.sprite.set({ name, frame, fullbright });
+        this.sprite.update(sprite => {
+            if (!sprite) {
+                sprite = { name: '', frame: 0, fullbright: false };
+            }
+            sprite.name = SpriteNames[this.state.sprite];
+            sprite.frame = this.state.frame & FF_FRAMEMASK;
+            sprite.fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
+            return sprite;
+        });
     }
 
     randomizeTicks() {

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
-    import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, Color } from "three";
+    import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial } from "three";
     import { useDoom, useDoomMap } from "../DoomContext";
     import Wireframe from "../Debug/Wireframe.svelte";
     import type { RenderSector } from "../RenderData";
@@ -21,18 +21,13 @@
             || (!ceiling && $cameraPosition.z >= vertical);
     const { light } = renderSector.sector;
 
-    $: material = new MeshStandardMaterial({ color, side: ceiling ? BackSide : FrontSide });
+    $: material = new MeshStandardMaterial({ color, emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
+    $: material.emissiveIntensity = ($editor.selected === renderSector.sector) ? 0.1 : 0;
     $: if (textureName && settings.useTextures) {
         material.map = textures.get(textureName, 'flat');
     }
     $: if ($light !== undefined) {
         material.color = textures.lightColor($light + $extraLight);
-    }
-    $: if ($editor.selected === renderSector.sector) {
-        material.emissive = new Color('magenta');
-        material.emissiveIntensity = 0.1;
-    } else {
-        material.emissiveIntensity = 0;
     }
 
     $: isSky = textureName === 'F_SKY1';
