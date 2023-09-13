@@ -1,9 +1,9 @@
 <script lang="ts">
-    import DoomPic from "../DoomPic.svelte";
+    import Picture from "../Components/Picture.svelte";
 
     export let name: string;
     export let type: 'wall' | 'flat';
 </script>
 
 <div>{name}</div>
-<DoomPic {name} {type} />
+<Picture {name} {type} />

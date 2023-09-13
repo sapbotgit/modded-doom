@@ -1,6 +1,6 @@
 <script lang="ts">
     import {  Color, CubeTexture, DataTexture, LinearToneMapping, SRGBColorSpace } from "three";
-    import { useDoom, useDoomMap } from "./DoomContext";
+    import { useDoom, useDoomMap } from "../DoomContext";
     import { AmbientLight, useThrelte } from "@threlte/core";
 
     const { scene, renderer } = useThrelte();

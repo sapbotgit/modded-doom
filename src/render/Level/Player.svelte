@@ -3,7 +3,7 @@
     import Thing from "./Thing.svelte";
     import { CircleGeometry, MeshBasicMaterial } from "three";
     import Weapon from "./Weapon.svelte";
-    import { useDoomMap } from "./DoomContext";
+    import { useDoomMap } from "../DoomContext";
 
     const { map } = useDoomMap();
     const { mode, position: cameraPosition, rotation: cameraRotation } = map.camera;

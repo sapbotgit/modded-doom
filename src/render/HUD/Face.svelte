@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
     import { randInt } from "../../doom";
-    import DoomPic from "../DoomPic.svelte";
+    import Picture from "../Components/Picture.svelte";
     import { useDoom } from "../DoomContext";
 
     export let player: PlayerMapObject;
@@ -66,4 +66,4 @@
     }
 </script>
 
-<DoomPic name={state} />
+<Picture name={state} />

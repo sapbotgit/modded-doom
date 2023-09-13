@@ -4,7 +4,7 @@
 </script>
 <script lang="ts">
     import { afterUpdate } from "svelte";
-    import { useDoom } from "./DoomContext";
+    import { useDoom } from "../DoomContext";
 
     export let name: string;
     export let type: 'wall' | 'flat' | 'any' = 'any';

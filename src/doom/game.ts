@@ -68,7 +68,7 @@ export class Game {
         armor: 0,
         armorType: 0,
         ammo: {
-            bullets: { amount: 50, max: 200 },
+            bullets: { amount: 250, max: 200 },
             shells: { amount: 0, max: 50 },
             rockets: { amount: 0, max: 50 },
             cells: { amount: 0, max: 300 },
@@ -82,9 +82,10 @@ export class Game {
             computerMap: false,
             berserk: false,
         },
-        lastWeapon: weapons['pistol'],
-        // weapons: [...Object.values(weapons)],
-        weapons: [weapons['chainsaw'], weapons['fist'], weapons['pistol']],
+        lastWeapon: weapons['chaingun'],
+        weapons: [...Object.values(weapons)],
+        // lastWeapon: weapons['pistol'],
+        // weapons: [weapons['fist'], weapons['pistol']],
         keys: '',
     };
     readonly map = store<MapRuntime>(null);

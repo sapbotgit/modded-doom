@@ -1,9 +1,9 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
     import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial, Color } from "three";
-    import { useDoom, useDoomMap } from "./DoomContext";
-    import Wireframe from "./Debug/Wireframe.svelte";
-    import type { RenderSector } from "./RenderData";
+    import { useDoom, useDoomMap } from "../DoomContext";
+    import Wireframe from "../Debug/Wireframe.svelte";
+    import type { RenderSector } from "../RenderData";
 
     export let renderSector: RenderSector;
     export let geometry: BufferGeometry;

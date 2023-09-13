@@ -1,5 +1,5 @@
 <script lang="ts">
-    import DoomPic from "../DoomPic.svelte";
+    import Picture from "../Components/Picture.svelte";
 
     export let key: string;
 
@@ -11,4 +11,4 @@
         key ==='b' ? 3 :
         4;
 </script>
-<DoomPic name={'STKEYS' + card} />
+<Picture name={'STKEYS' + card} />

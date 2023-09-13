@@ -1,6 +1,6 @@
 <script lang="ts">
     import { type State } from "../../doom";
-    import DoomPic from "../DoomPic.svelte";
+    import Picture from "../Components/Picture.svelte";
 
     export let state: State;
     export let frames: any[][];
@@ -11,4 +11,4 @@
 </script>
 
 <div>{text}</div>
-<DoomPic name={frame.name} />
+<Picture name={frame.name} />

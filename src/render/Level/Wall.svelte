@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Seg } from "../doom";
+    import type { Seg } from "../../doom";
     import WallSegment from "./WallSegment.svelte";
 
     export let seg: Seg;

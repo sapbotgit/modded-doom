@@ -1,5 +1,5 @@
 <script lang="ts">
-    import DoomPic from "../DoomPic.svelte";
+    import Picture from "../Components/Picture.svelte";
 
     export let value: number;
     export let percent = false;
@@ -9,18 +9,18 @@
 
 <div style={`width:${width}px`}>
     {#if value >= 100}
-        <DoomPic name={`STTNUM${Math.trunc(value / 100) % 10}`} />
+        <Picture name={`STTNUM${Math.trunc(value / 100) % 10}`} />
     {:else}
         <span class="space" />
     {/if}
     {#if value >= 10}
-        <DoomPic name={`STTNUM${Math.trunc(value / 10) % 10}`} />
+        <Picture name={`STTNUM${Math.trunc(value / 10) % 10}`} />
     {:else}
         <span class="space" />
     {/if}
-    <DoomPic name={`STTNUM${value % 10}`} />
+    <Picture name={`STTNUM${value % 10}`} />
     {#if percent}
-        <DoomPic name={'STTPRCNT'} />
+        <Picture name={'STTPRCNT'} />
     {/if}
 </div>
 

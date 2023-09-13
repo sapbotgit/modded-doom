@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { PlayerMapObject } from "../../doom";
-    import DoomPic from "../DoomPic.svelte";
+    import Picture from "../Components/Picture.svelte";
     import BigNum from "./BigNum.svelte";
     import SmallNum from "./SmallNum.svelte";
     import Face from "./Face.svelte";
@@ -13,7 +13,7 @@
 </script>
 
 <div class="root">
-    <DoomPic name={'STBAR'} />
+    <Picture name={'STBAR'} />
     <div class="ammo">
         {#if $inv.ammo[$weapon.ammoType]}
             <BigNum value={$inv.ammo[$weapon.ammoType].amount} />
@@ -23,7 +23,7 @@
         <BigNum value={$health} percent />
     </div>
     <div class="arms">
-        <DoomPic name={'STARMS'} />
+        <Picture name={'STARMS'} />
         <span><SmallNum value={2} altNum={!weaponLights.includes(2)} /></span>
         <span><SmallNum value={3} altNum={!weaponLights.includes(3)} /></span>
         <span><SmallNum value={4} altNum={!weaponLights.includes(4)} /></span>
