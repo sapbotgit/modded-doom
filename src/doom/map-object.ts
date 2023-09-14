@@ -204,11 +204,10 @@ export class MapObject {
 
         this.info.height /= 4;
         if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate) {
-            this.setState(this.info.xdeathstate);
+            this._state.setState(this.info.xdeathstate, -randInt(0, 3));
         } else {
-            this.setState(this.info.deathstate);
+            this._state.setState(this.info.deathstate, -randInt(0, 3));
         }
-        // TODO: subtract 0-2 tics
 
         // Some enemies drop things (guns or ammo) when they die
         let dropType =
@@ -231,8 +230,8 @@ export class MapObject {
         }
     }
 
-    setState(stateIndex: number) {
-        this._state.setState(stateIndex);
+    setState(stateIndex: number, tickOffset: number = 0) {
+        this._state.setState(stateIndex, tickOffset);
     }
 
     teleport(target: Thing, sector: Sector) {
@@ -295,8 +294,7 @@ export class MapObject {
 
     protected explode() {
         this.velocity.set(0, 0, 0);
-        this.setState(this.info.deathstate);
-        // TODO: randomly subtract 0-2 ticks
+        this._state.setState(this.info.deathstate, -randInt(0, 3));
         this.info.flags &= ~MFFlags.MF_MISSILE;
         // if (this.info.deathsound)
         // SND: this.info.deathsound

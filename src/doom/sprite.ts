@@ -35,7 +35,7 @@ export class SpriteStateMachine {
         }
     }
 
-    setState(stateIndex: StateIndex) {
+    setState(stateIndex: StateIndex, tickOffset = 0) {
         const lastState = this.state;
         do {
             this.stateIndex = stateIndex;
@@ -50,6 +50,7 @@ export class SpriteStateMachine {
             stateIndex = this.state.nextState;
         } while (!this.ticks)
 
+        this.ticks = Math.max(0, this.ticks + tickOffset);
         if (this.state === lastState) {
             // don't change sprite if the state hasn't changed
             return;

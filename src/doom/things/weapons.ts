@@ -461,7 +461,7 @@ class ShotTracer {
     private spawnBlood(source: MapObject, position: Vector3, damage: number) {
         position.z += randInt(0, 10) - randInt(0, 10);
         const mobj = this.spawn(source, position, MapObjectIndex.MT_BLOOD);
-        // TODO: subtrac 0-2 sprite tics for aesthetics
+        mobj.setState(mobj.info.spawnstate, -randInt(0, 3));
 
         if (damage <= 12 && damage >= 9) {
             mobj.setState(StateIndex.S_BLOOD2);
