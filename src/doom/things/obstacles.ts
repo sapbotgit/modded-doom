@@ -1,4 +1,9 @@
+import { Vector3 } from 'three';
 import type { ThingType } from '.';
+import { ActionIndex, MFFlags } from '../doom-things-info';
+import type { GameTime } from '../game';
+import type { MapObject } from '../map-object';
+import { lineLineIntersect } from '../math';
 
 export const obstacles: ThingType[] = [
     { type: 25, class: 'O', description: 'Impaled human' },
@@ -42,3 +47,63 @@ export const obstacles: ThingType[] = [
     { type: 2028, class: 'O', description: 'Floor lamp' },
     { type: 2035, class: 'O', description: 'Exploding barrel' },
 ];
+
+type StateChangeAction = (time: GameTime, mobj: MapObject) => void
+export const actions: { [key: number]: StateChangeAction } = {
+    [ActionIndex.A_Explode]: (time, mobj: MapObject) => {
+        // P_RadiusAttack ( thingy, thingy->target, 128 );
+        const damage = 128;
+        mobj.map.data.blockmap.radiusTrace(mobj.position.val, damage + 32, block => {
+            for (const thing of block.things) {
+                if (!(thing.info.flags & MFFlags.MF_SHOOTABLE)) {
+                    continue;
+                }
+                // Boss spider and cyberdemon take no damage from explosions
+                if (thing.info.doomednum === 16 || thing.info.doomednum === 7) {
+                    continue;
+                }
+
+                let dist = Math.max(
+                    Math.abs(thing.position.val.x - mobj.position.val.x),
+                    Math.abs(thing.position.val.y - mobj.position.val.y)) - thing.info.radius;
+                if (dist < 0) {
+                    dist = 0;
+                }
+                if (dist >= damage) {
+                    continue; // out of range
+                }
+
+                if (hasLineOfSight(thing, mobj)) {
+                    thing.damage(damage - dist, mobj, mobj.chaseTarget);
+                }
+            }
+            // always trace all blocks
+            return true;
+        });
+    },
+}
+
+const losVec = new Vector3();
+function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
+    // P_CheckSight use bsp tree... it would be really nice to use that.
+    // Also we need to check z-coordinates here and look at two-sided walls, etc.
+    let los = true;
+    const line = [mobj1.position.val, mobj2.position.val];
+    losVec.copy(mobj2.position.val).sub(mobj1.position.val);
+    mobj1.map.data.blockmap.trace2(mobj1.position.val, losVec, (block, bounds) => {
+        for (const linedef of block.linedefs) {
+            const hit = lineLineIntersect(line, linedef.v, true);
+            const validHit = (hit
+                && hit.x > bounds.left && hit.x < bounds.right
+                && hit.y > bounds.top && hit.y < bounds.bottom);
+            if (validHit) {
+                // we've hit a wall so line of sight is false
+                los = false;
+                return false;
+            }
+        }
+        // keep searching next block
+        return true;
+    });
+    return los;
+}

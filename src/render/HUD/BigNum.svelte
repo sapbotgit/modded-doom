@@ -4,6 +4,7 @@
     export let value: number;
     export let percent = false;
 
+    $: value = Math.max(0, value); // don't display negatives
     let width = percent ? 64 : 48;
 </script>
 
@@ -18,7 +19,7 @@
     {:else}
         <span class="space" />
     {/if}
-    <Picture name={`STTNUM${value % 10}`} />
+    <Picture name={`STTNUM${Math.trunc(value % 10)}`} />
     {#if percent}
         <Picture name={'STTPRCNT'} />
     {/if}

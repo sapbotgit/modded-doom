@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { thingSpec, weapons } from "./things";
+import { thingSpec, weapons, stateChangeActions } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, mapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./math";
@@ -24,7 +24,7 @@ export class MapObject {
     private sect: Sector;
 
     protected _state = new SpriteStateMachine(
-        action => { /* TODO: do action... */ },
+        action => stateChangeActions[action]?.(this.map.game.time, this),
         () => this.map.destroy(this));
     protected zFloor: number;
 
@@ -151,7 +151,7 @@ export class MapObject {
                 || source.weapon.val !== weapons['chainsaw']));
         if (shouldApplyThrust) {
             let angle = angleBetween(this, inflictor);
-            let thrust = amount * 20 / this.info.mass;
+            let thrust = amount * 12 / this.info.mass;
             // as a nifty effect, make fall forwards sometimes on kill shots (when player is below thing they are shooting at)
             const shouldFallForward = (amount < 40
                 && amount > this.health.val
@@ -203,7 +203,7 @@ export class MapObject {
         // TODO: if source is player... do some extra stuff
 
         this.info.height /= 4;
-        if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate) {
+        if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
             this._state.setState(this.info.xdeathstate, -randInt(0, 3));
         } else {
             this._state.setState(this.info.deathstate, -randInt(0, 3));
@@ -271,6 +271,9 @@ export class MapObject {
                     if (!(mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                         return !(mobj.info.flags & MFFlags.MF_SOLID);
                     }
+                    if (this.chaseTarget === mobj) {
+                        return true; // don't hit shooter, continue trace
+                    }
                     const damage = randInt(1, 9) * this.info.damage;
                     mobj.damage(damage, this, this.chaseTarget);
                     this.explode();
@@ -334,6 +337,7 @@ export class PlayerMapObject extends MapObject {
     tick() {
         super.tick();
 
+        this.damageCount = Math.max(0, this.damageCount - 1);
         this.weapon.val.tick();
 
         this.inventory.update(inv => {

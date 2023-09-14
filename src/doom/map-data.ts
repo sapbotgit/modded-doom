@@ -184,6 +184,7 @@ const lastTrace2 = {
     tDeltaX: 0,
     tDeltaY: 0,
 }
+const gridSize = 128;
 class BlockMap {
     private map: Block[] = [];
     private numCols: number;
@@ -274,7 +275,6 @@ class BlockMap {
         // kind of like Doom's P_PathTraverse but based on
         // http://www.cse.yorku.ca/~amana/research/grid.pdf
         // and https://stackoverflow.com/questions/12367071
-        const gridSize = 128;
         lastTrace2.start.copy(start);
         lastTrace2.end.copy(start).add(vel);
 
@@ -324,6 +324,23 @@ class BlockMap {
         }
         this.lastTrace.set(lastTrace);
         this.lastTrace2.set(lastTrace2);
+    }
+
+    radiusTrace(start: Vector3, radius: number, onBlock: (block: Block) => boolean) {
+        const dx = Math.floor(radius / gridSize);
+        const x1 = Math.floor((start.x - this.bounds.left) / gridSize);
+        const y1 = Math.floor((start.y - this.bounds.bottom) / gridSize);
+        const x2 = x1 + dx;
+        const y2 = y1 + dx;
+
+        let lastTrace = [];
+        for (let x = x1 - dx; x <= x2; x++) {
+            for (let y = y1 - dx; y <= y2; y++) {
+                lastTrace.push({ row: y, col: x });
+                onBlock(this.map[y * this.numCols + x]);
+            }
+        }
+        this.lastTrace.set(lastTrace);
     }
 
     private pointTrace(start: Vector3, move: Vector3) {

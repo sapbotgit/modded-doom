@@ -4,6 +4,7 @@
     export let value: number;
     export let altNum = false;
 
+    $: value = Math.max(0, value); // don't display negatives
     $: name = altNum ? 'STGNUM' : 'STYSNUM';
 </script>
 
@@ -18,7 +19,7 @@
     {:else}
         <span class="space" />
     {/if}
-    <Picture name={name + (value % 10)}  />
+    <Picture name={name + Math.trunc(value % 10)}  />
 </div>
 
 <style>

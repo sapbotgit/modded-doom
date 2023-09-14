@@ -285,13 +285,12 @@ const weaponActions: { [key: number]: WeaponAction } = {
         }
         tracer.fire(player, bulletDamage(), angle, slope, attackRange);
     },
+
     [ActionIndex.A_FireMissile]: (time, player, weapon) => {
         useAmmo(player, weapon);
         shootMissile(player, MapObjectIndex.MT_ROCKET);
     },
-    [ActionIndex.A_Explode]: (time, player, weapon) => {
-        // TODO: implement explode...
-    },
+
     [ActionIndex.A_FirePlasma]: (time, player, weapon) => {
         weapon.flash(randInt(0, 2));
         // don't go to S_PLAY_ATK2... was that intentional in doom?

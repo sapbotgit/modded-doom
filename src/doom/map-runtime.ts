@@ -45,6 +45,7 @@ export class MapRuntime {
 
         this.objs = this.data.things.map(e => this.spawnThing(e)).filter(e => e);
         this.objs.forEach(o => this.data.blockmap.watch(o));
+        this.data.blockmap.watch(this.player);
 
         this.synchronizeActions();
 

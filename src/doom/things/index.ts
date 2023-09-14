@@ -6,7 +6,7 @@ import { ammunitions } from './ammunitions';
 import { items } from './items';
 import { powerups } from './powerups';
 import { keys } from './keys';
-import { obstacles } from './obstacles';
+import { obstacles, actions as obstacleActions } from './obstacles';
 import { decorations } from './decorations';
 import { other } from './other';
 
@@ -33,3 +33,5 @@ export function thingSpec(type: number): ThingSpec {
         mapObjectInfo.find(e => e.doomednum === type);
     return { ...t, mo };
 }
+
+export const stateChangeActions = { ...obstacleActions };
