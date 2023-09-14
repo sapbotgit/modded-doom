@@ -152,7 +152,7 @@ function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
             let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .1);
             let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1000);
             if (insideBsp && insideSeg) {
-                verts.push(point);
+                verts.push({ x: point.x, y: point.y });
             }
         }
     }

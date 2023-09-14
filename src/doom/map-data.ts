@@ -2,7 +2,7 @@ import { store, type Store } from "./store";
 import type { DoomWad } from "./wad/doomwad";
 import { Vector3 } from "three";
 import { MapObject } from "./map-object";
-import { circleCircleSweep, dot, lineCircleIntersect, lineCircleSweep, lineLineIntersect, normal, signedLineDistance, type Vertex } from "./math";
+import { AmanatidesWooTrace, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
 
@@ -153,29 +153,30 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
 interface Block {
     linedefs: LineDef[];
     things: MapObject[];
+    traceCount: number; // used so to avoid hitting the same block multiple times in a single trace
 }
 
-export interface TraceHit {
+interface BaseTraceHit {
     fraction: number; // 0-1 of how far we moved along the desired path
     point: Vector3; // point of hit (maybe redundant because we can compute it from fraction and we don't use z anyway)
-    side?: -1 | 1; // only for linedefs, did we hit front side (1) or back side (-1)
-    hit: LineDef | Sector | MapObject; // either a wall, ceilng/floor, or thing
 }
+interface LineTraceHit extends BaseTraceHit {
+    side: -1 | 1; // did we hit front side (1) or back side (-1)
+    line: LineDef;
+}
+interface SpecialTraceHit extends LineTraceHit {
+    special: boolean;
+}
+interface MapObjectTraceHit extends BaseTraceHit {
+    mobj: MapObject;
+}
+interface SectorTraceHit extends BaseTraceHit {
+    sector: Sector;
+}
+export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit | SpecialTraceHit;
 // return true to continue trace, false to stop
 export type HandleTraceHit = (hit: TraceHit) => boolean;
 
-export interface HandleCollision<Type> {
-    (t: Type, side?: -1 | 1): boolean;
-}
-export function CollisionNoOp() { return false; }
-
-const frac = (n: number) => (n % 1) + (n < 0 ? 1 : 0);
-
-const leftSide = new Vector3();
-const rightSide = new Vector3();
-const velU = new Vector3();
-const velUR = new Vector3();
-const traceEnd = new Vector3();
 const lastTrace2 = {
     start: new Vector3(),
     end: new Vector3(),
@@ -185,12 +186,19 @@ const lastTrace2 = {
     tDeltaY: 0,
 }
 const gridSize = 128;
+type BlockHandler = (block: Block, bounds: NodeBounds) => boolean;
 class BlockMap {
     private map: Block[] = [];
     private numCols: number;
     private numRows: number;
-    readonly bounds: NodeBounds;
+    private traceCount = 0;
     private objMap = new Map<MapObject, Block>();
+    private lineTrace: AmanatidesWooTrace;
+    private mTrace: AmanatidesWooTrace;
+    private ccwTrace: AmanatidesWooTrace;
+    private cwTrace: AmanatidesWooTrace;
+    private blockBounds: NodeBounds = { top: 0, left: 0, bottom: 0, right: 0 };
+    readonly bounds: NodeBounds;
 
     // TODO: remove these after finishing up debugging
     lastTrace = store<{ row: number, col: number }[]>([]);
@@ -210,11 +218,17 @@ class BlockMap {
             right: data.originX + data.numCols * 128,
         }
         this.map = data.linedefsInBlock.map(block => ({
+            traceCount: 0,
             things: [],
             linedefs: block.linedefs
                 .filter((e, i) => e >= 0 && !(i === 0 && e === 0))
                 .map(e => linedefs[e]),
         }));
+
+        this.lineTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
+        this.mTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
+        this.ccwTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
+        this.cwTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
     }
 
     watch(mobj: MapObject) {
@@ -246,84 +260,86 @@ class BlockMap {
         }
     }
 
-    trace(position: Vector3, radius: number, vel: Vector3) {
-        const unique = (e: any, i: number, arr: any[]) => e && arr.indexOf(e) === i;
-
-        // TODO: this whole function needs a little more testing - especially for high velocity objects
-
-        // trace the left and right bounds of the object along velocity vector, add in the end block,
-        // and return the union of unique linedefs and things from the touched blocks in the blockmap
-        velU.copy(vel).normalize();
-        velUR.set(-velU.y, velU.x, velU.z);
-
-        const endIndex = this.queryIndex(position.x + vel.x + radius, position.y + vel.y + radius);
-        leftSide.copy(position).addScaledVector(velUR, -radius);
-        rightSide.copy(position).addScaledVector(velUR, radius);
-        const blocks = [
-            (endIndex === -1) ? null : this.map[endIndex],
-            ...this.pointTrace(leftSide, vel),
-            ...this.pointTrace(rightSide, vel),
-        ].filter(unique);
-
-        // remove duplicates
-        const linedefs = blocks.map(e => e.linedefs).flat().filter(unique);
-        const things = blocks.map(e => e.things).flat().filter(unique);
-        return { linedefs, things };
-    }
-
-    trace2(start: Vector3, vel: Vector3, onBlock: (block: Block, bounds: NodeBounds) => boolean) {
-        // kind of like Doom's P_PathTraverse but based on
-        // http://www.cse.yorku.ca/~amana/research/grid.pdf
-        // and https://stackoverflow.com/questions/12367071
+    traceRay(start: Vector3, vel: Vector3, onBlock: BlockHandler) {
+        this.lastTrace.set([]);
         lastTrace2.start.copy(start);
         lastTrace2.end.copy(start).add(vel);
 
-        let lastTrace = [];
-        let startX = (start.x - this.bounds.left) / gridSize;
-        let startY = (start.y - this.bounds.bottom) / gridSize;
-        let x = Math.floor(startX);
-        let y = Math.floor(startY);
-        const sx = Math.sign(vel.x);
-        const sy = Math.sign(vel.y);
-        if (sx === 0 && sy === 0) {
-            return;
-        }
-        let tDeltaX = Math.abs(gridSize / vel.x);
-        let tDeltaY = Math.abs(gridSize / vel.y);
-        let tMaxX = tDeltaX * (vel.x < 0 ? frac(startX) : 1 - frac(startX));
-        let tMaxY = tDeltaY * (vel.y < 0 ? frac(startY) : 1 - frac(startY));
-
-        lastTrace2.tDeltaX = tDeltaX;
-        lastTrace2.tDeltaY = tDeltaY;
-        lastTrace2.tMaxX = tMaxX;
-        lastTrace2.tMaxY = tMaxY;
-        let bounds: NodeBounds = { top: 0, left: 0, bottom: 0, right: 0 };
+        this.traceCount += 1;
+        let coords = this.lineTrace.init(start.x, start.y, vel);
         let continueTrace = true;
-        while (continueTrace) {
-            const inBounds = x >= 0 && x <= this.numCols && y >= 0 && y <= this.numRows;
-            if (!inBounds) {
-                break;
-            }
-            lastTrace.push({ row: y, col: x });
-            bounds.top = y * gridSize + this.bounds.bottom;
-            bounds.left = x * gridSize + this.bounds.left;
-            bounds.right = bounds.left + gridSize;
-            bounds.bottom = bounds.top + gridSize;
-            continueTrace = onBlock(this.map[y * this.numCols + x], bounds);
-
-            if (tMaxX > 1 && tMaxY > 1) {
-                break;
-            }
-            if (tMaxX < tMaxY) {
-                tMaxX = tMaxX + tDeltaX;
-                x = x + sx;
-            } else {
-                tMaxY = tMaxY + tDeltaY;
-                y = y + sy;
-            }
+        while (coords && continueTrace) {
+            continueTrace = this.hitBlock(coords.x, coords.y, onBlock);
+            coords = this.lineTrace.step();
         }
-        this.lastTrace.set(lastTrace);
         this.lastTrace2.set(lastTrace2);
+    }
+
+    private hitBlock(x: number, y: number, onBlock: BlockHandler) {
+        const block = this.map[y * this.numCols + x];
+        if (!block || block.traceCount === this.traceCount) {
+            return true; // continue tracing
+        }
+        this.lastTrace.val.push({ row: y, col: x });
+        block.traceCount = this.traceCount;
+        this.blockBounds.top = y * gridSize + this.bounds.bottom;
+        this.blockBounds.left = x * gridSize + this.bounds.left;
+        this.blockBounds.right = this.blockBounds.left + gridSize;
+        this.blockBounds.bottom = this.blockBounds.top + gridSize;
+        return onBlock(block, this.blockBounds);
+    }
+
+    traceBox(start: Vector3, vel: Vector3, radius: number, onBlock: BlockHandler) {
+        this.lastTrace.set([]);
+        lastTrace2.start.copy(start);
+        lastTrace2.end.copy(start).add(vel);
+
+        // if vel.x or vel.y is 0 (vertical/horizontal line) we still need to find leading corners so choose a value
+        const dx = vel.x ? Math.sign(vel.x) : 1;
+        const dy = vel.y ? Math.sign(vel.y) : 1;
+        // choose the three leading corners of the AABB based on vel and radius and trace those simultaneously.
+        // it's a rather complicate function though... it would be nice to simplify it (somehow)
+        let ccw = this.ccwTrace.init(start.x + radius * dx, start.y - radius * dy, vel);
+        let mid = this.mTrace.init(start.x + radius * dx, start.y + radius * dy, vel);
+        let cw = this.cwTrace.init(start.x - radius * dx, start.y + radius * dy, vel);
+
+        this.traceCount += 1;
+        let continueTrace = true;
+        while (mid && continueTrace) {
+            if (mid) {
+                continueTrace = this.hitBlock(mid.x, mid.y, onBlock);
+            }
+            if (ccw && continueTrace) {
+                continueTrace = this.hitBlock(ccw.x, ccw.y, onBlock);
+            }
+            if (cw && continueTrace) {
+                continueTrace = this.hitBlock(cw.x, cw.y, onBlock);
+            }
+
+            if (ccw && mid && continueTrace) {
+                // fill in the gaps between ccw and mid corners
+                for (let i = Math.min(ccw.x, mid.x); continueTrace && i < Math.max(mid.x, ccw.x); i++) {
+                    continueTrace = this.hitBlock(i, mid.y, onBlock);
+                }
+                for (let i = Math.min(ccw.y, mid.y); continueTrace && i < Math.max(mid.y, ccw.y); i++) {
+                    continueTrace = this.hitBlock(mid.x, i, onBlock);
+                }
+            }
+
+            if (cw && mid && continueTrace) {
+                // fill in the gaps between mid and cw corners
+                for (let i = Math.min(cw.x, mid.x); continueTrace && i < Math.max(mid.x, cw.x); i++) {
+                    continueTrace = this.hitBlock(i, mid.y, onBlock);
+                }
+                for (let i = Math.min(cw.y, mid.y); continueTrace && i < Math.max(mid.y, cw.y); i++) {
+                    continueTrace = this.hitBlock(mid.x, i, onBlock);
+                }
+            }
+
+            ccw = this.ccwTrace.step() ?? ccw;
+            mid = this.mTrace.step();
+            cw = this.cwTrace.step() ?? cw;
+        }
     }
 
     radiusTrace(start: Vector3, radius: number, onBlock: (block: Block) => boolean) {
@@ -343,63 +359,6 @@ class BlockMap {
         this.lastTrace.set(lastTrace);
     }
 
-    private pointTrace(start: Vector3, move: Vector3) {
-        // this is close to Doom's P_PathTraverse but based on
-        // http://playtechs.blogspot.com/2007/03/raytracing-on-grid.html
-        let x = Math.floor(start.x);
-        let y = Math.floor(start.y);
-
-        const dt_dx = 1.0 / Math.abs(move.x);
-        const dt_dy = 1.0 / Math.abs(move.y);
-
-        let n = 1;
-        let x_inc: number, y_inc: number;
-        let vNext: number, hNext: number;
-
-        if (move.x === 0) {
-            x_inc = 0;
-            hNext = dt_dx; // infinity
-        } else if (move.x > 0) {
-            x_inc = 1;
-            n += Math.floor(start.x + move.x) - x;
-            hNext = (Math.floor(start.x) + 1 - start.x) * dt_dx;
-        } else {
-            x_inc = -1;
-            n += x - Math.floor(start.x + move.x);
-            hNext = (start.x - Math.floor(start.x)) * dt_dx;
-        }
-
-        if (move.y === 0) {
-            y_inc = 0;
-            vNext = dt_dy; // infinity
-        } else if (move.y > 0) {
-            y_inc = 1;
-            n += Math.floor(start.y + move.y) - y;
-            vNext = (Math.floor(start.y) + 1 - start.y) * dt_dy;
-        } else {
-            y_inc = -1;
-            n += y - Math.floor(start.y + move.y);
-            vNext = (start.y - Math.floor(start.y)) * dt_dy;
-        }
-
-        let blocks: Block[] = [];
-        for (; n > 0; --n) {
-            const index = this.queryIndex(x, y);
-            if (index !== -1) {
-                blocks.push(this.map[index]);
-            }
-
-            if (vNext < hNext) {
-                y += y_inc;
-                vNext += dt_dy;
-            } else {
-                x += x_inc;
-                hNext += dt_dx;
-            }
-        }
-        return blocks;
-    }
-
     private queryIndex(x: number, y: number) {
         const inBounds = (
             x >= this.bounds.left && x <= this.bounds.right
@@ -408,8 +367,8 @@ class BlockMap {
         if (!inBounds) {
             return -1;
         }
-        const col = Math.floor((x - this.bounds.left) / 128);
-        const row = this.numRows - Math.ceil((-y + this.bounds.top) / 128);
+        const col = Math.floor((x - this.bounds.left) / gridSize);
+        const row = Math.floor((y - this.bounds.bottom) / gridSize);
         return row * this.numCols + col;
     }
 }
@@ -420,9 +379,8 @@ const distSqr = (p1: Vertex, p2: Vertex) => {
     return dx * dx + dy * dy;
 };
 
+const _moveEnd = new Vector3();
 const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
-const start = new Vector3();
-const end = new Vector3();
 export class MapData {
     readonly things: Thing[];
     readonly linedefs: LineDef[];
@@ -437,7 +395,7 @@ export class MapData {
         this.vertexes = wad.raw[index + 4].contents.entries;
         const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
         this.linedefs = wad.raw[index + 2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
-        const segs: Seg[]  = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
+        const segs: Seg[] = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
         const subsectors: SubSector[] = wad.raw[index + 6].contents.entries.map(e => toSubSector(e, segs));
         this.nodes = wad.raw[index + 7].contents.entries.map(d => toNode(d));
         this.nodes.forEach(n => {
@@ -492,120 +450,82 @@ export class MapData {
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
-    xyCollisions(mobj: MapObject, move: Vector3, onThing: HandleCollision<MapObject>, onLinedef: HandleCollision<LineDef>, onSpecial: HandleCollision<LineDef>) {
+    xyCollisions(mobj: MapObject, move: Vector3, onHit: HandleTraceHit) {
         const maxStepSize = 24;
 
-        start.copy(mobj.position.val);
-        end.copy(start).add(move);
-
-        let complete = false;
-        const bquery = this.blockmap.trace(start, mobj.info.radius, move);
-        for (let i = 0; i < bquery.linedefs.length && !complete; i++) {
-            collideLine(bquery.linedefs[i]);
-        }
-        for (let i = 0; i < bquery.things.length && !complete; i++) {
-            collideThing(bquery.things[i]);
-        }
-
-        function triggerSpecial(linedef: LineDef) {
-            if (linedef.special) {
-                const startSide = signedLineDistance(linedef.v, start) < 0 ? -1 : 1;
-                const endSide = signedLineDistance(linedef.v, end) < 0 ? -1 : 1
+        _moveEnd.copy(mobj.position.val).add(move);
+        function triggerSpecial(hit: LineTraceHit) {
+            if (hit.line.special) {
+                const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
+                const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1
                 if (startSide !== endSide) {
-                    onSpecial(linedef, endSide);
+                    onHit({ ...hit, special: true });
                 }
             }
         }
 
-        function collideThing(obj2: MapObject) {
-            // kind of like PIT_CheckThing
-            if (obj2 === mobj) {
-                // don't collide with yourself
-                return;
-            }
-            if (!(obj2.info.flags & hittableThing)) {
-                // not hittable
-                return;
-            }
+        const start = mobj.position.val;
+        this.traceBlock(start, move, mobj.info.radius, hit => {
+            if ('mobj' in hit) {
+                // kind of like PIT_CheckThing
+                if (hit.mobj === mobj) {
+                    return true; // don't collide with yourself
+                }
+                if (!(hit.mobj.info.flags & hittableThing)) {
+                    return true; // not hittable
+                }
+                return onHit(hit);
+            } else if ('line' in hit) {
+                const twoSided = (hit.line.flags & 0x0004) !== 0;
+                const blocking = (hit.line.flags & 0x0001) !== 0;
+                if (twoSided && !blocking) {
+                    const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
 
-            const hit = circleCircleSweep(
-                obj2.position.val, obj2.info.radius,
-                start, mobj.info.radius, move);
-            if (!hit) {
-                return;
-            }
-            complete = !onThing(obj2);
-        }
+                    const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
+                    const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
+                    const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
+                    const dropOffOk =
+                        (mobj.info.flags & (MFFlags.MF_DROPOFF|MFFlags.MF_FLOAT)) ||
+                        (start.z - endSect.zFloor.val <= maxStepSize);
 
-        function collideLine(linedef: LineDef) {
-            const twoSided = (linedef.flags & 0x0004) !== 0;
-            const blocking = (linedef.flags & 0x0001) !== 0;
-            // FIXME: this condition isn't right. See the yellow key lift in E1M7, because of the normal we walk through the wall :(
-            if (!blocking || !twoSided) {
-                // don't collide if the direction is going from back to front
-                // const side = signedLineDistance(linedef.v, start) < 0 ? -1 : 1;
-                // if (side < 0) {
-                const n = normal(linedef.v);
-                if (dot(n, move) < 0) {
-
-                    // TODO: make this cleaner? we already chek for collision and trigger special below
-                    const hit = lineCircleSweep(linedef.v, move, start, mobj.info.radius);
-                    if (hit) {
-                        triggerSpecial(linedef);
+                    // console.log('[sz,ez], [f,t,cf,do]',[start.z, endSect.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
+                    if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
+                        triggerSpecial(hit);
+                        return true; // step/ceiling collision is okay so try next line
                     }
-                    return;
                 }
+
+                return onHit(hit);
             }
-
-            const hit = lineCircleSweep(linedef.v, move, start, mobj.info.radius);
-            if (!hit) {
-                return;
-            }
-
-            if (twoSided && !blocking) {
-                const changeDir = signedLineDistance(linedef.v, start);
-                const endSect = changeDir > 0 ? linedef.left.sector : linedef.right.sector;
-
-                const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
-                const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
-                const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
-
-                // console.log('[zz,f,t,cf]',[floorChangeOk,transitionGapOk,newCeilingFloorGapOk])
-                if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk) {
-                    triggerSpecial(linedef);
-                    return;
-                }
-            }
-
-            if (signedLineDistance(linedef.v, end) > 0) {
-                complete = !onLinedef(linedef)
-            }
-        }
+        });
     }
 
-    trace(start: Vector3, dir: Vector3, onHit: HandleTraceHit) {
-        const invVelLength = 1 / dir.length();
-        traceEnd.copy(start).add(dir);
-        const line = [start, traceEnd];
+    trace(start: Vector3, move: Vector3, onHit: HandleTraceHit) {
+        return this.traceBlock(start, move, 0, onHit);
+    }
+
+    private traceBlock(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
+        const invVelLength = 1 / move.length();
         // TODO: an object pool may avoid the gc overhead of alloc/dealloc of items in the array
         let hits: TraceHit[] = [];
-        this.blockmap.trace2(start, dir, (block, bounds) => {
+        this.blockmap.traceBox(start, move, radius, (block, bounds) => {
             hits.length = 0;
             for (const linedef of block.linedefs) {
                 // because linedefs cut through multiple blocks, we actually may visit linedefs multiple times
                 // maybe we can improve this using bsp?
-                const hit = lineLineIntersect(line, linedef.v, true);
+                const hit = sweepAABBLine(start, radius, move, linedef.v);
                 // this is a bit of a hack because we may detect a hit on the linedef that is outside the bounds of a block
-                // and we miss valid collisions because of that. With all the little hacks needed here... I wonder if we
-                // are better using bsp instead of blockmaps for linedefs
+                // and we miss valid collisions because of that. Also, the hit will be the center of the AABB which may not be
+                // in the block (when a linedef is close to the edge of a block). With all the little hacks needed here I do
+                // wonder if we are better using bsp instead of blockmaps for linedef (or seg) collisions
                 const validHit = (hit
-                    && hit.x > bounds.left && hit.x < bounds.right
-                    && hit.y > bounds.top && hit.y < bounds.bottom);
+                    && hit.x + radius >= bounds.left && hit.x - radius <= bounds.right
+                    && hit.y + radius >= bounds.top && hit.y - radius <= bounds.bottom);
                 if (validHit) {
-                    const side = Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
+                    const side = -Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
                     const fraction = Math.sqrt(distSqr(start, hit)) * invVelLength;
-                    const point = new Vector3(hit.x, hit.y, start.z + dir.z * fraction);
-                    hits.push({ fraction, point, side, hit: linedef });
+                    const point = new Vector3(hit.x, hit.y, start.z + move.z * fraction);
+                    hits.push({ fraction, point, side, line: linedef });
                 }
             }
             for (const thing of block.things) {
@@ -613,13 +533,11 @@ export class MapData {
                 // See also https://doomwiki.org/wiki/Flawed_collision_detection
                 // If we fix this, we will perhaps trace the same thing multiple times (like linedefs above) so maybe some more
                 // thought is needed here
-
-                // TODO: line-box intercept?
-                const hit = lineCircleIntersect(line, thing.position.val, thing.info.radius);
+                const hit = sweepAABBAABB(start, radius, move, thing.position.val, thing.info.radius);
                 if (hit) {
-                    const fraction = Math.sqrt(distSqr(start, hit[0])) * invVelLength;
-                    const point = new Vector3(hit[0].x, hit[0].y, start.z + dir.z * fraction);
-                    hits.push({ fraction, point, hit: thing });
+                    const fraction = Math.sqrt(distSqr(start, hit)) * invVelLength;
+                    const point = new Vector3(hit.x, hit.y, start.z + move.z * fraction);
+                    hits.push({ fraction, point, mobj: thing });
                 }
             }
 

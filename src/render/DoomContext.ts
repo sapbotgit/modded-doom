@@ -13,6 +13,7 @@ export const createContext = (game: Game) => {
         targetFPS: 120,
         useTextures: true,
         wireframe: writable<'none' | 'visible' | 'all'>('none'),
+        showBlockMap: writable(false),
     };
     const wad = game.wad;
     return { game, wad, textures, editor, settings };

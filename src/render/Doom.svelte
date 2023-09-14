@@ -21,7 +21,7 @@
     $: renderSectors = buildRenderSectors($map.data);
 
     let showPlayerInfo = false;
-    const { wireframe } = settings;
+    const { wireframe, showBlockMap } = settings;
     const { freelook, noclip, freeFly, cameraMode, timescale } = game.settings;
 
     let clock = new Clock();
@@ -77,6 +77,10 @@
     <input type="checkbox" bind:checked={showPlayerInfo} />
     Show player info
 </label>
+<label>
+    <input type="checkbox" bind:checked={$showBlockMap} />
+    Show blockmap
+</label>
 <label style="width:6em; display:inline-block">
     <input style="width:100%" type="range" min={0.05} max={2} step={0.05} bind:value={$timescale} />
     Time ({$timescale})x
@@ -104,7 +108,9 @@
             </MapContext>
         </Canvas>
         {#if $map}
-            <HUD player={$map.player} />
+            {#key $map}
+                <HUD player={$map.player} />
+            {/key}
         {/if}
     </div>
 

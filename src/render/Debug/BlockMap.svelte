@@ -2,11 +2,11 @@
     import { BufferGeometry, GridHelper, MeshBasicMaterial, PlaneGeometry, Vector3 } from "three";
     import { HALF_PI, type MapRuntime } from "../../doom";
     import { Line, Mesh, Object3DInstance } from "@threlte/core";
+    import { useDoom } from "../DoomContext";
 
     export let map: MapRuntime;
 
-    const showBlockmap = false;
-
+    const showBlockmap = useDoom().settings.showBlockMap;
     const { position: playerPosition } = map.player;
 
     const bbox = map.data.blockmap.bounds;
@@ -22,7 +22,7 @@
     const { lastTrace, lastTrace2 } = map.data.blockmap;
 </script>
 
-{#if showBlockmap}
+{#if $showBlockmap}
     <Object3DInstance
         object={gh}
         rotation={{ x: HALF_PI }}

@@ -2,6 +2,7 @@
     import type { LineDef, MapRuntime } from "../../doom";
     import { useDoom, useDoomMap } from "../DoomContext";
     import FlagList from "./FlagList.svelte";
+    import NumberChooser from "./NumberChooser.svelte";
     import SidedefEditor from "./SidedefEditor.svelte";
 
     export let map: MapRuntime;
@@ -25,9 +26,16 @@
     function tagSector() {
         $editor.selected = renderSectors.find(e => e.sector.tag === linedef.tag);
     }
+
+    function changeLinedef(ev) {
+        const linedef = map.data.linedefs.find(e => e.num === ev.detail)
+        if (linedef) {
+            $editor.selected = linedef
+        }
+    }
 </script>
 
-<h3>Linedef ({linedef.num})</h3>
+<h3>Linedef <NumberChooser num={linedef.num} on:select={changeLinedef} /></h3>
 <div>
     <FlagList info={flagInfo} bind:flags={linedef.flags} />
 </div>

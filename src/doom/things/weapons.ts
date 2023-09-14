@@ -362,43 +362,41 @@ class ShotTracer {
         // it's useful to have a separate aim and fire function because some weapons (notably the shotgun)
         // aim once and fire several bullets
         shooter.map.data.trace(this.start, this.direction, hit => {
-            if ('id' in hit.hit) {
-                const mobj = hit.hit;
-                if (mobj === shooter) {
+            if ('mobj' in hit) {
+                if (hit.mobj === shooter) {
                     return true; // can't shoot ourselves
                 }
-                if (!(mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                     return true; // not shootable
                 }
 
                 const dist = range * hit.fraction;
-                let thingSlopeTop = (mobj.position.val.z + mobj.info.height - this.start.z) / dist;
+                let thingSlopeTop = (hit.mobj.position.val.z + hit.mobj.info.height - this.start.z) / dist;
                 if (thingSlopeTop < aimSlope) {
                     return true; // shot over thing
                 }
 
-                let thingSlopebottom = (mobj.position.val.z - this.start.z) / dist;
+                let thingSlopebottom = (hit.mobj.position.val.z - this.start.z) / dist;
                 if (thingSlopebottom > aimSlope) {
                     return true; // shot under thing
                 }
 
                 const pos = this.bulletHitLocation(10, hit.fraction, aimSlope, range);
-                if (mobj.info.flags & MFFlags.MF_NOBLOOD) {
-                    this.spawn(mobj, pos, MapObjectIndex.MT_PUFF);
+                if (hit.mobj.info.flags & MFFlags.MF_NOBLOOD) {
+                    this.spawn(hit.mobj, pos, MapObjectIndex.MT_PUFF);
                 } else {
-                    this.spawnBlood(mobj, pos, damage);
+                    this.spawnBlood(hit.mobj, pos, damage);
                 }
-                mobj.damage(damage, shooter, shooter);
+                hit.mobj.damage(damage, shooter, shooter);
                 return false;
-            } else if ('flags' in hit.hit) {
-                const linedef = hit.hit;
-                if (linedef.special) {
-                    shooter.map.triggerSpecial(linedef, shooter, 'G', hit.side);
+            } else if ('line' in hit) {
+                if (hit.line.special) {
+                    shooter.map.triggerSpecial(hit.line, shooter, 'G', hit.side);
                 }
 
-                if (linedef.flags & 0x004) {
-                    const front = hit.side === -1 ? linedef.right : linedef.left;
-                    const back = hit.side === -1 ? linedef.left : linedef.right;
+                if (hit.line.flags & 0x004) {
+                    const front = hit.side === -1 ? hit.line.right : hit.line.left;
+                    const back = hit.side === -1 ? hit.line.left : hit.line.right;
 
                     const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
                     const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
@@ -407,17 +405,17 @@ class ShotTracer {
                     if (front.sector.zCeil.val !== back.sector.zCeil.val) {
                         const slope = (openTop - this.start.z) / dist;
                         if (slope < aimSlope) {
-                            return this.hitWallOrSky(shooter, linedef, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
+                            return this.hitWallOrSky(shooter, hit.line, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                         }
                     }
                     if (front.sector.zFloor.val !== back.sector.zFloor.val) {
                         const slope = (openBottom - this.start.z) / dist;
                         if (slope > aimSlope) {
-                            return this.hitWallOrSky(shooter, linedef, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
+                            return this.hitWallOrSky(shooter, hit.line, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                         }
                     }
                 } else {
-                    return this.hitWallOrSky(shooter, linedef, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
+                    return this.hitWallOrSky(shooter, hit.line, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                 }
             } else {
                 // sector?
@@ -487,22 +485,21 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
         target: null,
         slope: 0,
         fn: hit => {
-            if ('id' in hit.hit) {
-                const mobj = hit.hit;
-                if (mobj === shooter) {
+            if ('mobj' in hit) {
+                if (hit.mobj === shooter) {
                     return true; // can't shoot ourselves
                 }
-                if (!(mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                     return true; // not shootable
                 }
 
                 const dist = range * hit.fraction;
-                let thingSlopeTop = (mobj.position.val.z + mobj.info.height - shootZ) / dist;
+                let thingSlopeTop = (hit.mobj.position.val.z +hit.mobj.info.height - shootZ) / dist;
                 if (thingSlopeTop < slopeBottom) {
                     return true; // shot over thing
                 }
 
-                let thingSlopebottom = (mobj.position.val.z - shootZ) / dist;
+                let thingSlopebottom = (hit.mobj.position.val.z - shootZ) / dist;
                 if (thingSlopebottom > slopeTop) {
                     return true; // shot under thing
                 }
@@ -510,13 +507,12 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                 thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
                 thingSlopebottom = Math.max(thingSlopebottom, slopeBottom);
                 result.slope = (thingSlopeTop + thingSlopebottom) * .5;
-                result.target = mobj;
+                result.target = hit.mobj;
                 return false;
-            } else if ('flags' in hit.hit) {
-                const linedef = hit.hit;
-                if (linedef.flags & 0x004) {
-                    const front = hit.side === -1 ? linedef.right : linedef.left;
-                    const back = hit.side === -1 ? linedef.left : linedef.right;
+            } else if ('line' in hit) {
+                if (hit.line.flags & 0x004) {
+                    const front = hit.side === -1 ? hit.line.right : hit.line.left;
+                    const back = hit.side === -1 ? hit.line.left : hit.line.right;
 
                     const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
                     const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);

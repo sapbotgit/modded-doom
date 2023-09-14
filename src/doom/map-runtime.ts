@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { MapData, type HandleCollision, type LineDef, type Thing, type Action } from "./map-data";
+import { MapData, type LineDef, type Thing, type Action } from "./map-data";
 import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, signedLineDistance } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
@@ -248,6 +248,7 @@ const playerSpeeds = { // per-tick
 }
 
 const vec = new Vector3();
+const useEnd = new Vector3();
 class GameInput {
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
@@ -342,25 +343,22 @@ class GameInput {
 
         const pos = this.player.position.val;
         if (this.enablePlayerCollisions) {
-            this.map.data.xyCollisions(this.player, this.player.velocity,
-                mobj => {
-                    if (mobj.info.flags & MFFlags.MF_SPECIAL) {
-                        this.player.pickup(mobj);
+            this.map.data.xyCollisions(this.player, this.player.velocity, hit => {
+                if ('mobj' in hit) {
+                    if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
+                        this.player.pickup(hit.mobj);
                         return true;
                     }
-                    const dx = pos.x - mobj.position.val.x;
-                    const dy = pos.y - mobj.position.val.y;
+                    const dx = pos.x - hit.mobj.position.val.x;
+                    const dy = pos.y - hit.mobj.position.val.y;
                     slideMove(this.player.velocity, -dy, dx);
-                    return true;
-                },
-                linedef => {
-                    slideMove(this.player.velocity, linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y);
-                    return true;
-                },
-                (linedef, side) => {
-                    this.map.triggerSpecial(linedef, this.player, 'W', side)
-                    return true;
-                });
+                } else if ('special' in hit) {
+                    this.map.triggerSpecial(hit.line, this.player, 'W', hit.side)
+                } else if ('line' in hit) {
+                    slideMove(this.player.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
+                }
+                return true;
+            });
         }
         this.player.position.update(pos => pos.add(this.player.velocity));
 
@@ -370,25 +368,22 @@ class GameInput {
 
             const ang = euler.z + HALF_PI;
             vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
-            const collisions = this.map.data.blockmap.trace(pos, 0, vec);
-            vec.add(pos);
-            const useLine = [pos, vec];
-            for (const linedef of collisions.linedefs) {
-                if (signedLineDistance(linedef.v, pos) < 0) {
-                    // don't hit walls from behind
-                    continue;
-                }
+            useEnd.copy(vec).add(pos);
+            const useLine = [pos, useEnd];
+            this.map.data.trace(pos, vec, hit => {
+                if ('line' in hit) {
+                    if (signedLineDistance(hit.line.v, pos) < 0) {
+                        return true; // don't hit walls from behind
+                    }
 
-                const hit = lineLineIntersect(linedef.v, useLine, true);
-                if (!hit) {
-                    continue;
+                    const point = lineLineIntersect(hit.line.v, useLine, true);
+                    if (point && hit.line.special) {
+                        this.map.triggerSpecial(hit.line, this.player, 'S');
+                        return false; // we've triggered a switch/door so stop tracing
+                    }
                 }
-
-                if (linedef.special) {
-                    this.map.triggerSpecial(linedef, this.player, 'S');
-                    break;
-                }
-            }
+                return true
+            });
         }
         this.handledUsePress = this.input.use;
     }

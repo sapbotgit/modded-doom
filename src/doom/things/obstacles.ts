@@ -90,7 +90,7 @@ function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     let los = true;
     const line = [mobj1.position.val, mobj2.position.val];
     losVec.copy(mobj2.position.val).sub(mobj1.position.val);
-    mobj1.map.data.blockmap.trace2(mobj1.position.val, losVec, (block, bounds) => {
+    mobj1.map.data.blockmap.traceRay(mobj1.position.val, losVec, (block, bounds) => {
         for (const linedef of block.linedefs) {
             const hit = lineLineIntersect(line, linedef.v, true);
             const validHit = (hit

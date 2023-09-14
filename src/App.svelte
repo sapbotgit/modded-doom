@@ -1,10 +1,10 @@
 <script lang="ts">
   import { DoomWad, Game, store, MapRuntime, type Skill } from './doom';
   import Doom from './render/Doom.svelte';
-  import MathDebug from './render/Debug/MathDebug.svelte';
   import SvgMap from './render/Debug/SvgMap.svelte';
   import { Object3D } from 'three';
-  import TraceDebug from './render/Debug/TraceDebug.svelte';
+  import GridTraceDebug from './render/Debug/GridTraceDebug.svelte';
+  import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
 
   const svgMap = false;
 
@@ -37,7 +37,8 @@
 </script>
 
 <main>
-  <!-- <TraceDebug /> -->
+  <!-- <AABBSweepDebug /> -->
+  <!-- <GridTraceDebug /> -->
   <!-- <MathDebug /> -->
 
   <button on:click={() => selectedMap = null}>None</button>

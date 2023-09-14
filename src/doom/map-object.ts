@@ -3,7 +3,7 @@ import { thingSpec, weapons, stateChangeActions } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, mapObjectInfo } from "./doom-things-info";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./math";
-import { CollisionNoOp, type Sector, type Thing } from "./map-data";
+import { type Sector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -20,8 +20,6 @@ const friction = .90625;
 export class MapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
-
-    private sect: Sector;
 
     protected _state = new SpriteStateMachine(
         action => stateChangeActions[action]?.(this.map.game.time, this),
@@ -55,8 +53,9 @@ export class MapObject {
         this.direction = store(Math.PI + source.angle * ToRadians);
         this.position = store(new Vector3(source.x, source.y, 0));
         this.position.subscribe(p => {
+            const currentSector = this.sector.val;
             const sector = map.data.findSector(p.x, p.y);
-            if (!this.sect) {
+            if (!currentSector) {
                 // first time setting sector so set zpos
                 p.z = sector.zFloor.val;
                 if (source.z !== undefined) {
@@ -64,8 +63,20 @@ export class MapObject {
                 }
             }
             // svelte stores assume != when value is an object so we add a little extra smarts
-            if (this.sect !== sector) {
-                this.sect = sector;
+            if (currentSector !== sector) {
+                // TODO: should we do this here or rather when applying gravity?
+                if (currentSector && currentSector.zFloor.val - sector.zFloor.val > 24) {
+                    // we are stepping off a ledge (not a step), only update the sector if all 4 corners of the AABB in the new sector
+                    const nw = map.data.findSector(p.x - this.info.radius, p.y + this.info.radius);
+                    const ne = map.data.findSector(p.x + this.info.radius, p.y + this.info.radius);
+                    const se = map.data.findSector(p.x + this.info.radius, p.y - this.info.radius);
+                    const sw = map.data.findSector(p.x - this.info.radius, p.y - this.info.radius);
+                    const allSame = nw === sector && ne === sector && se === sector && sw === sector;
+                    if (!allSame) {
+                        return;
+                    }
+                }
+
                 this.sector.set(sector);
             }
         });
@@ -263,35 +274,36 @@ export class MapObject {
             return;
         }
 
-        this.map.data.xyCollisions(this, this.velocity,
-            mobj => {
+        this.map.data.xyCollisions(this, this.velocity, hit => {
+            if ('mobj' in hit) {
                 if (this.info.flags & MFFlags.MF_MISSILE) {
                     // TODO: check z above/below object
                     // TODO: check species (imps don't hit imps, etc.)
-                    if (!(mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-                        return !(mobj.info.flags & MFFlags.MF_SOLID);
+                    if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                        return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
                     }
-                    if (this.chaseTarget === mobj) {
+                    if (this.chaseTarget === hit.mobj) {
                         return true; // don't hit shooter, continue trace
                     }
                     const damage = randInt(1, 9) * this.info.damage;
-                    mobj.damage(damage, this, this.chaseTarget);
+                    hit.mobj.damage(damage, this, this.chaseTarget);
                     this.explode();
                 }
                 return false;
-            },
-            linedef => {
+            } else if ('special' in hit) {
+                this.map.triggerSpecial(hit.line, this, 'W', hit.side)
+            } else if ('line' in hit) {
                 if (this.info.flags & MFFlags.MF_MISSILE) {
                     // TODO: check for sky hit and disappear object instead
                     this.explode();
                     return false;
                 }
                 // slide along wall instead of moving through it
-                vec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+                vec.set(hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y, 0);
                 this.velocity.projectOnVector(vec);
-                return true;
-            },
-            CollisionNoOp);
+            }
+            return true;
+        });
         this.position.update(pos => pos.add(this.velocity));
     }
 

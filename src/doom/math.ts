@@ -48,142 +48,20 @@ function lineLineIntersectDetailed(l1: Vertex[], l2: Vertex[]): typeof lineLineI
 export function lineLineIntersect(l1: Vertex[], l2: Vertex[], bounded = false): Vertex | undefined {
     const details = lineLineIntersectDetailed(l1, l2);
     return (!details || (bounded && !details.inBounds()))
-        ? undefined : { x: details.x, y: details. y };
+        ? undefined : details;
 }
 
-export function lineCircleIntersect(l: Vertex[], c: Vertex, r: number): Vertex[] | undefined {
-    // http://paulbourke.net/geometry/circlesphere/index.html#linesphere
-    // https://stackoverflow.com/questions/5883169
-    let x2x1 = l[1].x - l[0].x, y2y1 = l[1].y - l[0].y;
-
-    let A = x2x1 * x2x1 + y2y1 * y2y1;
-    let B = 2 * (x2x1 * (l[0].x - c.x) + y2y1 * (l[0].y - c.y));
-    let C = (c.x * c.x) + (c.y * c.y)
-        + (l[0].x * l[0].x) + (l[0].y * l[0].y)
-        - 2 * (c.x * l[0].x + c.y * l[0].y)
-        - (r * r);
-
-    let D = B * B - 4 * A * C;
-    if (D < 0) {
-        return;
-    }
-
-    let sqrtD = Math.sqrt(D);
-    let u = (-B - sqrtD) / (2 * A);
-    let v = (-B + sqrtD) / (2 * A);
-    if ((u < 0 && v < 0) || (u > 1 && v > 1)) {
-        return;
-    }
-
-    let s1 = {
-        x: l[0].x + u * x2x1,
-        y: l[0].y + u * y2y1,
-    };
-    if (D === 0) {
-        return [s1];
-    }
-
-    let s2 = {
-        x: l[0].x + v * x2x1,
-        y: l[0].y + v * y2y1,
-    };
-    return [s1, s2];
-}
-
-// some common vector functions
-export const dot = (a, b) => a.x * b.x + a.y * b.y;
+// vector functions (unused)
+const dot = (a: Vertex, b: Vertex) => a.x * b.x + a.y * b.y;
 const mag = (v: Vertex) => Math.sqrt(v.x * v.x + v.y * v.y);
 const normalize = (v: Vertex) => {
     const len = mag(v);
     const invLen = len > 0 ? 1 / len : 0;
     return { x: v.x * invLen, y: v.y * invLen };
 }
-export const normal = (l: Vertex[]) => {
+const normal = (l: Vertex[]) => {
     const n = normalize({ x: l[1].x - l[0].x, y: l[1].y - l[0].y });
     return { x: -n.y, y: n.x };
-}
-
-export function lineCircleSweep(l: Vertex[], dir: Vertex, cr: Vertex, r: number): Vertex | undefined {
-    // Some great resources online (as one might expect)
-    // this algorithm basically follows https://ericleong.me/research/circle-line/ but
-    // https://stackoverflow.com/questions/7060519 was helpful too
-
-    const end = { x: cr.x + dir.x, y: cr.y + dir.y };
-    const i1 = lineCircleIntersect(l, end, r);
-    if (i1) {
-        return i1[0];
-    }
-
-    const vn = normalize(dir);
-    const centerMove = [cr, end];
-
-    const a = lineLineIntersect(l, centerMove);
-    const b = closestPoint(l, centerMove[1]);
-    const c = closestPoint(centerMove, l[0]);
-    const d = closestPoint(centerMove, l[1]);
-
-    if (a) {
-        const p1 = closestPoint(l, cr);
-        const lenAC = mag({ x: a.x - cr.x, y: a.y - cr.y });
-        const lenP1C = mag({ x: p1.x - cr.x, y: p1.y - cr.y });
-        const p2 = {
-            x: a.x - r * (lenAC / lenP1C) * vn.x,
-            y: a.y - r * (lenAC / lenP1C) * vn.y,
-        }
-
-        const pc = closestPoint(l, p2);
-        if (pointOnLine(pc, l) && pointOnLine(p2, centerMove)) {
-            return p2;
-        }
-
-        const bDist = mag({ x: b.x - centerMove[1].x, y: b.y - centerMove[1].y });
-        if (bDist <= r && pointOnLine(b, l)) {
-            const x = Math.sqrt(r * r - bDist * bDist);
-            return {
-                x: b.x - x * vn.x,
-                y: b.y - x * vn.y,
-            };
-        }
-    }
-
-    const cDist = mag({ x: c.x - l[0].x, y: c.y - l[0].y });
-    if (cDist <= r  && pointOnLine(c, centerMove)) {
-        const x = Math.sqrt(r * r - cDist * cDist);
-        return {
-            x: c.x - x * vn.x,
-            y: c.y - x * vn.y,
-        };
-    }
-
-    const dDist = mag({ x: d.x - l[1].x, y: d.y - l[1].y });
-    if (dDist <= r && pointOnLine(d, centerMove)) {
-        const x = Math.sqrt(r * r - dDist * dDist);
-        return {
-            x: d.x - x * vn.x,
-            y: d.y - x * vn.y,
-        };
-    }
-
-    return undefined;
-}
-
-export function circleCircleSweep(c1: Vertex, r1: number, c2: Vertex, r2: number, dir: Vertex): Vertex | undefined {
-    // https://ericleong.me/research/circle-circle/
-    const move = [c2, { x: c2.x + dir.x, y: c2.y + dir.y }];
-    const d = closestPoint(move, c1);
-    const dist = mag({ x: c1.x - d.x, y: c1.y - d.y });
-    const dist2 = mag({ x: move[1].x - c1.x, y: move[1].y - c1.y });
-    const r = r1 + r2;
-    if (dist <= r && (pointOnLine(d, move) || dist2 <= r)) {
-        const dn = normalize(dir);
-        const x = Math.sqrt(r * r - dist * dist);
-        const c = {
-            x: d.x - x * dn.x,
-            y: d.y - x * dn.y,
-        }
-        return c;
-    }
-    return undefined;
 }
 
 export function pointOnLine(p: Vertex, l: Vertex[]) {
@@ -257,4 +135,189 @@ export function angleIsVisible(viewAngle: number, angle: number) {
 export function normalizeAngle(angle: number) {
     // https://gamedev.stackexchange.com/questions/4467
     return Math.PI - Math.abs(Math.abs(angle - HALF_PI) - Math.PI);
+}
+
+let _sweepZeroLine = [
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+]
+let _sweepVec = { x: 0, y: 0 };
+let _sweepLineNormal = { x: 0, y: 0 };
+export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex, line: Vertex[]) {
+    // adaptaion of the code from this question:
+    // https://gamedev.stackexchange.com/questions/29479
+
+    if (radius < 0.001) {
+        // when AABB "radius" is 0, we are basically testing a line from position to position+velocity against another
+        // line so do that test instead because this one gets some rounding errors when radius is 0.
+        _sweepZeroLine[0].x = position.x;
+        _sweepZeroLine[0].y = position.y;
+        _sweepZeroLine[1].x = position.x + velocity.x;
+        _sweepZeroLine[1].y = position.y + velocity.y;
+        return lineLineIntersect(_sweepZeroLine, line, true);
+    }
+
+    // form an AABB using position and radius
+    const boxMinX = position.x - radius;
+    const boxMaxX = position.x + radius;
+    const boxMinY = position.y - radius;
+    const boxMaxY = position.y + radius;
+
+    _sweepLineNormal.x = line[0].y - line[1].y;
+    _sweepLineNormal.y = line[1].x - line[0].x;
+    let invVelProj = 1 / dot(velocity, _sweepLineNormal); //projected Velocity to N
+    _sweepVec.x = line[0].x - position.x;
+    _sweepVec.y = line[0].y - position.y;
+    let boxProj = dot(_sweepVec, _sweepLineNormal); //projected Line distance to N
+
+    let r = radius * Math.abs(_sweepLineNormal.x) + radius * Math.abs(_sweepLineNormal.y); //radius to Line
+    if (invVelProj < 0) {
+        r = -r;
+    }
+
+    let hitTime = Math.max((boxProj - r) * invVelProj, 0);
+    let outTime = Math.min((boxProj + r) * invVelProj, 1);
+
+    // X axis overlap
+    let lineMinX = Math.min(line[0].x, line[1].x);
+    let lineMaxX = Math.max(line[0].x, line[1].x);
+    if (velocity.x < 0) { // Sweep left
+        if (boxMaxX < lineMinX) { return null; }
+        hitTime = Math.max((lineMaxX - boxMinX) / velocity.x, hitTime);
+        outTime = Math.min((lineMinX - boxMaxX) / velocity.x, outTime);
+    } else if (velocity.x > 0) { // Sweep right
+        if (boxMinX > lineMaxX) { return null; }
+        hitTime = Math.max((lineMinX - boxMaxX) / velocity.x, hitTime);
+        outTime = Math.min((lineMaxX - boxMinX) / velocity.x, outTime);
+    } else {
+        if (lineMinX > boxMaxX || lineMaxX < boxMinX) { return null; }
+    }
+
+    // Y axis overlap
+    let lineMinY = Math.min(line[0].y, line[1].y);
+    let lineMaxY = Math.max(line[0].y, line[1].y);
+    if (velocity.y < 0) { // Sweep down
+        if (boxMaxY < lineMinY) { return null; }
+        hitTime = Math.max((lineMaxY - boxMinY) / velocity.y, hitTime);
+        outTime = Math.min((lineMinY - boxMaxY) / velocity.y, outTime);
+    } else if (velocity.y > 0) { // Sweep up
+        if (boxMinY > lineMaxY) { return null; }
+        hitTime = Math.max((lineMinY - boxMaxY) / velocity.y, hitTime);
+        outTime = Math.min((lineMaxY - boxMinY) / velocity.y, outTime);
+    } else {
+        if (lineMinY > boxMaxY || lineMaxY < boxMinY) { return null; }
+    }
+
+    if (hitTime > outTime) {
+        return null;
+    }
+
+    // collision happened, return point of impact
+    _sweepVec.x = position.x + velocity.x * hitTime;
+    _sweepVec.y = position.y + velocity.y * hitTime;
+    return _sweepVec;
+}
+
+let sweepAABB = { x: 0, y: 0 };
+export function sweepAABBAABB(
+    p1: Vertex, r1: number, v1: Vertex,
+    p2: Vertex, r2: number,
+) {
+    // test for overlapping
+    const left = (p2.x - r2) - (p1.x + r1);
+    const right = (p2.x + r2) - (p1.x - r1);
+    const top = (p2.y + r2) - (p1.y - r1);
+    const bottom = (p2.y - r2) - (p1.y + r1);
+    if (left < 0 && right > 0 && top > 0 && bottom < 0) {
+        return p1;
+    }
+
+    // test sweep
+    // See https://www.amanotes.com/post/using-swept-aabb-to-detect-and-process-collision
+    const dxEntry = (v1.x > 0) ? left : right;
+    const dxExit = (v1.x > 0) ? right : left
+    const dyEntry = (v1.y > 0) ? bottom : top;
+    const dyExit = (v1.y > 0) ? top : bottom;
+
+    const txEntry = dxEntry / v1.x;
+    const txExit = dxExit / v1.x;
+    const tyEntry = dyEntry / v1.y;
+    const tyExit = dyExit / v1.y;
+    const entry = Math.max(txEntry, tyEntry);
+    const exit = Math.min(txExit, tyExit);
+    if (entry > exit || (txEntry < 0 && tyEntry < 0) || txEntry > 1 || tyEntry > 1) {
+        return null;
+    }
+
+    sweepAABB.x = p1.x + v1.x * entry;
+    sweepAABB.y = p1.y + v1.y * entry;
+    return sweepAABB;
+}
+
+let _lineAABB = { x: 0, y: 0 };
+export function lineAABB(line: Vertex[], pos: Vertex, radius: number) {
+    _lineAABB.x = line[1].x - line[0].x;
+    _lineAABB.y = line[1].y - line[0].y;
+    // we can get lineAABB using sweep and setting the box radius to 0
+    return sweepAABBAABB(line[0], 0, _lineAABB, pos, radius);
+}
+
+const decimal = (n: number) => (n % 1) + (n < 0 ? 1 : 0);
+// Classic algorithm http://www.cse.yorku.ca/~amana/research/grid.pdf
+// Why a class? Well, there are places we want to do multiple traces in parallel
+// and that is much easier to do with a class.
+// We could maybe convert this to an Iterator<Vertex> but I don't see any syntax benefit
+export class AmanatidesWooTrace {
+    private hasMovement = false;
+    private vox: Vertex = { x: 0, y: 0 };
+    private tMax: Vertex = { x: 0, y: 0 };
+    private tDelta: Vertex = { x: 0, y: 0 };
+    private voxChange: Vertex = { x: 0, y: 0 };
+
+    constructor(
+        private boundsLeft: number,
+        private boundsBottom: number,
+        private gridSize: number,
+        private numRows: number,
+        private numCols: number,
+    ) {}
+
+    init(x: number, y: number, vel: Vertex) {
+        this.voxChange.x = Math.sign(vel.x);
+        this.voxChange.y = Math.sign(vel.y);
+        this.hasMovement = !(this.voxChange.x === 0 && this.voxChange.y === 0)
+        if (!this.hasMovement) {
+            return null;
+        }
+        // See https://stackoverflow.com/questions/12367071
+        const startX = (x - this.boundsLeft) / this.gridSize;
+        const startY = (y - this.boundsBottom) / this.gridSize;
+        this.tDelta.x = Math.abs(this.gridSize / vel.x);
+        this.tDelta.y = Math.abs(this.gridSize / vel.y);
+        this.tMax.x = this.tDelta.x * (vel.x < 0 ? decimal(startX) : 1 - decimal(startX));
+        this.tMax.y = this.tDelta.y * (vel.y < 0 ? decimal(startY) : 1 - decimal(startY));
+        this.vox.x = Math.floor(startX);
+        this.vox.y = Math.floor(startY);
+        return this.vox;
+    }
+
+    private complete() {
+        const inBounds = this.vox.x >= 0 && this.vox.x <= this.numCols && this.vox.y >= 0 && this.vox.y <= this.numRows;
+        const atEnd = (this.tMax.x > 1 && this.tMax.y > 1);
+        return !this.hasMovement || !inBounds || atEnd;
+    }
+
+    step(): Vertex {
+        if (this.complete()) {
+            return null;
+        }
+        if (this.tMax.x < this.tMax.y) {
+            this.tMax.x += this.tDelta.x;
+            this.vox.x += this.voxChange.x;
+        } else {
+            this.tMax.y += this.tDelta.y;
+            this.vox.y += this.voxChange.y;
+        }
+        return this.vox;
+    }
 }

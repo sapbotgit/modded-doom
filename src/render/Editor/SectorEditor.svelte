@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { MapRuntime, Sector } from "../../doom";
     import { useDoom } from "../DoomContext";
+    import NumberChooser from "./NumberChooser.svelte";
     import TextureChooser from "./TextureChooser.svelte";
 
     export let map: MapRuntime;
@@ -43,9 +44,16 @@
     function tagLinedef() {
         $editor.selected = map.data.linedefs.find(e => e.tag === sector.tag)
     }
+
+    function changeSector(ev) {
+        const sector = map.data.sectors.find(e => e.num === ev.detail)
+        if (sector) {
+            $editor.selected = sector;
+        }
+    }
 </script>
 
-<h3>Sector ({sector.num})</h3>
+<h3>Sector <NumberChooser num={sector.num} on:select={changeSector} /></h3>
 <div>
     <button on:click={tagLinedef}>Tag: {sector.tag}</button>
 </div>
