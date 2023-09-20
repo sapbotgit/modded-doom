@@ -19,6 +19,8 @@
         // don't render player here (it's in Player.svelte)
         things = map.objs.filter(e => e.source.type !== 1);
     }
+    // TODO: to actually improve performance here, I think we'll have to implement some kind of PVS
+    // based on the bsp tree https://cs.gmu.edu/~jchen/cs662/lecture5-2007.pdf
 </script>
 
 <Stats />

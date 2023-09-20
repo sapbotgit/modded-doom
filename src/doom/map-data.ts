@@ -29,6 +29,7 @@ export interface LineDef {
     xOffset?: Store<number>;
     // For game processing
     buttonTimer: Action;
+    hitC: number; // don't hit the same line twice during collision detection
 }
 const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
     num,
@@ -39,6 +40,7 @@ const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]
     special: ld.lineType,
     flags: ld.flags,
     buttonTimer: null,
+    hitC: 0,
 });
 
 export interface SideDef {
@@ -158,6 +160,7 @@ interface Block {
 
 interface BaseTraceHit {
     fraction: number; // 0-1 of how far we moved along the desired path
+    overlap: number; // used to resolve a tie in hit fraction
     point: Vector3; // point of hit (maybe redundant because we can compute it from fraction and we don't use z anyway)
 }
 interface LineTraceHit extends BaseTraceHit {
@@ -373,12 +376,6 @@ class BlockMap {
     }
 }
 
-const distSqr = (p1: Vertex, p2: Vertex) => {
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    return dx * dx + dy * dy;
-};
-
 const _moveEnd = new Vector3();
 const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
@@ -485,7 +482,7 @@ export class MapData {
                     const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
                     const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
                     const dropOffOk =
-                        (mobj.info.flags & (MFFlags.MF_DROPOFF|MFFlags.MF_FLOAT)) ||
+                        (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
                         (start.z - endSect.zFloor.val <= maxStepSize);
 
                     // console.log('[sz,ez], [f,t,cf,do]',[start.z, endSect.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
@@ -505,7 +502,6 @@ export class MapData {
     }
 
     private traceBlock(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
-        const invVelLength = 1 / move.length();
         // TODO: an object pool may avoid the gc overhead of alloc/dealloc of items in the array
         let hits: TraceHit[] = [];
         this.blockmap.traceBox(start, move, radius, (block, bounds) => {
@@ -519,15 +515,16 @@ export class MapData {
                 // in the block (when a linedef is close to the edge of a block). With all the little hacks needed here I do
                 // wonder if we are better using bsp instead of blockmaps for linedef (or seg) collisions
                 const validHit = (hit
-                    && hit.x + radius >= bounds.left && hit.x - radius <= bounds.right
-                    && hit.y + radius >= bounds.top && hit.y - radius <= bounds.bottom);
+                    && hit.x + radius > bounds.left && hit.x - radius < bounds.right
+                    && hit.y + radius > bounds.top && hit.y - radius < bounds.bottom);
                 if (validHit) {
                     const side = -Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
-                    const fraction = Math.sqrt(distSqr(start, hit)) * invVelLength;
-                    const point = new Vector3(hit.x, hit.y, start.z + move.z * fraction);
-                    hits.push({ fraction, point, side, line: linedef });
+                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+                    const overlap = aabbLineOverlap(start, radius, linedef);
+                    hits.push({ overlap, point, side, line: linedef, fraction: hit.u });
                 }
             }
+
             for (const thing of block.things) {
                 // FIXME: a thing only exists in one block but objects that are close to the edge should overlap multiple blocks
                 // See also https://doomwiki.org/wiki/Flawed_collision_detection
@@ -535,16 +532,17 @@ export class MapData {
                 // thought is needed here
                 const hit = sweepAABBAABB(start, radius, move, thing.position.val, thing.info.radius);
                 if (hit) {
-                    const fraction = Math.sqrt(distSqr(start, hit)) * invVelLength;
-                    const point = new Vector3(hit.x, hit.y, start.z + move.z * fraction);
-                    hits.push({ fraction, point, mobj: thing });
+                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+                    const overlap = aabbAabbOverlap(start, radius, thing.position.val, thing.info.radius);
+                    hits.push({ overlap, point, fraction: hit.u, mobj: thing });
                 }
             }
 
             // TODO: what about hitting floors?
 
-            // sort items from closest to farthest
-            hits.sort((a, b) => a.fraction - b.fraction);
+            // sort hits items
+            hits.sort((a, b) => (a.fraction === b.fraction)
+                    ? b.overlap - a.overlap : a.fraction - b.fraction);
 
             for (let hit of hits) {
                 const shouldContinue = onHit(hit);
@@ -556,4 +554,34 @@ export class MapData {
             return true;
         });
     }
+}
+
+function aabbLineOverlap(pos: Vector3, radius: number, line: LineDef) {
+    const boxMinX = pos.x - radius;
+    const boxMaxX = pos.x + radius;
+    const boxMinY = pos.y - radius;
+    const boxMaxY = pos.y + radius;
+    const lineMinX = Math.min(line.v[0].x, line.v[1].x);
+    const lineMaxX = Math.max(line.v[0].x, line.v[1].x);
+    const lineMinY = Math.min(line.v[0].y, line.v[1].y);
+    const lineMaxY = Math.max(line.v[0].y, line.v[1].y);
+    const area =
+        (Math.min(boxMaxX, lineMaxX) - Math.max(boxMinX, lineMinX)) *
+        (Math.min(boxMaxY, lineMaxY) - Math.max(boxMinY, lineMinY));
+    return Math.max(0, area);
+}
+
+function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
+    const b1MinX = p1.x - r1;
+    const b1MaxX = p1.x + r1;
+    const b1MinY = p1.y - r1;
+    const b1MaxY = p1.y + r1;
+    const b2MinX = p2.x - r2;
+    const b2MaxX = p2.x + r2;
+    const b2MinY = p2.y - r2;
+    const b2MaxY = p2.y + r2;
+    const area =
+        (Math.min(b1MaxX, b2MaxX) - Math.max(b1MinX, b2MinX)) *
+        (Math.min(b1MaxY, b2MaxY) - Math.max(b1MinY, b2MinY));
+    return Math.max(0, area);
 }

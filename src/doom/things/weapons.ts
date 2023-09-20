@@ -433,7 +433,8 @@ class ShotTracer {
                 return false;
             }
         }
-        this.spawn(shooter, spot, MapObjectIndex.MT_PUFF);
+        const mobj = this.spawn(shooter, spot, MapObjectIndex.MT_PUFF);
+        mobj.setState(mobj.info.spawnstate, -randInt(0, 3));
         return false;
     }
 

@@ -9,6 +9,10 @@ export interface Vertex {
     y: number;
 }
 
+interface IntersectionPoint extends Vertex {
+    u: number; // distance from point1 to point2 of the impact (0-1)
+}
+
 export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min)) + min;
 
 export function signedLineDistance(l: Vertex[], v: Vertex) {
@@ -45,7 +49,7 @@ function lineLineIntersectDetailed(l1: Vertex[], l2: Vertex[]): typeof lineLineI
     return lineLineIntersectionDetails;
 }
 
-export function lineLineIntersect(l1: Vertex[], l2: Vertex[], bounded = false): Vertex | undefined {
+export function lineLineIntersect(l1: Vertex[], l2: Vertex[], bounded = false): IntersectionPoint | undefined {
     const details = lineLineIntersectDetailed(l1, l2);
     return (!details || (bounded && !details.inBounds()))
         ? undefined : details;
@@ -141,9 +145,9 @@ let _sweepZeroLine = [
     { x: 0, y: 0 },
     { x: 0, y: 0 },
 ]
-let _sweepVec = { x: 0, y: 0 };
+let _sweepVec = { x: 0, y: 0, u: 0 };
 let _sweepLineNormal = { x: 0, y: 0 };
-export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex, line: Vertex[]) {
+export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex, line: Vertex[]): IntersectionPoint {
     // adaptaion of the code from this question:
     // https://gamedev.stackexchange.com/questions/29479
 
@@ -154,7 +158,7 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
         _sweepZeroLine[0].y = position.y;
         _sweepZeroLine[1].x = position.x + velocity.x;
         _sweepZeroLine[1].y = position.y + velocity.y;
-        return lineLineIntersect(_sweepZeroLine, line, true);
+        return lineLineIntersect(_sweepZeroLine, line, true) as any;
     }
 
     // form an AABB using position and radius
@@ -179,8 +183,8 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
     let outTime = Math.min((boxProj + r) * invVelProj, 1);
 
     // X axis overlap
-    let lineMinX = Math.min(line[0].x, line[1].x);
-    let lineMaxX = Math.max(line[0].x, line[1].x);
+    const lineMinX = Math.min(line[0].x, line[1].x);
+    const lineMaxX = Math.max(line[0].x, line[1].x);
     if (velocity.x < 0) { // Sweep left
         if (boxMaxX < lineMinX) { return null; }
         hitTime = Math.max((lineMaxX - boxMinX) / velocity.x, hitTime);
@@ -194,8 +198,8 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
     }
 
     // Y axis overlap
-    let lineMinY = Math.min(line[0].y, line[1].y);
-    let lineMaxY = Math.max(line[0].y, line[1].y);
+    const lineMinY = Math.min(line[0].y, line[1].y);
+    const lineMaxY = Math.max(line[0].y, line[1].y);
     if (velocity.y < 0) { // Sweep down
         if (boxMaxY < lineMinY) { return null; }
         hitTime = Math.max((lineMaxY - boxMinY) / velocity.y, hitTime);
@@ -215,21 +219,25 @@ export function sweepAABBLine(position: Vertex, radius: number, velocity: Vertex
     // collision happened, return point of impact
     _sweepVec.x = position.x + velocity.x * hitTime;
     _sweepVec.y = position.y + velocity.y * hitTime;
+    _sweepVec.u = hitTime;
     return _sweepVec;
 }
 
-let sweepAABB = { x: 0, y: 0 };
+let _sweepAABB = { x: 0, y: 0, u: 0 };
 export function sweepAABBAABB(
     p1: Vertex, r1: number, v1: Vertex,
     p2: Vertex, r2: number,
-) {
+): IntersectionPoint {
     // test for overlapping
     const left = (p2.x - r2) - (p1.x + r1);
     const right = (p2.x + r2) - (p1.x - r1);
     const top = (p2.y + r2) - (p1.y - r1);
     const bottom = (p2.y - r2) - (p1.y + r1);
     if (left < 0 && right > 0 && top > 0 && bottom < 0) {
-        return p1;
+        _sweepAABB.x = p1.x;
+        _sweepAABB.y = p1.y;
+        _sweepAABB.u = 0;
+        return _sweepAABB;
     }
 
     // test sweep
@@ -243,15 +251,16 @@ export function sweepAABBAABB(
     const txExit = dxExit / v1.x;
     const tyEntry = dyEntry / v1.y;
     const tyExit = dyExit / v1.y;
-    const entry = Math.max(txEntry, tyEntry);
-    const exit = Math.min(txExit, tyExit);
-    if (entry > exit || (txEntry < 0 && tyEntry < 0) || txEntry > 1 || tyEntry > 1) {
+    const tEntry = Math.max(txEntry, tyEntry);
+    const tExit = Math.min(txExit, tyExit);
+    if (tEntry > tExit || (txEntry < 0 && tyEntry < 0) || txEntry > 1 || tyEntry > 1) {
         return null;
     }
 
-    sweepAABB.x = p1.x + v1.x * entry;
-    sweepAABB.y = p1.y + v1.y * entry;
-    return sweepAABB;
+    _sweepAABB.x = p1.x + v1.x * tEntry;
+    _sweepAABB.y = p1.y + v1.y * tEntry;
+    _sweepAABB.u = tEntry;
+    return _sweepAABB;
 }
 
 let _lineAABB = { x: 0, y: 0 };

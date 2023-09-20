@@ -17,6 +17,7 @@ export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
 const vec = new Vector3();
 const stopVelocity = 0.001;
 const friction = .90625;
+let hitCount = 0;
 export class MapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
@@ -31,6 +32,7 @@ export class MapObject {
 
     protected _reactiontime: number;
     get reactiontime() { return this._reactiontime; }
+    private hitC: number;
 
     chaseThreshold = 0;
     chaseTarget: MapObject;
@@ -162,7 +164,8 @@ export class MapObject {
                 || source.weapon.val !== weapons['chainsaw']));
         if (shouldApplyThrust) {
             let angle = angleBetween(this, inflictor);
-            let thrust = amount * 12 / this.info.mass;
+            // 12.5 is (100 * (1 << 16 >> 3)) / (1<<16) (see P_DamageMobj)
+            let thrust = amount * 12.5 / this.info.mass;
             // as a nifty effect, make fall forwards sometimes on kill shots (when player is below thing they are shooting at)
             const shouldFallForward = (amount < 40
                 && amount > this.health.val
@@ -255,6 +258,10 @@ export class MapObject {
         // TODO: 18-tick freeze (reaction) time?
     }
 
+    protected pickup(mobj: MapObject) {
+        // this is only imlemented by PlayerMapObject (for now)
+    }
+
     // kind of P_ZMovement
     protected applyGravity() {
         if (this.onGround) {
@@ -271,40 +278,124 @@ export class MapObject {
     // kind of P_XYMovement
     protected updatePosition() {
         if (this.velocity.lengthSq() < stopVelocity) {
-            return;
+            return
         }
 
-        this.map.data.xyCollisions(this, this.velocity, hit => {
-            if ('mobj' in hit) {
-                if (this.info.flags & MFFlags.MF_MISSILE) {
-                    // TODO: check z above/below object
-                    // TODO: check species (imps don't hit imps, etc.)
-                    if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-                        return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
+        // Ideally I'd prefer a single trace and just clip velocity (as we're doing here) but in practice the
+        // result isn't as good. Rounding errors?
+        // hitCount += 1;
+        // console.log('start hit')
+        // const pos = this.position.val;
+        // this.map.data.xyCollisions(this, this.velocity, hit => {
+        //     if ('mobj' in hit) {
+        //         if (this.info.flags & MFFlags.MF_MISSILE) {
+        //             // TODO: check z above/below object
+        //             // TODO: check species (imps don't hit imps, etc.)
+        //             if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+        //                 return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
+        //             }
+        //             if (this.chaseTarget === hit.mobj) {
+        //                 return true; // don't hit shooter, continue trace
+        //             }
+        //             const damage = randInt(1, 9) * this.info.damage;
+        //             hit.mobj.damage(damage, this, this.chaseTarget);
+        //             this.explode();
+        //             return false;
+        //         }
+        //         if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
+        //             this.pickup(hit.mobj);
+        //             return true;
+        //         }
+        //         const dx = pos.x - hit.mobj.position.val.x;
+        //         const dy = pos.y - hit.mobj.position.val.y;
+        //         slideMove(this.velocity, -dy, dx);
+        //     } else if ('special' in hit) {
+        //         this.map.triggerSpecial(hit.line, this, 'W', hit.side)
+        //     } else if ('line' in hit) {
+        //         if (hit.line.hitC === hitCount) {
+        //             return true; // go to next line, we've already hit this one
+        //         }
+        //         // if (hit.side === 1) {
+        //         //     return true;
+        //         // }
+        //         // if (hit.fraction === 0) {
+        //         //     return true;
+        //         // }
+        //         if (this.info.flags & MFFlags.MF_MISSILE) {
+        //             // TODO: check for sky hit and disappear object instead
+        //             this.explode();
+        //             return false;
+        //         }
+        //         console.log('hit',hit.line.num,hit.fraction)
+        //         hit.line.hitC = hitCount;
+        //         slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
+        //     }
+        //     return true;
+        // });
+        // this.position.set(pos.add(this.velocity));
+
+        hitCount += 1;
+        const pos = this.position.val;
+        let hitFraction = 1;
+        while (hitFraction > 0) {
+            hitFraction = 0;
+            this.map.data.xyCollisions(this, this.velocity, hit => {
+                if ('mobj' in hit) {
+                    if (hit.mobj.hitC === hitCount) {
+                        return true;
                     }
-                    if (this.chaseTarget === hit.mobj) {
-                        return true; // don't hit shooter, continue trace
+                    hit.mobj.hitC = hitCount;
+                    if (this.info.flags & MFFlags.MF_MISSILE) {
+                        // TODO: check z above/below object
+                        // TODO: check species (imps don't hit imps, etc.)
+                        if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                            return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
+                        }
+                        if (this.chaseTarget === hit.mobj) {
+                            return true; // don't hit shooter, continue trace
+                        }
+                        const damage = randInt(1, 9) * this.info.damage;
+                        hit.mobj.damage(damage, this, this.chaseTarget);
+                        this.explode();
+                        return false;
                     }
-                    const damage = randInt(1, 9) * this.info.damage;
-                    hit.mobj.damage(damage, this, this.chaseTarget);
-                    this.explode();
-                }
-                return false;
-            } else if ('special' in hit) {
-                this.map.triggerSpecial(hit.line, this, 'W', hit.side)
-            } else if ('line' in hit) {
-                if (this.info.flags & MFFlags.MF_MISSILE) {
-                    // TODO: check for sky hit and disappear object instead
-                    this.explode();
+                    if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
+                        this.pickup(hit.mobj);
+                        return true;
+                    }
+                    hitFraction = hit.fraction;
+                    // pos.set(hit.point.x, hit.point.y, pos.z)
+                    // pos.addScaledVector(this.velocity, Math.max(0, hit.fraction - .3));
+                    // this.velocity.multiplyScalar(1 - hit.fraction);
+                    const dx = pos.x - hit.mobj.position.val.x;
+                    const dy = pos.y - hit.mobj.position.val.y;
+                    slideMove(this.velocity, -dy, dx);
+                    return false;
+                } else if ('special' in hit) {
+                    this.map.triggerSpecial(hit.line, this, 'W', hit.side)
+                } else if ('line' in hit) {
+                    if (hit.line.hitC === hitCount) {
+                        return true; // go to next line, we've already hit this one
+                    }
+                    hit.line.hitC = hitCount;
+                    if (this.info.flags & MFFlags.MF_MISSILE) {
+                        // TODO: check for sky hit and disappear object instead
+                        this.explode();
+                        return false;
+                    }
+                    hitFraction = hit.fraction;
+                    // pos.set(hit.point.x, hit.point.y, pos.z)
+                    // pos.addScaledVector(this.velocity, Math.max(0, hit.fraction - .3));
+                    // this.velocity.multiplyScalar(1 - hit.fraction);
+                    slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
                     return false;
                 }
-                // slide along wall instead of moving through it
-                vec.set(hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y, 0);
-                this.velocity.projectOnVector(vec);
-            }
-            return true;
-        });
-        this.position.update(pos => pos.add(this.velocity));
+                return true;
+            });
+        }
+        if (this.velocity.lengthSq() > stopVelocity) {
+            this.position.set(pos.add(this.velocity));
+        }
     }
 
     protected explode() {
@@ -315,6 +406,15 @@ export class MapObject {
         // SND: this.info.deathsound
     }
 }
+
+const slideMove = (vel: Vector3, x: number, y: number) => {
+    // slide along wall instead of moving through it
+    vec.set(x, y, 0);
+    // we are only interested in cancelling xy movement so preserve z
+    const z = vel.z;
+    vel.projectOnVector(vec);
+    vel.z = z;
+};
 
 const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap' | 'berserk'>)[] =
     ['berserkTicks', 'invincibilityTicks', 'invisibilityTicks', 'nightVisionTicks', 'radiationSuitTicks'];
@@ -410,6 +510,15 @@ export class PlayerMapObject extends MapObject {
         // TODO: some map stats and drop weapon
     }
 
+    private get enablePlayerCollisions() { return !this.map.game.settings.noclip.val; }
+    xyMove(): void {
+        if (this.enablePlayerCollisions) {
+            super.updatePosition();
+        } else {
+            this.position.update(pos => pos.add(this.velocity));
+        }
+    }
+
     protected updatePosition(): void {
         // do nothing here because we already update the position in game input and
         // we don't want to double add velocity
@@ -475,7 +584,7 @@ export class PlayerMapObject extends MapObject {
     }
 
     // kind of P_TouchSpecialThing in p_inter.c
-    pickup(mobj: MapObject) {
+    protected pickup(mobj: MapObject) {
         const spec = thingSpec(mobj.source.type);
         const pickedUp = spec.onPickup?.(this);
         if (pickedUp) {

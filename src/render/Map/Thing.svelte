@@ -35,7 +35,7 @@
     $: texture = textures.get(frame.name, 'sprite');
     // TODO: for sprites that don't have equal width on each fram, this causes some "jiggle"
     // most sprites have a consistent width (but not all, consider "burning barrel") so hmmmm
-    $: hOffset = texture.userData.xOffset - (texture.userData.width * .5);
+    $: hOffset = -texture.userData.xOffset + (texture.userData.width * .5);
     // Sprite offset is much more complicated than this but this is simple and looks okay-ish.
     // https://www.doomworld.com/forum/topic/110008-what-is-this-bs-with-gl-hardware-mode
     // and https://www.doomworld.com/forum/topic/68145-source-port-sprites-through-the-floor

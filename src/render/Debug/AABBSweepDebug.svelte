@@ -65,8 +65,8 @@ Thing Radius {mobj2.radius}px <input type="range" min="0" max="20" bind:value={m
     viewBox={`-${worldSize} -${worldSize} ${worldSize * 2} ${worldSize * 2}`}
 >
     <line x1={line.start.x} y1={line.start.y} x2={line.end.x} y2={line.end.y} stroke={'orange'} />
-    <circle cx={line.start.x} cy={line.start.y} r={5} fill="yellow" use:dragPoint={line.start}  />
-    <circle cx={line.end.x} cy={line.end.y} r={5} fill="green" use:dragPoint={line.end}  />
+    <circle cx={line.start.x} cy={line.start.y} r={1} fill="yellow" use:dragPoint={line.start}  />
+    <circle cx={line.end.x} cy={line.end.y} r={1} fill="green" use:dragPoint={line.end}  />
 
     <rect x={mobj1.position.x - mobj1.radius} y={mobj1.position.y - mobj1.radius} width={mobj1.radius * 2} height={mobj1.radius * 2} stroke="blue" use:dragPoint={mobj1.position} />
     <line x1={mobj1.position.x} y1={mobj1.position.y} x2={mobj1.position.x + mobj1.velocity.x} y2={mobj1.position.y + mobj1.velocity.y} stroke={'magenta'} />

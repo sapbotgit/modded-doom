@@ -102,7 +102,7 @@
             Click to lock
         </div> -->
 
-        <Canvas size={{ width: 800, height: 600 }} frameloop='never' bind:ctx={threlteCtx}>
+        <Canvas size={{ width: 1024, height: 600 }} frameloop='never' bind:ctx={threlteCtx}>
             <MapContext map={$map} {renderSectors}>
                 <MapRoot map={$map} />
             </MapContext>

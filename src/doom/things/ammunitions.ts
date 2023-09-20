@@ -24,7 +24,7 @@ function addAmmo(type: keyof PlayerInventory['ammo'], clips: number) {
         let added = false;
         player.inventory.update(inv => {
             added = giveAmmo(player, inv, type, clips);
-            return inv
+            return inv;
         });
         return added;
     }

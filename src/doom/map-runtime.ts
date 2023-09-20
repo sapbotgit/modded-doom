@@ -4,7 +4,6 @@ import { Euler, Object3D, Vector3 } from "three";
 import { HALF_PI, lineLineIntersect, signedLineDistance } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
-import { MFFlags } from "./doom-things-info";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
 
 interface AnimatedTexture {
@@ -116,6 +115,7 @@ export class MapRuntime {
 
     timeStep(time: GameTime) {
         this.input.evaluate(time.delta);
+        this.camera.update();
 
         if (time.isTick) {
             this.tick();
@@ -231,15 +231,6 @@ export class MapRuntime {
     }
 }
 
-const slideMove = (vel: Vector3, x: number, y: number) => {
-    // slide along wall instead of moving through it
-    vec.set(x, y, 0);
-    // we are only interested in cancelling xy movement so preserve z
-    const z = vel.z;
-    vel.projectOnVector(vec);
-    vel.z = z;
-};
-
 const playerSpeeds = { // per-tick
     'run': 50,
     'walk': 25,
@@ -257,7 +248,6 @@ class GameInput {
 
     private freeFly: Store<boolean>;
     private handledUsePress = false; // only one use per button press
-    private get enablePlayerCollisions() { return !this.map.game.settings.noclip.val; }
     private get player() { return this.map.player };
     private obj = new Object3D();
     private direction = new Vector3();
@@ -342,25 +332,7 @@ class GameInput {
         }
 
         const pos = this.player.position.val;
-        if (this.enablePlayerCollisions) {
-            this.map.data.xyCollisions(this.player, this.player.velocity, hit => {
-                if ('mobj' in hit) {
-                    if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
-                        this.player.pickup(hit.mobj);
-                        return true;
-                    }
-                    const dx = pos.x - hit.mobj.position.val.x;
-                    const dy = pos.y - hit.mobj.position.val.y;
-                    slideMove(this.player.velocity, -dy, dx);
-                } else if ('special' in hit) {
-                    this.map.triggerSpecial(hit.line, this.player, 'W', hit.side)
-                } else if ('line' in hit) {
-                    slideMove(this.player.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
-                }
-                return true;
-            });
-        }
-        this.player.position.update(pos => pos.add(this.player.velocity));
+        this.player.xyMove();
 
         // use stuff (switches, doors, etc)
         if (this.input.use && !this.handledUsePress) {
@@ -408,45 +380,44 @@ class GameInput {
 class Camera {
     private pos = new Vector3();
     private angle = new Euler(0, 0, 0, 'ZXY');
-    private updatePosition: (pos: Vector3, angle: Euler) => void;
 
     readonly rotation = store(this.angle);
     readonly position = store(this.pos);
     readonly mode: Game['settings']['cameraMode'];
+    update: () => void;
 
     constructor(player: PlayerMapObject, map: MapRuntime, game: Game) {
         this.mode = game.settings.cameraMode;
-        let freeFly = game.settings.freeFly;
+        const pos = player.position.val;
+        const freeFly = game.settings.freeFly;
         const sub = game.settings.cameraMode.subscribe(mode => {
             if (mode === '3p' || mode === 'ortho') {
                 const followDist = 200;
-                this.updatePosition = (position, angle) => {
+                this.update = () => {
                     const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
-                    this.pos.x = -Math.sin(-angle.z) * followDist + position.x;
-                    this.pos.y = -Math.cos(-angle.z) * followDist + position.y;
-                    this.pos.z = Math.cos(-angle.x) * followDist + position.z + playerViewHeight;
+                    this.pos.x = -Math.sin(-this.angle.z) * followDist + pos.x;
+                    this.pos.y = -Math.cos(-this.angle.z) * followDist + pos.y;
+                    this.pos.z = Math.cos(-this.angle.x) * followDist + pos.z + playerViewHeight;
                     this.position.set(this.pos);
-                    this.rotation.set(angle);
+                    this.rotation.set(this.angle);
                 };
             } else if (mode === 'bird') {
                 const followDist = 250;
-                this.updatePosition = (position, angle) => {
-                    this.pos.set(position.x, position.y, position.z + followDist);
+                this.update = () => {
+                    this.pos.set(pos.x, pos.y, pos.z + followDist);
                     this.position.set(this.pos);
-                    angle.x = 0;
-                    this.rotation.set(angle);
+                    this.angle.x = 0;
+                    this.rotation.set(this.angle);
                 }
             } else {
-                this.updatePosition = (position, angle) => {
+                this.update = () => {
                     const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
-                    this.pos.set(position.x, position.y, position.z + playerViewHeight);
+                    this.pos.set(pos.x, pos.y, pos.z + playerViewHeight);
                     this.position.set(this.pos);
-                    this.rotation.set(angle);
+                    this.rotation.set(this.angle);
                 };
             }
         });
         map.disposables.push(sub);
-
-        player.position.subscribe(pos => this.updatePosition(pos, this.angle));
     }
 }
