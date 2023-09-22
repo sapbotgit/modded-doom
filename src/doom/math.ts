@@ -13,7 +13,7 @@ interface IntersectionPoint extends Vertex {
     u: number; // distance from point1 to point2 of the impact (0-1)
 }
 
-export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min)) + min;
+export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 export function signedLineDistance(l: Vertex[], v: Vertex) {
     // https://math.stackexchange.com/questions/274712

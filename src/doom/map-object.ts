@@ -218,9 +218,9 @@ export class MapObject {
 
         this.info.height /= 4;
         if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
-            this._state.setState(this.info.xdeathstate, -randInt(0, 3));
+            this._state.setState(this.info.xdeathstate, -randInt(0, 2));
         } else {
-            this._state.setState(this.info.deathstate, -randInt(0, 3));
+            this._state.setState(this.info.deathstate, -randInt(0, 2));
         }
 
         // Some enemies drop things (guns or ammo) when they die
@@ -238,7 +238,7 @@ export class MapObject {
             this.map.spawn(mobj);
 
             // items pop up when dropped (gzdoom has this effect)
-            mobj.velocity.z = randInt(7, 10);
+            mobj.velocity.z = randInt(7, 9);
             // position slightly above the current floor otherwise it will immediately stick to floor
             mobj.position.val.z += 1;
         }
@@ -301,7 +301,7 @@ export class MapObject {
                         if (this.chaseTarget === hit.mobj) {
                             return true; // don't hit shooter, continue trace
                         }
-                        const damage = randInt(1, 9) * this.info.damage;
+                        const damage = randInt(1, 8) * this.info.damage;
                         hit.mobj.damage(damage, this, this.chaseTarget);
                         this.explode();
                         return false;
@@ -341,7 +341,7 @@ export class MapObject {
 
     protected explode() {
         this.velocity.set(0, 0, 0);
-        this._state.setState(this.info.deathstate, -randInt(0, 3));
+        this._state.setState(this.info.deathstate, -randInt(0, 2));
         this.info.flags &= ~MFFlags.MF_MISSILE;
         // if (this.info.deathsound)
         // SND: this.info.deathsound

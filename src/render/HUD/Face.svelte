@@ -79,7 +79,7 @@
 
         if (!nextFaceTicks) {
             priority = 0;
-            variation = randInt(0, 3);
+            variation = randInt(0, 2);
             nextFaceTicks = ticks;
             return face;
         }

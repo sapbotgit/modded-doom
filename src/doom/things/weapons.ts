@@ -106,7 +106,7 @@ const meleeRange = 1 * 64;
 const scanRange = 16 * 64;
 const attackRange = 32 * 64;
 const angleNoise = (radius: number) => (Math.random() - Math.random()) * (Math.PI / radius);
-const bulletDamage = () => 5 * randInt(1, 4);
+const bulletDamage = () => 5 * randInt(1, 3);
 
 const weaponBobTime = 128 / ticksPerSecond;
 // TODO: I'd actually like to remove these from ActionIndex and instead make them completely local to weapon.ts
@@ -180,7 +180,7 @@ const weaponActions: { [key: number]: WeaponAction } = {
     },
 
     [ActionIndex.A_Punch]: (time, player, weapon) => {
-        let damage = randInt(1, 11) * 2;
+        let damage = randInt(1, 10) * 2;
         if (player.inventory.val.items.berserk) {
             damage *= 10;
         }
@@ -195,7 +195,7 @@ const weaponActions: { [key: number]: WeaponAction } = {
         }
     },
     [ActionIndex.A_Saw]: (time, player, weapon) => {
-        let damage = randInt(1, 11) * 2;
+        let damage = randInt(1, 10) * 2;
         let angle = player.direction.val + Math.PI + angleNoise(20);
 
         // use meleerange + 1 se the puff doesn't skip the flash
@@ -292,7 +292,7 @@ const weaponActions: { [key: number]: WeaponAction } = {
     },
 
     [ActionIndex.A_FirePlasma]: (time, player, weapon) => {
-        weapon.flash(randInt(0, 2));
+        weapon.flash(randInt(0, 1));
         // don't go to S_PLAY_ATK2... was that intentional in doom?
         useAmmo(player, weapon);
         shootMissile(player, MapObjectIndex.MT_PLASMA);
@@ -434,7 +434,7 @@ class ShotTracer {
             }
         }
         const mobj = this.spawn(shooter, spot, MapObjectIndex.MT_PUFF);
-        mobj.setState(mobj.info.spawnstate, -randInt(0, 3));
+        mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
         return false;
     }
 
@@ -457,9 +457,9 @@ class ShotTracer {
     }
 
     private spawnBlood(source: MapObject, position: Vector3, damage: number) {
-        position.z += randInt(0, 10) - randInt(0, 10);
+        position.z += randInt(0, 9) - randInt(0, 9);
         const mobj = this.spawn(source, position, MapObjectIndex.MT_BLOOD);
-        mobj.setState(mobj.info.spawnstate, -randInt(0, 3));
+        mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
 
         if (damage <= 12 && damage >= 9) {
             mobj.setState(StateIndex.S_BLOOD2);
