@@ -238,7 +238,7 @@ export class MapObject {
             this.map.spawn(mobj);
 
             // items pop up when dropped (gzdoom has this effect)
-            mobj.velocity.z = randInt(7, 9);
+            mobj.velocity.z = randInt(5, 7);
             // position slightly above the current floor otherwise it will immediately stick to floor
             mobj.position.val.z += 1;
         }
@@ -310,6 +310,7 @@ export class MapObject {
                         this.pickup(hit.mobj);
                         return true;
                     }
+                    // FIXME: we can sometimes get stuck in mobjs (especially when close to walls)
                     hitFraction = hit.fraction;
                     const dx = pos.x - hit.mobj.position.val.x;
                     const dy = pos.y - hit.mobj.position.val.y;

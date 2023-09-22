@@ -504,10 +504,14 @@ export class MapData {
     private traceBlock(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
         // TODO: an object pool may avoid the gc overhead of alloc/dealloc of items in the array
         let hits: TraceHit[] = [];
+        // because we process each block iteratively, we may actually miss a hit from another block that
+        // would be the first hit. blockmap.traceRay() wouldn't do this but using that means that wider
+        // objects or objects close to the edge of a block will not work right. Something that would be nice
+        // to fix someday...
         this.blockmap.traceBox(start, move, radius, (block, bounds) => {
             hits.length = 0;
             for (const linedef of block.linedefs) {
-                // because linedefs cut through multiple blocks, we actually may visit linedefs multiple times
+                // because linedefs cut through multiple blocks, we often visit the same linedef multiple times
                 // maybe we can improve this using bsp?
                 const hit = sweepAABBLine(start, radius, move, linedef.v);
                 // this is a bit of a hack because we may detect a hit on the linedef that is outside the bounds of a block
@@ -520,7 +524,7 @@ export class MapData {
                 if (validHit) {
                     const side = -Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
                     const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                    const overlap = aabbLineOverlap(start, radius, linedef);
+                    const overlap = aabbLineOverlap(point, radius, linedef);
                     hits.push({ overlap, point, side, line: linedef, fraction: hit.u });
                 }
             }
@@ -533,7 +537,7 @@ export class MapData {
                 const hit = sweepAABBAABB(start, radius, move, thing.position.val, thing.info.radius);
                 if (hit) {
                     const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                    const overlap = aabbAabbOverlap(start, radius, thing.position.val, thing.info.radius);
+                    const overlap = aabbAabbOverlap(point, radius, thing.position.val, thing.info.radius);
                     hits.push({ overlap, point, fraction: hit.u, mobj: thing });
                 }
             }
@@ -541,8 +545,10 @@ export class MapData {
             // TODO: what about hitting floors?
 
             // sort hits items
-            hits.sort((a, b) => (a.fraction === b.fraction)
-                    ? b.overlap - a.overlap : a.fraction - b.fraction);
+            hits.sort((a, b) => {
+                const dist = a.fraction - b.fraction;
+                return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
+            });
 
             for (let hit of hits) {
                 const shouldContinue = onHit(hit);
@@ -553,6 +559,7 @@ export class MapData {
 
             return true;
         });
+
     }
 }
 
@@ -565,10 +572,14 @@ function aabbLineOverlap(pos: Vector3, radius: number, line: LineDef) {
     const lineMaxX = Math.max(line.v[0].x, line.v[1].x);
     const lineMinY = Math.min(line.v[0].y, line.v[1].y);
     const lineMaxY = Math.max(line.v[0].y, line.v[1].y);
-    const area =
-        (Math.min(boxMaxX, lineMaxX) - Math.max(boxMinX, lineMinX)) *
-        (Math.min(boxMaxY, lineMaxY) - Math.max(boxMinY, lineMinY));
-    return Math.max(0, area);
+    if (lineMinX === lineMaxX) {
+        // aabb hit a horizontal line so return y-axis overlap
+        return Math.min(boxMaxY, lineMaxY) - Math.max(boxMinY, lineMinY)
+    } else if (lineMinY === lineMaxY) {
+        // aabb hit a vertical line so return x-axis overlap
+        return Math.min(boxMaxX, lineMaxX) - Math.max(boxMinX, lineMinX);
+    }
+    return 0;
 }
 
 function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
