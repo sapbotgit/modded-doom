@@ -55,6 +55,7 @@
         <option>ortho</option>
         <option>1p</option>
         <option>3p</option>
+        <option>3p-noclip</option>
     </select>
 </label>
 <label>

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { weaponTop, type PlayerMapObject } from "../../doom";
-    import Sprite from "../Components/WeaponSprite.svelte";
+    import WeaponSprite from "../Components/WeaponSprite.svelte";
 
     export let player: PlayerMapObject;
 
@@ -10,25 +10,25 @@
     // base x, y and z values are from a little trial and error.
     // x: as -160 makes sense because the screen was 320 wide
     // y: 32 is because weapon top is 32.
-    // z: ... not sure. It looked about right
+    // z: ... not sure. It looked about right and it needs to be adjusted based on FOV
     $: wOffset = $weapon.position;
     $: position = {
         x: $wOffset.x - 160,
         y: $wOffset.y + weaponTop,
-        z: -148,
+        z: -150,
     }
 
     // flash
     $: flashSprite = $weapon.flashSprite;
 </script>
 
-<Sprite
+<WeaponSprite
     sprite={$sprite}
     sector={$sector}
     {position}
 />
 {#if $flashSprite}
-    <Sprite
+    <WeaponSprite
         sprite={$flashSprite}
         sector={$sector}
         {position}

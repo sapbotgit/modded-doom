@@ -281,64 +281,11 @@ export class MapObject {
             return
         }
 
-        // Ideally I'd prefer a single trace and just clip velocity (as we're doing here) but in practice the
-        // result isn't as good. Rounding errors?
-        // hitCount += 1;
-        // console.log('start hit')
-        // const pos = this.position.val;
-        // this.map.data.xyCollisions(this, this.velocity, hit => {
-        //     if ('mobj' in hit) {
-        //         if (this.info.flags & MFFlags.MF_MISSILE) {
-        //             // TODO: check z above/below object
-        //             // TODO: check species (imps don't hit imps, etc.)
-        //             if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-        //                 return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
-        //             }
-        //             if (this.chaseTarget === hit.mobj) {
-        //                 return true; // don't hit shooter, continue trace
-        //             }
-        //             const damage = randInt(1, 9) * this.info.damage;
-        //             hit.mobj.damage(damage, this, this.chaseTarget);
-        //             this.explode();
-        //             return false;
-        //         }
-        //         if (hit.mobj.info.flags & MFFlags.MF_SPECIAL) {
-        //             this.pickup(hit.mobj);
-        //             return true;
-        //         }
-        //         const dx = pos.x - hit.mobj.position.val.x;
-        //         const dy = pos.y - hit.mobj.position.val.y;
-        //         slideMove(this.velocity, -dy, dx);
-        //     } else if ('special' in hit) {
-        //         this.map.triggerSpecial(hit.line, this, 'W', hit.side)
-        //     } else if ('line' in hit) {
-        //         if (hit.line.hitC === hitCount) {
-        //             return true; // go to next line, we've already hit this one
-        //         }
-        //         // if (hit.side === 1) {
-        //         //     return true;
-        //         // }
-        //         // if (hit.fraction === 0) {
-        //         //     return true;
-        //         // }
-        //         if (this.info.flags & MFFlags.MF_MISSILE) {
-        //             // TODO: check for sky hit and disappear object instead
-        //             this.explode();
-        //             return false;
-        //         }
-        //         console.log('hit',hit.line.num,hit.fraction)
-        //         hit.line.hitC = hitCount;
-        //         slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
-        //     }
-        //     return true;
-        // });
-        // this.position.set(pos.add(this.velocity));
-
         hitCount += 1;
         const pos = this.position.val;
         let hitFraction = 1;
-        while (hitFraction > 0) {
-            hitFraction = 0;
+        while (hitFraction !== -1) {
+            hitFraction = -1;
             this.map.data.xyCollisions(this, this.velocity, hit => {
                 if ('mobj' in hit) {
                     if (hit.mobj.hitC === hitCount) {
@@ -364,9 +311,6 @@ export class MapObject {
                         return true;
                     }
                     hitFraction = hit.fraction;
-                    // pos.set(hit.point.x, hit.point.y, pos.z)
-                    // pos.addScaledVector(this.velocity, Math.max(0, hit.fraction - .3));
-                    // this.velocity.multiplyScalar(1 - hit.fraction);
                     const dx = pos.x - hit.mobj.position.val.x;
                     const dy = pos.y - hit.mobj.position.val.y;
                     slideMove(this.velocity, -dy, dx);
@@ -384,9 +328,6 @@ export class MapObject {
                         return false;
                     }
                     hitFraction = hit.fraction;
-                    // pos.set(hit.point.x, hit.point.y, pos.z)
-                    // pos.addScaledVector(this.velocity, Math.max(0, hit.fraction - .3));
-                    // this.velocity.multiplyScalar(1 - hit.fraction);
                     slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
                     return false;
                 }

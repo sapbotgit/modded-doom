@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Mesh, type Position } from "@threlte/core";
+    import { Mesh, useThrelte, type Position } from "@threlte/core";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { MeshStandardMaterial, PlaneGeometry } from "three";
     import type { Sector } from "../../doom";
@@ -10,6 +10,8 @@
     export let sector: Sector;
     export let position: Position;
 
+    const { camera } = useThrelte();
+    $: invYScale = 1 / $camera.scale.y;
     const { textures, wad } = useDoom();
 
     $: frames = wad.spriteFrames(sprite.name);
@@ -37,7 +39,7 @@
         {material}
         renderOrder={2}
         geometry={new PlaneGeometry(texture.userData.width, texture.userData.height)}
-        scale={frame.mirror ? { x: -1 } : {}}
+        scale={{ y: invYScale, x: frame.mirror ? -1 : 1 }}
         position={pos}
     >
         <Wireframe />

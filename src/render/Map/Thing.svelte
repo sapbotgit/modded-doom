@@ -13,7 +13,7 @@
 </script>
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry, type EulerOrder } from 'three';
     import { useDoom, useDoomMap } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI } from '../../doom';
     import Wireframe from '../Debug/Wireframe.svelte';
@@ -22,12 +22,12 @@
 
     const { map } = useDoomMap();
     const { textures, editor, wad } = useDoom();
-    const { position: cameraPosition, rotation: cameraRotation } = map.camera;
+    const { position: cameraPosition, rotation: cameraRotation, mode } = map.camera;
     const extraLight = map.player.extraLight;
 
     const { sector, position, sprite, direction } = thing;
 
-    $: ang = Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
+    $: ang = $mode === 'bird' ? $direction : Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
     $: frames = wad.spriteFrames($sprite.name);
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
@@ -44,6 +44,9 @@
     $: if (hackedSprites.includes($sprite.name)) {
         vOffset += texture.userData.yOffset - texture.userData.height;
     }
+    $: rotation = $mode === 'bird'
+        ? { z: $direction + HALF_PI, y: -Math.PI, x: Math.PI, order: 'ZXY' as EulerOrder }
+        : { y: $cameraRotation.z, x: HALF_PI, order: 'ZXY' as EulerOrder };
 
     $: material = new MeshStandardMaterial({ alphaTest: 1, emissive: 'magenta' });
     $: material.emissiveIntensity = ($editor.selected === thing) ? 0.1 : 0;
@@ -80,7 +83,7 @@
     {material}
     geometry={planeGeometry(texture.userData)}
     scale={frame.mirror ? { x: -1 } : {}}
-    rotation={{ y: $cameraRotation.z, x: HALF_PI, order:'ZXY' }}
+    {rotation}
     position={{
         x: $position.x + hOffset,
         y: $position.y + hOffset,

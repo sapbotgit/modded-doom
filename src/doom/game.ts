@@ -16,7 +16,7 @@ export interface GameSettings {
     noclip: Store<boolean>;
     freeFly: Store<boolean>;
     invicibility: Store<boolean>;
-    cameraMode: Store<'1p' | '3p' | 'bird' | 'ortho'>;
+    cameraMode: Store<'1p' | '3p' | '3p-noclip' | 'bird' | 'ortho'>;
 }
 export type Skill = 1 | 2 | 3 | 4 | 5;
 

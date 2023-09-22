@@ -86,12 +86,15 @@ export const actions: { [key: number]: StateChangeAction } = {
 const losVec = new Vector3();
 function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // P_CheckSight use bsp tree... it would be really nice to use that.
-    // Also we need to check z-coordinates here and look at two-sided walls, etc.
+    // TODO: we need to check z-coordinates here and look at two-sided walls, etc.
     let los = true;
     const line = [mobj1.position.val, mobj2.position.val];
     losVec.copy(mobj2.position.val).sub(mobj1.position.val);
     mobj1.map.data.blockmap.traceRay(mobj1.position.val, losVec, (block, bounds) => {
         for (const linedef of block.linedefs) {
+            if ((linedef.flags & 0x0004) !== 0) {
+                return true; // ignore two-sided walls for now
+            }
             const hit = lineLineIntersect(line, linedef.v, true);
             const validHit = (hit
                 && hit.x > bounds.left && hit.x < bounds.right

@@ -344,10 +344,6 @@ class GameInput {
             const useLine = [pos, useEnd];
             this.map.data.trace(pos, vec, hit => {
                 if ('line' in hit) {
-                    if (signedLineDistance(hit.line.v, pos) < 0) {
-                        return true; // don't hit walls from behind
-                    }
-
                     const point = lineLineIntersect(hit.line.v, useLine, true);
                     if (point && hit.line.special) {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
@@ -377,6 +373,7 @@ class GameInput {
     }
 }
 
+const _3pDir = new Vector3();
 class Camera {
     private pos = new Vector3();
     private angle = new Euler(0, 0, 0, 'ZXY');
@@ -391,13 +388,16 @@ class Camera {
         const pos = player.position.val;
         const freeFly = game.settings.freeFly;
         const sub = game.settings.cameraMode.subscribe(mode => {
-            if (mode === '3p' || mode === 'ortho') {
+            if (mode === '3p' || mode === '3p-noclip' || mode === 'ortho') {
                 const followDist = 200;
                 this.update = () => {
                     const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
                     this.pos.x = -Math.sin(-this.angle.z) * followDist + pos.x;
                     this.pos.y = -Math.cos(-this.angle.z) * followDist + pos.y;
                     this.pos.z = Math.cos(-this.angle.x) * followDist + pos.z + playerViewHeight;
+                    if (mode === '3p') {
+                        this.clipPosition(this.pos, map, player);
+                    }
                     this.position.set(this.pos);
                     this.rotation.set(this.angle);
                 };
@@ -419,5 +419,24 @@ class Camera {
             }
         });
         map.disposables.push(sub);
+    }
+
+    private clipPosition(pos: Vector3, map: MapRuntime, player: PlayerMapObject) {
+        // clip to walls and ceiling/floor
+        const sector = map.data.findSector(this.pos.x, this.pos.y);
+        pos.z = Math.max(pos.z, sector.zFloor.val + 3, player.sector.val.zFloor.val + 3);
+        pos.z = Math.min(pos.z, sector.zCeil.val - 3, player.sector.val.zCeil.val - 3);
+        _3pDir.copy(pos).sub(player.position.val);
+        map.data.trace(player.position.val, _3pDir, hit => {
+            if ('line' in hit) {
+                if ((hit.line.flags & 0x0004) !== 0) {
+                    return true; // continue
+                }
+                pos.x = hit.point.x;
+                pos.y = hit.point.y;
+                return false;
+            }
+            return true;
+        });
     }
 }
