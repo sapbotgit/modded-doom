@@ -1,5 +1,5 @@
 import { mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
-import type { PlayerMapObject } from '../map-object';
+import type { MapObject, PlayerMapObject } from '../map-object';
 import { weaponItems } from './weapons';
 import { monsters } from './monsters';
 import { ammunitions } from './ammunitions';
@@ -17,7 +17,7 @@ export interface ThingType {
     // Adapted from https://doomwiki.org/wiki/Thing_types
     class: 'M' | 'W' | 'A' | 'I' | 'P' | 'K' | 'O' | 'D' | 'S';
     description: string;
-    onPickup?: (mo: PlayerMapObject) => boolean;
+    onPickup?: (player: PlayerMapObject, mobj: MapObject) => boolean;
 }
 
 export interface ThingSpec extends ThingType {

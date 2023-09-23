@@ -10,7 +10,6 @@
     import HUD from "./HUD/HUD.svelte";
     import MapRoot from "./Map/Root.svelte";
     import MapContext from "./Map/Context.svelte";
-    import { Clock } from "three";
 
     export let game: Game;
 
@@ -24,23 +23,22 @@
     const { wireframe, showBlockMap } = settings;
     const { freelook, noclip, freeFly, cameraMode, timescale } = game.settings;
 
-    let clock = new Clock();
     let threlteCtx: ThrelteContext;
     onMount(() => {
+        const clock = threlteCtx.clock;
         const interval = 1 / settings.targetFPS;
-        let delta = 0;
+        let lastFrameTime = 0;
         let frameDelta = 0;
         let frameReq: number;
         function update() {
             frameReq = requestAnimationFrame(update);
-            const d = clock.getDelta();
-            delta += d;
-            frameDelta += d;
+            frameDelta += clock.getDelta();
             if (frameDelta > interval) {
                 threlteCtx.advance();
-                game.tick(delta);
-                delta = 0;
                 frameDelta = frameDelta % interval;
+
+                game.tick(clock.elapsedTime - lastFrameTime);
+                lastFrameTime = clock.elapsedTime;
             }
         }
         update();

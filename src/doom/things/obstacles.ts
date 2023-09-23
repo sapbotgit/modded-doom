@@ -77,8 +77,6 @@ export const actions: { [key: number]: StateChangeAction } = {
                     thing.damage(damage - dist, mobj, mobj.chaseTarget);
                 }
             }
-            // always trace all blocks
-            return true;
         });
     },
 }

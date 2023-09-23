@@ -97,24 +97,29 @@ export class Game {
     ) {}
 
     tick(delta: number) {
-        delta *= this.settings.timescale.val;
-        this.time.delta = delta;
-        this.time.elapsed += delta;
-        this.time.isTick = false;
+        if (delta > 2) {
+            // if time is too long (maybe a big GC or switch tab?), just skip it and try again next time
+            console.warn('time interval too long', delta);
+            return;
+        }
+        // we need to process in 1/35s ticks (or less)
+        const step = Math.min(frameTickTime, delta * this.settings.timescale.val);
 
-        // TODO: for large deltas (like a few seconds), we should handle it in smaller
-        // chunks so the game logic and animation doesn't get messed up
         // TODO: when loading next map, make sure to clear inventory ticks (invul, light visor)
         //  and bonuses like computer map, berserk, etc.
 
-        if (this.time.elapsed > this.nextTickTime) {
-            this.nextTickTime = this.time.elapsed + frameTickTime;
-            this.time.tick.update(tick => tick += 1);
-            this.time.isTick = true;
-        }
-
-        if (this.map.val) {
-            this.map.val.timeStep(this.time);
+        while (delta > 0) {
+            const dt = Math.min(step, delta);
+            delta -= dt;
+            this.time.delta = dt;
+            this.time.elapsed += dt;
+            this.time.isTick = false;
+            if (this.time.elapsed > this.nextTickTime) {
+                this.nextTickTime += frameTickTime;
+                this.time.tick.update(tick => tick += 1);
+                this.time.isTick = true;
+            }
+            this.map.val?.timeStep(this.time);
         }
     }
 }

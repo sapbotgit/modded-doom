@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { MapObject, MapRuntime } from "../../doom";
-    import { useDoomMap } from "../DoomContext";
+    import { useDoom, useDoomMap } from "../DoomContext";
     import BlockMap from "../Debug/BlockMap.svelte";
     import Stats from "../Debug/Stats.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";

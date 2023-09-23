@@ -228,7 +228,7 @@ export function sweepAABBAABB(
     p1: Vertex, r1: number, v1: Vertex,
     p2: Vertex, r2: number,
 ): IntersectionPoint {
-    // test for overlapping
+    // test if already overlapping
     const left = (p2.x - r2) - (p1.x + r1);
     const right = (p2.x + r2) - (p1.x - r1);
     const top = (p2.y + r2) - (p1.y - r1);
@@ -242,10 +242,10 @@ export function sweepAABBAABB(
 
     // test sweep
     // See https://www.amanotes.com/post/using-swept-aabb-to-detect-and-process-collision
-    const dxEntry = (v1.x > 0) ? left : right;
-    const dxExit = (v1.x > 0) ? right : left
-    const dyEntry = (v1.y > 0) ? bottom : top;
-    const dyExit = (v1.y > 0) ? top : bottom;
+    const dxEntry = (v1.x < 0) ? right : left;
+    const dxExit = (v1.x < 0) ? left : right;
+    const dyEntry = (v1.y < 0) ? top : bottom;
+    const dyExit = (v1.y < 0) ? bottom : top;
 
     const txEntry = dxEntry / v1.x;
     const txExit = dxExit / v1.x;

@@ -2,13 +2,16 @@
   import { DoomWad, Game, store, MapRuntime, type Skill } from './doom';
   import Doom from './render/Doom.svelte';
   import SvgMap from './render/Debug/SvgMap.svelte';
-  import { Object3D } from 'three';
   import GridTraceDebug from './render/Debug/GridTraceDebug.svelte';
   import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
+  // import Picture from './render/Components/Picture.svelte';
+  // <Picture name="M_JKILL" />
+  // <Picture name="M_ROUGH" />
+  // <Picture name="M_HURT" />
+  // <Picture name="M_ULTRA" />
+  // <Picture name="M_NMARE" />
 
   const svgMap = false;
-
-  Object3D.DEFAULT_UP.set(0, 0, 1);
 
   let game: Game;
   let wad: DoomWad;
@@ -41,33 +44,35 @@
   <!-- <GridTraceDebug /> -->
   <!-- <MathDebug /> -->
 
+  {#if wad}
+    <div>
+      <label>
+        <input type="radio" bind:group={difficulty} value={1} />
+        I'm too young to die.
+      </label>
+      <label>
+        <input type="radio" bind:group={difficulty} value={2} />
+        Hey, not too rough.
+      </label>
+      <label>
+        <input type="radio" bind:group={difficulty} value={3} />
+        Hurt me plenty.
+      </label>
+      <label>
+        <input type="radio" bind:group={difficulty} value={4} />
+        Ultra Violence.
+      </label>
+      <label>
+        <input type="radio" bind:group={difficulty} value={5} />
+        Nightmare!
+      </label>
+    </div>
+  {/if}
+
   <button on:click={() => selectedMap = null}>None</button>
   {#each mapNames as name}
     <button on:click={() => selectedMap = name}>{name}</button>
   {/each}
-
-  <div>
-    <label>
-      <input type="radio" bind:group={difficulty} value={1} />
-      I'm too young to die.
-    </label>
-    <label>
-      <input type="radio" bind:group={difficulty} value={2} />
-      Hey, not too rough.
-    </label>
-    <label>
-      <input type="radio" bind:group={difficulty} value={3} />
-      Hurt me plenty.
-    </label>
-    <label>
-      <input type="radio" bind:group={difficulty} value={4} />
-      Ultra Violence.
-    </label>
-    <label>
-      <input type="radio" bind:group={difficulty} value={5} />
-      Nightmare!
-    </label>
-  </div>
 
   {#if selectedMap}
     <div>{selectedMap}</div>

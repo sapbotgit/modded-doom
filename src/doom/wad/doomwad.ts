@@ -14,7 +14,6 @@ interface SpriteFrame {
 }
 
 // TODO: support pwads
-// TODO: some unit tests on the picture functions would allow more code re-use. It's messy down there.
 export class DoomWad {
     private spriteFrameTable = new Map<string, SpriteFrame[][]>();
     private mapIndex = new Map<string, number>();

@@ -11,7 +11,6 @@ export type Action = (time: GameTime) => void;
 export interface Thing {
     x: number;
     y: number;
-    z?: number;
     angle: number;
     type: number;
     flags: number;
@@ -172,6 +171,7 @@ interface SpecialTraceHit extends LineTraceHit {
 }
 interface MapObjectTraceHit extends BaseTraceHit {
     mobj: MapObject;
+    axis: 'x' | 'y';
 }
 interface SectorTraceHit extends BaseTraceHit {
     sector: Sector;
@@ -345,7 +345,7 @@ class BlockMap {
         }
     }
 
-    radiusTrace(start: Vector3, radius: number, onBlock: (block: Block) => boolean) {
+    radiusTrace(start: Vector3, radius: number, onBlock: (block: Block) => void) {
         const dx = Math.floor(radius / gridSize);
         const x1 = Math.floor((start.x - this.bounds.left) / gridSize);
         const y1 = Math.floor((start.y - this.bounds.bottom) / gridSize);
@@ -360,6 +360,18 @@ class BlockMap {
             }
         }
         this.lastTrace.set(lastTrace);
+    }
+
+    traceBounds(left: number, bottom: number, right: number, top: number, onBlock: (block: Block) => void) {
+        const x1 = Math.floor((left - this.bounds.left) / gridSize);
+        const y1 = Math.floor((bottom - this.bounds.bottom) / gridSize);
+        const x2 = Math.floor((right - this.bounds.left) / gridSize);
+        const y2 = Math.floor((top - this.bounds.bottom) / gridSize);
+        for (let x = x1; x <= x2; x++) {
+            for (let y = y1; y <= y2; y++) {
+                onBlock(this.map[y * this.numCols + x]);
+            }
+        }
     }
 
     private queryIndex(x: number, y: number) {
@@ -519,8 +531,8 @@ export class MapData {
                 // in the block (when a linedef is close to the edge of a block). With all the little hacks needed here I do
                 // wonder if we are better using bsp instead of blockmaps for linedef (or seg) collisions
                 const validHit = (hit
-                    && hit.x + radius > bounds.left && hit.x - radius < bounds.right
-                    && hit.y + radius > bounds.top && hit.y - radius < bounds.bottom);
+                    && hit.x + radius >= bounds.left && hit.x - radius <= bounds.right
+                    && hit.y + radius >= bounds.top && hit.y - radius <= bounds.bottom);
                 if (validHit) {
                     const side = -Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
                     const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
@@ -537,8 +549,8 @@ export class MapData {
                 const hit = sweepAABBAABB(start, radius, move, thing.position.val, thing.info.radius);
                 if (hit) {
                     const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                    const overlap = aabbAabbOverlap(point, radius, thing.position.val, thing.info.radius);
-                    hits.push({ overlap, point, fraction: hit.u, mobj: thing });
+                    const ov = aabbAabbOverlap(point, radius, thing.position.val, thing.info.radius);
+                    hits.push({ point, overlap: ov.area, axis: ov.axis, fraction: hit.u, mobj: thing });
                 }
             }
 
@@ -559,7 +571,6 @@ export class MapData {
 
             return true;
         });
-
     }
 }
 
@@ -582,6 +593,7 @@ function aabbLineOverlap(pos: Vector3, radius: number, line: LineDef) {
     return 0;
 }
 
+const _aabbAabbOverlap = { area: 0, axis: 'x' as 'x' | 'y' }
 function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
     const b1MinX = p1.x - r1;
     const b1MaxX = p1.x + r1;
@@ -591,8 +603,9 @@ function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
     const b2MaxX = p2.x + r2;
     const b2MinY = p2.y - r2;
     const b2MaxY = p2.y + r2;
-    const area =
-        (Math.min(b1MaxX, b2MaxX) - Math.max(b1MinX, b2MinX)) *
-        (Math.min(b1MaxY, b2MaxY) - Math.max(b1MinY, b2MinY));
-    return Math.max(0, area);
+    const dx = Math.min(b1MaxX, b2MaxX) - Math.max(b1MinX, b2MinX);
+    const dy = Math.min(b1MaxY, b2MaxY) - Math.max(b1MinY, b2MinY);
+    _aabbAabbOverlap.axis = dx > dy ? 'y' : 'x';
+    _aabbAabbOverlap.area = Math.max(0, dx * dy);
+    return _aabbAabbOverlap
 }

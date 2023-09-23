@@ -9,8 +9,8 @@ const addKey = (card: string) =>
             added = true;
             return inv;
         });
-        // TODO: keep keys for net games
-        return added;
+        // keep keys for net games
+        return player.map.game.mode === 'solo' ? added : false;
     }
 
 export const keys: ThingType[] = [

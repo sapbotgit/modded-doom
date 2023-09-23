@@ -21,6 +21,7 @@
     // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
     // There may be other places this happens but we correct it by doing a little hack
+    // Actually gzdoom has lots of little corrections https://github.com/ZDoom/gzdoom/blob/master/wadsrc/static/zscript/level_compatibility.zs
     $: textureL = linedef.left?.[type];
     $: textureR = linedef.right[type];
     $: texture = seg.direction === 1 ? ($textureL ?? $textureR) : ($textureR ?? $textureL);

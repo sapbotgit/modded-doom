@@ -1,6 +1,6 @@
 import { store, type Store } from "./store";
 import { thingSpec, weapons, stateChangeActions } from "./things";
-import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, mapObjectInfo } from "./doom-things-info";
+import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
 import { randInt, ToRadians } from "./math";
 import { type Sector, type Thing } from "./map-data";
@@ -8,12 +8,14 @@ import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon } from "./things";
+import { monsters } from "./things/monsters";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
         mobj1.position.val.y - mobj2.position.val.y,
         mobj1.position.val.x - mobj2.position.val.x);
 
+const monsterTypes = monsters.map(e => e.type);
 const vec = new Vector3();
 const stopVelocity = 0.001;
 const friction = .90625;
@@ -46,10 +48,12 @@ export class MapObject {
     readonly velocity = new Vector3();
 
     get onGround() { return this.position.val.z <= this.zFloor; }
+    readonly isMonster: boolean;
 
     constructor(readonly map: MapRuntime, readonly source: Thing, info?: MapObjectInfo ) {
         this.info = {...(info ?? thingSpec(source.type).mo)};
         this.health = store(this.info.spawnhealth);
+        this.isMonster = monsterTypes.includes(this.info.doomednum);
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
 
         this.direction = store(Math.PI + source.angle * ToRadians);
@@ -60,9 +64,6 @@ export class MapObject {
             if (!currentSector) {
                 // first time setting sector so set zpos
                 p.z = sector.zFloor.val;
-                if (source.z !== undefined) {
-                    p.z = source.z;
-                }
             }
             // svelte stores assume != when value is an object so we add a little extra smarts
             if (currentSector !== sector) {
@@ -97,8 +98,6 @@ export class MapObject {
                     this.position.val.z = this.zFloor;
                     this.position.set(this.position.val);
                 }
-
-                // TODO: also check for crushing/collision?
             });
 
             floorChange = sect.zFloor.subscribe(floor => {
@@ -118,8 +117,6 @@ export class MapObject {
                         this.position.set(this.position.val);
                     }
                 }
-
-                // TODO: also check for crushing/collision?
             });
 
             return () => {
@@ -231,13 +228,10 @@ export class MapObject {
             null;
         if (dropType) {
             const pos = this.position.val;
-            const mo = mapObjectInfo[dropType];
-            const mobj = new MapObject(
-                this.map, { angle: 0, flags: 0, type: mo.doomednum, x: pos.x, y: pos.y }, mo);
+            const mobj = this.map.spawn(dropType, pos.x, pos.y);
             mobj.info.flags |= MFFlags.MF_DROPPED; // special versions of items
-            this.map.spawn(mobj);
 
-            // items pop up when dropped (gzdoom has this effect)
+            // items pop up when dropped (gzdoom has this effect and I think it's pretty cool)
             mobj.velocity.z = randInt(5, 7);
             // position slightly above the current floor otherwise it will immediately stick to floor
             mobj.position.val.z += 1;
@@ -278,7 +272,13 @@ export class MapObject {
     // kind of P_XYMovement
     protected updatePosition() {
         if (this.velocity.lengthSq() < stopVelocity) {
-            return
+            return;
+        }
+
+        // TODO: we handle blood this way so it doesn't collide with player but... can't we do better?
+        if (this.info.spawnstate === StateIndex.S_BLOOD1) {
+            this.position.set(this.position.val.add(this.velocity));
+            return;
         }
 
         hitCount += 1;
@@ -310,17 +310,18 @@ export class MapObject {
                         this.pickup(hit.mobj);
                         return true;
                     }
-                    // FIXME: we can sometimes get stuck in mobjs (especially when close to walls)
                     hitFraction = hit.fraction;
-                    const dx = pos.x - hit.mobj.position.val.x;
-                    const dy = pos.y - hit.mobj.position.val.y;
-                    slideMove(this.velocity, -dy, dx);
+                    if (hit.axis === 'y') {
+                        slideMove(this.velocity, 1, 0);
+                    } else {
+                        slideMove(this.velocity, 0, 1);
+                    }
                     return false;
                 } else if ('special' in hit) {
                     this.map.triggerSpecial(hit.line, this, 'W', hit.side)
                 } else if ('line' in hit) {
                     if (hit.line.hitC === hitCount) {
-                        return true; // go to next line, we've already hit this one
+                        return true;
                     }
                     hit.line.hitC = hitCount;
                     if (this.info.flags & MFFlags.MF_MISSILE) {
@@ -335,9 +336,7 @@ export class MapObject {
                 return true;
             });
         }
-        if (this.velocity.lengthSq() > stopVelocity) {
-            this.position.set(pos.add(this.velocity));
-        }
+        this.position.set(pos.add(this.velocity));
     }
 
     protected explode() {
@@ -520,15 +519,14 @@ export class PlayerMapObject extends MapObject {
         const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * this.bob * .5;
 
         let viewHeight = this.viewHeight + bob;
-
-        // TODO: check higher than ceiling?
-        return viewHeight;
+        const maxHeight = this.sector.val.zCeil.val - 4 - this.position.val.z;
+        return Math.min(maxHeight, viewHeight);
     }
 
     // kind of P_TouchSpecialThing in p_inter.c
     protected pickup(mobj: MapObject) {
         const spec = thingSpec(mobj.source.type);
-        const pickedUp = spec.onPickup?.(this);
+        const pickedUp = spec.onPickup?.(this, mobj);
         if (pickedUp) {
             this.map.destroy(mobj);
         }

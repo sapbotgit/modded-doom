@@ -1,9 +1,9 @@
 // kind of based on p_spec.c
-import { MapObject } from "./map-object";
-import { ToRadians, randInt } from "./math";
-import { MapObjectIndex, mapObjectInfo } from "./doom-things-info";
+import { MapObject, PlayerMapObject } from "./map-object";
+import { ToRadians, lineAABB, randInt } from "./math";
+import { MFFlags, MapObjectIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import type { LineDef, Sector } from "./map-data";
+import { type LineDef, type Sector } from "./map-data";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -53,7 +53,6 @@ const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     let target = floorMax;
     for (const ld of map.data.linedefs) {
         if (ld.left?.sector === sector) {
-            // TODO: wallTextureData are both a little expensive (esp wallTexturedata), can we do better?
             const rtx = map.game.wad.wallTextureData(ld.right.lower.val);
             const ltx = map.game.wad.wallTextureData(ld.left.lower.val);
             target = Math.min(target,
@@ -103,6 +102,80 @@ const assignSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
 
 const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
     to.type = 0;
+}
+
+const sectorObjects = (map: MapRuntime, sector: Sector) => {
+    // find all objects that are in the sector (mobj.sector === sector) or
+    // they are on the edge (intercepting a two sided linedef)
+    const linedefs = map.data.linedefs.filter(ld => ld.right.sector === sector || ld.left?.sector === sector);
+
+    // figure out sector bounds from linedef vertexes
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const linedef of linedefs) {
+        minX = Math.min(linedef.v[0].x, linedef.v[1].x, minX);
+        maxX = Math.max(linedef.v[0].x, linedef.v[1].x, maxX);
+        minY = Math.min(linedef.v[0].y, linedef.v[1].y, minY);
+        maxY = Math.max(linedef.v[0].y, linedef.v[1].y, maxY);
+    }
+
+    const mobjs = [];
+    const twoSided = linedefs.filter(ld => ld.flags & 0x0004);
+    map.data.blockmap.traceBounds(minX, minY, maxX, maxY, block => {
+        for (const mobj of block.things) {
+            // add any objects that have their center in the sector
+            if (mobj.sector.val === sector) {
+                mobjs.push(mobj);
+                continue;
+            }
+
+            // check if the object overlaps with any two sided linedef for the sector
+            // (ie. half in this sector and half in another)
+            for (const ld of twoSided) {
+                const hit = lineAABB(ld.v, mobj.position.val, mobj.info.radius);
+                if (hit) {
+                    mobjs.push(mobj);
+                    break;
+                }
+            }
+        }
+    });
+    return mobjs;
+}
+
+const isBeingCrushed = (mobj: MapObject, zFloor: number, zCeil: number ) =>
+    (zCeil - zFloor) < mobj.info.height;
+
+function crunchMapObject(mobj: MapObject) {
+    if (mobj.info.flags & MFFlags.MF_DROPPED) {
+        // dropped items get destroyed
+        mobj.map.destroy(mobj);
+        return;
+    }
+
+    if (mobj.health.val <= 0) {
+        // crunch any bodies into blood pools
+        mobj.setState(StateIndex.S_GIBS);
+        mobj.info.flags &= ~MFFlags.MF_SOLID;
+        mobj.info.height = 0;
+        mobj.info.radius = 0;
+    }
+}
+
+function crunchAndDamageMapObject(mobj: MapObject) {
+    crunchMapObject(mobj);
+    if ((mobj.info.flags & MFFlags.MF_SHOOTABLE) && (mobj.map.game.time.tick.val & 3) === 0) {
+        mobj.damage(10, null, null);
+        // spray blood
+        const pos = mobj.position.val;
+        const blood = mobj.map.spawn(MapObjectIndex.MT_BLOOD, pos.x, pos.y, pos.z + mobj.info.height * .5);
+        blood.velocity.set(
+            randInt(-255, 255) * 0.0625,
+            randInt(-255, 255) * 0.0625,
+            0);
+    }
 }
 
 // Doors
@@ -186,9 +259,14 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
     if (!def.repeatable) {
         linedef.special = 0; // one time action so clear special
     }
+    if (mobj.isMonster && !def.monsterTrigger) {
+        return;
+    }
+    const missingKey = def.key && mobj instanceof PlayerMapObject && !mobj.inventory.val.keys.toUpperCase().includes(def.key);
+    if (missingKey) {
+        return;
+    }
 
-    // TODO: check for keys? and monsterTrigger?
-    // TODO: door collision when closing? Maybe this could be done by a subscription on sector.zCeil/zFloor (to handle general moving floors/ceilings)
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
     let triggered = false;
@@ -229,7 +307,19 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
 
             // move door
             sector.zCeil.update(ceil => {
+                let original = ceil;
                 ceil += def.speed * sector.specialData;
+
+                // crush (and reverse direction)
+                if (sector.specialData === -1) {
+                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, sector.zFloor.val, ceil));
+                    if (mobjs.length) {
+                        mobjs.forEach(crunchMapObject);
+                        // force door to open
+                        sector.specialData = 1;
+                        return original;
+                    }
+                }
 
                 let finished = false;
                 if (ceil > topHeight) {
@@ -315,6 +405,9 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
     }
     if (!def.repeatable) {
         linedef.special = 0;
+    }
+    if (mobj.isMonster && !def.monsterTrigger) {
+        return;
     }
 
     let triggered = false;
@@ -447,8 +540,9 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
     if (!def.repeatable) {
         linedef.special = 0;
     }
-
-    // TODO: crushing?
+    if (mobj.isMonster) {
+        return;
+    }
 
     let triggered = false;
     const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
@@ -466,11 +560,24 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
         const target = def.targetFn(map, sector);
         const action = () => {
             let finished = false;
+            // SND: sfx_stnmov (leveltime&7)
 
             sector.zFloor.update(val => {
+                let original = val;
                 val += def.direction;
 
+                // crush
+                if (def.direction === 1) {
+                    const crunch = def.crush ? crunchAndDamageMapObject : crunchMapObject;
+                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, val, sector.zCeil.val));
+                    if (mobjs.length) {
+                        mobjs.forEach(crunch);
+                        return original;
+                    }
+                }
+
                 if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
+                    // SND: sfx_pstop
                     finished = true;
                     val = target;
                 }
@@ -524,8 +631,9 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
     if (!def.repeatable) {
         linedef.special = 0;
     }
-
-    // TODO: crushing?
+    if (mobj.isMonster) {
+        return;
+    }
 
     let triggered = false;
     const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
@@ -542,7 +650,17 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
             let finished = false;
 
             sector.zCeil.update(val => {
+                let original = val;
                 val += def.speed * def.direction;
+
+                // crush
+                if (def.direction === 1) {
+                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, val, sector.zCeil.val));
+                    if (mobjs.length) {
+                        mobjs.forEach(crunchMapObject);
+                        return original;
+                    }
+                }
 
                 if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
                     finished = true;
@@ -598,9 +716,9 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
     if (!def.repeatable) {
         linedef.special = 0;
     }
-
-    // TODO: actually damage things (like barrels, monsters, and players)
-    // TODO: slow down when crushing? (not for fast crushers though...)
+    if (mobj.isMonster) {
+        return;
+    }
 
     let triggered = false;
     const sectors = map.data.sectors.filter(e => e.tag === linedef.tag);
@@ -626,7 +744,20 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
             let finished = false;
 
             sector.zCeil.update(val => {
+                let original = val;
                 val += def.speed * direction;
+
+                // crush
+                if (def.direction === -1) {
+                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, sector.zFloor.val, val));
+                    if (mobjs.length) {
+                        mobjs.forEach(crunchAndDamageMapObject);
+                        if (def.speed === ceilingSlow) {
+                            // slow crushers go even slowing when they crush something
+                            val = original + (def.speed / 8) * direction
+                        }
+                    }
+                }
 
                 if (val < bottom) {
                     finished = true;
@@ -693,6 +824,9 @@ export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger:
     }
     if (!def.repeatable) {
         linedef.special = 0;
+    }
+    if (mobj.isMonster) {
+        return;
     }
 
     let triggered = false;
@@ -784,7 +918,7 @@ const fireFlicker = (map: MapRuntime, sector: Sector) => {
     }
 };
 
-export const sectorAnimations = {
+export const sectorLightAnimations = {
     1: randomFlicker,
     2: strobeFlash(5, 15),
     3: strobeFlash(5, 35),
@@ -801,7 +935,7 @@ const createTeleportDefinition = (type: number, trigger: string) => ({
     trigger: trigger[0] as TriggerType,
     repeatable: (trigger[1] === 'R'),
     movePlayer: (type === 97 || type === 39),
-    moveMonster: true,
+    monsterTrigger: true,
 });
 
 const teleportDefinitions = [
@@ -828,23 +962,26 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     if (!def.repeatable) {
         linedef.special = 0;
     }
+    if (mobj.isMonster && !def.monsterTrigger) {
+        return;
+    }
+    if (mobj instanceof PlayerMapObject && !def.movePlayer) {
+        return;
+    }
 
     let triggered = false;
     const teleports = map.data.things.filter(e => e.type === 14)
     for (const tp of teleports) {
         let sector = map.data.findSector(tp.x, tp.y);
 
-        // TODO: check for monster/player-only teleports
         // TODO: for monster teleports, check space is blocked
 
         if (sector.tag === linedef.tag) {
             // teleport fog in old and new locations
             const pos = mobj.position.val;
-            // TODO: I don't love creating a "thing" just to create a map object. Probably should decouple MapObject and Thing
-            map.spawn(new MapObject(map, { type: 0, angle: 0, flags: 0, x: pos.x, y: pos.y }, mapObjectInfo[MapObjectIndex.MT_TFOG]));
+            map.spawn(MapObjectIndex.MT_TFOG, pos.x, pos.y);
             const dir = tp.angle * ToRadians;
-            const thing = { type: 0, angle: 0, flags: 0, x: tp.x + 20 * Math.cos(dir), y: tp.y + 20 * Math.sin(dir) };
-            map.spawn(new MapObject(map, thing, mapObjectInfo[MapObjectIndex.MT_TFOG]));
+            map.spawn(MapObjectIndex.MT_TFOG, tp.x + 20 * Math.cos(dir), tp.y + 20 * Math.sin(dir));
 
             mobj.teleport(tp, sector);
             triggered = true;
@@ -863,6 +1000,9 @@ export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, s
     }
     if (!def.repeatable) {
         linedef.special = 0;
+    }
+    if (mobj.isMonster) {
+        return;
     }
 
     let triggered = false;
@@ -956,6 +1096,9 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
     }
     if (!def.repeatable) {
         linedef.special = 0;
+    }
+    if (mobj.isMonster) {
+        return;
     }
 
     let triggered = false;

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { things, thingSpec, type ThingSpec, states, SpriteNames, MapRuntime } from "../../doom";
+    import { things, thingSpec, type ThingSpec, states, SpriteNames, MapRuntime, mapObjectInfo, HALF_PI } from "../../doom";
     import { useDoom } from "../DoomContext";
     import ThingSprite from "./ThingSprite.svelte";
     import { ToDegrees, ToRadians } from "../../doom";
@@ -34,10 +34,9 @@
 
     type ParialThingSpec = Omit<ThingSpec, 'mo'>
     function changeType(th: ParialThingSpec) {
-        let index = map.objs.indexOf(thing);
-        thing = new MapObject(map, { ...thing.source, type: th.type });
-        map.objs[index] = thing;
-        map.rev.update(e => e += 1);
+        map.destroy(thing);
+        thing = map.spawn(mapObjectInfo.findIndex(e => e.doomednum === th.type), thing.source.x, thing.source.y);
+        setDirection($direction * ToDegrees)();
         $editor.selected = thing;
 
         selectorFilter = '';
@@ -47,7 +46,7 @@
     $: directionButton = Math.floor($direction * ToDegrees) / 45;
     function setDirection(degrees: number) {
         return () => {
-            $direction = degrees * ToRadians;
+            thing.direction.set(degrees * ToRadians);
             thing.source.angle = degrees;
         };
     }

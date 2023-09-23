@@ -1,10 +1,11 @@
 import { store, type Store } from "./store";
 import { MapData, type LineDef, type Thing, type Action } from "./map-data";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, lineLineIntersect, signedLineDistance } from "./math";
+import { HALF_PI, lineLineIntersect } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
-import { sectorAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
+import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
+import { mapObjectInfo, type MapObjectIndex } from "./doom-things-info";
 
 interface AnimatedTexture {
     frames: string[];
@@ -39,12 +40,14 @@ export class MapRuntime {
         this.player.health.set(game.inventory.health);
         this.player.weapon.set(game.inventory.lastWeapon);
 
+        // must be done before creating GameInput and Camera so movement behaves properly
+        Object3D.DEFAULT_UP.set(0, 0, 1);
         this.camera = new Camera(this.player, this, game);
         this.input = new GameInput(this, game.input);
 
         this.objs = this.data.things.map(e => this.spawnThing(e)).filter(e => e);
+        this.objs.push(this.player);
         this.objs.forEach(o => this.data.blockmap.watch(o));
-        this.data.blockmap.watch(this.player);
 
         this.synchronizeActions();
 
@@ -99,7 +102,12 @@ export class MapRuntime {
         return new MapObject(this, thing);
     }
 
-    spawn(mobj: MapObject) {
+    spawn(moType: MapObjectIndex, x: number, y: number, z?: number) {
+        const moi = mapObjectInfo[moType];
+        const mobj = new MapObject(this, { flags: 0, angle: 0, type: moi.doomednum, x, y }, moi);
+        if (z !== undefined) {
+            mobj.position.val.z = z;
+        }
         this.data.blockmap.watch(mobj);
         this.objs.push(mobj);
         this.rev.update(v => v += 1);
@@ -115,11 +123,13 @@ export class MapRuntime {
 
     timeStep(time: GameTime) {
         this.input.evaluate(time.delta);
-        this.camera.update();
 
         if (time.isTick) {
             this.tick();
         }
+
+        // update camera after tick so we get correct z position from player
+        this.camera.update();
     }
 
     initializeTextureAnimation(target: Store<string>, type: 'wall' | 'flat') {
@@ -151,7 +161,6 @@ export class MapRuntime {
             }
         });
 
-        this.player.tick();
         this.objs.forEach(thing => thing.tick());
     }
 
@@ -182,7 +191,7 @@ export class MapRuntime {
 
         for (const sector of this.data.sectors) {
             const type = sector.type;
-            const action = sectorAnimations[type]?.(this, sector);
+            const action = sectorLightAnimations[type]?.(this, sector);
             if (action) {
                 this.actions.push(action);
             }

@@ -84,11 +84,12 @@ export const weaponItems: ThingType[] = [
 ];
 
 function giveWeapon(weapon: PlayerWeapon) {
-    return (player: PlayerMapObject) => {
+    return (player: PlayerMapObject, mobj: MapObject) => {
         player.inventory.update(inv => {
             if (weapon.ammoType !== 'none') {
-                // TODO: only give 1 clip for droped weapon
-                giveAmmo(player, inv, weapon.ammoType, 2);
+                // only give 1 clip for droped weapon
+                const clipCount = (mobj.info.flags & MFFlags.MF_DROPPED) ? 1 : 2;
+                giveAmmo(player, inv, weapon.ammoType, clipCount);
             }
             if (!inv.weapons.includes(weapon)) {
                 // keep weapons in order
@@ -97,8 +98,7 @@ function giveWeapon(weapon: PlayerWeapon) {
             }
             return inv;
         });
-        // TODO: keep weapons for net games
-        return true;
+        return (player.map.game.mode === 'solo');
     }
 }
 
@@ -383,7 +383,7 @@ class ShotTracer {
 
                 const pos = this.bulletHitLocation(10, hit.fraction, aimSlope, range);
                 if (hit.mobj.info.flags & MFFlags.MF_NOBLOOD) {
-                    this.spawn(hit.mobj, pos, MapObjectIndex.MT_PUFF);
+                    shooter.map.spawn(MapObjectIndex.MT_PUFF, pos.x, pos.y, pos.z);
                 } else {
                     this.spawnBlood(hit.mobj, pos, damage);
                 }
@@ -433,7 +433,7 @@ class ShotTracer {
                 return false;
             }
         }
-        const mobj = this.spawn(shooter, spot, MapObjectIndex.MT_PUFF);
+        const mobj = shooter.map.spawn(MapObjectIndex.MT_PUFF, spot.x, spot.y, spot.z);
         mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
         return false;
     }
@@ -450,15 +450,8 @@ class ShotTracer {
         )
     }
 
-    private spawn(source: MapObject, position: Vector3, type: MapObjectIndex) {
-        const mobj = new MapObject(
-            source.map, { type: 0, angle: 0, flags: 0, ...position }, mapObjectInfo[type]);
-        return source.map.spawn(mobj);
-    }
-
-    private spawnBlood(source: MapObject, position: Vector3, damage: number) {
-        position.z += randInt(0, 9) - randInt(0, 9);
-        const mobj = this.spawn(source, position, MapObjectIndex.MT_BLOOD);
+    private spawnBlood(source: MapObject, pos: Vector3, damage: number) {
+        const mobj = source.map.spawn(MapObjectIndex.MT_BLOOD, pos.x, pos.y, pos.z + randInt(-9, 9));
         mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
 
         if (damage <= 12 && damage >= 9) {
@@ -549,12 +542,9 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
 function shootMissile(player: MapObject, type: MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG) {
     const slope = tracer.zAim(player, scanRange);
 
-    let angle = player.direction.val + Math.PI;
+    const angle = player.direction.val + Math.PI;
     const pos = player.position.val;
-    const mobj = player.map.spawn(new MapObject(
-        player.map,
-        { type: 0, angle: angle * ToDegrees, flags: 0, x: pos.x, y: pos.y, z: pos.z + 32 },
-        mapObjectInfo[type]));
+    const mobj = player.map.spawn(type, pos.x, pos.y, pos.z + 32);
 
     if (mobj.info.seesound) {
         // SOUND: mobj.infoseesound
