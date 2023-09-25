@@ -2,20 +2,18 @@ import { store, type Store } from "./store";
 import { thingSpec, weapons, stateChangeActions } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
-import { randInt, ToRadians } from "./math";
+import { randInt, ToRadians, type Vertex } from "./math";
 import { type Sector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
-import type { PlayerWeapon } from "./things";
-import { monsters } from "./things/monsters";
+import type { PlayerWeapon, ThingSpec } from "./things";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
         mobj1.position.val.y - mobj2.position.val.y,
         mobj1.position.val.x - mobj2.position.val.x);
 
-const monsterTypes = monsters.map(e => e.type);
 const vec = new Vector3();
 const stopVelocity = 0.001;
 const friction = .90625;
@@ -48,16 +46,19 @@ export class MapObject {
     readonly velocity = new Vector3();
 
     get onGround() { return this.position.val.z <= this.zFloor; }
-    readonly isMonster: boolean;
+    get isMonster() { return this.spec.class === 'M'; }
+    get type() { return this.spec.moType; }
+    get description() { return this.spec.description; }
+    get class() { return this.spec.class; }
 
-    constructor(readonly map: MapRuntime, readonly source: Thing, info?: MapObjectInfo ) {
-        this.info = {...(info ?? thingSpec(source.type).mo)};
+    constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex) {
+        // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
+        this.info = { ...spec.mo };
         this.health = store(this.info.spawnhealth);
-        this.isMonster = monsterTypes.includes(this.info.doomednum);
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
 
-        this.direction = store(Math.PI + source.angle * ToRadians);
-        this.position = store(new Vector3(source.x, source.y, 0));
+        this.direction = store(0);
+        this.position = store(new Vector3(pos.x, pos.y, 0));
         this.position.subscribe(p => {
             const currentSector = this.sector.val;
             const sector = map.data.findSector(p.x, p.y);
@@ -207,7 +208,7 @@ export class MapObject {
 
         this.info.flags |= MFFlags.MF_CORPSE | MFFlags.MF_DROPOFF;
         this.info.flags &= ~(MFFlags.MF_SHOOTABLE | MFFlags.MF_FLOAT | MFFlags.MF_SKULLFLY);
-        if (this.source.type !== 3006) {
+        if (this.type === MapObjectIndex.MT_SKULL) {
             this.info.flags &= ~MFFlags.MF_NOGRAVITY;
         }
 
@@ -222,9 +223,9 @@ export class MapObject {
 
         // Some enemies drop things (guns or ammo) when they die
         let dropType =
-            (this.source.type === 84 || this.source.type === 3004) ? MapObjectIndex.MT_CLIP :
-            (this.source.type === 9) ? MapObjectIndex.MT_SHOTGUN :
-            (this.source.type === 65) ? MapObjectIndex.MT_CHAINGUN :
+            (this.type === MapObjectIndex.MT_WOLFSS || this.type === MapObjectIndex.MT_POSSESSED) ? MapObjectIndex.MT_CLIP :
+            (this.type === MapObjectIndex.MT_SHOTGUY) ? MapObjectIndex.MT_SHOTGUN :
+            (this.type === MapObjectIndex.MT_CHAINGUY) ? MapObjectIndex.MT_CHAINGUN :
             null;
         if (dropType) {
             const pos = this.position.val;
@@ -377,7 +378,8 @@ export class PlayerMapObject extends MapObject {
     nextWeapon: PlayerWeapon = null;
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
-        super(map, source);
+        super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
+        this.direction.set(Math.PI + source.angle * ToRadians);
 
         this.weapon.subscribe(weapon => {
             if (weapon) {
@@ -525,8 +527,7 @@ export class PlayerMapObject extends MapObject {
 
     // kind of P_TouchSpecialThing in p_inter.c
     protected pickup(mobj: MapObject) {
-        const spec = thingSpec(mobj.source.type);
-        const pickedUp = spec.onPickup?.(this, mobj);
+        const pickedUp = (mobj as any).spec.onPickup?.(this, mobj);
         if (pickedUp) {
             this.map.destroy(mobj);
         }

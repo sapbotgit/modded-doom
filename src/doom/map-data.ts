@@ -389,7 +389,7 @@ class BlockMap {
 }
 
 const _moveEnd = new Vector3();
-const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
+export const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
     readonly things: Thing[];
     readonly linedefs: LineDef[];

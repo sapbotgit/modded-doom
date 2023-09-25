@@ -1,4 +1,4 @@
-import { mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
+import { MapObjectIndex, mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
 import type { MapObject, PlayerMapObject } from '../map-object';
 import { weaponItems } from './weapons';
 import { monsters } from './monsters';
@@ -15,23 +15,30 @@ export { weapons, weaponTop, PlayerWeapon } from './weapons';
 export interface ThingType {
     type: number;
     // Adapted from https://doomwiki.org/wiki/Thing_types
-    class: 'M' | 'W' | 'A' | 'I' | 'P' | 'K' | 'O' | 'D' | 'S';
+    class:
+        'M'   // monster
+        | 'W' // weapon
+        | 'A' // ammo
+        | 'I' // item
+        | 'P' // powerup
+        | 'K' // key
+        | 'O' // obstacle
+        | 'D' // decoration
+        | 'S'; // player (start/teleport)
     description: string;
     onPickup?: (player: PlayerMapObject, mobj: MapObject) => boolean;
 }
 
 export interface ThingSpec extends ThingType {
     mo: MapObjectInfo;
+    moType: MapObjectIndex;
 }
 
 export const things = [monsters, weaponItems, ammunitions, items, powerups, keys, obstacles, decorations, other].flat();
-export function thingSpec(type: number): ThingSpec {
-    const t = things.find(e => e.type === type);
-    const mo =
-        // special handling for player starts
-        (type <= 4 || type === 11) ? mapObjectInfo[0] :
-        mapObjectInfo.find(e => e.doomednum === type);
-    return { ...t, mo };
+export function thingSpec(moType: MapObjectIndex): ThingSpec {
+    const mo = mapObjectInfo[moType];
+    const t = things.find(e => e.type === mo.doomednum);
+    return { ...t, moType, mo: mapObjectInfo[moType] };
 }
 
 export const stateChangeActions = { ...obstacleActions };

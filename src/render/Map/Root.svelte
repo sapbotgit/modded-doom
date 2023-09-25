@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { MapObject, MapRuntime } from "../../doom";
+    import { MapObjectIndex, type MapObject, type MapRuntime } from "../../doom";
     import { useDoom, useDoomMap } from "../DoomContext";
     import BlockMap from "../Debug/BlockMap.svelte";
     import Stats from "../Debug/Stats.svelte";
@@ -17,7 +17,7 @@
     let things: MapObject[] = [];
     $: if ($rev) {
         // don't render player here (it's in Player.svelte)
-        things = map.objs.filter(e => e.source.type !== 1);
+        things = map.objs.filter(e => e.type !== MapObjectIndex.MT_PLAYER);
     }
     // TODO: to actually improve performance here, I think we'll have to implement some kind of PVS
     // based on the bsp tree https://cs.gmu.edu/~jchen/cs662/lecture5-2007.pdf

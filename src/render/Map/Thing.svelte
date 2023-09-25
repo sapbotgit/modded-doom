@@ -15,7 +15,7 @@
     import { Mesh, TransformControls } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, type EulerOrder } from 'three';
     import { useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MapObjectIndex } from '../../doom';
     import Wireframe from '../Debug/Wireframe.svelte';
 
     export let thing: MapObject;
@@ -54,7 +54,7 @@
         material.map = texture;
     }
 
-    $: if (thing.source.type === 58) {
+    $: if (thing.type === MapObjectIndex.MT_SHADOWS) {
         // this isn't ideal handling of specters but at least it differentiates them from pink demons
         material.alphaTest = 0;
         material.transparent = true;

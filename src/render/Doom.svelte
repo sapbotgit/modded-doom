@@ -9,7 +9,9 @@
     import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
     import MapRoot from "./Map/Root.svelte";
+    import SvgMapRoot from "./Svg/Root.svelte";
     import MapContext from "./Map/Context.svelte";
+    import { Clock } from "three";
 
     export let game: Game;
 
@@ -23,9 +25,10 @@
     const { wireframe, showBlockMap } = settings;
     const { freelook, noclip, freeFly, cameraMode, timescale } = game.settings;
 
+    let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
     onMount(() => {
-        const clock = threlteCtx.clock;
+        const clock = new Clock();
         const interval = 1 / settings.targetFPS;
         let lastFrameTime = 0;
         let frameDelta = 0;
@@ -34,7 +37,7 @@
             frameReq = requestAnimationFrame(update);
             frameDelta += clock.getDelta();
             if (frameDelta > interval) {
-                threlteCtx.advance();
+                threlteCtx?.advance();
                 frameDelta = frameDelta % interval;
 
                 game.tick(clock.elapsedTime - lastFrameTime);
@@ -54,6 +57,7 @@
         <option>1p</option>
         <option>3p</option>
         <option>3p-noclip</option>
+        <option>svg</option>
     </select>
 </label>
 <label>
@@ -94,26 +98,23 @@
 </label>
 
 <div>
-    <div class="game" use:pointerLockControls={game}>
+    <MapContext map={$map} {renderSectors}>
+        <div class="game" use:pointerLockControls={game}>
         <!-- <div id="lock-message">
             Controls: WASD
             <br>
             Click to lock
         </div> -->
 
-        <Canvas size={{ width: 1024, height: 600 }} frameloop='never' bind:ctx={threlteCtx}>
-            <MapContext map={$map} {renderSectors}>
-                <MapRoot map={$map} />
-            </MapContext>
-        </Canvas>
-        {#if $map}
-            {#key $map}
-                <HUD player={$map.player} />
-            {/key}
-        {/if}
-    </div>
-
-    <MapContext map={$map} {renderSectors}>
+            {#if $cameraMode === 'svg'}
+                <SvgMapRoot size={viewSize} map={$map} />
+            {:else}
+                <Canvas size={viewSize} frameloop='never' bind:ctx={threlteCtx}>
+                    <MapRoot map={$map} />
+                </Canvas>
+            {/if}
+            <HUD player={$map.player} />
+        </div>
         <EditPanel map={$map} />
     </MapContext>
     {#if showPlayerInfo}

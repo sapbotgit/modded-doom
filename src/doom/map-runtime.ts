@@ -1,11 +1,12 @@
 import { store, type Store } from "./store";
 import { MapData, type LineDef, type Thing, type Action } from "./map-data";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, lineLineIntersect } from "./math";
+import { HALF_PI, lineLineIntersect, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
 import { mapObjectInfo, type MapObjectIndex } from "./doom-things-info";
+import { thingSpec } from "./things";
 
 interface AnimatedTexture {
     frames: string[];
@@ -23,7 +24,7 @@ export class MapRuntime {
     readonly camera: Camera;
     readonly input: GameInput;
 
-    objs: MapObject[]; // TODO: readonly?
+    objs: MapObject[] = []; // TODO: make this readonly?
     // don't love this rev hack... we need a list with a subscribe method
     readonly rev = store(1);
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
@@ -45,9 +46,9 @@ export class MapRuntime {
         this.camera = new Camera(this.player, this, game);
         this.input = new GameInput(this, game.input);
 
-        this.objs = this.data.things.map(e => this.spawnThing(e)).filter(e => e);
         this.objs.push(this.player);
-        this.objs.forEach(o => this.data.blockmap.watch(o));
+        this.data.blockmap.watch(this.player);
+        this.data.things.forEach(e => this.initialThingSpawn(e));
 
         this.synchronizeActions();
 
@@ -73,7 +74,7 @@ export class MapRuntime {
         this.disposables.length = 0;
     }
 
-    private spawnThing(thing: Thing): MapObject | undefined {
+    private initialThingSpawn(thing: Thing): MapObject | undefined {
         const noSpawn = (false
             || thing.type === 0 // plutonia map 12, what?!
             || thing.type === 1
@@ -99,12 +100,13 @@ export class MapRuntime {
         if (!skillMatch) {
             return;
         }
-        return new MapObject(this, thing);
+        const type = mapObjectInfo.findIndex(e => e.doomednum === thing.type);
+        const mobj = this.spawn(type, thing.x, thing.y);
+        mobj.direction.set(Math.PI + thing.angle * ToRadians);
     }
 
     spawn(moType: MapObjectIndex, x: number, y: number, z?: number) {
-        const moi = mapObjectInfo[moType];
-        const mobj = new MapObject(this, { flags: 0, angle: 0, type: moi.doomednum, x, y }, moi);
+        const mobj = new MapObject(this, thingSpec(moType), { x, y });
         if (z !== undefined) {
             mobj.position.val.z = z;
         }

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { DoomWad, Game, store, MapRuntime, type Skill } from './doom';
   import Doom from './render/Doom.svelte';
-  import SvgMap from './render/Debug/SvgMap.svelte';
   import GridTraceDebug from './render/Debug/GridTraceDebug.svelte';
   import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
   // import Picture from './render/Components/Picture.svelte';
@@ -10,8 +9,6 @@
   // <Picture name="M_HURT" />
   // <Picture name="M_ULTRA" />
   // <Picture name="M_NMARE" />
-
-  const svgMap = false;
 
   let game: Game;
   let wad: DoomWad;
@@ -76,10 +73,6 @@
 
   {#if selectedMap}
     <div>{selectedMap}</div>
-
-    <!-- {#if svgMap}
-      <SvgMap map={selectedMap} {wad} />
-    {/if} -->
 
     {#key game}
       <Doom {game} />
