@@ -8,7 +8,7 @@
 
     const { game } = useDoom();
     const { tick } = game.time;
-    const { health, inventory } = player;
+    const { health, inventory, damageCount } = player;
 
     const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
     const ticksPerSecond = 35;
@@ -31,13 +31,13 @@
         state =
             $health <= 0 ? faceState('STFDEAD0', 10, 1) : // dead
             hasNewWeapon($inventory) ? faceState(`STFEVL${healthIndex}`, 9, 2 * ticksPerSecond) : // grin
-            player.damageCount && bigHurt() ? faceState(`STFOUCH${healthIndex}`, 7, ticksPerSecond) :
-            player.damageCount && player.attacker && player.attacker !== player ? (
+            $damageCount && bigHurt() ? faceState(`STFOUCH${healthIndex}`, 7, ticksPerSecond) :
+            $damageCount && player.attacker && player.attacker !== player ? (
                 angle === 'left' ? faceState(`STFTL${healthIndex}`, 7, ticksPerSecond) :
                 angle === 'right' ? faceState(`STFR${healthIndex}`, 7, ticksPerSecond) :
                 faceState(`STFKILL${healthIndex}`, 7, ticksPerSecond)
             ) :
-            player.damageCount ? faceState(`STFKILL${healthIndex}`, 6, ticksPerSecond) :
+            $damageCount ? faceState(`STFKILL${healthIndex}`, 6, ticksPerSecond) :
             // TODO: pain from enemy => left/right/ouch/mad (`STFTL${healthIndex}0` or `STFR${healthIndex}0` or see below)
             // TODO: pain from self => ouch/mad () or `STFKILL${healthIndex}`)
             rampageTime > 2 * ticksPerSecond ? faceState(`STFKILL${healthIndex}`, 5, 1) :

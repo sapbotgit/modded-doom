@@ -1,6 +1,6 @@
 <script lang="ts">
     import { MapObjectIndex, type MapObject, type MapRuntime } from "../../doom";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useDoomMap } from "../DoomContext";
     import BlockMap from "../Debug/BlockMap.svelte";
     import Stats from "../Debug/Stats.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
@@ -9,6 +9,13 @@
     import SkyBox from "./SkyBox.svelte";
     import Thing from "./Thing.svelte";
     import Wall from "./Wall.svelte";
+    import { useThrelte } from "@threlte/core";
+    import { LinearToneMapping } from "three";
+
+
+    const { renderer } = useThrelte();
+    renderer.toneMapping = LinearToneMapping;
+    renderer.toneMappingExposure = 1.9;
 
     export let map: MapRuntime;
     const { rev } = map;
@@ -40,6 +47,6 @@
     <Thing {thing} />
 {/each}
 
-<Player />
+<Player /> <!-- and camera... -->
 
 <EditorTagLink {map} />

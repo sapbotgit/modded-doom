@@ -370,7 +370,8 @@ export class PlayerMapObject extends MapObject {
     private deltaViewHeight = 0;
 
     bob = 0;
-    damageCount = 0; // mostly for screen fading
+    damageCount = store(0); // mostly for screen fading
+    bonusCount = store(0); // mostly for screen fading
     attacking = false;
     refire = false;
     readonly extraLight = store(0);
@@ -392,7 +393,8 @@ export class PlayerMapObject extends MapObject {
     tick() {
         super.tick();
 
-        this.damageCount = Math.max(0, this.damageCount - 1);
+        this.damageCount.update(val => Math.max(0, val - 1));
+        this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();
 
         this.inventory.update(inv => {
@@ -443,7 +445,7 @@ export class PlayerMapObject extends MapObject {
 
         super.damage(amount, inflictor, source);
 
-        this.damageCount = Math.min(this.damageCount + amount, 100);
+        this.damageCount.update(val => Math.min(val + amount, 100));
         // TODO: haptic feedback for controllers?
     }
 
@@ -529,6 +531,7 @@ export class PlayerMapObject extends MapObject {
     protected pickup(mobj: MapObject) {
         const pickedUp = (mobj as any).spec.onPickup?.(this, mobj);
         if (pickedUp) {
+            this.bonusCount.update(val => val + 6);
             this.map.destroy(mobj);
         }
     }

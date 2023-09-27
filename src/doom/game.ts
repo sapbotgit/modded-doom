@@ -103,7 +103,8 @@ export class Game {
             return;
         }
         // we need to process in 1/35s ticks (or less)
-        const step = Math.min(frameTickTime, delta * this.settings.timescale.val);
+        delta *= this.settings.timescale.val;
+        const step = Math.min(frameTickTime, delta);
 
         // TODO: when loading next map, make sure to clear inventory ticks (invul, light visor)
         //  and bonuses like computer map, berserk, etc.

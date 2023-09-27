@@ -12,7 +12,6 @@
     import SvgMapRoot from "./Svg/Root.svelte";
     import MapContext from "./Map/Context.svelte";
     import { Clock } from "three";
-
     export let game: Game;
 
     const doomContext = createContext(game);

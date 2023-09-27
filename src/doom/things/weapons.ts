@@ -1,8 +1,8 @@
 import { Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
-import { ActionIndex, MFFlags, MapObjectIndex, StateIndex, mapObjectInfo } from "../doom-things-info";
+import { ActionIndex, MFFlags, MapObjectIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
-import { HALF_PI, ToDegrees, randInt } from '../math';
+import { HALF_PI, randInt } from '../math';
 import { type PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";

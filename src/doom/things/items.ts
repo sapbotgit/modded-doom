@@ -1,4 +1,5 @@
 import { type ThingType } from '.';
+import { ticksPerSecond } from '../game';
 import type { PlayerInventory, PlayerMapObject } from "../map-object";
 
 export const items: ThingType[] = [
@@ -15,11 +16,16 @@ export const items: ThingType[] = [
     { type: 2013, class: 'I', description: 'Supercharge', onPickup: addhealth(100) },
     { type: 2014, class: 'I', description: 'Health bonus', onPickup: addhealth(1) },
     { type: 2015, class: 'I', description: 'Armor bonus', onPickup: updateInventory(inv => inv.armor = Math.min(200, inv.armor + 1)) },
-    { type: 2022, class: 'I', description: 'Invulnerability', onPickup: updateInventory(inv => inv.items.invincibilityTicks = 30 * 35) },
-    { type: 2023, class: 'I', description: 'Berserk', onPickup: updateInventory(inv => inv.items.berserkTicks = 30 * 35) },
-    { type: 2024, class: 'I', description: 'Partial invisibility', onPickup: updateInventory(inv => inv.items.invisibilityTicks = 30 * 35) },
+    { type: 2022, class: 'I', description: 'Invulnerability', onPickup: updateInventory(inv => inv.items.invincibilityTicks = 30 * ticksPerSecond) },
+    { type: 2023, class: 'I', description: 'Berserk',
+        onPickup: updateInventory(inv => {
+            inv.items.berserkTicks = 30 * ticksPerSecond;
+            inv.items.berserk = true;
+        }),
+    },
+    { type: 2024, class: 'I', description: 'Partial invisibility', onPickup: updateInventory(inv => inv.items.invisibilityTicks = 30 * ticksPerSecond) },
     { type: 2026, class: 'I', description: 'Computer area map', onPickup: updateInventory(inv => inv.items.computerMap = true) },
-    { type: 2045, class: 'I', description: 'Light amplification visor', onPickup: updateInventory(inv => inv.items.nightVisionTicks = 30 * 35) },
+    { type: 2045, class: 'I', description: 'Light amplification visor', onPickup: updateInventory(inv => inv.items.nightVisionTicks = 30 * ticksPerSecond) },
 ];
 
 function addhealth(amount: number) {
