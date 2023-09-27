@@ -545,6 +545,7 @@ function shootMissile(player: MapObject, type: MapObjectIndex.MT_PLASMA | MapObj
     const angle = player.direction.val + Math.PI;
     const pos = player.position.val;
     const mobj = player.map.spawn(type, pos.x, pos.y, pos.z + 32);
+    mobj.direction.set(player.direction.val);
 
     if (mobj.info.seesound) {
         // SOUND: mobj.infoseesound

@@ -73,11 +73,11 @@
 </label>
 <label>
     <input type="checkbox" bind:checked={$editor.active} on:change={() => $editor.selected = null} />
-    Enable editing
+    Editing
 </label>
 <label>
     <input type="checkbox" bind:checked={showPlayerInfo} />
-    Show player info
+    Player debug
 </label>
 <label>
     <input type="checkbox" bind:checked={$showBlockMap} />

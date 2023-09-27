@@ -9,13 +9,6 @@
     import SkyBox from "./SkyBox.svelte";
     import Thing from "./Thing.svelte";
     import Wall from "./Wall.svelte";
-    import { useThrelte } from "@threlte/core";
-    import { LinearToneMapping } from "three";
-
-
-    const { renderer } = useThrelte();
-    renderer.toneMapping = LinearToneMapping;
-    renderer.toneMappingExposure = 1.9;
 
     export let map: MapRuntime;
     const { rev } = map;

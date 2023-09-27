@@ -24,7 +24,6 @@
     "kaitai-struct-compiler": "^0.10.0",
     "svelte": "^3.57.0",
     "svelte-check": "^2.10.3",
-    "threlte": "3.13.1",
     "ts-node": "^10.9.1",
     "tslib": "^2.5.0",
     "typescript": "^5.0.2",

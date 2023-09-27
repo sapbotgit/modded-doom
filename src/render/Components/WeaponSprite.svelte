@@ -3,7 +3,7 @@
     import Wireframe from "../Debug/Wireframe.svelte";
     import { MeshStandardMaterial, PlaneGeometry } from "three";
     import type { Sector } from "../../doom";
-    import { useDoom } from "../DoomContext";
+    import { useDoom, useDoomMap } from "../DoomContext";
     import type { Sprite } from "../../doom/sprite";
 
     export let sprite: Sprite;
@@ -13,6 +13,8 @@
     const { camera } = useThrelte();
     $: invYScale = 1 / $camera.scale.y;
     const { textures, wad } = useDoom();
+    const { map } = useDoomMap();
+    const extraLight = map.player.extraLight;
 
     $: frames = wad.spriteFrames(sprite.name);
     $: frame = frames[sprite.frame][0];
@@ -30,7 +32,7 @@
 
     $: light = sector.light;
     $: if (sprite && (sprite.fullbright || $light !== undefined)) {
-        material.color = textures.lightColor(sprite.fullbright ? 255 : $light);
+        material.color = textures.lightColor(sprite.fullbright ? 255 : $light + $extraLight);
     }
 </script>
 

@@ -1,10 +1,13 @@
 <script lang="ts">
-    import { Mesh, OrthographicCamera, PerspectiveCamera } from "@threlte/core";
+    import { Mesh, OrthographicCamera, Pass, PerspectiveCamera } from "@threlte/core";
     import Thing from "./Thing.svelte";
-    import { AdditiveBlending, Color, MeshBasicMaterial, PlaneGeometry } from "three";
+    import { MeshBasicMaterial, PlaneGeometry } from "three";
     import Weapon from "./Weapon.svelte";
     import { useDoomMap } from "../DoomContext";
-    import { HALF_PI, ticksPerSecond } from "../../doom";
+    import { ticksPerSecond } from "../../doom";
+    import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
+    import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
+    import { ScreenColorShader } from "../Shaders/ScreenColorShader";
 
     const { map } = useDoomMap();
     const { mode, position: cameraPosition, rotation: cameraRotation } = map.camera;
@@ -14,51 +17,36 @@
     const yScale = 4 / 3 / (16 / 10);
     $: camPos = $cameraPosition;
 
-    // post processing would probably be nicer than and overlay (maybe more gpu/less CPU?) but it's too
-    // much of a learning curve for me right now. I've got other things to fix/add first
-    const overlayMaterial = new MeshBasicMaterial({
-        transparent: true,
-        color: Color.NAMES.darkgoldenrod,
-        opacity: 0.5,
-        blending: AdditiveBlending,
-    });
     $: updateOverlay(
-        Math.max($damageCount, $inventory.items.berserkTicks / ticksPerSecond),
+        $inventory.items.nightVisionTicks / ticksPerSecond,
+        $inventory.items.invincibilityTicks / ticksPerSecond,
+        $inventory.items.radiationSuitTicks / ticksPerSecond,
+        $inventory.items.berserkTicks / ticksPerSecond,
+        $damageCount,
         $bonusCount,
-        $inventory.items.radiationSuitTicks,
-        $inventory.items.invincibilityTicks
     );
 
+    const cPass = new ShaderPass(ScreenColorShader);
+
     function updateOverlay(
-        redCount: number,
-        goldCount: number,
-        greenCount: number,
-        whiteCount: number
+        nightVisionTime: number,
+        invunlTime: number,
+        radiationTime: number,
+        berserkTime: number,
+        damageCount: number,
+        bonusCount: number,
     ) {
-        if (whiteCount) {
-            overlayMaterial.color.set(Color.NAMES.white);
-            overlayMaterial.blending = AdditiveBlending
-            overlayMaterial.opacity = .8;
-        } else if (redCount) {
-            overlayMaterial.color.set(Color.NAMES.maroon);
-            overlayMaterial.opacity =
-                0.8 * Math.sin((Math.min(20, redCount) / 20) * HALF_PI);
-        } else if (goldCount) {
-            overlayMaterial.color.set(Color.NAMES.darkgoldenrod);
-            overlayMaterial.opacity =
-                0.2 * Math.sin((Math.min(5, goldCount) / 5) * HALF_PI);
-        } else if (greenCount) {
-            overlayMaterial.color.set(Color.NAMES.lime);
-            const fadeSpan = 2 * ticksPerSecond;
-            const t = (greenCount % fadeSpan) / fadeSpan;
-            overlayMaterial.opacity =
-                0.3 * (greenCount > 6 * ticksPerSecond ? 1 : Math.sin(t * t * Math.PI));
-        } else {
-            overlayMaterial.color.set(0);
-            overlayMaterial.opacity = 0;
-        }
+        player.extraLight.set(invunlTime > 1.0 || nightVisionTime > 0 ? 255 : 0);
+        cPass.uniforms.invunlTime.value = invunlTime;
+        cPass.uniforms.radiationTime.value = radiationTime;
+        cPass.uniforms.berserkTime.value = berserkTime;
+        cPass.uniforms.damageCount.value = damageCount;
+        cPass.uniforms.bonusCount.value = bonusCount;
     }
 </script>
+
+<Pass pass={new ShaderPass(GammaCorrectionShader)} />
+<Pass pass={cPass} />/
 
 {#if $mode !== "1p"}
     <Thing thing={player} />
@@ -94,12 +82,5 @@
         {#if $mode === "1p"}
             <Weapon {player} />
         {/if}
-
-        <Mesh
-            renderOrder={2}
-            geometry={new PlaneGeometry()}
-            material={overlayMaterial}
-            position={{ z: -.1 }}
-        />
     </PerspectiveCamera>
 {/if}

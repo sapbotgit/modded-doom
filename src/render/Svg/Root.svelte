@@ -1,20 +1,22 @@
 <script lang="ts">
-    import type { RenderSector } from "../RenderData";
     import type { Size } from "@threlte/core";
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
     import { HALF_PI, ToDegrees, type MapRuntime, type MapObject as MObj } from "../../doom";
+    import { useDoom } from "../DoomContext";
 
     export let size: Size;
     export let map: MapRuntime;
 
     const rev = map.rev;
     const { position, direction } = map.player;
+    const showBlockmap = useDoom().settings.showBlockMap;
 
-    $: width = 500;
-    $: height = 500;
+    const width = 500;
+    const height = 500;
     $: left = $position.x - width * .5;
     $: top = $position.y - height * .5;
+    let bounds = map.data.blockmap.bounds;
 
     let svg;
     let pt;
@@ -67,6 +69,14 @@
             orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" stroke="context-stroke" fill="context-fill"/>
         </marker>
+
+        <pattern id="smallGrid" width="32" height="32" patternUnits="userSpaceOnUse">
+            <path d="M 32 0 L 0 0 0 32" fill="none" stroke="grey" stroke-width="0.5"/>
+        </pattern>
+        <pattern id="grid" width="128" height="128" patternUnits="userSpaceOnUse">
+            <!-- <rect width="128" height="128" fill="url(#smallGrid)"/> -->
+            <path d="M 128 0 L 0 0 0 128" fill="none" stroke="grey" stroke-width="1"/>
+        </pattern>
     </defs>
 
     <g
@@ -74,6 +84,13 @@
             rotate({(-$direction - HALF_PI) * ToDegrees} {$position.x} {$position.y})
         "
     >
+        {#if $showBlockmap}
+            <rect
+                x={bounds.left} y={bounds.bottom}
+                width={bounds.right - bounds.left} height={bounds.top - bounds.bottom}
+                fill="url(#grid)" />
+        {/if}
+
         {#each map.data.linedefs as linedef}
             <Wall {map} {linedef} />
         {/each}

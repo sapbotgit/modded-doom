@@ -752,6 +752,7 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
                     const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, sector.zFloor.val, val));
                     if (mobjs.length) {
                         mobjs.forEach(crunchAndDamageMapObject);
+                        // TODO: check if object is damaged before slowing speed?
                         if (def.speed === ceilingSlow) {
                             // slow crushers go even slowing when they crush something
                             val = original + (def.speed / 8) * direction
