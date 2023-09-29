@@ -13,19 +13,22 @@
 </script>
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, type EulerOrder } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry, type EulerOrder, ShaderMaterial } from 'three';
     import { useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MapObjectIndex } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI } from '../../doom';
+    import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
+    import type { Sprite } from '../../doom/sprite';
 
     export let thing: MapObject;
 
     const { map } = useDoomMap();
+    const tick = map.game.time.tick;
     const { textures, editor, wad } = useDoom();
     const { position: cameraPosition, rotation: cameraRotation, mode } = map.camera;
     const extraLight = map.player.extraLight;
 
-    const { sector, position, sprite, direction } = thing;
+    const { sector, position, sprite, direction, renderShadow } = thing;
 
     $: ang = $mode === 'bird' ? $direction : Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
@@ -48,22 +51,38 @@
         ? { z: $direction + HALF_PI, y: -Math.PI, x: Math.PI, order: 'ZXY' as EulerOrder }
         : { y: $cameraRotation.z, x: HALF_PI, order: 'ZXY' as EulerOrder };
 
-    $: material = new MeshStandardMaterial({ alphaTest: 1, emissive: 'magenta' });
-    $: material.emissiveIntensity = ($editor.selected === thing) ? 0.1 : 0;
-    $: if (texture) {
-        material.map = texture;
+
+    let material: ShaderMaterial | MeshStandardMaterial;
+    $: if ($renderShadow) {
+        material = new ShaderMaterial({ transparent: true, ...ShadowsShader() });
+    } else {
+        material = new MeshStandardMaterial({ alphaTest: 1, emissive: 'magenta' });
     }
 
-    $: if (thing.type === MapObjectIndex.MT_SHADOWS) {
-        // this isn't ideal handling of specters but at least it differentiates them from pink demons
-        material.alphaTest = 0;
-        material.transparent = true;
-        material.opacity = .45;
+    $: if (material instanceof MeshStandardMaterial) {
+        material.emissiveIntensity = ($editor.selected === thing) ? 0.1 : 0;
+    }
+
+    $: if (material instanceof ShaderMaterial && $tick) {
+        material.uniforms.time.value = map.game.time.elapsed;
+    }
+
+    $: if (texture) {
+        if (material instanceof ShaderMaterial) {
+            material.uniforms.map.value = texture;
+        } else {
+            material.map = texture;
+        }
     }
 
     $: light = $sector.light;
     $: if ($sprite.fullbright || $light !== undefined) {
-        material.color = textures.lightColor($extraLight + ($sprite.fullbright ? 255 : $light));
+        const col = textures.lightColor($sprite.fullbright ? 255 : $light + $extraLight);
+        if (material instanceof ShaderMaterial) {
+            material.uniforms.light.value = col;
+        } else {
+            material.color = col;
+        }
     }
 
     function hit() {

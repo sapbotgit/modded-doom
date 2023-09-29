@@ -45,6 +45,7 @@ export class MapObject {
     readonly sector = store<Sector>(null);
     readonly sprite = this._state.sprite;
     readonly velocity = new Vector3();
+    readonly renderShadow = store(false);
 
     get onGround() { return this.position.val.z <= this.zFloor; }
     get isMonster() { return this.spec.class === 'M'; }
@@ -57,6 +58,10 @@ export class MapObject {
         this.info = { ...spec.mo };
         this.health = store(this.info.spawnhealth);
         const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
+
+        if (this.info.flags & MFFlags.MF_SHADOW) {
+            this.renderShadow.set(true);
+        }
 
         this.direction = store(0);
         this.position = store(new Vector3(pos.x, pos.y, 0));
@@ -209,13 +214,13 @@ export class MapObject {
 
         this.info.flags |= MFFlags.MF_CORPSE | MFFlags.MF_DROPOFF;
         this.info.flags &= ~(MFFlags.MF_SHOOTABLE | MFFlags.MF_FLOAT | MFFlags.MF_SKULLFLY);
-        if (this.type === MapObjectIndex.MT_SKULL) {
+        if (this.type !== MapObjectIndex.MT_SKULL) {
             this.info.flags &= ~MFFlags.MF_NOGRAVITY;
         }
 
         // TODO: if source is player... do some extra stuff
 
-        this.info.height /= 4;
+        this.info.height *= .25;
         if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
             this._state.setState(this.info.xdeathstate, -randInt(0, 2));
         } else {
@@ -382,6 +387,24 @@ export class PlayerMapObject extends MapObject {
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
         this.direction.set(Math.PI + source.angle * ToRadians);
+
+        this.renderShadow.subscribe(shadow => {
+            if (shadow) {
+                this.info.flags |= MFFlags.MF_SHADOW;
+            } else {
+                this.info.flags &= ~MFFlags.MF_SHADOW;
+            }
+        });
+        this.inventory.subscribe(inv => {
+            const invisibleTime = inv.items.invisibilityTicks / ticksPerSecond;
+            this.renderShadow.set(invisibleTime > 0);
+
+            const nightVisionTime = inv.items.nightVisionTicks / ticksPerSecond;
+            const invunlTime = inv.items.invincibilityTicks / ticksPerSecond;
+            // invulnTime is partly coordinated with ScreenColorShader.ts
+            const isFullBright = invunlTime > 1.0 || nightVisionTime > 5 || nightVisionTime % 2 > 1;
+            this.extraLight.set(isFullBright ? 255 : 0);
+        });
     }
 
     tick() {
@@ -397,7 +420,6 @@ export class PlayerMapObject extends MapObject {
                     inv.items[name] = Math.max(0, inv.items[name] - 1);
                 }
             }
-
             return inv;
         });
 

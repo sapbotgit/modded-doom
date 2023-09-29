@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { things, thingSpec, type ThingSpec, states, SpriteNames, MapRuntime, mapObjectInfo, HALF_PI } from "../../doom";
+    import { thingSpec, type ThingSpec, states, SpriteNames, MapRuntime, mapObjectInfo, MapObjectIndex } from "../../doom";
     import { useDoom } from "../DoomContext";
     import ThingSprite from "./ThingSprite.svelte";
     import { ToDegrees, ToRadians } from "../../doom";
@@ -21,7 +21,6 @@
     ]
 
     const { direction, sprite } = thing;
-    $: description = thingSpec(thing.source.type).description;
     const frames = wad.spriteFrames($sprite.name);
     const frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
     const texture = textures.get(frame.name, 'sprite');
@@ -35,7 +34,8 @@
     type ParialThingSpec = Omit<ThingSpec, 'mo'>
     function changeType(th: ParialThingSpec) {
         map.destroy(thing);
-        thing = map.spawn(mapObjectInfo.findIndex(e => e.doomednum === th.type), thing.source.x, thing.source.y);
+        const pos = thing.position.val;
+        thing = map.spawn(mapObjectInfo.findIndex(e => e.doomednum === th.type), pos.x, pos.y);
         setDirection($direction * ToDegrees)();
         $editor.selected = thing;
 
@@ -47,12 +47,12 @@
     function setDirection(degrees: number) {
         return () => {
             thing.direction.set(degrees * ToRadians);
-            thing.source.angle = degrees;
         };
     }
 
-    function editorThing(value: any) {
-        const state = states[thingSpec(value.type).mo.spawnstate];
+    function editorThing(idx: any) {
+        const value = thingSpec(idx);
+        const state = states[value.mo.spawnstate];
         const sprite = SpriteNames[state.sprite];
         const frames = (sprite && wad.spriteFrames(sprite)) ?? [];
         const text = `${value.description} (${value.type})`;
@@ -64,12 +64,15 @@
         return { value, state, frames, text };
     }
 
-    $: types = things.map(editorThing).filter(e => e)
+    $: types = Object.keys(MapObjectIndex)
+        .filter(e => !isNaN(Number(e)))
+        .map(editorThing)
+        .filter(e => e?.value.mo.doomednum >= 0);
 </script>
 
 <h3>Thing ({thing.id})</h3>
 <div>
-    <button on:click={toggleSelector}>{description}</button>
+    <button on:click={toggleSelector}>{thing.description}</button>
     {#if showSelector}
         <div class="selector">
             <!-- svelte-ignore a11y-autofocus -->
@@ -85,7 +88,10 @@
     {/if}
 </div>
 <div>
+    <!--
+    Hmm... during some refactoring, we removed this data from MObj. Should we bring it back?
     <FlagList info={flagInfo} bind:flags={thing.source.flags} />
+    -->
 </div>
 <!-- position is edited in Thing.svelte -->
 <div class="direction">

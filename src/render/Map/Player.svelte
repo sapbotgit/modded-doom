@@ -17,33 +17,12 @@
     const yScale = 4 / 3 / (16 / 10);
     $: camPos = $cameraPosition;
 
-    $: updateOverlay(
-        $inventory.items.nightVisionTicks / ticksPerSecond,
-        $inventory.items.invincibilityTicks / ticksPerSecond,
-        $inventory.items.radiationSuitTicks / ticksPerSecond,
-        $inventory.items.berserkTicks / ticksPerSecond,
-        $damageCount,
-        $bonusCount,
-    );
-
     const cPass = new ShaderPass(ScreenColorShader);
-
-    function updateOverlay(
-        nightVisionTime: number,
-        invunlTime: number,
-        radiationTime: number,
-        berserkTime: number,
-        damageCount: number,
-        bonusCount: number,
-    ) {
-        const isFullBright = invunlTime > 1.0 || nightVisionTime > 5 || nightVisionTime % 2 > 1;
-        player.extraLight.set(isFullBright ? 255 : 0);
-        cPass.uniforms.invunlTime.value = invunlTime;
-        cPass.uniforms.radiationTime.value = radiationTime;
-        cPass.uniforms.berserkTime.value = berserkTime;
-        cPass.uniforms.damageCount.value = damageCount;
-        cPass.uniforms.bonusCount.value = bonusCount;
-    }
+    $: cPass.uniforms.invunlTime.value = $inventory.items.invincibilityTicks / ticksPerSecond;
+    $: cPass.uniforms.radiationTime.value = $inventory.items.radiationSuitTicks / ticksPerSecond;
+    $: cPass.uniforms.berserkTime.value = $inventory.items.berserkTicks / ticksPerSecond;
+    $: cPass.uniforms.damageCount.value = $damageCount;
+    $: cPass.uniforms.bonusCount.value = $bonusCount;
 </script>
 
 <Pass pass={new ShaderPass(GammaCorrectionShader)} />

@@ -93,8 +93,10 @@
     }
 
     .arms {
-        top: 0px;
+        display: inline-flex;
+        flex-direction: row;
         left: 104px;
+        top: 0px;
     }
     .arms span {
         position: absolute;
@@ -164,22 +166,22 @@
         position: absolute;
         display: flex;
         flex-direction: row;
-        gap: 10px;
+        gap: 12px;
     }
     .backpack span:nth-child(1) {
         top: 5px;
-        left: 28px;
+        left: 27px;
     }
     .backpack span:nth-child(2) {
         top: 11px;
-        left: 28px;
+        left: 27px;
     }
     .backpack span:nth-child(3) {
         top: 17px;
-        left: 28px;
+        left: 27px;
     }
     .backpack span:nth-child(4) {
         top: 23px;
-        left: 28px;
+        left: 27px;
     }
 </style>
