@@ -12,6 +12,14 @@ import type { HandleTraceHit, LineDef } from "../map-data";
 export const weaponTop = 32;
 const weaponBottom = 32 - 128;
 
+type WeaponName =
+    'chainsaw' | 'fist' | 'pistol' | 'super shotgun' | 'shotgun' | 'chaingun' | 'rocket launcher' | 'plasma rifle' | 'bfg';
+export interface InventoryWeapon {
+    keynum: number;
+    name: WeaponName;
+    fn: () => PlayerWeapon;
+}
+
 export class PlayerWeapon {
     private player: PlayerMapObject;
     private _sprite = new SpriteStateMachine(
@@ -25,7 +33,7 @@ export class PlayerWeapon {
     readonly flashSprite = this._flashSprite.sprite;
 
     constructor(
-        readonly num: number,
+        readonly name: WeaponName,
         readonly ammoType: keyof PlayerInventory['ammo'] | 'none',
         readonly ammoPerShot: number,
         private upState: StateIndex,
@@ -42,6 +50,7 @@ export class PlayerWeapon {
 
     activate(player: PlayerMapObject) {
         this.player = player;
+        this.player.refire = false;
         this._sprite.setState(this.upState);
     }
     deactivate() { this._sprite.setState(this.downState); }
@@ -61,29 +70,68 @@ export class PlayerWeapon {
     }
 }
 
-export const weapons = {
-    'chainsaw': new PlayerWeapon(1, 'none', 0, StateIndex.S_SAWUP, StateIndex.S_SAWDOWN, StateIndex.S_SAW, StateIndex.S_SAW1, StateIndex.S_NULL),
-    'fist': new PlayerWeapon(1, 'none', 0, StateIndex.S_PUNCHUP, StateIndex.S_PUNCHDOWN, StateIndex.S_PUNCH, StateIndex.S_PUNCH1, StateIndex.S_NULL),
-    'pistol': new PlayerWeapon(2, 'bullets', 1, StateIndex.S_PISTOLUP, StateIndex.S_PISTOLDOWN, StateIndex.S_PISTOL, StateIndex.S_PISTOL1, StateIndex.S_PISTOLFLASH),
-    'super shotgun': new PlayerWeapon(3, 'shells', 2, StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
-    'shotgun': new PlayerWeapon(3, 'shells', 1, StateIndex.S_SGUNUP, StateIndex.S_SGUNDOWN, StateIndex.S_SGUN, StateIndex.S_SGUN1, StateIndex.S_SGUNFLASH1),
-    'chaingun': new PlayerWeapon(4, 'bullets', 1, StateIndex.S_CHAINUP, StateIndex.S_CHAINDOWN, StateIndex.S_CHAIN, StateIndex.S_CHAIN1, StateIndex.S_CHAINFLASH1),
-    'rocket launcher': new PlayerWeapon(5, 'rockets', 1, StateIndex.S_MISSILEUP, StateIndex.S_MISSILEDOWN, StateIndex.S_MISSILE, StateIndex.S_MISSILE1, StateIndex.S_MISSILEFLASH1),
-    'plasma rifle': new PlayerWeapon(6, 'cells', 1, StateIndex.S_PLASMAUP, StateIndex.S_PLASMADOWN, StateIndex.S_PLASMA, StateIndex.S_PLASMA1, StateIndex.S_PLASMAFLASH1),
-    'bfg': new PlayerWeapon(7, 'cells', 40, StateIndex.S_BFGUP, StateIndex.S_BFGDOWN, StateIndex.S_BFG, StateIndex.S_BFG1, StateIndex.S_BFGFLASH1),
-};
+export const weapons: InventoryWeapon[] = [
+    {
+        name: 'chainsaw',
+        keynum: 1,
+        fn: () => new PlayerWeapon('chainsaw', 'none', 0, StateIndex.S_SAWUP, StateIndex.S_SAWDOWN, StateIndex.S_SAW, StateIndex.S_SAW1, StateIndex.S_NULL),
+    },
+    {
+        name: 'fist',
+        keynum: 1,
+        fn: () => new PlayerWeapon('fist', 'none', 0, StateIndex.S_PUNCHUP, StateIndex.S_PUNCHDOWN, StateIndex.S_PUNCH, StateIndex.S_PUNCH1, StateIndex.S_NULL),
+    },
+    {
+        name: 'pistol',
+        keynum: 2,
+        fn: () => new PlayerWeapon('pistol', 'bullets', 1, StateIndex.S_PISTOLUP, StateIndex.S_PISTOLDOWN, StateIndex.S_PISTOL, StateIndex.S_PISTOL1, StateIndex.S_PISTOLFLASH),
+    },
+    {
+        name: 'super shotgun',
+        keynum: 3,
+        fn: () => new PlayerWeapon('super shotgun', 'shells', 2, StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
+    },
+    {
+        name: 'shotgun',
+        keynum: 3,
+        fn: () => new PlayerWeapon('shotgun', 'shells', 1, StateIndex.S_SGUNUP, StateIndex.S_SGUNDOWN, StateIndex.S_SGUN, StateIndex.S_SGUN1, StateIndex.S_SGUNFLASH1),
+    },
+    {
+        name: 'chaingun',
+        keynum: 4,
+        fn: () => new PlayerWeapon('chaingun', 'bullets', 1, StateIndex.S_CHAINUP, StateIndex.S_CHAINDOWN, StateIndex.S_CHAIN, StateIndex.S_CHAIN1, StateIndex.S_CHAINFLASH1),
+    },
+    {
+        name: 'rocket launcher',
+        keynum: 5,
+        fn: () => new PlayerWeapon('rocket launcher', 'rockets', 1, StateIndex.S_MISSILEUP, StateIndex.S_MISSILEDOWN, StateIndex.S_MISSILE, StateIndex.S_MISSILE1, StateIndex.S_MISSILEFLASH1),
+    },
+    {
+        name: 'plasma rifle',
+        keynum: 6,
+        fn: () => new PlayerWeapon('plasma rifle', 'cells', 1, StateIndex.S_PLASMAUP, StateIndex.S_PLASMADOWN, StateIndex.S_PLASMA, StateIndex.S_PLASMA1, StateIndex.S_PLASMAFLASH1),
+    },
+    {
+        name: 'bfg',
+        keynum: 7,
+        fn: () => new PlayerWeapon('bfg', 'cells', 40, StateIndex.S_BFGUP, StateIndex.S_BFGDOWN, StateIndex.S_BFG, StateIndex.S_BFG1, StateIndex.S_BFGFLASH1),
+    },
+];
+export const inventoryWeapon = (name: WeaponName) => weapons.find(e => e.name === name);
 
 export const weaponItems: ThingType[] = [
-    { type: 82, class: 'W', description: 'Super shotgun', onPickup: giveWeapon(weapons['super shotgun']) },
-    { type: 2001, class: 'W', description: 'Shotgun', onPickup: giveWeapon(weapons['shotgun']) },
-    { type: 2002, class: 'W', description: 'Chaingun', onPickup: giveWeapon(weapons['chaingun']) },
-    { type: 2003, class: 'W', description: 'Rocket launcher', onPickup: giveWeapon(weapons['rocket launcher']) },
-    { type: 2004, class: 'W', description: 'Plasma gun', onPickup: giveWeapon(weapons['plasma rifle']) },
-    { type: 2005, class: 'W', description: 'Chainsaw', onPickup: giveWeapon(weapons['chainsaw']) },
-    { type: 2006, class: 'W', description: 'BFG9000', onPickup: giveWeapon(weapons['bfg']) },
+    { type: 82, class: 'W', description: 'Super shotgun', onPickup: giveWeapon('super shotgun') },
+    { type: 2001, class: 'W', description: 'Shotgun', onPickup: giveWeapon('shotgun') },
+    { type: 2002, class: 'W', description: 'Chaingun', onPickup: giveWeapon('chaingun') },
+    { type: 2003, class: 'W', description: 'Rocket launcher', onPickup: giveWeapon('rocket launcher') },
+    { type: 2004, class: 'W', description: 'Plasma gun', onPickup: giveWeapon('plasma rifle') },
+    { type: 2005, class: 'W', description: 'Chainsaw', onPickup: giveWeapon('chainsaw') },
+    { type: 2006, class: 'W', description: 'BFG9000', onPickup: giveWeapon('bfg') },
 ];
 
-function giveWeapon(weapon: PlayerWeapon) {
+function giveWeapon(name: WeaponName) {
+    const factory = inventoryWeapon(name);
+    const weapon = factory.fn();
     return (player: PlayerMapObject, mobj: MapObject) => {
         player.inventory.update(inv => {
             if (weapon.ammoType !== 'none') {
@@ -91,10 +139,12 @@ function giveWeapon(weapon: PlayerWeapon) {
                 const clipCount = (mobj.info.flags & MFFlags.MF_DROPPED) ? 1 : 2;
                 giveAmmo(player, inv, weapon.ammoType, clipCount);
             }
-            if (!inv.weapons.includes(weapon)) {
-                // keep weapons in order
-                inv.weapons.push(weapon);
-                player.nextWeapon = weapon;
+            const wIndex = Object.values(weapons).indexOf(factory);
+            if (!inv.weapons[wIndex]) {
+                // keep weapons in the same order as the above weapons list so select works properly
+                // (ie. select chainsaw before fist if we have a chainsaw)
+                inv.weapons[wIndex] = factory;
+                player.nextWeapon = factory;
             }
             return inv;
         });
@@ -135,7 +185,7 @@ const weaponActions: { [key: number]: WeaponAction } = {
             pos.y -= 6;
             if (pos.y < weaponBottom) {
                 pos.y = weaponBottom;
-                player.weapon.set(player.nextWeapon);
+                player.weapon.set(player.nextWeapon.fn());
                 player.nextWeapon = null;
             }
             return pos;

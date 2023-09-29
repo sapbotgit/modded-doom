@@ -6,7 +6,7 @@ import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
 import { mapObjectInfo, type MapObjectIndex } from "./doom-things-info";
-import { thingSpec } from "./things";
+import { thingSpec, inventoryWeapon } from "./things";
 
 interface AnimatedTexture {
     frames: string[];
@@ -38,8 +38,14 @@ export class MapRuntime {
 
         const playerThing = this.data.things.find(e => e.type === 1);
         this.player = new PlayerMapObject(store(game.inventory), this, playerThing);
+        // preserve values between levels
         this.player.health.set(game.inventory.health);
-        this.player.weapon.set(game.inventory.lastWeapon);
+        this.player.health.subscribe(health => game.inventory.health = health);
+        this.player.weapon.set(game.inventory.lastWeapon.fn());
+        this.player.weapon.subscribe(weapon => {
+            game.inventory.lastWeapon = inventoryWeapon(weapon.name);
+            weapon.activate(this.player);
+        });
 
         // must be done before creating GameInput and Camera so movement behaves properly
         Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -287,15 +293,16 @@ class GameInput {
     evaluate(delta: number) {
         // change weapon
         if (this.input.weaponSelect) {
-            let nextWeapon = this.player.inventory.val.weapons.filter(e => e.num === this.input.weaponSelect);
+            let candidates = this.player.inventory.val.weapons.filter(e => e?.keynum === this.input.weaponSelect);
             let weapon = this.player.weapon.val;
             let selectedWeapon =
                 // key press for a weapon we haven't picked up (yet)
-                nextWeapon.length === 0 ? null :
-                nextWeapon.length === 1 ? nextWeapon[0] :
-                // chainsaw and shotgun use the same number slot so we toggle
-                (weapon === nextWeapon[0]) ? nextWeapon[1] : nextWeapon[0];
-            if (selectedWeapon && selectedWeapon !== weapon) {
+                candidates.length === 0 ? null :
+                // normal case where the key press is for a weapon we have
+                candidates.length === 1 ? candidates[0] :
+                // some weapons (chainsaw and shotgun) use the same number slot so toggle
+                (weapon.name === candidates[0].name) ? candidates[1] : candidates[0];
+            if (selectedWeapon && selectedWeapon.name !== weapon.name) {
                 this.player.nextWeapon = selectedWeapon;
             }
             this.input.weaponSelect = 0;

@@ -1,8 +1,8 @@
 import { store, type Store } from "./store";
 import type { PlayerInventory } from "./map-object";
-import { PlayerWeapon, weapons } from "./things";
 import type { DoomWad } from "./wad/doomwad";
 import type { MapRuntime } from "./map-runtime";
+import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 
 export interface GameTime {
     elapsed: number; // seconds
@@ -26,7 +26,7 @@ export const frameTickTime = 1 / ticksPerSecond;
 // player info persisted between levels
 interface PlayerStats extends PlayerInventory {
     health: number;
-    lastWeapon: PlayerWeapon;
+    lastWeapon: InventoryWeapon;
 }
 
 export interface ControllerInput {
@@ -82,8 +82,9 @@ export class Game {
             computerMap: false,
             berserk: false,
         },
-        lastWeapon: weapons['pistol'],
-        weapons: [weapons['fist'], weapons['pistol']],
+        lastWeapon: inventoryWeapon('pistol'),
+        // null to reserve a slot for the chainsaw
+        weapons: [null, 'fist', 'pistol'].map(inventoryWeapon),
         keys: '',
     };
     readonly map = store<MapRuntime>(null);

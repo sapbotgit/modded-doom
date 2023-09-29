@@ -1,7 +1,8 @@
 <script lang="ts">
     import { Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { ToDegrees, ticksPerSecond, weapons } from "../../doom";
+    import { ToDegrees, ticksPerSecond } from "../../doom";
+    import { weapons } from "../../doom/things/weapons";
 
     export let player: PlayerMapObject;
     const { position, direction, velocity, sector, inventory } = player;
@@ -24,6 +25,10 @@
         }
     }
 
+    function tickTime(ticks: number) {
+        return (ticks / ticksPerSecond).toFixed(2);
+    }
+
     function kfa() {
         return () => {
             fa()();
@@ -36,8 +41,11 @@
             for (const t of Object.keys(inv.ammo)) {
                 inv.ammo[t].amount = inv.ammo[t].max;
             }
-            let w = Object.values(weapons);
-            w.splice(3, 1);
+            let w = [...weapons];
+            if (!player.map.game.wad.spriteTextureData('SHT2A0')) {
+                // no super shotgun in this wad so remove it from the weapon list
+                w.splice(3, 1);
+            }
             inv.weapons = w;
         });
     }
@@ -50,22 +58,34 @@
     <div>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
     <div>camera: {vec($cameraPosition)}</div>
     <div>viewHeight: {vh.toFixed(2)}</div>
-    <div>inv: {JSON.stringify({
-        ...$inventory.items,
-        armorType: $inventory.armorType,
-    }, null, '  ')}</div>
-    <button on:click={() => player.bonusCount.update(val => val + 6)}>Add bonus</button>
-    <button on:click={() => player.damageCount.update(val => val + 10)}>Hurt (sim)</button>
-    <button on:click={updateInv(inv => inv.items.invincibilityTicks += 4 * ticksPerSecond)}>+4s invuln</button>
-    <button on:click={updateInv(inv => inv.items.radiationSuitTicks += 4 * ticksPerSecond)}>+4s radiation suit</button>
-    <button on:click={updateInv(inv => inv.items.berserkTicks += 4 * ticksPerSecond)}>+4s berserk</button>
     <button on:click={fa()}>FA</button>
     <button on:click={kfa()}>KFA</button>
+    <div class="bonus">
+        <button on:click={() => player.bonusCount.update(val => val + 6)}>bouns flash</button>
+        <button on:click={() => player.damageCount.update(val => val + 10)}>hurt flash</button>
+        <button on:click={updateInv(inv => inv.items.invincibilityTicks += 4 * ticksPerSecond)}>
+            +4s invuln {tickTime($inventory.items.invincibilityTicks)}</button>
+        <button on:click={updateInv(inv => inv.items.radiationSuitTicks += 4 * ticksPerSecond)}>
+            +4s rad suit {tickTime($inventory.items.radiationSuitTicks)}</button>
+        <button on:click={updateInv(inv => inv.items.berserkTicks += 4 * ticksPerSecond)}>
+            +4s berserk {tickTime($inventory.items.berserkTicks)}</button>
+        <button on:click={updateInv(inv => inv.items.nightVisionTicks += 4 * ticksPerSecond)}>
+            +4s lightamp {tickTime($inventory.items.nightVisionTicks)}</button>
+        <button on:click={updateInv(inv => inv.items.invisibilityTicks += 4 * ticksPerSecond)}>
+            +4s invis {tickTime($inventory.items.invisibilityTicks)}</button>
+    </div>
 </div>
 
 <style>
     .root {
         text-align: left;
         background: black;
+    }
+
+    .bonus {
+        padding-top: .2em;
+        gap: 0.2em;
+        display: flex;
+        flex-direction: column;
     }
 </style>

@@ -10,7 +10,7 @@ import { obstacles, actions as obstacleActions } from './obstacles';
 import { decorations } from './decorations';
 import { other } from './other';
 
-export { weapons, weaponTop, PlayerWeapon } from './weapons';
+export { inventoryWeapon, weaponTop, PlayerWeapon } from './weapons';
 
 export interface ThingType {
     type: number;

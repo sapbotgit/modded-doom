@@ -36,7 +36,8 @@
         damageCount: number,
         bonusCount: number,
     ) {
-        player.extraLight.set(invunlTime > 1.0 || nightVisionTime > 0 ? 255 : 0);
+        const isFullBright = invunlTime > 1.0 || nightVisionTime > 5 || nightVisionTime % 2 > 1;
+        player.extraLight.set(isFullBright ? 255 : 0);
         cPass.uniforms.invunlTime.value = invunlTime;
         cPass.uniforms.radiationTime.value = radiationTime;
         cPass.uniforms.berserkTime.value = berserkTime;

@@ -9,7 +9,7 @@
     export let player: PlayerMapObject;
     const inv = player.inventory;
     const { health, weapon } = player;
-    $: weaponLights = $inv.weapons.map(e => e.num);
+    $: weaponLights = $inv.weapons.map(e => e?.keynum);
 </script>
 
 <div class="root">

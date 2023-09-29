@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { thingSpec, weapons, stateChangeActions } from "./things";
+import { thingSpec, stateChangeActions } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
 import { randInt, ToRadians, type Vertex } from "./math";
@@ -8,6 +8,7 @@ import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
+import type { InventoryWeapon } from "./things/weapons";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
@@ -159,7 +160,7 @@ export class MapObject {
             && !(this.info.flags & MFFlags.MF_NOCLIP)
             && (!source
                 || !(source instanceof PlayerMapObject)
-                || source.weapon.val !== weapons['chainsaw']));
+                || source.weapon.val.name !== 'chainsaw'));
         if (shouldApplyThrust) {
             let angle = angleBetween(this, inflictor);
             // 12.5 is (100 * (1 << 16 >> 3)) / (1<<16) (see P_DamageMobj)
@@ -376,18 +377,11 @@ export class PlayerMapObject extends MapObject {
     refire = false;
     readonly extraLight = store(0);
     readonly weapon = store<PlayerWeapon>(null);
-    nextWeapon: PlayerWeapon = null;
+    nextWeapon: InventoryWeapon = null;
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
         this.direction.set(Math.PI + source.angle * ToRadians);
-
-        this.weapon.subscribe(weapon => {
-            if (weapon) {
-                this.refire = false;
-                weapon.activate(this);
-            }
-        });
     }
 
     tick() {
@@ -562,9 +556,8 @@ export interface PlayerInventory {
         computerMap: boolean,
         berserk: boolean,
     }
-    // weapons:
-    // fist, chainsaw, pistol, shotgun, machine gun, rocket launcher, plasma rifle, bfg
-    weapons: PlayerWeapon[];
+    // weapons: chainsaw, fist, pistol, [super shotgun,] shotgun, machine gun, rocket launcher, plasma rifle, bfg
+    weapons: InventoryWeapon[];
     // keys
     keys: string; // RYB or RY or B or...
 }
