@@ -218,7 +218,15 @@ export class MapObject {
             this.info.flags &= ~MFFlags.MF_NOGRAVITY;
         }
 
-        // TODO: if source is player... do some extra stuff
+        if (this.info.flags & MFFlags.MF_COUNTKILL) {
+            const player =
+                source instanceof PlayerMapObject ? source :
+                this.map.game.mode === 'solo' ? this.map.player : null;
+            if (player) {
+                player.stats.kills += 1;
+            }
+            // TODO: netgames need to do more (like count frags)
+        }
 
         this.info.height *= .25;
         if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
@@ -380,6 +388,11 @@ export class PlayerMapObject extends MapObject {
     bonusCount = store(0); // mostly for screen fading
     attacking = false;
     refire = false;
+    readonly stats = {
+        kills: 0,
+        items: 0,
+        secrets: 0,
+    };
     readonly extraLight = store(0);
     readonly weapon = store<PlayerWeapon>(null);
     nextWeapon: InventoryWeapon = null;
@@ -395,6 +408,7 @@ export class PlayerMapObject extends MapObject {
                 this.info.flags &= ~MFFlags.MF_SHADOW;
             }
         });
+
         this.inventory.subscribe(inv => {
             const invisibleTime = inv.items.invisibilityTicks / ticksPerSecond;
             this.renderShadow.set(invisibleTime > 0);
@@ -405,6 +419,13 @@ export class PlayerMapObject extends MapObject {
             const isFullBright = invunlTime > 1.0 || nightVisionTime > 5 || nightVisionTime % 2 > 1;
             this.extraLight.set(isFullBright ? 255 : 0);
         });
+
+        this.sector.subscribe(sector => {
+            if (sector.type === 9) {
+                this.stats.secrets += 1;
+                sector.type = 0;
+            }
+        })
     }
 
     tick() {
@@ -547,6 +568,7 @@ export class PlayerMapObject extends MapObject {
     protected pickup(mobj: MapObject) {
         const pickedUp = (mobj as any).spec.onPickup?.(this, mobj);
         if (pickedUp) {
+            this.stats.items += 1;
             this.bonusCount.update(val => val + 6);
             this.map.destroy(mobj);
         }

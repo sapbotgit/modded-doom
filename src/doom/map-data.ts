@@ -349,12 +349,12 @@ class BlockMap {
         const dx = Math.floor(radius / gridSize);
         const x1 = Math.floor((start.x - this.bounds.left) / gridSize);
         const y1 = Math.floor((start.y - this.bounds.bottom) / gridSize);
-        const x2 = x1 + dx;
-        const y2 = y1 + dx;
+        const x2 = Math.min(this.numCols, x1 + dx);
+        const y2 = Math.min(this.numRows, y1 + dx);
 
         let lastTrace = [];
-        for (let x = x1 - dx; x <= x2; x++) {
-            for (let y = y1 - dx; y <= y2; y++) {
+        for (let x = Math.max(0, x1 - dx); x <= x2; x++) {
+            for (let y = Math.max(0, y1 - dx); y <= y2; y++) {
                 lastTrace.push({ row: y, col: x });
                 onBlock(this.map[y * this.numCols + x]);
             }
@@ -363,10 +363,10 @@ class BlockMap {
     }
 
     traceBounds(left: number, bottom: number, right: number, top: number, onBlock: (block: Block) => void) {
-        const x1 = Math.floor((left - this.bounds.left) / gridSize);
-        const y1 = Math.floor((bottom - this.bounds.bottom) / gridSize);
-        const x2 = Math.floor((right - this.bounds.left) / gridSize);
-        const y2 = Math.floor((top - this.bounds.bottom) / gridSize);
+        const x1 = Math.max(0, Math.floor((left - this.bounds.left) / gridSize));
+        const y1 = Math.max(0, Math.floor((bottom - this.bounds.bottom) / gridSize));
+        const x2 = Math.min(this.numCols, Math.floor((right - this.bounds.left) / gridSize));
+        const y2 = Math.min(this.numRows, Math.floor((top - this.bounds.bottom) / gridSize));
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 onBlock(this.map[y * this.numCols + x]);

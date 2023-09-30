@@ -1,0 +1,30 @@
+<script lang="ts">
+    import Picture from "../Components/Picture.svelte";
+
+    export let time: number;
+
+    $: hours = Math.floor(time / 3600) % 24;
+    $: minutes = Math.floor(time / 60) % 60;
+    $: seconds = Math.floor(time % 60);
+</script>
+
+<div>
+    {#if time > 3600}
+        <Picture name="WINUM{hours % 10}" />
+        <Picture name="WICOLON" />
+    {/if}
+    {#if time > 60}
+        <Picture name="WINUM{Math.floor(minutes / 10)}" />
+        <Picture name="WINUM{minutes % 10}" />
+    {/if}
+    <Picture name="WICOLON" />
+    <Picture name="WINUM{Math.floor(seconds / 10)}" />
+    <Picture name="WINUM{seconds % 10}" />
+</div>
+
+<style>
+    div {
+        display: inline-flex;
+        gap: 1.2px;
+    }
+</style>

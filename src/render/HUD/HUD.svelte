@@ -7,16 +7,16 @@
     import KeyCard from "./KeyCard.svelte";
 
     export let player: PlayerMapObject;
-    const inv = player.inventory;
-    const { health, weapon } = player;
-    $: weaponLights = $inv.weapons.map(e => e?.keynum);
+
+    const { health, weapon, inventory } = player;
+    $: weaponLights = $inventory.weapons.map(e => e?.keynum);
 </script>
 
 <div class="root">
     <Picture name={'STBAR'} />
     <div class="ammo">
-        {#if $inv.ammo[$weapon.ammoType]}
-            <BigNum value={$inv.ammo[$weapon.ammoType].amount} />
+        {#if $inventory.ammo[$weapon.ammoType]}
+            <BigNum value={$inventory.ammo[$weapon.ammoType].amount} />
         {/if}
     </div>
     <div class="health">
@@ -35,35 +35,35 @@
         <Face {player} />
     </div>
     <div class="armor">
-        <BigNum value={$inv.armor} percent />
+        <BigNum value={$inventory.armor} percent />
     </div>
     <div class="keys">
-        {#if $inv.keys.length > 0}
-            <span><KeyCard key={$inv.keys[0]} /></span>
+        {#if $inventory.keys.length > 0}
+            <span><KeyCard key={$inventory.keys[0]} /></span>
         {/if}
-        {#if $inv.keys.length > 1}
-            <span><KeyCard key={$inv.keys[1]} /></span>
+        {#if $inventory.keys.length > 1}
+            <span><KeyCard key={$inventory.keys[1]} /></span>
         {/if}
-        {#if $inv.keys.length > 2}
-            <span><KeyCard key={$inv.keys[2]} /></span>
+        {#if $inventory.keys.length > 2}
+            <span><KeyCard key={$inventory.keys[2]} /></span>
         {/if}
     </div>
     <div class="backpack">
         <span>
-            <SmallNum value={$inv.ammo.bullets.amount} />
-            <SmallNum value={$inv.ammo.bullets.max} />
+            <SmallNum value={$inventory.ammo.bullets.amount} />
+            <SmallNum value={$inventory.ammo.bullets.max} />
         </span>
         <span>
-            <SmallNum value={$inv.ammo.shells.amount} />
-            <SmallNum value={$inv.ammo.shells.max} />
+            <SmallNum value={$inventory.ammo.shells.amount} />
+            <SmallNum value={$inventory.ammo.shells.max} />
         </span>
         <span>
-            <SmallNum value={$inv.ammo.rockets.amount} />
-            <SmallNum value={$inv.ammo.rockets.max} />
+            <SmallNum value={$inventory.ammo.rockets.amount} />
+            <SmallNum value={$inventory.ammo.rockets.max} />
         </span>
         <span>
-            <SmallNum value={$inv.ammo.cells.amount} />
-            <SmallNum value={$inv.ammo.cells.max} />
+            <SmallNum value={$inventory.ammo.cells.amount} />
+            <SmallNum value={$inventory.ammo.cells.max} />
         </span>
     </div>
 </div>

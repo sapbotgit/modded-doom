@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DoomWad, Game, store, MapRuntime, type Skill } from './doom';
+  import { DoomWad, Game, store, MapRuntime, type Skill, randInt } from './doom';
   import Doom from './render/Doom.svelte';
   import GridTraceDebug from './render/Debug/GridTraceDebug.svelte';
   import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
@@ -32,7 +32,22 @@
 
   let selectedMap: string = null
   $: if (game && selectedMap) {
-    game.map.set(new MapRuntime(selectedMap, game));
+    // game.map.set(new MapRuntime(selectedMap, game));
+
+    // for testing intermisison screen
+    const finishedMap = new MapRuntime(selectedMap, game);
+    finishedMap.stats.elapsedTime = randInt(20, 200);
+    game.intermission.set({
+      finishedMap,
+      playerStats: [
+        {
+          items: randInt(0, finishedMap.stats.totalItems),
+          kills: randInt(0, finishedMap.stats.totalKills),
+          secrets: randInt(0, finishedMap.stats.totalSecrets),
+        },
+      ],
+      nextMapName: `${selectedMap.substring(0, 3)}${parseInt(selectedMap.substring(3, 5)) + 1}`,
+    });
   }
 </script>
 

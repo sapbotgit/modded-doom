@@ -38,7 +38,7 @@
     function changeType(n: number) {
         sector.type = n;
         showSelector = false;
-        map.synchronizeActions();
+        map.synchronizeSpecials();
     }
 
     function tagLinedef() {

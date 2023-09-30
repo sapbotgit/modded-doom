@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import type { PlayerInventory } from "./map-object";
+import { PlayerMapObject, type PlayerInventory } from "./map-object";
 import type { DoomWad } from "./wad/doomwad";
 import type { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
@@ -42,9 +42,16 @@ export interface ControllerInput {
     mouse: { x: number, y: number };
 }
 
+export interface IntermissionScreen {
+    nextMapName: string;
+    finishedMap: MapRuntime;
+    playerStats: PlayerMapObject['stats'][];
+}
+
 export class Game {
     private nextTickTime = 0; // seconds
     time = {
+        playTime: 0,
         elapsed: 0,
         delta: 0,
         tick: store(0),
@@ -83,12 +90,12 @@ export class Game {
             berserk: false,
         },
         lastWeapon: inventoryWeapon('pistol'),
-        // null to reserve a slot for the chainsaw
+        // null reserves a slot for the chainsaw to keep weapons in order
         weapons: [null, 'fist', 'pistol'].map(inventoryWeapon),
         keys: '',
     };
     readonly map = store<MapRuntime>(null);
-    readonly nextMap = store<MapRuntime>(null);
+    readonly intermission = store<IntermissionScreen>(null);
 
     constructor(
         readonly wad: DoomWad,

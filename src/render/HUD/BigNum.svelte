@@ -30,7 +30,6 @@
         display: inline-flex;
         flex-direction: row;
         justify-content: flex-end;
-        position: relative;
     }
 
     .space {

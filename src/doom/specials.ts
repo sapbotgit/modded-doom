@@ -21,7 +21,8 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         createCrusherCeilingAction(mobj, linedef, trigger) ??
         createLightingAction(mobj, linedef, trigger) ??
         applyTeleportAction(mobj, linedef, trigger, side) ??
-        createRisingStairAction(mobj, linedef, trigger)
+        createRisingStairAction(mobj, linedef, trigger) ??
+        createLevelExitAction(mobj, linedef, trigger, side)
     );
 }
 
@@ -1150,3 +1151,64 @@ function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number,
     }
     map.addAction(action);
 }
+
+// Level exits
+const levelExitDefinitions = (type: number, trigger: string, place: 'normal' | 'secret') => ({
+    type,
+    trigger: trigger[0] as TriggerType,
+    place,
+    repeatable: false,
+});
+
+const levelExits = [
+    levelExitDefinitions(11, 'S1', 'normal'),
+    levelExitDefinitions(52, 'W1', 'normal'),
+    levelExitDefinitions(51, 'S1', 'secret'),
+    levelExitDefinitions(124, 'W1', 'secret'),
+];
+
+export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
+    const map = mobj.map;
+    const def = levelExits.find(e => e.type === linedef.special);
+    if (!def) {
+        console.warn('invalid level exit special', linedef.special);
+        return;
+    }
+    if (def.trigger !== trigger) {
+        return;
+    }
+    if (mobj.isMonster) {
+        return;
+    }
+
+    // figure out next map based on current map name
+    const mapName = mobj.map.name;
+    // E1M? and MAP?? both start the map number at index 3
+    const prefix = mapName.substring(0, 3);
+    const mapNum = parseInt(mapName.substring(3, 5));
+    const nextMapName =
+        def.place === 'secret' ? (
+            mapName.startsWith('E') ? prefix + '9' :
+            mapNum === 31 ? `MAP32` : 'MAP31'
+        ) :
+        (mapNum === 31 || mapNum == 32) ? 'MAP16' :
+        (mapName === 'E1M9') ? 'E1M4' :
+        (mapName === 'E2M9') ? 'E2M6' :
+        (mapName === 'E3M9') ? 'E3M7' :
+        (mapName === 'E4M9') ? 'E4M3' :
+        `${prefix}${mapNum + 1}`;
+
+    // intermission screen stats
+    mobj.map.game.time.playTime += mobj.map.stats.elapsedTime;
+    mobj.map.game.intermission.set({
+        // TODO: network games should have multiple players
+        playerStats: [mobj.map.player.stats],
+        finishedMap: mobj.map,
+        nextMapName,
+    });
+    mobj.map.game.map.set(null);
+    mobj.map.dispose();
+
+    // level exists always trigger the switch (but it won't be rendered anyway)
+    return def;
+};

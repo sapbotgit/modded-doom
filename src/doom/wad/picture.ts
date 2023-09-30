@@ -3,10 +3,10 @@ import type { Color } from "three";
 export type Palette = Color[];
 
 export interface Picture {
-    readonly xOffset: number,
-    readonly yOffset: number,
-    readonly width: number,
-    readonly height: number,
+    readonly xOffset: number;
+    readonly yOffset: number;
+    readonly width: number;
+    readonly height: number;
 
     toBuffer(buffer: Uint8ClampedArray): void;
 }

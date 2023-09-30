@@ -12,13 +12,14 @@
     import SvgMapRoot from "./Svg/Root.svelte";
     import MapContext from "./Map/Context.svelte";
     import { Clock } from "three";
+    import Intermission from "./Intermission/Intermission.svelte";
     export let game: Game;
 
     const doomContext = createContext(game);
     setContext('doom-context', doomContext);
     const { settings, editor } = doomContext;
-    const { map } = game;
-    $: renderSectors = buildRenderSectors($map.data);
+    const { map, intermission } = game;
+    $: renderSectors = $map ? buildRenderSectors($map.data) : [];
 
     let showPlayerInfo = false;
     const { wireframe, showBlockMap } = settings;
@@ -97,14 +98,17 @@
 </label>
 
 <div>
-    <MapContext map={$map} {renderSectors}>
-        <div class="game" use:pointerLockControls={game}>
+    <div class="game" use:pointerLockControls={game}>
         <!-- <div id="lock-message">
             Controls: WASD
             <br>
             Click to lock
         </div> -->
-
+        <!--
+            TODO: we want the screen wipe!!
+            interesting: https://www.shadertoy.com/view/XtlyDn
+        -->
+        <MapContext map={$map} {renderSectors}>
             {#if $cameraMode === 'svg'}
                 <SvgMapRoot size={viewSize} map={$map} />
             {:else}
@@ -113,7 +117,14 @@
                 </Canvas>
             {/if}
             <HUD player={$map.player} />
-        </div>
+        </MapContext>
+        {#if $intermission}
+            {#key $intermission}
+                <Intermission size={viewSize} details={$intermission} />
+            {/key}
+        {/if}
+    </div>
+    <MapContext map={$map} {renderSectors}>
         <EditPanel map={$map} />
     </MapContext>
     {#if showPlayerInfo}

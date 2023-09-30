@@ -5,7 +5,7 @@ import { HALF_PI, lineLineIntersect, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
-import { mapObjectInfo, type MapObjectIndex } from "./doom-things-info";
+import { mapObjectInfo, type MapObjectIndex, MFFlags } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
 
 interface AnimatedTexture {
@@ -23,6 +23,12 @@ export class MapRuntime {
     readonly player: PlayerMapObject;
     readonly camera: Camera;
     readonly input: GameInput;
+    readonly stats = {
+        totalItems: 0,
+        totalKills: 0,
+        totalSecrets: 0,
+        elapsedTime: 0,
+    };
 
     objs: MapObject[] = []; // TODO: make this readonly?
     // don't love this rev hack... we need a list with a subscribe method
@@ -56,7 +62,7 @@ export class MapRuntime {
         this.data.blockmap.watch(this.player);
         this.data.things.forEach(e => this.initialThingSpawn(e));
 
-        this.synchronizeActions();
+        this.synchronizeSpecials();
 
         // initialize animated textures
         for (const sector of this.data.sectors) {
@@ -106,9 +112,17 @@ export class MapRuntime {
         if (!skillMatch) {
             return;
         }
+
         const type = mapObjectInfo.findIndex(e => e.doomednum === thing.type);
         const mobj = this.spawn(type, thing.x, thing.y);
         mobj.direction.set(Math.PI + thing.angle * ToRadians);
+
+        if (mobj.info.flags && MFFlags.MF_COUNTKILL) {
+            this.stats.totalKills += 1;
+        }
+        if (mobj.info.flags && MFFlags.MF_COUNTITEM) {
+            this.stats.totalItems += 1;
+        }
     }
 
     spawn(moType: MapObjectIndex, x: number, y: number, z?: number) {
@@ -130,6 +144,7 @@ export class MapRuntime {
     }
 
     timeStep(time: GameTime) {
+        this.stats.elapsedTime += time.delta;
         this.input.evaluate(time.delta);
 
         if (time.isTick) {
@@ -185,8 +200,9 @@ export class MapRuntime {
 
     // Why a public function? Because "edit" mode can change these while
     // rendering the map and we want them to update
-    synchronizeActions() {
+    synchronizeSpecials() {
         this.actions = [];
+        this.stats.totalSecrets = 0;
         for (const wall of this.data.linedefs) {
             if (wall.special === 48) {
                 wall.xOffset = store(0);
@@ -202,6 +218,10 @@ export class MapRuntime {
             const action = sectorLightAnimations[type]?.(this, sector);
             if (action) {
                 this.actions.push(action);
+            }
+
+            if (type === 9) {
+                this.stats.totalSecrets += 1;
             }
         }
     }

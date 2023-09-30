@@ -10,9 +10,10 @@
     export let type: 'wall' | 'flat' | 'any' = 'any';
 
     const { wad } = useDoom();
-    $: data = type === 'any' ? wad.graphic(name) :
+    $: data =
+        type === 'flat' ? wad.flatTextureData(name) :
         type === 'wall' ? wad.wallTextureData(name) :
-        wad.flatTextureData(name);
+        wad.graphic(name);
 
     let canvas: HTMLCanvasElement;
     afterUpdate(() => {
