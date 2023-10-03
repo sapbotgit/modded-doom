@@ -1,9 +1,8 @@
 <script lang="ts">
-    import { Mesh, Object3DInstance } from "@threlte/core";
+    import { T } from "@threlte/core";
     import type { LineDef, MapRuntime, Sector } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
-    import { BoxGeometry, BufferGeometry, Color, Line, MeshBasicMaterial, Vector3 } from "three";
-    import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
+    import { BoxGeometry, BufferGeometry, Color, LineBasicMaterial, MeshBasicMaterial, Vector3 } from "three";
 
     export let map: MapRuntime;
 
@@ -17,15 +16,6 @@
     $: tag = ($editor.selected && 'tag' in $editor.selected && $editor.selected.tag > 0) ? $editor.selected.tag : null;
     $: linedefs = (!tag ? [] : map.data.linedefs.filter(e => e.tag === tag)) as LineDef[];
     $: sectors = (!tag ? [] : map.data.sectors.filter(e => e.tag === tag)) as Sector[];
-
-    const createShape = (position1: Vector3, position2: Vector3) => new Line(
-        new BufferGeometry().setFromPoints([
-            position1,
-            new Vector3().copy(position1).setZ(mapHeight),
-            new Vector3().copy(position2).setZ(mapHeight),
-            position2,
-        ]),
-        new LineMaterial({ depthTest:false, color: Color.NAMES.cyan }));
 
     function position(item: LineDef | Sector) {
         const pos = new Vector3();
@@ -60,23 +50,31 @@
 
 {#each sectors ?? [] as sector}
     {@const sectorPosition = position(sector)}
-    <Mesh
+    <T.Mesh
         renderOrder={2}
         material={sectorMaterial}
-        position={sectorPosition}
+        position={[...sectorPosition]}
         geometry={new BoxGeometry(boxSize, boxSize, boxSize)}
     />
 
     {#each linedefs ?? [] as linedef}
         {@const linedefPosition = position(linedef)}
-        <Mesh
+        <T.Mesh
             renderOrder={2}
             material={lineMaterial}
-            position={linedefPosition}
+            position={[...linedefPosition]}
             geometry={new BoxGeometry(boxSize, boxSize, boxSize)}
         />
 
-        {@const connectorLine = createShape(linedefPosition, sectorPosition)}
-        <Object3DInstance renderOrder={2} object={connectorLine} />
+        <T.Line
+            args={[new BufferGeometry().setFromPoints([
+                linedefPosition,
+                new Vector3().copy(linedefPosition).setZ(mapHeight),
+                new Vector3().copy(sectorPosition).setZ(mapHeight),
+                sectorPosition,
+            ]),
+            new LineBasicMaterial({ depthTest: false, color: Color.NAMES.cyan })]}
+            renderOrder={2}
+        />
     {/each}
 {/each}

@@ -1,8 +1,8 @@
 <script lang="ts">
     import { Color, CubeTexture, DataTexture, NearestFilter, SRGBColorSpace } from "three";
     import { useDoom, useDoomMap } from "../DoomContext";
-    import { AmbientLight, useThrelte } from "@threlte/core";
     import { randInt } from "../../doom";
+    import { T, useThrelte } from "@threlte/core";
 
     const { scene } = useThrelte();
     const { textures } = useDoom();
@@ -166,4 +166,4 @@
     // scene.background = new Color('magenta');
 </script>
 
-<AmbientLight color={'white'} intensity={4} />
+<T.AmbientLight color={'white'} intensity={4} />

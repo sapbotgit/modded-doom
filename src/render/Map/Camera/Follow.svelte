@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Group, PerspectiveCamera, useFrame } from "@threlte/core";
+    import { T, useFrame } from "@threlte/core";
     import Weapon from "../Weapon.svelte";
     import { useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
@@ -60,14 +60,19 @@
     }
 </script>
 
-<PerspectiveCamera
-    rotation={$angle}
-    position={$position}
+<T.PerspectiveCamera
+    rotation.x={$angle.x}
+    rotation.y={$angle.y}
+    rotation.z={$angle.z}
+    rotation.order={$angle.order}
+    position.x={$position.x}
+    position.y={$position.y}
+    position.z={$position.z}
+    scale.y={yScale}
     far={100000}
     fov={72}
-    scale={{ y: yScale }}
-    >
-    <Group scale={{ y: 1 / yScale }}>
+>
+    <T.Group scale.y={yScale}>
         <Weapon {player} />
-    </Group>
-</PerspectiveCamera>
+    </T.Group>
+</T.PerspectiveCamera>

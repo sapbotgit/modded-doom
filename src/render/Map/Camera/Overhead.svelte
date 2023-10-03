@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { FogExp2, PerspectiveCamera, useFrame } from "@threlte/core";
+    import { T, useFrame } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { tweened } from "svelte/motion";
@@ -27,16 +27,21 @@
     $: $angle.z = $yaw - HALF_PI;
 </script>
 
-<PerspectiveCamera
-    rotation={$angle}
-    position={$position}
+<T.PerspectiveCamera
+    rotation.x={$angle.x}
+    rotation.y={$angle.y}
+    rotation.z={$angle.z}
+    rotation.order={$angle.order}
+    position.x={$position.x}
+    position.y={$position.y}
+    position.z={$position.z}
+    scale.y={yScale}
     far={100000}
     fov={72}
-    scale={{ y: yScale }}
 />
 
 <!-- this effect looks cheap but kind of fun to play with -->
-<FogExp2
+<T.FogExp2
     color={skyColor}
     density={0.001}
 />

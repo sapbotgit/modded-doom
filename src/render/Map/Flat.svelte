@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Mesh } from "@threlte/core";
+    import { T } from "@threlte/core";
     import { BackSide, Color, FrontSide, MeshStandardMaterial } from "three";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import Wireframe from "../Debug/Wireframe.svelte";
@@ -39,20 +39,20 @@
         material.depthWrite = true;
     }
 
-    function hit() {
+    function hit(ev) {
+        ev.stopPropagation();
         $editor.selected = renderSector.sector;
     }
 </script>
 
-<Mesh
+<T.Mesh
     userData={{ type: 'flat' }}
-    interactive={$editor.active}
     on:click={hit}
     {visible}
     {geometry}
     {material}
     renderOrder={isSky ? 0 : 1}
-    position={{ z: vertical }}
+    position.z={vertical}
 >
     <Wireframe />
-</Mesh>
+</T.Mesh>

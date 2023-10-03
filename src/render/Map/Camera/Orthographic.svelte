@@ -2,7 +2,7 @@
     import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, PlaneGeometry, Raycaster, Texture, Vector2, Vector3 } from "three";
     import { HALF_PI, MapObjectIndex } from "../../../doom";
     import { tweened, type Tweened } from "svelte/motion";
-    import { Mesh, OrthographicCamera, useFrame, useThrelte } from "@threlte/core";
+    import { T, useFrame, useThrelte } from "@threlte/core";
     import { useDoom, useDoomMap } from "../../DoomContext";
 
     export let yScale: number;
@@ -159,18 +159,28 @@
     }
 </script>
 
-<OrthographicCamera
-    rotation={$rotation}
-    position={$position}
-    {scale}
+<T.OrthographicCamera
+    makeDefault
+    rotation.x={$rotation.x}
+    rotation.y={$rotation.y}
+    rotation.z={$rotation.z}
+    rotation.order={$rotation.order}
+    position.x={$position.x}
+    position.y={$position.y}
+    position.z={$position.z}
+    scale.x={scale.x}
+    scale.y={scale.y}
     far={100000}
 >
     {#if tx}
-        <Mesh
-            position={weaponPosition}
-            scale={{ x: tx.userData.width, y: tx.userData.height }}
+        <T.Mesh
+            position.x={weaponPosition.x}
+            position.y={weaponPosition.y}
+            position.z={weaponPosition.z}
+            scale.x={tx.userData.width}
+            scale.y={tx.userData.height}
             material={weaponMat}
             geometry={new PlaneGeometry()}
         />
     {/if}
-</OrthographicCamera>
+</T.OrthographicCamera>

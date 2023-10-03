@@ -4,7 +4,7 @@
 </script>
 <script lang="ts">
     import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
-    import { Mesh } from "@threlte/core";
+    import { T } from "@threlte/core";
     import { HALF_PI, type LineDef, type Vertex } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
@@ -119,24 +119,29 @@
             wad.palettes[0][96];
     }
 
-    function hit() {
+    function hit(ev) {
+        ev.stopPropagation();
         $editor.selected = linedef;
     }
 </script>
 
 {#if !$useTextures || texture2 || skyHack || linedef.transparentWindowHack}
-    <Mesh
+    <T.Mesh
         userData={{ type: 'wall' }}
-        interactive={$editor.active}
-        on:click={hit}
         visible={visible}
+        on:click={hit}
         renderOrder={skyHack ? 0 : 1}
-        position={{ x: mid.x, y: mid.y, z: top - height * .5 }}
-        rotation={{ z: angle, x: HALF_PI, order:'ZXY' }}
-        scale={{ x: width, y: height }}
+        position.x={mid.x}
+        position.y={mid.y}
+        position.z={top - height * .5 }
+        rotation.x={HALF_PI}
+        rotation.z={angle}
+        rotation.order={'ZXY'}
+        scale.x={width}
+        scale.y={height}
         {geometry}
-        material={material}
+        {material}
     >
         <Wireframe />
-    </Mesh>
+    </T.Mesh>
 {/if}

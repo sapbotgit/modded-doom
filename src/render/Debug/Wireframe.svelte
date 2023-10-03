@@ -1,24 +1,18 @@
 <script lang="ts">
-    import { Object3DInstance, useParent } from "@threlte/core";
-    import { LineSegments, WireframeGeometry } from "three";
+    import { T } from "@threlte/core";
+    import { Edges } from "@threlte/extras";
+    import { Color } from "three";
     import { useAppContext } from "../DoomContext";
 
     const { wireframe } = useAppContext().settings;
-
-    const parent = useParent();
-    function obj(p: any, wireframeMode: string) {
-        const geom = new WireframeGeometry(p.geometry);
-        const lines = new LineSegments(geom);
-        if ('depthTest' in lines.material) {
-            lines.material.depthTest = (wireframeMode === 'visible');
-        }
-        return lines;
-    }
 </script>
 
 {#if $wireframe !== 'none'}
-    <Object3DInstance
-        renderOrder={1000}
-        object={obj($parent, $wireframe)}
-    />
+    <Edges thresholdAngle={0} renderOrder={1000}>
+        <!-- color doesn't work here... I wonder why? -->
+        <T.LineBasicMaterial
+            color={Color.NAMES.red}
+            depthTest={$wireframe === 'visible'}
+        />
+    </Edges>
 {/if}

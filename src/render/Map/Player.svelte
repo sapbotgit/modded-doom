@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Mesh, Pass } from "@threlte/core";
+    import { T, useRender, useThrelte } from "@threlte/core";
     import Thing from "./Thing.svelte";
     import { CircleGeometry, MeshStandardMaterial } from "three";
     import { useDoomMap } from "../DoomContext";
@@ -11,14 +11,20 @@
     import FirstPersonCam from "./Camera/FirstPerson.svelte";
     import OverheadCam from "./Camera/Overhead.svelte";
     import FollowCam from "./Camera/Follow.svelte";
+    // TODO: does pmndrs/postprocessing offer an advantage here?
+    import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+    import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 
     const { map, renderSectors } = useDoomMap();
     const { cameraMode } = map.game.settings;
     const player = map.player;
+
     const { position: playerPosition, damageCount, bonusCount, inventory, sector } = player;
     $: renderSector = $sector && renderSectors.find(e => e.sector === $sector)
+    $: zFloor = $sector.zFloor;
 
-    const yScale = 4 / 3 / (16 / 10);
+    // not sure this is correct but it looks about right https://doomwiki.org/wiki/Aspect_ratio
+    const yScale = (4 / 3) / (16 / 10);
 
     const cPass = new ShaderPass(ScreenColorShader);
     $: cPass.uniforms.invunlTime.value = $inventory.items.invincibilityTicks / ticksPerSecond;
@@ -26,22 +32,34 @@
     $: cPass.uniforms.berserkTime.value = $inventory.items.berserkTicks / ticksPerSecond;
     $: cPass.uniforms.damageCount.value = $damageCount;
     $: cPass.uniforms.bonusCount.value = $bonusCount;
-</script>
 
-<Pass pass={new ShaderPass(GammaCorrectionShader)} />
-<Pass pass={cPass} />
+    // Using a shader pass requires a bit more work now with threlte6
+    // https://threlte.xyz/docs/learn/advanced/migration-guide#usethrelteroot-has-been-removed
+    const { scene, renderer, camera, size } = useThrelte();
+    const composer = new EffectComposer(renderer)
+
+    const setupEffectComposer = (camera) => {
+        composer.passes.length = 0;
+        composer.addPass(new RenderPass(scene, camera))
+        composer.addPass(new ShaderPass(GammaCorrectionShader));
+        composer.addPass(cPass);
+    }
+    $: setupEffectComposer($camera);
+    $: composer.setSize($size.width, $size.height);
+
+    useRender((ctx, delta) => {
+        composer.render(delta);
+    });
+</script>
 
 {#if $cameraMode !== "1p"}
     <Thing {renderSector} thing={player} />
 
-    <Mesh
+    <T.Mesh
         geometry={new CircleGeometry(player.info.radius)}
-        renderOrder={2}
-        position={{
-            x: $playerPosition.x,
-            y: $playerPosition.y,
-            z: player.sector.val.zFloor.val + 1,
-        }}
+        position.x={$playerPosition.x}
+        position.y={$playerPosition.y}
+        position.z={$zFloor + 1}
         material={new MeshStandardMaterial({ color: "black", opacity: 0.6, transparent: true })}
     />
 {/if}

@@ -7,7 +7,8 @@
     const geometry = new PlaneGeometry();
 </script>
 <script lang="ts">
-    import { Mesh, TransformControls, type Rotation } from '@threlte/core';
+    import { T } from '@threlte/core';
+    import { TransformControls } from '@threlte/extras';
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
@@ -51,19 +52,8 @@
         vOffset += texture.userData.yOffset - texture.userData.height;
     }
     $: hOffset = (texture.userData.xOffset - texture.userData.width) + (texture.userData.width * .5);
-    // why not just $: position = {...}?? From profiling, it seems slightly cheaper (about 0.2%) to do it this way
-    // (which makes sense because we are not allocating a new object)
-    const position = { x: 0, y: 0, z: 0 };
-    // because we have to offset both x and y, we have to apply them in proportion to the camera angle
-    $: position.x = $tpos.x - Math.sin(ang) * hOffset;
-    $: position.y = $tpos.y + Math.cos(ang) * hOffset;
-    $: position.z = $tpos.z + vOffset;
 
-    const scale = { x: 0, y: 0 };
-    $: scale.y = texture.userData.height;
-    $: scale.x = frame.mirror ? -texture.userData.width : texture.userData.width;
-
-    const rotation: Rotation = { order: 'ZXY' };
+    const rotation = { x: 0, y: 0, z: 0 };
     $: if ($cameraMode === 'bird') {
         rotation.x = Math.PI;
         rotation.y = -Math.PI;
@@ -108,7 +98,8 @@
         }
     }
 
-    function hit() {
+    function hit(ev) {
+        ev.stopPropagation();
         $editor.selected = thing;
     }
 
@@ -119,17 +110,21 @@
     }
 </script>
 
-<Mesh
-    userData={{ type: 'mobj', moType: thing.type }}
-    interactive={$editor.active}
+<T.Mesh
     on:click={hit}
     renderOrder={1}
     {visible}
     {material}
     {geometry}
-    {scale}
-    {rotation}
-    {position}
+    scale.x={frame.mirror ? -texture.userData.width : texture.userData.width}
+    scale.y={texture.userData.height}
+    rotation.x={rotation.x}
+    rotation.y={rotation.y}
+    rotation.z={rotation.z ?? 0}
+    rotation.order={'ZXY'}
+    position.x={$tpos.x - Math.sin(ang) * hOffset}
+    position.y={$tpos.y + Math.cos(ang) * hOffset}
+    position.z={$tpos.z + vOffset}
 >
     {#if $editor.selected === thing}
         <TransformControls
@@ -139,4 +134,4 @@
         />
     {/if}
     <Wireframe />
-</Mesh>
+</T.Mesh>
