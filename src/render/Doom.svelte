@@ -13,6 +13,9 @@
     import MapContext from "./Map/Context.svelte";
     import { Clock } from "three";
     import Intermission from "./Intermission/Intermission.svelte";
+    import { fly } from "svelte/transition";
+    import { keyboardControls } from "./KeyboardControls";
+
     export let game: Game;
 
     const doomContext = createContext(game);
@@ -20,6 +23,10 @@
     const { settings, editor } = doomContext;
     const { map, intermission } = game;
     $: renderSectors = $map ? buildRenderSectors($map.data) : [];
+    $: game.settings.compassMove.set($cameraMode === 'svg');
+
+    let messageNode: HTMLElement;
+    let pointerLocked = false;
 
     let showPlayerInfo = false;
     const { wireframe, showBlockMap } = settings;
@@ -98,32 +105,57 @@
 </label>
 
 <div>
-    <div class="game" use:pointerLockControls={game}>
-        <!-- <div id="lock-message">
-            Controls: WASD
-            <br>
-            Click to lock
-        </div> -->
-        <!--
-            TODO: we want the screen wipe!!
-            interesting: https://www.shadertoy.com/view/XtlyDn
-        -->
-        <MapContext map={$map} {renderSectors}>
-            {#if $cameraMode === 'svg'}
+    {#if $cameraMode === 'svg'}
+        <div use:keyboardControls={game}>
+            <MapContext map={$map} {renderSectors}>
                 <SvgMapRoot size={viewSize} map={$map} />
-            {:else}
+                <HUD size={viewSize} player={$map.player} />
+            </MapContext>
+            {#if $intermission}
+                {#key $intermission}
+                    <Intermission size={viewSize} details={$intermission} />
+                {/key}
+            {/if}
+        </div>
+    {:else}
+        <div class="game"
+            class:small-lock-message={$editor.active}
+            use:pointerLockControls={{ ...game, messageNode }}
+            on:pointer-lock={() => pointerLocked = true}
+            on:pointer-unlock={() => pointerLocked = false}
+        >
+            <!--
+                TODO: we want the screen wipe!!
+                interesting: https://www.shadertoy.com/view/XtlyDn
+            -->
+            <MapContext map={$map} {renderSectors}>
                 <Canvas size={viewSize} frameloop='never' bind:ctx={threlteCtx}>
                     <MapRoot map={$map} />
                 </Canvas>
+                <HUD size={viewSize} player={$map.player} />
+            </MapContext>
+            {#if $intermission}
+                {#key $intermission}
+                    <Intermission size={viewSize} details={$intermission} />
+                {/key}
             {/if}
-            <HUD player={$map.player} />
-        </MapContext>
-        {#if $intermission}
-            {#key $intermission}
-                <Intermission size={viewSize} details={$intermission} />
-            {/key}
-        {/if}
-    </div>
+
+            {#if !pointerLocked}
+                <div class="lock-message" transition:fly={{ y: -40 }}>
+                    <button bind:this={messageNode}>Click to play</button>
+                    <span class="controls">
+                        Move: WASD,
+                        Use: E,
+                        Shoot: Left-click,
+                        <br>
+                        Run: Shift,
+                        Weapons: 1-7
+                    </span>
+                </div>
+            {/if}
+        </div>
+    {/if}
+
     <MapContext map={$map} {renderSectors}>
         <EditPanel map={$map} />
     </MapContext>
@@ -137,17 +169,41 @@
         display: flex;
         flex-direction: row;
         position: relative;
+        justify-content: center;
+        align-content: center;
     }
 
     .game {
         flex-direction: column;
     }
 
-    #lock-message {
+    .controls {
+        font-size: .7em;
+    }
+
+    .lock-message {
         background: rgba(.5,.5,.5,.5);
+        padding: 1em 0;
         position: absolute;
-        top: 0;
         left: 0;
         right: 0;
+        font-size: 2em;
+        border-top: 2px solid grey;
+        border-bottom: 2px solid grey;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .lock-message button {
+        max-width: 15em;
+    }
+
+    .small-lock-message {
+        justify-content: flex-end;
+    }
+    .small-lock-message .lock-message {
+        padding: 2em;
+        right: unset;
+        font-size: 1em;
     }
 </style>

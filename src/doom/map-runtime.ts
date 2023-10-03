@@ -5,7 +5,7 @@ import { HALF_PI, lineLineIntersect, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
-import { mapObjectInfo, type MapObjectIndex, MFFlags } from "./doom-things-info";
+import { mapObjectInfo, MapObjectIndex, MFFlags } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
 
 interface AnimatedTexture {
@@ -117,10 +117,10 @@ export class MapRuntime {
         const mobj = this.spawn(type, thing.x, thing.y);
         mobj.direction.set(Math.PI + thing.angle * ToRadians);
 
-        if (mobj.info.flags && MFFlags.MF_COUNTKILL) {
+        if (mobj.info.flags & MFFlags.MF_COUNTKILL) {
             this.stats.totalKills += 1;
         }
-        if (mobj.info.flags && MFFlags.MF_COUNTITEM) {
+        if (mobj.info.flags & MFFlags.MF_COUNTITEM) {
             this.stats.totalItems += 1;
         }
     }
@@ -155,6 +155,20 @@ export class MapRuntime {
         this.camera.update();
     }
 
+    private tick() {
+        this.actions.forEach(action => action(this.game.time));
+
+        // update wall/flat animations
+        this.animatedTextures.forEach(anim => {
+            if (this.game.time.tick.val % anim.speed === 0) {
+                anim.current = (anim.current + 1) % anim.frames.length;
+                anim.target.set(anim.frames[anim.current]);
+            }
+        });
+
+        this.objs.forEach(thing => thing.tick());
+    }
+
     initializeTextureAnimation(target: Store<string>, type: 'wall' | 'flat') {
         if (!target) {
             return;
@@ -171,20 +185,6 @@ export class MapRuntime {
                 this.animatedTextures = this.animatedTextures.filter(e => e.target !== target);
             }
         })();
-    }
-
-    private tick() {
-        this.actions.forEach(action => action(this.game.time));
-
-        // update wall/flat animations
-        this.animatedTextures.forEach(anim => {
-            if (this.game.time.tick.val % anim.speed === 0) {
-                anim.current = (anim.current + 1) % anim.frames.length;
-                anim.target.set(anim.frames[anim.current]);
-            }
-        });
-
-        this.objs.forEach(thing => thing.tick());
     }
 
     addAction(action: Action) {
@@ -284,10 +284,10 @@ class GameInput {
     public maxPolarAngle = HALF_PI;
 
     private freeFly: Store<boolean>;
+    private compassMove: Store<boolean>;
     private handledUsePress = false; // only one use per button press
     private get player() { return this.map.player };
     private obj = new Object3D();
-    private direction = new Vector3();
 
     constructor(private map: MapRuntime, readonly input: ControllerInput) {
         const euler = this.map.camera.rotation.val;
@@ -299,6 +299,7 @@ class GameInput {
         });
 
         this.freeFly = this.map.game.settings.freeFly;
+        this.compassMove = this.map.game.settings.compassMove;
         this.map.disposables.push(
             this.map.game.settings.freelook.subscribe(val => {
                 if (val) {
@@ -333,19 +334,16 @@ class GameInput {
 
         // handle rotation movements
         const euler = this.map.camera.rotation.val;
-        euler.z -= this.input.mouse.x * 0.002 * this.pointerSpeed;
-        euler.x -= this.input.mouse.y * 0.002 * this.pointerSpeed;
+        euler.z -= this.input.aim.x * 0.002 * this.pointerSpeed;
+        euler.x -= this.input.aim.y * 0.002 * this.pointerSpeed;
         euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
         this.player.direction.set(euler.z - HALF_PI);
-
+        this.map.camera.zoom += this.input.aim.z;
         // clear for next eval
-        this.input.mouse.x = 0;
-        this.input.mouse.y = 0;
+        this.input.aim.set(0, 0, 0);
 
         // handle direction movements
-        this.direction.x = Number(this.input.moveRight) - Number(this.input.moveLeft);
-        this.direction.y = Number(this.input.moveForward) - Number(this.input.moveBackward);
-        this.direction.normalize(); // ensure consistent movements in all directions
+        this.input.move.normalize(); // ensure consistent movements in all directions
         // ^^^ this isn't very doom like but I'm not sure I want to change it
 
         const dt = delta * delta / frameTickTime;
@@ -355,11 +353,14 @@ class GameInput {
             if (this.freeFly.val && !this.input.slow) {
                 speed *= 2;
             }
-            if (this.input.moveForward || this.input.moveBackward) {
-                this.player.velocity.addScaledVector(this.forwardVec(), this.direction.y * speed * dt);
+            if (this.input.move.y) {
+                this.player.velocity.addScaledVector(this.forwardVec(), this.input.move.y * speed * dt);
             }
-            if (this.input.moveLeft || this.input.moveRight) {
-                this.player.velocity.addScaledVector(this.rightVec(), this.direction.x * speed * dt);
+            if (this.input.move.x) {
+                this.player.velocity.addScaledVector(this.rightVec(), this.input.move.x * speed * dt);
+            }
+            if (this.input.move.z && this.freeFly) {
+                this.player.velocity.addScaledVector(this.upVec(), this.input.move.z * speed * dt);
             }
             if (this.freeFly.val) {
                 // apply separate friction during freefly
@@ -395,13 +396,21 @@ class GameInput {
     }
 
     private rightVec() {
-        return vec.setFromMatrixColumn(this.obj.matrix, 0);
+        return this.compassMove.val
+            ? vec.set(1, 0, 0)
+            : vec.setFromMatrixColumn(this.obj.matrix, 0);
+    }
+
+    private upVec() {
+        return vec.set(0, 0, 1);
     }
 
     private forwardVec() {
         if (this.freeFly.val) {
             // freelook https://stackoverflow.com/questions/63405094
             vec.set(0, 0, -1).applyQuaternion(this.obj.quaternion);
+        } else if (this.compassMove.val) {
+            vec.set(0, 1, 0);
         } else {
             // move forward parallel to the xy-plane (camera.up is z-up)
             vec.setFromMatrixColumn(this.obj.matrix, 0);
@@ -416,6 +425,7 @@ class Camera {
     private pos = new Vector3();
     private angle = new Euler(0, 0, 0, 'ZXY');
 
+    zoom = 0;
     readonly rotation = store(this.angle);
     readonly position = store(this.pos);
     readonly mode: Game['settings']['cameraMode'];
@@ -427,12 +437,13 @@ class Camera {
         const freeFly = game.settings.freeFly;
         const sub = game.settings.cameraMode.subscribe(mode => {
             if (mode === '3p' || mode === '3p-noclip' || mode === 'ortho') {
-                const followDist = 200;
+                const sholderOffset = 15;
                 this.update = () => {
+                    this.zoom = Math.max(50, Math.min(1000, this.zoom));
                     const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
-                    this.pos.x = -Math.sin(-this.angle.z) * followDist + pos.x;
-                    this.pos.y = -Math.cos(-this.angle.z) * followDist + pos.y;
-                    this.pos.z = Math.cos(-this.angle.x) * followDist + pos.z + playerViewHeight;
+                    this.pos.x = -Math.sin(-this.angle.z) * this.zoom + pos.x - sholderOffset;
+                    this.pos.y = -Math.cos(-this.angle.z) * this.zoom + pos.y;
+                    this.pos.z = Math.cos(-this.angle.x) * this.zoom + pos.z + playerViewHeight;
                     if (mode === '3p') {
                         this.clipPosition(this.pos, map, player);
                     }
@@ -440,9 +451,9 @@ class Camera {
                     this.rotation.set(this.angle);
                 };
             } else if (mode === 'bird') {
-                const followDist = 250;
                 this.update = () => {
-                    this.pos.set(pos.x, pos.y, pos.z + followDist);
+                    this.zoom = Math.max(100, Math.min(1500, this.zoom));
+                    this.pos.set(pos.x, pos.y, pos.z + this.zoom);
                     this.position.set(this.pos);
                     this.angle.x = 0;
                     this.rotation.set(this.angle);

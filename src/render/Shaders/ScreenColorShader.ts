@@ -52,7 +52,7 @@ export const ScreenColorShader = {
     }
 
     float damageScale() {
-        return 0.2 * sin( min( 20.0, damageCount ) / 20.0 * PI_2 );
+        return 0.3 * sin( min( 20.0, damageCount ) / 20.0 * PI_2 );
     }
 
     float berserkScale() {

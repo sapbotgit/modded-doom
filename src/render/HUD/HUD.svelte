@@ -5,14 +5,16 @@
     import SmallNum from "./SmallNum.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
+    import type { Size } from "@threlte/core";
 
     export let player: PlayerMapObject;
+    export let size: Size;
 
     const { health, weapon, inventory } = player;
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
 </script>
 
-<div class="root">
+<div class="root" style="top:{size.height}px">
     <Picture name={'STBAR'} />
     <div class="ammo">
         {#if $inventory.ammo[$weapon.ammoType]}
@@ -78,8 +80,8 @@
     .root {
         align-self: center;
         width: 320px;
-        position: relative;
-        transform: scale(2) translate(0px, 25%) ;
+        transform: scale(2);
+        transform-origin: top center;
     }
 
     .ammo {

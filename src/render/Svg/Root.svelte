@@ -2,7 +2,7 @@
     import type { Size } from "@threlte/core";
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
-    import { HALF_PI, ToDegrees, type MapRuntime, type MapObject as MObj } from "../../doom";
+    import { type MapRuntime, type MapObject as MObj } from "../../doom";
     import { useDoom } from "../DoomContext";
 
     export let size: Size;
@@ -12,36 +12,33 @@
     const { position, direction } = map.player;
     const showBlockmap = useDoom().settings.showBlockMap;
 
-    const width = 500;
-    const height = 500;
-    $: left = $position.x - width * .5;
-    $: top = $position.y - height * .5;
+    let zoom = 500;
+    $: left = $position.x - zoom * .5;
+    $: top = $position.y - zoom * .5;
     let bounds = map.data.blockmap.bounds;
 
-    let svg;
-    let pt;
-    function touchMap(ev) {
-        if (!pt) {
-            pt = svg.createSVGPoint();
+    function mousedown(ev: MouseEvent) {
+        if (ev.buttons & 1) {
+            map.game.input.attack = true;
         }
-        pt.x = ev.clientX;
-        pt.y = ev.clientY;
-        // very cool https://stackoverflow.com/questions/29261304
-        let cp =  pt.matrixTransform(svg.getScreenCTM().inverse());
-        // let node: TreeNode | SubSector = map.nodes[map.nodes.length - 1];
-        // while (true) {
-        //     if ('segs' in node) {
-        //         console.log(node.sector);
-        //         return;
-        //     }
-        //     // is Left https://stackoverflow.com/questions/1560492
-        //     const cross = (node.v[1].x - node.v[0].x) * (cp.y - node.v[0].y) - (node.v[1].y - node.v[0].y) * (cp.x - node.v[0].x);
-        //     if (cross > 0) {
-        //         node = node.childLeft
-        //     } else {
-        //         node = node.childRight;
-        //     }
-        // }
+    }
+
+    function mouseup(ev: MouseEvent) {
+        if ((ev.buttons & 1) === 0) {
+            map.game.input.attack = false;
+        }
+    }
+
+    function mousewheel(ev: WheelEvent) {
+        zoom = Math.max(100, Math.min(2000, zoom + ev.deltaY * 2));
+    }
+
+    function mousemove(ev: MouseEvent) {
+        let p = new DOMPoint(ev.clientX, ev.clientY);
+        let sp = p.matrixTransform((ev.target as any).getScreenCTM().inverse());
+        // set player direction based on click location
+        const ang = Math.atan2(sp.y - $position.y, sp.x - $position.x) + Math.PI;
+        direction.set(ang);
     }
 
     let mobjs: MObj[] = [];
@@ -51,10 +48,14 @@
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
+<!-- svelte-ignore a11y-no-static-element-interactions -->
 <svg
     width={size.width} height={size.height}
-    viewBox="{left} {top} {width} {height}"
-    on:click={touchMap} bind:this={svg}
+    viewBox="{left} {top} {zoom} {zoom}"
+    on:mousemove={mousemove}
+    on:mousedown={mousedown}
+    on:mouseup={mouseup}
+    on:wheel={mousewheel}
 >
     <defs>
         <!-- https://developer.mozilla.org/en-US/docs/Web/SVG/Element/marker -->
@@ -79,11 +80,7 @@
         </pattern>
     </defs>
 
-    <g
-        transform="
-            rotate({(-$direction - HALF_PI) * ToDegrees} {$position.x} {$position.y})
-        "
-    >
+    <g>
         {#if $showBlockmap}
             <rect
                 x={bounds.left} y={bounds.bottom}
@@ -105,5 +102,6 @@
     svg {
         /* invert top and bottom */
         transform: scaleY(-1);
+        user-select: none;
     }
 </style>

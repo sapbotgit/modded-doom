@@ -26,6 +26,7 @@
         [30,75,120,90,165,180,180,30,165],
         [90,90,90,120,90,360,240,30,170],
         [90,45,90,150,90,90,165,30,135],
+        [165,255,135,150,180,390,135,360,180],
     ];
     // Doom2 (and plutonia/tnt)
     const parTimes2 = [
@@ -141,56 +142,58 @@
             : 'CWILV' + String(mapNum(mapName)).padStart(2, '0');
 </script>
 
-<div class="root" style="transform: scale({scale});">
-    {#if episodeMaps && episode < 4}
-        <AnimatedBackground episode={episode - 1} {details} showLocation={state === 'next-map'} />
-    {:else}
-        <Picture name="INTERPIC" />
-    {/if}
-    <div class="content">
-        {#if state === 'next-map'}
-            <div class="title">
-                <span><Picture name="WIENTER" /></span>
-                <span><Picture name={mapImageName(details.nextMapName)} /></span>
-            </div>
+<div style="width:{size.width}px;height:{size.height}px;">
+    <div class="root" style="transform: scale({scale});">
+        {#if episodeMaps && episode < 4}
+            <AnimatedBackground episode={episode - 1} {details} showLocation={state === 'next-map'} />
         {:else}
-            <div class="title">
-                <span><Picture name={mapImageName(details.finishedMap.name)} /></span>
-                <span><Picture name="WIF" /></span>
-            </div>
-
-            <div class="stats">
-                <div>
-                    <span><Picture name="WIOSTK" /></span>
-                    <span class:transparent={tickers.length < 1}><Percent value={$killPercent} /></span>
-                </div>
-                <div>
-                    <span><Picture name="WIOSTI" /></span>
-                    <span class:transparent={tickers.length < 2}><Percent value={$itemPercent} /></span>
-                </div>
-                <div>
-                    <span><Picture name="WISCRT2" /></span>
-                    <span class:transparent={tickers.length < 3}><Percent value={$secretPercent} /></span>
-                </div>
-            </div>
-
-            <div class="time">
-                <div class="game-time">
-                    <div class="time-pair">
-                        <span><Picture name="WITIME" /></span>
-                        <span class:transparent={tickers.length < 4}><Time time={$mapTime} /></span>
-                    </div>
-                    <div class="time-pair">
-                        <span></span>
-                        <span class:transparent={tickers.length < 4}><Time time={$gameTime} /></span>
-                    </div>
-                </div>
-                <div class="time-pair">
-                    <span><Picture name="WIPAR" /></span>
-                    <span class:transparent={tickers.length < 4}><Time time={$parTime} /></span>
-                </div>
-            </div>
+            <Picture name="INTERPIC" />
         {/if}
+        <div class="content">
+            {#if state === 'next-map'}
+                <div class="title">
+                    <span><Picture name="WIENTER" /></span>
+                    <span><Picture name={mapImageName(details.nextMapName)} /></span>
+                </div>
+            {:else}
+                <div class="title">
+                    <span><Picture name={mapImageName(details.finishedMap.name)} /></span>
+                    <span><Picture name="WIF" /></span>
+                </div>
+
+                <div class="stats">
+                    <div>
+                        <span><Picture name="WIOSTK" /></span>
+                        <span class:transparent={tickers.length < 1}><Percent value={$killPercent} /></span>
+                    </div>
+                    <div>
+                        <span><Picture name="WIOSTI" /></span>
+                        <span class:transparent={tickers.length < 2}><Percent value={$itemPercent} /></span>
+                    </div>
+                    <div>
+                        <span><Picture name="WISCRT2" /></span>
+                        <span class:transparent={tickers.length < 3}><Percent value={$secretPercent} /></span>
+                    </div>
+                </div>
+
+                <div class="time">
+                    <div class="game-time">
+                        <div class="time-pair">
+                            <span><Picture name="WITIME" /></span>
+                            <span class:transparent={tickers.length < 4}><Time time={$mapTime} /></span>
+                        </div>
+                        <div class="time-pair">
+                            <span></span>
+                            <span class:transparent={tickers.length < 4}><Time time={$gameTime} /></span>
+                        </div>
+                    </div>
+                    <div class="time-pair">
+                        <span><Picture name="WIPAR" /></span>
+                        <span class:transparent={tickers.length < 4}><Time time={$parTime} /></span>
+                    </div>
+                </div>
+            {/if}
+        </div>
     </div>
 </div>
 

@@ -3,6 +3,7 @@ import { PlayerMapObject, type PlayerInventory } from "./map-object";
 import type { DoomWad } from "./wad/doomwad";
 import type { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
+import { Vector3 } from "three";
 
 export interface GameTime {
     elapsed: number; // seconds
@@ -15,6 +16,8 @@ export interface GameSettings {
     freelook: Store<boolean>;
     noclip: Store<boolean>;
     freeFly: Store<boolean>;
+    // useful for birds eye view where we may not want to rotate the camera when the player rotates
+    compassMove: Store<boolean>;
     invicibility: Store<boolean>;
     cameraMode: Store<'1p' | '3p' | '3p-noclip' | 'bird' | 'ortho' | 'svg'>;
 }
@@ -30,16 +33,14 @@ interface PlayerStats extends PlayerInventory {
 }
 
 export interface ControllerInput {
-    moveForward: boolean;
-    moveBackward: boolean;
-    moveLeft: boolean;
-    moveRight: boolean;
+    // why vector? so a joystick (or something) can move slower and faster
+    move: Vector3;
+    aim: Vector3;
     run: boolean;
     slow: boolean;
     use: boolean;
     attack: boolean;
     weaponSelect: number;
-    mouse: { x: number, y: number };
 }
 
 export interface IntermissionScreen {
@@ -59,16 +60,13 @@ export class Game {
     }
 
     readonly input: ControllerInput = {
-        moveForward: false,
-        moveBackward: false,
-        moveLeft: false,
-        moveRight: false,
+        move: new Vector3(),
+        aim: new Vector3(),
         run: false,
         slow: false,
         use: false,
         attack: false,
         weaponSelect: 0,
-        mouse: { x: 0, y: 0 },
     };
     readonly inventory: PlayerStats = {
         health: 100,
