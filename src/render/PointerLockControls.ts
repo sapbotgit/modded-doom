@@ -25,6 +25,7 @@ export const pointerLockControls: Action<HTMLElement, Params, Attributes> =
     const doc = node.ownerDocument;
     let { input, messageNode } = params;
 
+    let locked = false;
     let keyboardAction: ActionReturn<Params> = null;
     const lockRequest = () => node.requestPointerLock();
     (messageNode ?? node).addEventListener('click', lockRequest);
@@ -70,6 +71,10 @@ export const pointerLockControls: Action<HTMLElement, Params, Attributes> =
     }
 
     function lock() {
+        if (locked) {
+            return;
+        }
+        locked = true;
         keyboardAction = keyboardControls(node, params) as ActionReturn;
         node.dispatchEvent(new CustomEvent('pointer-lock'));
         doc.addEventListener('mousemove', mousemove);
@@ -79,6 +84,7 @@ export const pointerLockControls: Action<HTMLElement, Params, Attributes> =
     }
 
     function unlock() {
+        locked = false;
         keyboardAction?.destroy();
         node.dispatchEvent(new CustomEvent('pointer-unlock'));
         doc.removeEventListener('mousemove', mousemove);
@@ -89,13 +95,14 @@ export const pointerLockControls: Action<HTMLElement, Params, Attributes> =
 
     function pointerlockchange(ev: Event) {
         if (document.pointerLockElement === node) {
-            lock()
+            lock();
         } else {
             unlock();
         }
     }
 
     function pointerlockerror(ev: Event) {
-        console.warn('pointer lock error', ev)
+        console.warn('pointer lock error', ev);
+        unlock();
     }
 };

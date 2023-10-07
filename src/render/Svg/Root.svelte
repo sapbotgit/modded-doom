@@ -3,7 +3,8 @@
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
     import { type MapRuntime, type MapObject as MObj } from "../../doom";
-    import { useDoom } from "../DoomContext";
+    import { useDoom, useDoomMap } from "../DoomContext";
+    import { Color } from "three";
 
     export let size: Size;
     export let map: MapRuntime;
@@ -45,6 +46,10 @@
     $: if ($rev) {
         mobjs = map.objs;
     }
+
+    const { renderSectors } = useDoomMap();
+    const namedColor = (n: number) =>
+        '#' + Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length].toString(16).padStart(6, '0');
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -80,7 +85,19 @@
         </pattern>
     </defs>
 
-    <g>
+    <g
+        stroke-linecap={'round'}
+    >
+
+        <!-- {#each renderSectors as rs, i}
+            <polygon points={rs.vertexes.map(e => e.x + ',' + e.y).join(' ')} fill={namedColor(i)} />
+        {/each}
+        {#each map.data.nodes as node}
+            {#if 'segs' in node.childRight || 'segs' in node.childLeft}
+                <line x1={node.v[0].x} y1={node.v[0].y} x2={node.v[1].x} y2={node.v[1].y} stroke='magenta' stroke-width={5} />
+            {/if}
+        {/each} -->
+
         {#if $showBlockmap}
             <rect
                 x={bounds.left} y={bounds.bottom}
@@ -103,5 +120,9 @@
         /* invert top and bottom */
         transform: scaleY(-1);
         user-select: none;
+    }
+
+    g {
+        pointer-events: none;
     }
 </style>

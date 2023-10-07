@@ -1,8 +1,8 @@
 import { store, type Store } from "./store";
 import type { DoomWad } from "./wad/doomwad";
-import { Vector3 } from "three";
+import { Vector3, PerspectiveCamera, Matrix4, Frustum, Box3 } from "three";
 import { MapObject } from "./map-object";
-import { AmanatidesWooTrace, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Vertex } from "./math";
+import { AmanatidesWooTrace, HALF_PI, lineAABB, lineLineIntersect, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
 
@@ -115,10 +115,15 @@ const toSector = (num: number, sd: any): Sector => {
 export interface SubSector {
     sector: Sector;
     segs: Seg[];
+    // for collision detection
+    mobjs: MapObject[];
+    hitC: number;
 }
 const toSubSector = (item: any, segs: Seg[]): SubSector => ({
     sector: segs[item.firstSeg].direction ? segs[item.firstSeg].linedef.left.sector : segs[item.firstSeg].linedef.right.sector,
     segs: segs.slice(item.firstSeg, item.firstSeg + item.count),
+    mobjs: [],
+    hitC: 0,
 });
 
 export interface NodeBounds {
@@ -158,6 +163,7 @@ interface Block {
 }
 
 interface BaseTraceHit {
+    subsector: SubSector;
     fraction: number; // 0-1 of how far we moved along the desired path
     overlap: number; // used to resolve a tie in hit fraction
     point: Vector3; // point of hit (maybe redundant because we can compute it from fraction and we don't use z anyway)
@@ -388,9 +394,9 @@ class BlockMap {
     }
 }
 
-const _moveEnd = new Vector3();
 export const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
+    private bspTracer: ReturnType<typeof createBspTracer>;
     readonly things: Thing[];
     readonly linedefs: LineDef[];
     readonly vertexes: Vertex[];
@@ -412,6 +418,7 @@ export class MapData {
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
         this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
+        this.bspTracer = createBspTracer(this.nodes[this.nodes.length - 1]);
 
         // figure out any sectors that need sky height adjustment
         for (const sector of this.sectors) {
@@ -424,18 +431,17 @@ export class MapData {
         }
     }
 
-    private findSubSector(x: number, y: number): SubSector {
+    findSubSector(x: number, y: number): SubSector {
         let node: TreeNode | SubSector = this.nodes[this.nodes.length - 1];
         while (true) {
             if ('segs' in node) {
                 return node;
             }
-            // is Left https://stackoverflow.com/questions/1560492
-            const cross = (node.v[1].x - node.v[0].x) * (y - node.v[0].y) - (node.v[1].y - node.v[0].y) * (x - node.v[0].x);
-            if (cross <= 0) {
-                node = node.childRight;
-            } else {
+            const side = signedLineDistance(node.v, { x, y });
+            if (side <= 0) {
                 node = node.childLeft
+            } else {
+                node = node.childRight;
             }
         }
     }
@@ -459,118 +465,70 @@ export class MapData {
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
-    xyCollisions(mobj: MapObject, move: Vector3, onHit: HandleTraceHit) {
-        const maxStepSize = 24;
-
-        _moveEnd.copy(mobj.position.val).add(move);
-        function triggerSpecial(hit: LineTraceHit) {
-            if (hit.line.special) {
-                const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
-                const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1
-                if (startSide !== endSide) {
-                    onHit({ ...hit, special: true });
-                }
-            }
-        }
-
-        const start = mobj.position.val;
-        this.traceBlock(start, move, mobj.info.radius, hit => {
-            if ('mobj' in hit) {
-                // kind of like PIT_CheckThing
-                if (hit.mobj === mobj) {
-                    return true; // don't collide with yourself
-                }
-                if (!(hit.mobj.info.flags & hittableThing)) {
-                    return true; // not hittable
-                }
-                return onHit(hit);
-            } else if ('line' in hit) {
-                const twoSided = (hit.line.flags & 0x0004) !== 0;
-                const blocking = (hit.line.flags & 0x0001) !== 0;
-                if (twoSided && !blocking) {
-                    const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
-
-                    const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
-                    const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
-                    const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
-                    const dropOffOk =
-                        (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
-                        (start.z - endSect.zFloor.val <= maxStepSize);
-
-                    // console.log('[sz,ez], [f,t,cf,do]',[start.z, endSect.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
-                    if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
-                        triggerSpecial(hit);
-                        return true; // step/ceiling collision is okay so try next line
-                    }
-                }
-
-                return onHit(hit);
-            }
-        });
-    }
-
     trace(start: Vector3, move: Vector3, onHit: HandleTraceHit) {
         return this.traceBlock(start, move, 0, onHit);
     }
 
-    private traceBlock(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
-        // TODO: an object pool may avoid the gc overhead of alloc/dealloc of items in the array
-        let hits: TraceHit[] = [];
-        // because we process each block iteratively, we may actually miss a hit from another block that
-        // would be the first hit. blockmap.traceRay() wouldn't do this but using that means that wider
-        // objects or objects close to the edge of a block will not work right. Something that would be nice
-        // to fix someday...
-        this.blockmap.traceBox(start, move, radius, (block, bounds) => {
-            hits.length = 0;
-            for (const linedef of block.linedefs) {
-                // because linedefs cut through multiple blocks, we often visit the same linedef multiple times
-                // maybe we can improve this using bsp?
-                const hit = sweepAABBLine(start, radius, move, linedef.v);
-                // this is a bit of a hack because we may detect a hit on the linedef that is outside the bounds of a block
-                // and we miss valid collisions because of that. Also, the hit will be the center of the AABB which may not be
-                // in the block (when a linedef is close to the edge of a block). With all the little hacks needed here I do
-                // wonder if we are better using bsp instead of blockmaps for linedef (or seg) collisions
-                const validHit = (hit
-                    && hit.x + radius >= bounds.left && hit.x - radius <= bounds.right
-                    && hit.y + radius >= bounds.top && hit.y - radius <= bounds.bottom);
-                if (validHit) {
-                    const side = -Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
-                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                    const overlap = aabbLineOverlap(point, radius, linedef);
-                    hits.push({ overlap, point, side, line: linedef, fraction: hit.u });
-                }
-            }
+    traceBlock(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
+        this.bspTracer(start, move, radius, onHit);
 
-            for (const thing of block.things) {
-                // FIXME: a thing only exists in one block but objects that are close to the edge should overlap multiple blocks
-                // See also https://doomwiki.org/wiki/Flawed_collision_detection
-                // If we fix this, we will perhaps trace the same thing multiple times (like linedefs above) so maybe some more
-                // thought is needed here
-                const hit = sweepAABBAABB(start, radius, move, thing.position.val, thing.info.radius);
-                if (hit) {
-                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                    const ov = aabbAabbOverlap(point, radius, thing.position.val, thing.info.radius);
-                    hits.push({ point, overlap: ov.area, axis: ov.axis, fraction: hit.u, mobj: thing });
-                }
-            }
+        // // TODO: an object pool may avoid the gc overhead of alloc/dealloc of items in the array
+        // let hits: TraceHit[] = [];
+        // // because we process each block iteratively, we may actually miss a hit from another block that
+        // // would be the first hit. blockmap.traceRay() wouldn't do this but using that means that wider
+        // // objects or objects close to the edge of a block will not work right. Something that would be nice
+        // // to fix someday...
+        // this.blockmap.traceBox(start, move, radius, (block, bounds) => {
+        //     hits.length = 0;
+        //     for (const linedef of block.linedefs) {
+        //         // because linedefs cut through multiple blocks, we often visit the same linedef multiple times
+        //         // maybe we can improve this using bsp?
+        //         const hit = sweepAABBLine(start, radius, move, linedef.v);
+        //         // this is a bit of a hack because we may detect a hit on the linedef that is outside the bounds of a block
+        //         // and we miss valid collisions because of that. Also, the hit will be the center of the AABB which may not be
+        //         // in the block (when a linedef is close to the edge of a block). With all the little hacks needed here I do
+        //         // wonder if we are better using bsp instead of blockmaps for linedef (or seg) collisions
+        //         const validHit = (hit
+        //             && hit.x + radius >= bounds.left && hit.x - radius <= bounds.right
+        //             && hit.y + radius >= bounds.top && hit.y - radius <= bounds.bottom);
+        //         if (validHit) {
+        //             const side = -Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
+        //             const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+        //             const overlap = aabbLineOverlap(point, radius, linedef);
+        //             hits.push({ overlap, point, side, line: linedef, fraction: hit.u });
+        //         }
+        //     }
 
-            // TODO: what about hitting floors?
+        //     for (const thing of block.things) {
+        //         // FIXME: a thing only exists in one block but objects that are close to the edge should overlap multiple blocks
+        //         // See also https://doomwiki.org/wiki/Flawed_collision_detection
+        //         // If we fix this, we will perhaps trace the same thing multiple times (like linedefs above) so maybe some more
+        //         // thought is needed here
+        //         const hit = sweepAABBAABB(start, radius, move, thing.position.val, thing.info.radius);
+        //         if (hit) {
+        //             const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+        //             const ov = aabbAabbOverlap(point, radius, thing.position.val, thing.info.radius);
+        //             hits.push({ point, overlap: ov.area, axis: ov.axis, fraction: hit.u, mobj: thing });
+        //         }
+        //     }
 
-            // sort hits items
-            hits.sort((a, b) => {
-                const dist = a.fraction - b.fraction;
-                return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
-            });
+        //     // TODO: what about hitting floors?
 
-            for (let hit of hits) {
-                const shouldContinue = onHit(hit);
-                if (!shouldContinue) {
-                    return false;
-                }
-            }
+        //     // sort hits items
+        //     hits.sort((a, b) => {
+        //         const dist = a.fraction - b.fraction;
+        //         return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
+        //     });
 
-            return true;
-        });
+        //     for (let hit of hits) {
+        //         const shouldContinue = onHit(hit);
+        //         if (!shouldContinue) {
+        //             return false;
+        //         }
+        //     }
+
+        //     return true;
+        // });
     }
 }
 
@@ -608,4 +566,164 @@ function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
     _aabbAabbOverlap.axis = dx > dy ? 'y' : 'x';
     _aabbAabbOverlap.area = Math.max(0, dx * dy);
     return _aabbAabbOverlap
+}
+
+function createBspTracer(root: TreeNode) {
+    const end = new Vector3();
+    const segNormal = new Vector3();
+    const screenProjection = new Matrix4();
+    const bboxMin = new Vector3();
+    const bboxMax = new Vector3();
+    const bbox = new Box3(bboxMin, bboxMax);
+    const frustum = new Frustum();
+    const camera = new PerspectiveCamera(72);
+    camera.updateProjectionMatrix();
+
+    return (start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) => {
+        // end.copy(move).normalize().multiplyScalar(radius).add(start);
+        end.copy(move).add(start);
+        let dline = [start, end];
+        // camera.position.copy(start);
+        // camera.lookAt(end);
+        // camera.updateMatrixWorld();
+
+        // screenProjection.identity().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        // frustum.setFromProjectionMatrix(screenProjection);
+
+        const bboxFromSeg = (seg: Seg) => {
+            bboxMin.set(Math.min(seg.vx1.x, seg.vx2.x), Math.min(seg.vx1.y, seg.vx2.y), camera.position.z - 1);
+            bboxMax.set(Math.max(seg.vx1.x, seg.vx2.x), Math.max(seg.vx1.y, seg.vx2.y), camera.position.z + 1);
+        };
+        const bboxFromNode = (bounds: NodeBounds) => {
+            bboxMin.set(bounds.left, bounds.top, camera.position.z - 1);
+            bboxMax.set(bounds.right, bounds.bottom, camera.position.z + 1);
+        };
+
+        let hits: TraceHit[] = [];
+        let complete = false;
+        function notifyHits() {
+            // sort hits
+            hits.sort((a, b) => {
+                const dist = a.fraction - b.fraction;
+                return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
+            });
+
+            for (const hit of hits) {
+                complete = !onHit(hit);
+                // if ('line' in hit) console.log('notify',hit.line.num,complete)
+                if (complete) {
+                    break;
+                }
+            }
+            hits.length = 0;
+        }
+
+        let ht = 0;
+        let st = 0;
+        let st2 = 0;
+        let it = 0;
+        let sst = 0;
+        let mt = 0;
+        function visitNode(node: TreeNode | SubSector) {
+            if (complete) {
+                return;
+            }
+
+            if ('segs' in node) {
+                sst++;
+                for (const mobj of node.mobjs) {
+                    if (complete) {
+                        break;
+                    }
+
+                    const hit = sweepAABBAABB(start, radius, move, mobj.position.val, mobj.info.radius);
+                    mt++;
+                    if (hit) {
+                        const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+                        const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
+                        hits.push({ point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u, subsector: node });
+                    }
+                }
+                for (const seg of node.segs) {
+                    if (complete) {
+                        break;
+                    }
+
+                    // const p = lineLineIntersect(dline, seg.linedef.v, true);
+                    // it++;
+                    // if (!p) {
+                    //     continue;
+                    // }
+
+                    // let startSide = Math.sign(signedLineDistance(seg.linedef.v, start));
+                    // let endSide = Math.sign(signedLineDistance(seg.linedef.v, end));
+                    // st++;
+                    // if (startSide === endSide) {
+                    //     // we didn't cross the line
+                    //     continue;
+                    // }
+                    // // if (side === seg.direction) {
+                    // //     continue;
+                    // // }
+                    // // bboxFromSeg(seg);
+                    // // if (!frustum.intersectsBox(bbox)) {
+                    // //     continue;
+                    // // }
+
+                    // startSide = Math.sign(signedLineDistance(dline, seg.linedef.v[0]));
+                    // endSide = Math.sign(signedLineDistance(dline, seg.linedef.v[1]));
+                    // st2++;
+                    // if (startSide === endSide) {
+                    //     // we didn't cross the line
+                    //     continue;
+                    // }
+
+                    // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
+                    // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
+                    // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
+                    // other traces.
+                    // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
+                    segNormal.set(seg.vx2.y - seg.vx1.y, seg.vx1.x - seg.vx2.x, 0);
+                    if (move.dot(segNormal) >= 0) {
+                        continue;
+                    }
+
+                    const hit = sweepAABBLine(start, radius, move, seg.linedef.v);
+                    ht++;
+                    if (hit) {
+                        const side = seg.direction ? 1 : -1;
+                        const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+                        const overlap = aabbLineOverlap(point, radius, seg.linedef);
+                        // console.log('hit',seg.linedef.num,[hit.u,overlap],[seg.direction,side])
+                        hits.push({ overlap, point, side, line: seg.linedef, fraction: hit.u, subsector: node });
+                    }
+                }
+                // if (hits.length > 5) {
+                    notifyHits();
+                // }
+                return;
+            }
+
+            // we have three cases really:
+            // (1) aabb is on the line so check left AND right (only happens when radius > 0)
+            // (2) aabb is on the left or the right.
+            //  (a) if start and end are on different sides then check both
+            //  (b) else just check the start side
+            const point = radius > 0 ? lineAABB(node.v, start, radius, false) : null;
+            const side = point ? -1 : Math.sign(signedLineDistance(node.v, start));
+            visitNode((side <= 0) ? node.childLeft : node.childRight);
+            const eside = Math.sign(signedLineDistance(node.v, end));
+            if (point || eside !== side) {
+                visitNode((side <= 0) ? node.childRight : node.childLeft);
+            }
+
+            // bboxFromNode(node.boundsRight);
+            // if (frustum.intersectsBox(bbox)) {
+            //     visitNode(node.childRight);
+            // }
+        }
+        visitNode(root);
+        notifyHits();
+        // console.log('trace-end move:[sst,ht,it,st,st2,mt]',move.toArray(),[sst,ht,it,st,st2,mt])
+    };
 }

@@ -137,6 +137,7 @@ export class MapRuntime {
     }
 
     destroy(mobj: MapObject) {
+        mobj.dispose();
         this.data.blockmap.unwatch(mobj);
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);
@@ -312,6 +313,7 @@ class GameInput {
     }
 
     evaluate(delta: number) {
+        // console.log('gi',JSON.stringify(this.input.move))
         // change weapon
         if (this.input.weaponSelect) {
             let candidates = this.player.inventory.val.weapons.filter(e => e?.keynum === this.input.weaponSelect);

@@ -227,6 +227,7 @@ let _sweepAABB = { x: 0, y: 0, u: 0 };
 export function sweepAABBAABB(
     p1: Vertex, r1: number, v1: Vertex,
     p2: Vertex, r2: number,
+    bounded = true,
 ): IntersectionPoint {
     // test if already overlapping
     const left = (p2.x - r2) - (p1.x + r1);
@@ -253,7 +254,10 @@ export function sweepAABBAABB(
     const tyExit = dyExit / v1.y;
     const tEntry = Math.max(txEntry, tyEntry);
     const tExit = Math.min(txExit, tyExit);
-    if (tEntry > tExit || (txEntry < 0 && tyEntry < 0) || txEntry > 1 || tyEntry > 1) {
+    if (tEntry > tExit) {
+        return null;
+    }
+    if (bounded && ((txEntry < 0 && tyEntry < 0) || txEntry > 1 || tyEntry > 1)) {
         return null;
     }
 
@@ -264,11 +268,11 @@ export function sweepAABBAABB(
 }
 
 let _lineAABB = { x: 0, y: 0 };
-export function lineAABB(line: Vertex[], pos: Vertex, radius: number) {
+export function lineAABB(line: Vertex[], pos: Vertex, radius: number, bounded = true) {
     _lineAABB.x = line[1].x - line[0].x;
     _lineAABB.y = line[1].y - line[0].y;
     // we can get lineAABB using sweep and setting the box radius to 0
-    return sweepAABBAABB(line[0], 0, _lineAABB, pos, radius);
+    return sweepAABBAABB(line[0], 0, _lineAABB, pos, radius, bounded);
 }
 
 const decimal = (n: number) => (n % 1) + (n < 0 ? 1 : 0);

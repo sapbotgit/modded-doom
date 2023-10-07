@@ -1183,12 +1183,14 @@ export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger
 
     // figure out next map based on current map name
     const mapName = mobj.map.name;
+    const episodeFormat = mapName.startsWith('E');
     // E1M? and MAP?? both start the map number at index 3
     const prefix = mapName.substring(0, 3);
     const mapNum = parseInt(mapName.substring(3, 5));
+    // a rather complex (but kind of fun to write...) ternary
     const nextMapName =
         def.place === 'secret' ? (
-            mapName.startsWith('E') ? prefix + '9' :
+            episodeFormat ? prefix + '9' :
             mapNum === 31 ? `MAP32` : 'MAP31'
         ) :
         (mapNum === 31 || mapNum == 32) ? 'MAP16' :
@@ -1196,7 +1198,9 @@ export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger
         (mapName === 'E2M9') ? 'E2M6' :
         (mapName === 'E3M9') ? 'E3M7' :
         (mapName === 'E4M9') ? 'E4M3' :
-        `${prefix}${mapNum + 1}`;
+        `${prefix}${episodeFormat
+            ? (mapNum + 1)
+            : (mapNum + 1).toString().padStart(2, '0')}`;
 
     // intermission screen stats
     mobj.map.game.time.playTime += mobj.map.stats.elapsedTime;

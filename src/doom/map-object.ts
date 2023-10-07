@@ -2,8 +2,8 @@ import { store, type Store } from "./store";
 import { thingSpec, stateChangeActions } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
-import { randInt, ToRadians, type Vertex } from "./math";
-import { type Sector, type Thing } from "./map-data";
+import { randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
+import { hittableThing, type Sector, type SubSector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -16,12 +16,17 @@ export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
         mobj1.position.val.x - mobj2.position.val.x);
 
 const vec = new Vector3();
+const lineNormal = new Vector3();
+const maxStepSize = 24;
 const stopVelocity = 0.001;
 const friction = .90625;
 let hitCount = 0;
 export class MapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
+
+    // TODO: perf? can we be smarter? this feels awkward
+    private subsectorMap = new Map<SubSector, boolean>();
 
     protected _state = new SpriteStateMachine(
         action => stateChangeActions[action]?.(this.map.game.time, this),
@@ -37,6 +42,8 @@ export class MapObject {
 
     chaseThreshold = 0;
     chaseTarget: MapObject;
+
+    readonly dispose: () => void;
 
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
@@ -67,26 +74,42 @@ export class MapObject {
         this.position = store(new Vector3(pos.x, pos.y, 0));
         this.position.subscribe(p => {
             const currentSector = this.sector.val;
-            const sector = map.data.findSector(p.x, p.y);
+            const subsector = map.data.findSubSector(p.x, p.y);
+            let sector = subsector.sector;
             if (!currentSector) {
                 // first time setting sector so set zpos
                 p.z = sector.zFloor.val;
             }
-            // svelte stores assume != when value is an object so we add a little extra smarts
-            if (currentSector !== sector) {
-                // TODO: should we do this here or rather when applying gravity?
-                if (currentSector && currentSector.zFloor.val - sector.zFloor.val > 24) {
-                    // we are stepping off a ledge (not a step), only update the sector if all 4 corners of the AABB in the new sector
-                    const nw = map.data.findSector(p.x - this.info.radius, p.y + this.info.radius);
-                    const ne = map.data.findSector(p.x + this.info.radius, p.y + this.info.radius);
-                    const se = map.data.findSector(p.x + this.info.radius, p.y - this.info.radius);
-                    const sw = map.data.findSector(p.x - this.info.radius, p.y - this.info.radius);
-                    const allSame = nw === sector && ne === sector && se === sector && sw === sector;
-                    if (!allSame) {
-                        return;
-                    }
-                }
 
+            // check if subsectors still contain this mobj
+            this.subsectorMap.forEach((val, key) => this.subsectorMap.set(key, false));
+            this.subsectorMap.set(subsector, true);
+
+            // figure out what other sectors are touching the mobj
+            // (if we are completely inside a sector, this will have no sectors)
+            if (currentSector) {
+                map.data.traceBlock(p, vec.set(0, 0, 0), this.info.radius, hit => {
+                    this.subsectorMap.set(hit.subsector, true);
+                    // we want the sector with the highest floor so we don't get stuck in walls falling off ledges
+                    const gap = hit.subsector.sector.zFloor.val - sector.zFloor.val
+                    if (gap > 0 && gap <= maxStepSize) {
+                        sector = hit.subsector.sector;
+                    }
+                    return true;
+                });
+            }
+
+            // remove from untouched subsectors or add to touched ones
+            this.subsectorMap.forEach((val, key) => {
+                if (!val) {
+                    key.mobjs = key.mobjs.filter(e => e !== this);
+                    this.subsectorMap.delete(key);
+                } else if (!key.mobjs.includes(this)) {
+                    key.mobjs.push(this);
+                }
+            });
+
+            if (currentSector !== sector) {
                 this.sector.set(sector);
             }
         });
@@ -131,6 +154,14 @@ export class MapObject {
                 ceilChange?.();
             }
         });
+
+        this.dispose = () => {
+            floorChange?.();
+            ceilChange?.();
+            this.subsectors(subsector => {
+                subsector.mobjs = subsector.mobjs.filter(e => e !== this);
+            });
+        }
 
         this._state.setState(this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
@@ -267,6 +298,10 @@ export class MapObject {
         // TODO: 18-tick freeze (reaction) time?
     }
 
+    subsectors(fn: (subsector: SubSector) => void) {
+        this.subsectorMap.forEach((val, key) => fn(key));
+    }
+
     protected pickup(mobj: MapObject) {
         // this is only imlemented by PlayerMapObject (for now)
     }
@@ -296,13 +331,24 @@ export class MapObject {
             return;
         }
 
+        const start = this.position.val;
+
+        const ts = performance.now();
         hitCount += 1;
         const pos = this.position.val;
         let hitFraction = 1;
         while (hitFraction !== -1) {
             hitFraction = -1;
-            this.map.data.xyCollisions(this, this.velocity, hit => {
+            vec.copy(start).add(this.velocity);
+            this.map.data.traceBlock(start, this.velocity, this.info.radius, hit => {
                 if ('mobj' in hit) {
+                    // kind of like PIT_CheckThing
+                    if (hit.mobj === this) {
+                        return true; // don't collide with yourself
+                    }
+                    if (!(hit.mobj.info.flags & hittableThing)) {
+                        return true; // not hittable
+                    }
                     if (hit.mobj.hitC === hitCount) {
                         return true;
                     }
@@ -332,10 +378,36 @@ export class MapObject {
                         slideMove(this.velocity, 0, 1);
                     }
                     return false;
-                } else if ('special' in hit) {
-                    this.map.triggerSpecial(hit.line, this, 'W', hit.side)
                 } else if ('line' in hit) {
+                    const twoSided = (hit.line.flags & 0x0004) !== 0;
+                    const blocking = (hit.line.flags & 0x0001) !== 0;
+                    if (twoSided && !blocking) {
+                        const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
+
+                        const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
+                        const transitionGapOk = (endSect.zCeil.val - start.z >= this.info.height);
+                        const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= this.info.height);
+                        const dropOffOk =
+                            (this.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
+                            (start.z - endSect.zFloor.val <= maxStepSize);
+
+                        // console.log('[sz,ez], [f,t,cf,do]',[start.z, endSect.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
+                        if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
+                            if (hit.line.special) {
+                                const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
+                                const endSide = signedLineDistance(hit.line.v, vec) < 0 ? -1 : 1
+                                if (startSide !== endSide) {
+                                    this.map.triggerSpecial(hit.line, this, 'W', hit.side)
+                                }
+                            }
+
+                            return true; // step/ceiling/drop-off collision is okay so try next line
+                        }
+                    }
+
                     if (hit.line.hitC === hitCount) {
+                        // we've hit the same line again? better zero the velocity
+                        this.velocity.set(0, 0, 0);
                         return true;
                     }
                     hit.line.hitC = hitCount;
@@ -344,6 +416,7 @@ export class MapObject {
                         this.explode();
                         return false;
                     }
+
                     hitFraction = hit.fraction;
                     slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
                     return false;
@@ -351,6 +424,8 @@ export class MapObject {
                 return true;
             });
         }
+        // console.log('move-end', performance.now() - ts)
+
         this.position.set(pos.add(this.velocity));
     }
 
@@ -425,7 +500,7 @@ export class PlayerMapObject extends MapObject {
                 this.stats.secrets += 1;
                 sector.type = 0;
             }
-        })
+        });
     }
 
     tick() {
@@ -568,7 +643,7 @@ export class PlayerMapObject extends MapObject {
     protected pickup(mobj: MapObject) {
         const pickedUp = (mobj as any).spec.onPickup?.(this, mobj);
         if (pickedUp) {
-            this.stats.items += 1;
+            this.stats.items += mobj.info.flags & MFFlags.MF_COUNTITEM ? 1 : 0;
             this.bonusCount.update(val => val + 6);
             this.map.destroy(mobj);
         }

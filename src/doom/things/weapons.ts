@@ -444,7 +444,7 @@ class ShotTracer {
                     shooter.map.triggerSpecial(hit.line, shooter, 'G', hit.side);
                 }
 
-                if (hit.line.flags & 0x004) {
+                if (hit.line.flags & 0x0004) {
                     const front = hit.side === -1 ? hit.line.right : hit.line.left;
                     const back = hit.side === -1 ? hit.line.left : hit.line.right;
 
@@ -554,7 +554,7 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                 result.target = hit.mobj;
                 return false;
             } else if ('line' in hit) {
-                if (hit.line.flags & 0x004) {
+                if (hit.line.flags & 0x0004) {
                     const front = hit.side === -1 ? hit.line.right : hit.line.left;
                     const back = hit.side === -1 ? hit.line.left : hit.line.right;
 
@@ -575,7 +575,7 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
 
                     if (slopeTop <= slopeBottom) {
                          // we've run out of gap between top and bottom of walls
-                        return false;
+                         return false;
                     }
                 } else {
                     return false; // single-sided linedefs always stop trace
