@@ -336,7 +336,6 @@ export class MapObject {
         }
 
         const start = this.position.val;
-
         hitCount += 1;
         const pos = this.position.val;
         let hitFraction = 1;
@@ -438,7 +437,7 @@ export class MapObject {
                     // TODO: hmmm.. if we check for double hits here, we risk triggering specials multiple times.
                     // maybe we should trigger specials after this? (that is how doom actually does it)
                     if (hit.line.hitC === hitCount) {
-                        // we've hit the same line again? better zero the velocity
+                        // we've already hit this wall? stop moving because we're in a concave corner (e1m1 imp platform or e1m3 near blue key door)
                         this.velocity.set(0, 0, 0);
                         return true;
                     }
