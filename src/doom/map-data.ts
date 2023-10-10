@@ -1,8 +1,8 @@
 import { store, type Store } from "./store";
 import type { DoomWad } from "./wad/doomwad";
-import { Vector3, PerspectiveCamera, Matrix4, Frustum, Box3 } from "three";
+import { Vector3 } from "three";
 import { MapObject } from "./map-object";
-import { AmanatidesWooTrace, HALF_PI, lineAABB, lineLineIntersect, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Vertex } from "./math";
+import { lineAABB, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
 
@@ -156,12 +156,6 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
         : nodes[idx & 0x7fff];
 };
 
-interface Block {
-    linedefs: LineDef[];
-    things: MapObject[];
-    traceCount: number; // used so to avoid hitting the same block multiple times in a single trace
-}
-
 interface BaseTraceHit {
     subsector: SubSector;
     fraction: number; // 0-1 of how far we moved along the desired path
@@ -194,19 +188,8 @@ const lastTrace2 = {
     tDeltaX: 0,
     tDeltaY: 0,
 }
-const gridSize = 128;
-type BlockHandler = (block: Block, bounds: NodeBounds) => boolean;
+// TODO: there are only a few references to this, it would be nice to remove it completely
 class BlockMap {
-    private map: Block[] = [];
-    private numCols: number;
-    private numRows: number;
-    private traceCount = 0;
-    private objMap = new Map<MapObject, Block>();
-    private lineTrace: AmanatidesWooTrace;
-    private mTrace: AmanatidesWooTrace;
-    private ccwTrace: AmanatidesWooTrace;
-    private cwTrace: AmanatidesWooTrace;
-    private blockBounds: NodeBounds = { top: 0, left: 0, bottom: 0, right: 0 };
     readonly bounds: NodeBounds;
 
     // TODO: remove these after finishing up debugging
@@ -215,182 +198,14 @@ class BlockMap {
     lastTrace2 = store(lastTrace2);
 
     constructor(
-        data: { numCols: number, numRows: number, originX: number, originY: number, linedefsInBlock: { linedefs: number[] }[] },
-        linedefs: LineDef[],
+        data: { numCols: number, numRows: number, originX: number, originY: number, linedefsInBlock: { linedefs: number[] }[] }
     ) {
-        this.numCols = data.numCols;
-        this.numRows = data.numRows;
         this.bounds = {
             top: data.originY + data.numRows * 128,
             left: data.originX,
             bottom: data.originY,
             right: data.originX + data.numCols * 128,
         }
-        this.map = data.linedefsInBlock.map(block => ({
-            traceCount: 0,
-            things: [],
-            linedefs: block.linedefs
-                .filter((e, i) => e >= 0 && !(i === 0 && e === 0))
-                .map(e => linedefs[e]),
-        }));
-
-        this.lineTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
-        this.mTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
-        this.ccwTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
-        this.cwTrace = new AmanatidesWooTrace(this.bounds.left, this.bounds.bottom, gridSize, this.numRows, this.numCols);
-    }
-
-    watch(mobj: MapObject) {
-        if (!(mobj.info.flags & hittableThing) || mobj.info.flags & MFFlags.MF_NOBLOCKMAP) {
-            return;
-        }
-        mobj.position.subscribe(pos => {
-            const oldBlock = this.objMap.get(mobj);
-            const idx = this.queryIndex(pos.x, pos.y);
-            if (idx === -1) {
-                return;
-            }
-            const newBlock = this.map[idx];
-            if (oldBlock === newBlock) {
-                return;
-            }
-
-            this.unwatch(mobj);
-            newBlock.things.push(mobj);
-            this.objMap.set(mobj, newBlock);
-        });
-    }
-
-    unwatch(mobj: MapObject) {
-        // TODO: perf improvement with array manipulation?
-        const oldBlock = this.objMap.get(mobj);
-        if (oldBlock) {
-            oldBlock.things = oldBlock.things.filter(e => e !== mobj);
-        }
-    }
-
-    traceRay(start: Vector3, vel: Vector3, onBlock: BlockHandler) {
-        this.lastTrace.set([]);
-        lastTrace2.start.copy(start);
-        lastTrace2.end.copy(start).add(vel);
-
-        this.traceCount += 1;
-        let coords = this.lineTrace.init(start.x, start.y, vel);
-        let continueTrace = true;
-        while (coords && continueTrace) {
-            continueTrace = this.hitBlock(coords.x, coords.y, onBlock);
-            coords = this.lineTrace.step();
-        }
-        this.lastTrace2.set(lastTrace2);
-    }
-
-    private hitBlock(x: number, y: number, onBlock: BlockHandler) {
-        const block = this.map[y * this.numCols + x];
-        if (!block || block.traceCount === this.traceCount) {
-            return true; // continue tracing
-        }
-        this.lastTrace.val.push({ row: y, col: x });
-        block.traceCount = this.traceCount;
-        this.blockBounds.top = y * gridSize + this.bounds.bottom;
-        this.blockBounds.left = x * gridSize + this.bounds.left;
-        this.blockBounds.right = this.blockBounds.left + gridSize;
-        this.blockBounds.bottom = this.blockBounds.top + gridSize;
-        return onBlock(block, this.blockBounds);
-    }
-
-    traceBox(start: Vector3, vel: Vector3, radius: number, onBlock: BlockHandler) {
-        this.lastTrace.set([]);
-        lastTrace2.start.copy(start);
-        lastTrace2.end.copy(start).add(vel);
-
-        // if vel.x or vel.y is 0 (vertical/horizontal line) we still need to find leading corners so choose a value
-        const dx = vel.x ? Math.sign(vel.x) : 1;
-        const dy = vel.y ? Math.sign(vel.y) : 1;
-        // choose the three leading corners of the AABB based on vel and radius and trace those simultaneously.
-        // it's a rather complicate function though... it would be nice to simplify it (somehow)
-        let ccw = this.ccwTrace.init(start.x + radius * dx, start.y - radius * dy, vel);
-        let mid = this.mTrace.init(start.x + radius * dx, start.y + radius * dy, vel);
-        let cw = this.cwTrace.init(start.x - radius * dx, start.y + radius * dy, vel);
-
-        this.traceCount += 1;
-        let continueTrace = true;
-        while (mid && continueTrace) {
-            if (mid) {
-                continueTrace = this.hitBlock(mid.x, mid.y, onBlock);
-            }
-            if (ccw && continueTrace) {
-                continueTrace = this.hitBlock(ccw.x, ccw.y, onBlock);
-            }
-            if (cw && continueTrace) {
-                continueTrace = this.hitBlock(cw.x, cw.y, onBlock);
-            }
-
-            if (ccw && mid && continueTrace) {
-                // fill in the gaps between ccw and mid corners
-                for (let i = Math.min(ccw.x, mid.x); continueTrace && i < Math.max(mid.x, ccw.x); i++) {
-                    continueTrace = this.hitBlock(i, mid.y, onBlock);
-                }
-                for (let i = Math.min(ccw.y, mid.y); continueTrace && i < Math.max(mid.y, ccw.y); i++) {
-                    continueTrace = this.hitBlock(mid.x, i, onBlock);
-                }
-            }
-
-            if (cw && mid && continueTrace) {
-                // fill in the gaps between mid and cw corners
-                for (let i = Math.min(cw.x, mid.x); continueTrace && i < Math.max(mid.x, cw.x); i++) {
-                    continueTrace = this.hitBlock(i, mid.y, onBlock);
-                }
-                for (let i = Math.min(cw.y, mid.y); continueTrace && i < Math.max(mid.y, cw.y); i++) {
-                    continueTrace = this.hitBlock(mid.x, i, onBlock);
-                }
-            }
-
-            ccw = this.ccwTrace.step() ?? ccw;
-            mid = this.mTrace.step();
-            cw = this.cwTrace.step() ?? cw;
-        }
-    }
-
-    radiusTrace(start: Vector3, radius: number, onBlock: (block: Block) => void) {
-        const dx = Math.floor(radius / gridSize);
-        const x1 = Math.floor((start.x - this.bounds.left) / gridSize);
-        const y1 = Math.floor((start.y - this.bounds.bottom) / gridSize);
-        const x2 = Math.min(this.numCols, x1 + dx);
-        const y2 = Math.min(this.numRows, y1 + dx);
-
-        let lastTrace = [];
-        for (let x = Math.max(0, x1 - dx); x <= x2; x++) {
-            for (let y = Math.max(0, y1 - dx); y <= y2; y++) {
-                lastTrace.push({ row: y, col: x });
-                onBlock(this.map[y * this.numCols + x]);
-            }
-        }
-        this.lastTrace.set(lastTrace);
-    }
-
-    traceBounds(left: number, bottom: number, right: number, top: number, onBlock: (block: Block) => void) {
-        const x1 = Math.max(0, Math.floor((left - this.bounds.left) / gridSize));
-        const y1 = Math.max(0, Math.floor((bottom - this.bounds.bottom) / gridSize));
-        const x2 = Math.min(this.numCols, Math.floor((right - this.bounds.left) / gridSize));
-        const y2 = Math.min(this.numRows, Math.floor((top - this.bounds.bottom) / gridSize));
-        for (let x = x1; x <= x2; x++) {
-            for (let y = y1; y <= y2; y++) {
-                onBlock(this.map[y * this.numCols + x]);
-            }
-        }
-    }
-
-    private queryIndex(x: number, y: number) {
-        const inBounds = (
-            x >= this.bounds.left && x <= this.bounds.right
-            && y >= this.bounds.bottom && y <= this.bounds.top
-        );
-        if (!inBounds) {
-            return -1;
-        }
-        const col = Math.floor((x - this.bounds.left) / gridSize);
-        const row = Math.floor((y - this.bounds.bottom) / gridSize);
-        return row * this.numCols + col;
     }
 }
 
@@ -417,7 +232,7 @@ export class MapData {
             n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
-        this.blockmap = new BlockMap(wad.raw[index + 10].contents, this.linedefs);
+        this.blockmap = new BlockMap(wad.raw[index + 10].contents);
         this.bspTracer = createBspTracer(this.nodes[this.nodes.length - 1]);
 
         // figure out any sectors that need sky height adjustment
@@ -466,69 +281,11 @@ export class MapData {
     }
 
     trace(start: Vector3, move: Vector3, onHit: HandleTraceHit) {
-        return this.traceBlock(start, move, 0, onHit);
+        this.bspTracer(start, move, 0, onHit);
     }
 
     traceBlock(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
         this.bspTracer(start, move, radius, onHit);
-
-        // // TODO: an object pool may avoid the gc overhead of alloc/dealloc of items in the array
-        // let hits: TraceHit[] = [];
-        // // because we process each block iteratively, we may actually miss a hit from another block that
-        // // would be the first hit. blockmap.traceRay() wouldn't do this but using that means that wider
-        // // objects or objects close to the edge of a block will not work right. Something that would be nice
-        // // to fix someday...
-        // this.blockmap.traceBox(start, move, radius, (block, bounds) => {
-        //     hits.length = 0;
-        //     for (const linedef of block.linedefs) {
-        //         // because linedefs cut through multiple blocks, we often visit the same linedef multiple times
-        //         // maybe we can improve this using bsp?
-        //         const hit = sweepAABBLine(start, radius, move, linedef.v);
-        //         // this is a bit of a hack because we may detect a hit on the linedef that is outside the bounds of a block
-        //         // and we miss valid collisions because of that. Also, the hit will be the center of the AABB which may not be
-        //         // in the block (when a linedef is close to the edge of a block). With all the little hacks needed here I do
-        //         // wonder if we are better using bsp instead of blockmaps for linedef (or seg) collisions
-        //         const validHit = (hit
-        //             && hit.x + radius >= bounds.left && hit.x - radius <= bounds.right
-        //             && hit.y + radius >= bounds.top && hit.y - radius <= bounds.bottom);
-        //         if (validHit) {
-        //             const side = -Math.sign(signedLineDistance(linedef.v, start)) as -1 | 1;
-        //             const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-        //             const overlap = aabbLineOverlap(point, radius, linedef);
-        //             hits.push({ overlap, point, side, line: linedef, fraction: hit.u });
-        //         }
-        //     }
-
-        //     for (const thing of block.things) {
-        //         // FIXME: a thing only exists in one block but objects that are close to the edge should overlap multiple blocks
-        //         // See also https://doomwiki.org/wiki/Flawed_collision_detection
-        //         // If we fix this, we will perhaps trace the same thing multiple times (like linedefs above) so maybe some more
-        //         // thought is needed here
-        //         const hit = sweepAABBAABB(start, radius, move, thing.position.val, thing.info.radius);
-        //         if (hit) {
-        //             const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-        //             const ov = aabbAabbOverlap(point, radius, thing.position.val, thing.info.radius);
-        //             hits.push({ point, overlap: ov.area, axis: ov.axis, fraction: hit.u, mobj: thing });
-        //         }
-        //     }
-
-        //     // TODO: what about hitting floors?
-
-        //     // sort hits items
-        //     hits.sort((a, b) => {
-        //         const dist = a.fraction - b.fraction;
-        //         return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
-        //     });
-
-        //     for (let hit of hits) {
-        //         const shouldContinue = onHit(hit);
-        //         if (!shouldContinue) {
-        //             return false;
-        //         }
-        //     }
-
-        //     return true;
-        // });
     }
 }
 
@@ -571,33 +328,10 @@ function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
 function createBspTracer(root: TreeNode) {
     const end = new Vector3();
     const segNormal = new Vector3();
-    const screenProjection = new Matrix4();
-    const bboxMin = new Vector3();
-    const bboxMax = new Vector3();
-    const bbox = new Box3(bboxMin, bboxMax);
-    const frustum = new Frustum();
-    const camera = new PerspectiveCamera(72);
-    camera.updateProjectionMatrix();
 
     return (start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) => {
-        // end.copy(move).normalize().multiplyScalar(radius).add(start);
         end.copy(move).add(start);
-        let dline = [start, end];
-        // camera.position.copy(start);
-        // camera.lookAt(end);
-        // camera.updateMatrixWorld();
-
-        // screenProjection.identity().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        // frustum.setFromProjectionMatrix(screenProjection);
-
-        const bboxFromSeg = (seg: Seg) => {
-            bboxMin.set(Math.min(seg.vx1.x, seg.vx2.x), Math.min(seg.vx1.y, seg.vx2.y), camera.position.z - 1);
-            bboxMax.set(Math.max(seg.vx1.x, seg.vx2.x), Math.max(seg.vx1.y, seg.vx2.y), camera.position.z + 1);
-        };
-        const bboxFromNode = (bounds: NodeBounds) => {
-            bboxMin.set(bounds.left, bounds.top, camera.position.z - 1);
-            bboxMax.set(bounds.right, bounds.bottom, camera.position.z + 1);
-        };
+        const allowZeroDot = move.x !== 0 || move.y !== 0 || move.z !== 0;
 
         let hits: TraceHit[] = [];
         let complete = false;
@@ -610,7 +344,6 @@ function createBspTracer(root: TreeNode) {
 
             for (const hit of hits) {
                 complete = !onHit(hit);
-                // if ('line' in hit) console.log('notify',hit.line.num,complete)
                 if (complete) {
                     break;
                 }
@@ -618,26 +351,18 @@ function createBspTracer(root: TreeNode) {
             hits.length = 0;
         }
 
-        let ht = 0;
-        let st = 0;
-        let st2 = 0;
-        let it = 0;
-        let sst = 0;
-        let mt = 0;
         function visitNode(node: TreeNode | SubSector) {
             if (complete) {
                 return;
             }
 
             if ('segs' in node) {
-                sst++;
                 for (const mobj of node.mobjs) {
                     if (complete) {
                         break;
                     }
 
                     const hit = sweepAABBAABB(start, radius, move, mobj.position.val, mobj.info.radius);
-                    mt++;
                     if (hit) {
                         const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
                         const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
@@ -649,58 +374,28 @@ function createBspTracer(root: TreeNode) {
                         break;
                     }
 
-                    // const p = lineLineIntersect(dline, seg.linedef.v, true);
-                    // it++;
-                    // if (!p) {
-                    //     continue;
-                    // }
-
-                    // let startSide = Math.sign(signedLineDistance(seg.linedef.v, start));
-                    // let endSide = Math.sign(signedLineDistance(seg.linedef.v, end));
-                    // st++;
-                    // if (startSide === endSide) {
-                    //     // we didn't cross the line
-                    //     continue;
-                    // }
-                    // // if (side === seg.direction) {
-                    // //     continue;
-                    // // }
-                    // // bboxFromSeg(seg);
-                    // // if (!frustum.intersectsBox(bbox)) {
-                    // //     continue;
-                    // // }
-
-                    // startSide = Math.sign(signedLineDistance(dline, seg.linedef.v[0]));
-                    // endSide = Math.sign(signedLineDistance(dline, seg.linedef.v[1]));
-                    // st2++;
-                    // if (startSide === endSide) {
-                    //     // we didn't cross the line
-                    //     continue;
-                    // }
-
                     // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
                     // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
                     // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
                     // other traces.
                     // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
                     segNormal.set(seg.vx2.y - seg.vx1.y, seg.vx1.x - seg.vx2.x, 0);
-                    if (move.dot(segNormal) >= 0) {
+                    const moveDot = move.dot(segNormal);
+                    // NOTE: dot === 0 is special. We allow this only when we are moving
+                    // (if we aren't moving, dot will always be 0 and we skip everything)
+                    if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
                         continue;
                     }
 
                     const hit = sweepAABBLine(start, radius, move, seg.linedef.v);
-                    ht++;
                     if (hit) {
                         const side = seg.direction ? 1 : -1;
                         const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
                         const overlap = aabbLineOverlap(point, radius, seg.linedef);
-                        // console.log('hit',seg.linedef.num,[hit.u,overlap],[seg.direction,side])
                         hits.push({ overlap, point, side, line: seg.linedef, fraction: hit.u, subsector: node });
                     }
                 }
-                // if (hits.length > 5) {
-                    notifyHits();
-                // }
+                notifyHits();
                 return;
             }
 
@@ -716,14 +411,8 @@ function createBspTracer(root: TreeNode) {
             if (point || eside !== side) {
                 visitNode((side <= 0) ? node.childRight : node.childLeft);
             }
-
-            // bboxFromNode(node.boundsRight);
-            // if (frustum.intersectsBox(bbox)) {
-            //     visitNode(node.childRight);
-            // }
         }
         visitNode(root);
         notifyHits();
-        // console.log('trace-end move:[sst,ht,it,st,st2,mt]',move.toArray(),[sst,ht,it,st,st2,mt])
     };
 }

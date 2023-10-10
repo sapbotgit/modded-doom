@@ -106,44 +106,7 @@ const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
 }
 
 const sectorObjects = (map: MapRuntime, sector: Sector) => {
-    // find all objects that are in the sector (mobj.sector === sector) or
-    // they are on the edge (intercepting a two sided linedef)
-    const linedefs = map.data.linedefs.filter(ld => ld.right.sector === sector || ld.left?.sector === sector);
-
-    // figure out sector bounds from linedef vertexes
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (const linedef of linedefs) {
-        minX = Math.min(linedef.v[0].x, linedef.v[1].x, minX);
-        maxX = Math.max(linedef.v[0].x, linedef.v[1].x, maxX);
-        minY = Math.min(linedef.v[0].y, linedef.v[1].y, minY);
-        maxY = Math.max(linedef.v[0].y, linedef.v[1].y, maxY);
-    }
-
-    const mobjs = [];
-    const twoSided = linedefs.filter(ld => ld.flags & 0x0004);
-    map.data.blockmap.traceBounds(minX, minY, maxX, maxY, block => {
-        for (const mobj of block.things) {
-            // add any objects that have their center in the sector
-            if (mobj.sector.val === sector) {
-                mobjs.push(mobj);
-                continue;
-            }
-
-            // check if the object overlaps with any two sided linedef for the sector
-            // (ie. half in this sector and half in another)
-            for (const ld of twoSided) {
-                const hit = lineAABB(ld.v, mobj.position.val, mobj.info.radius);
-                if (hit) {
-                    mobjs.push(mobj);
-                    break;
-                }
-            }
-        }
-    });
-    return mobjs;
+    return map.objs.filter(e => e.touchingSector(sector));
 }
 
 const isBeingCrushed = (mobj: MapObject, zFloor: number, zCeil: number ) =>
@@ -444,7 +407,17 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
             let finished = false;
             // move lift
             sector.zFloor.update(val => {
+                let original = val;
                 val += def.speed * direction;
+
+                if (direction === 1) {
+                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, val, sector.zCeil.val));
+                    if (mobjs.length) {
+                        // switch direction
+                        direction = -1;
+                        return original;
+                    }
+                }
 
                 if (val < low) {
                     // hit bottom

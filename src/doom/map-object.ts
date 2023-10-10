@@ -16,7 +16,6 @@ export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
         mobj1.position.val.x - mobj2.position.val.x);
 
 const vec = new Vector3();
-const lineNormal = new Vector3();
 const maxStepSize = 24;
 const stopVelocity = 0.001;
 const friction = .90625;
@@ -298,7 +297,13 @@ export class MapObject {
         // TODO: 18-tick freeze (reaction) time?
     }
 
-    subsectors(fn: (subsector: SubSector) => void) {
+    touchingSector(sector: Sector) {
+        let touching = false;
+        this.subsectors(subsector => touching = touching || (subsector.sector === sector));
+        return touching;
+    }
+
+    protected subsectors(fn: (subsector: SubSector) => void) {
         this.subsectorMap.forEach((val, key) => fn(key));
     }
 

@@ -59,7 +59,6 @@ export class MapRuntime {
         this.input = new GameInput(this, game.input);
 
         this.objs.push(this.player);
-        this.data.blockmap.watch(this.player);
         this.data.things.forEach(e => this.initialThingSpawn(e));
 
         this.synchronizeSpecials();
@@ -130,7 +129,6 @@ export class MapRuntime {
         if (z !== undefined) {
             mobj.position.val.z = z;
         }
-        this.data.blockmap.watch(mobj);
         this.objs.push(mobj);
         this.rev.update(v => v += 1);
         return mobj;
@@ -138,7 +136,6 @@ export class MapRuntime {
 
     destroy(mobj: MapObject) {
         mobj.dispose();
-        this.data.blockmap.unwatch(mobj);
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);
         this.rev.update(rev => rev += 1);

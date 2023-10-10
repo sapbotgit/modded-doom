@@ -1,7 +1,6 @@
 <script lang="ts">
   import { DoomWad, Game, store, MapRuntime, type Skill, randInt } from './doom';
   import Doom from './render/Doom.svelte';
-  import GridTraceDebug from './render/Debug/GridTraceDebug.svelte';
   import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
   // import Picture from './render/Components/Picture.svelte';
   // <Picture name="M_JKILL" />
@@ -54,7 +53,6 @@
 
 <main>
   <!-- <AABBSweepDebug /> -->
-  <!-- <GridTraceDebug /> -->
   <!-- <MathDebug /> -->
 
   {#if wad}

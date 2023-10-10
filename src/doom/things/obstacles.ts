@@ -48,19 +48,21 @@ export const obstacles: ThingType[] = [
     { type: 2035, class: 'O', description: 'Exploding barrel' },
 ];
 
+const zero = new Vector3();
 type StateChangeAction = (time: GameTime, mobj: MapObject) => void
 export const actions: { [key: number]: StateChangeAction } = {
     [ActionIndex.A_Explode]: (time, mobj: MapObject) => {
         // P_RadiusAttack ( thingy, thingy->target, 128 );
         const damage = 128;
-        mobj.map.data.blockmap.radiusTrace(mobj.position.val, damage + 32, block => {
-            for (const thing of block.things) {
+        mobj.map.data.traceBlock(mobj.position.val, zero, damage + 32, hit => {
+            if ('mobj' in hit) {
+                const thing = hit.mobj;
                 if (!(thing.info.flags & MFFlags.MF_SHOOTABLE)) {
-                    continue;
+                    return true;
                 }
                 // Boss spider and cyberdemon take no damage from explosions
                 if (thing.info.doomednum === 16 || thing.info.doomednum === 7) {
-                    continue;
+                    return true;
                 }
 
                 let dist = Math.max(
@@ -70,13 +72,14 @@ export const actions: { [key: number]: StateChangeAction } = {
                     dist = 0;
                 }
                 if (dist >= damage) {
-                    continue; // out of range
+                    return true; // out of range
                 }
 
                 if (hasLineOfSight(thing, mobj)) {
                     thing.damage(damage - dist, mobj, mobj.chaseTarget);
                 }
             }
+            return true;
         });
     },
 }
@@ -86,24 +89,17 @@ function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // P_CheckSight use bsp tree... it would be really nice to use that.
     // TODO: we need to check z-coordinates here and look at two-sided walls, etc.
     let los = true;
-    const line = [mobj1.position.val, mobj2.position.val];
     losVec.copy(mobj2.position.val).sub(mobj1.position.val);
-    mobj1.map.data.blockmap.traceRay(mobj1.position.val, losVec, (block, bounds) => {
-        for (const linedef of block.linedefs) {
-            if ((linedef.flags & 0x0004) !== 0) {
+    mobj1.map.data.trace(mobj1.position.val, losVec, hit => {
+        if ('line' in hit) {
+            if ((hit.line.flags & 0x0004) !== 0) {
                 return true; // ignore two-sided walls for now
             }
-            const hit = lineLineIntersect(line, linedef.v, true);
-            const validHit = (hit
-                && hit.x > bounds.left && hit.x < bounds.right
-                && hit.y > bounds.top && hit.y < bounds.bottom);
-            if (validHit) {
-                // we've hit a wall so line of sight is false
-                los = false;
-                return false;
-            }
+            // we've hit a wall so line of sight is false
+            los = false;
+            return false;
         }
-        // keep searching next block
+        // keep searching...
         return true;
     });
     return los;
