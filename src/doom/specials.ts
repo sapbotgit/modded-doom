@@ -105,12 +105,8 @@ const zeroSectorType = (map: MapRuntime, from: Sector, to: Sector) => {
     to.type = 0;
 }
 
-const sectorObjects = (map: MapRuntime, sector: Sector) => {
-    return map.objs.filter(e => e.touchingSector(sector));
-}
-
-const isBeingCrushed = (mobj: MapObject, zFloor: number, zCeil: number ) =>
-    (zCeil - zFloor) < mobj.info.height;
+const sectorObjects = (map: MapRuntime, sector: Sector) =>
+    map.objs.filter(e => e.touchingSector(sector));
 
 function crunchMapObject(mobj: MapObject) {
     if (mobj.info.flags & MFFlags.MF_DROPPED) {
@@ -270,15 +266,17 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
             }
 
             // move door
-            sector.zCeil.update(ceil => {
-                let original = ceil;
-                ceil += def.speed * sector.specialData;
+            const mobjs = sectorObjects(map, sector);
+            sector.zCeil.update(val => {
+                let original = val;
+                val += def.speed * sector.specialData;
 
                 // crush (and reverse direction)
                 if (sector.specialData === -1) {
-                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, sector.zFloor.val, ceil));
-                    if (mobjs.length) {
-                        mobjs.forEach(crunchMapObject);
+                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
+                    if (crushing.length) {
+                        // TODO: if objects are crushed (dropped items or pools of blood), then we probably don't want to reverse direction
+                        crushing.forEach(crunchMapObject);
                         // force door to open
                         sector.specialData = 1;
                         return original;
@@ -286,17 +284,17 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                 }
 
                 let finished = false;
-                if (ceil > topHeight) {
+                if (val > topHeight) {
                     // hit ceiling
                     finished = def.function === 'closeWaitOpen' || def.function === 'openAndStay';
                     ticks = def.topWait;
-                    ceil = topHeight;
+                    val = topHeight;
                     sector.specialData = 0;
-                } else if (ceil < sector.zFloor.val) {
+                } else if (val < sector.zFloor.val) {
                     // hit floor
                     finished = def.function === 'openWaitClose' || def.function === 'closeAndStay';
                     ticks = def.topWait;
-                    ceil = sector.zFloor.val;
+                    val = sector.zFloor.val;
                     sector.specialData = 0;
                 }
 
@@ -304,8 +302,9 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                     map.removeAction(action);
                     sector.specialData = null;
                 }
-                return ceil;
+                return val;
             });
+            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
         };
         map.addAction(action);
     }
@@ -404,19 +403,18 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
                 return;
             }
 
+            const mobjs = sectorObjects(map, sector);
             let finished = false;
             // move lift
             sector.zFloor.update(val => {
                 let original = val;
                 val += def.speed * direction;
 
-                if (direction === 1) {
-                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, val, sector.zCeil.val));
-                    if (mobjs.length) {
-                        // switch direction
-                        direction = -1;
-                        return original;
-                    }
+                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, val, sector.zCeil.val));
+                if (crushing.length) {
+                    // switch direction
+                    direction = -1;
+                    return original;
                 }
 
                 if (val < low) {
@@ -433,6 +431,7 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
                 }
                 return val;
             });
+            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
 
             if (finished) {
                 map.removeAction(action);
@@ -533,6 +532,7 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
         sector.specialData = def.direction;
         const target = def.targetFn(map, sector);
         const action = () => {
+            const mobjs = sectorObjects(map, sector);
             let finished = false;
             // SND: sfx_stnmov (leveltime&7)
 
@@ -543,9 +543,9 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
                 // crush
                 if (def.direction === 1) {
                     const crunch = def.crush ? crunchAndDamageMapObject : crunchMapObject;
-                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, val, sector.zCeil.val));
-                    if (mobjs.length) {
-                        mobjs.forEach(crunch);
+                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, val, sector.zCeil.val));
+                    if (crushing.length) {
+                        crushing.forEach(crunch);
                         return original;
                     }
                 }
@@ -558,6 +558,7 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
 
                 return val;
             });
+            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
 
             if (finished) {
                 sector.specialData = null;
@@ -621,6 +622,7 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
         sector.specialData = def.direction;
         const target = def.targetFn(map, sector);
         const action = () => {
+            const mobjs = sectorObjects(map, sector);
             let finished = false;
 
             sector.zCeil.update(val => {
@@ -629,9 +631,9 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
 
                 // crush
                 if (def.direction === 1) {
-                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, val, sector.zCeil.val));
-                    if (mobjs.length) {
-                        mobjs.forEach(crunchMapObject);
+                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
+                    if (crushing.length) {
+                        crushing.forEach(crunchMapObject);
                         return original;
                     }
                 }
@@ -643,6 +645,7 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
 
                 return val;
             });
+            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
 
             if (finished) {
                 sector.specialData = null;
@@ -716,6 +719,7 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
         const bottom = def.targetFn(map, sector);
         const action = () => {
             let finished = false;
+            const mobjs = sectorObjects(map, sector);
 
             sector.zCeil.update(val => {
                 let original = val;
@@ -723,9 +727,9 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
 
                 // crush
                 if (def.direction === -1) {
-                    const mobjs = sectorObjects(map, sector).filter(mobj => isBeingCrushed(mobj, sector.zFloor.val, val));
-                    if (mobjs.length) {
-                        mobjs.forEach(crunchAndDamageMapObject);
+                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
+                    if (crushing.length) {
+                        crushing.forEach(crunchAndDamageMapObject);
                         // TODO: check if object is damaged before slowing speed?
                         if (def.speed === ceilingSlow) {
                             // slow crushers go even slowing when they crush something
@@ -745,6 +749,7 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
 
                 return val;
             });
+            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
 
             if (finished) {
                 // crushers keep going

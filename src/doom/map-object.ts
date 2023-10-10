@@ -30,7 +30,7 @@ export class MapObject {
     protected _state = new SpriteStateMachine(
         action => stateChangeActions[action]?.(this.map.game.time, this),
         () => this.map.destroy(this));
-    protected zFloor: number;
+    protected zFloor = -Infinity;
 
     protected _attacker: MapObject;
     get attacker() { return this._attacker; }
@@ -42,6 +42,8 @@ export class MapObject {
     chaseThreshold = 0;
     chaseTarget: MapObject;
 
+    readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
+    readonly sectorChanged: (sector: Sector, zFloor: number, zCeil: number) => void;
     readonly dispose: () => void;
 
     readonly info: MapObjectInfo;
@@ -69,31 +71,66 @@ export class MapObject {
             this.renderShadow.set(true);
         }
 
+        const highestZFloor = (sector: Sector, zFloor: number) => {
+            this.subsectors(subsector => {
+                const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor.val;
+                const gap = floor - this.position.val.z;
+                if (gap >= 0 && gap <= maxStepSize) {
+                    zFloor = Math.max(floor, zFloor);
+                }
+            });
+            return zFloor;
+        }
+
+        const lowestZCeil = (sector: Sector, zCeil: number) => {
+            this.subsectors(subsector => {
+                const ceil = (sector === subsector.sector) ? zCeil : subsector.sector.zCeil.val;
+                zCeil = Math.min(ceil, zCeil);
+            });
+            return zCeil;
+        }
+
+        this.canSectorChange = (sector, zFloor, zCeil) => {
+            const floor = highestZFloor(sector, zFloor);
+            const ceil = lowestZCeil(sector, zCeil);
+            return ((ceil - floor) >= this.info.height);
+        };
+
+        this.sectorChanged = (sector, zFloor, zCeil) => {
+            if (fromCeiling) {
+                this.zFloor = zCeil - this.info.height;
+                this.position.val.z = this.zFloor;
+                this.position.set(this.position.val);
+            } else {
+                // check that we are on the ground before updating zFloor because if we were on the ground before
+                // change, we want to force object to the ground after the change
+                const onGround = this.onGround;
+                this.zFloor = highestZFloor(sector, zFloor);
+                if (onGround) {
+                    this.position.val.z = this.zFloor;
+                    this.position.set(this.position.val);
+                }
+            }
+        };
+
         this.direction = store(0);
         this.position = store(new Vector3(pos.x, pos.y, 0));
         this.position.subscribe(p => {
             const currentSector = this.sector.val;
             const subsector = map.data.findSubSector(p.x, p.y);
-            let sector = subsector.sector;
-            if (!currentSector) {
-                // first time setting sector so set zpos
-                p.z = sector.zFloor.val;
-            }
+            const sector = subsector.sector;
 
-            // check if subsectors still contain this mobj
+            // clear all subsectors were were previously touching
             this.subsectorMap.forEach((val, key) => this.subsectorMap.set(key, false));
             this.subsectorMap.set(subsector, true);
 
-            // figure out what other sectors are touching the mobj
-            // (if we are completely inside a sector, this will have no sectors)
-            if (currentSector) {
+            if (!currentSector) {
+                // first time setting sector so set zpos
+                p.z = sector.zFloor.val;
+            } else {
+                // check all subsectors we are touching
                 map.data.traceBlock(p, vec.set(0, 0, 0), this.info.radius, hit => {
                     this.subsectorMap.set(hit.subsector, true);
-                    // we want the sector with the highest floor so we don't get stuck in walls falling off ledges
-                    const gap = hit.subsector.sector.zFloor.val - sector.zFloor.val
-                    if (gap > 0 && gap <= maxStepSize) {
-                        sector = hit.subsector.sector;
-                    }
                     return true;
                 });
             }
@@ -108,55 +145,15 @@ export class MapObject {
                 }
             });
 
+            // // we want the sector with the highest floor which means we float a little when standing on an edge
+            this.zFloor = highestZFloor(sector, sector.zFloor.val);
             if (currentSector !== sector) {
                 this.sector.set(sector);
-            }
-        });
-
-        let floorChange: () => void;
-        let ceilChange: () => void;
-        this.sector.subscribe(sect => {
-            // remove old subscriptions
-            floorChange?.();
-            ceilChange?.();
-            let sectorChange = true;
-
-            ceilChange = sect.zCeil.subscribe(ceil => {
-                if (fromCeiling) {
-                    this.zFloor = ceil - this.info.height;
-                    this.position.val.z = this.zFloor;
-                    this.position.set(this.position.val);
-                }
-            });
-
-            floorChange = sect.zFloor.subscribe(floor => {
-                if (!fromCeiling) {
-                    // check that we are on the ground before updating zFloor because if we were on the ground before
-                    // change, we want to force object to the ground after the change
-                    const onGround = this.onGround;
-                    this.zFloor = floor;
-                    if (sectorChange) {
-                        // during sector change, don't reset pos.z and let object fall
-                        this.applyGravity();
-                        sectorChange = false;
-                        return;
-                    }
-                    if (onGround) {
-                        this.position.val.z = floor;
-                        this.position.set(this.position.val);
-                    }
-                }
-            });
-
-            return () => {
-                floorChange?.();
-                ceilChange?.();
+                this.applyGravity();
             }
         });
 
         this.dispose = () => {
-            floorChange?.();
-            ceilChange?.();
             this.subsectors(subsector => {
                 subsector.mobjs = subsector.mobjs.filter(e => e !== this);
             });
@@ -298,9 +295,12 @@ export class MapObject {
     }
 
     touchingSector(sector: Sector) {
-        let touching = false;
-        this.subsectors(subsector => touching = touching || (subsector.sector === sector));
-        return touching;
+        for (const subsector of this.subsectorMap.keys()) {
+            if (subsector.sector === sector) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected subsectors(fn: (subsector: SubSector) => void) {

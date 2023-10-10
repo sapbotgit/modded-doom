@@ -280,6 +280,7 @@ const weaponActions: { [key: number]: WeaponAction } = {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
+        console.log('aim')
         const slope = tracer.zAim(player, scanRange);
         let angle = player.direction.val + Math.PI;
         if (player.refire) {
