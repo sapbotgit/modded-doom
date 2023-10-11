@@ -274,7 +274,6 @@ const playerSpeeds = { // per-tick
 }
 
 const vec = new Vector3();
-const useEnd = new Vector3();
 class GameInput {
     public pointerSpeed = 1.0;
     // Set to constrain the pitch of the camera
@@ -378,12 +377,9 @@ class GameInput {
 
             const ang = euler.z + HALF_PI;
             vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
-            useEnd.copy(vec).add(pos);
-            const useLine = [pos, useEnd];
             this.map.data.trace(pos, vec, hit => {
                 if ('line' in hit) {
-                    const point = lineLineIntersect(hit.line.v, useLine, true);
-                    if (point && hit.line.special) {
+                    if (hit.line.special) {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
                         return false; // we've triggered a switch/door so stop tracing
                     }

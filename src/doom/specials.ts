@@ -275,7 +275,7 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                 if (sector.specialData === -1) {
                     const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
                     if (crushing.length) {
-                        // TODO: if objects are crushed (dropped items or pools of blood), then we probably don't want to reverse direction
+                        // TODO: if all objects are crushed (dropped items or pools of blood), then we probably don't want to reverse direction
                         crushing.forEach(crunchMapObject);
                         // force door to open
                         sector.specialData = 1;

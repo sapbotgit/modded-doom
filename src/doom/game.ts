@@ -113,7 +113,8 @@ export class Game {
         const step = Math.min(frameTickTime, delta);
 
         // TODO: when loading next map, make sure to clear inventory ticks (invul, light visor)
-        //  and bonuses like computer map, berserk, etc.
+        //  and bonuses like computer map, berserk, keys, etc. Actually, maybe we need some kind of
+        //  per-level inventory that clears itself...
 
         while (delta > 0) {
             const dt = Math.min(step, delta);

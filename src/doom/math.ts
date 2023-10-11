@@ -8,6 +8,7 @@ export interface Vertex {
     x: number;
     y: number;
 }
+const dot = (a: Vertex, b: Vertex) => a.x * b.x + a.y * b.y;
 
 interface IntersectionPoint extends Vertex {
     u: number; // distance from point1 to point2 of the impact (0-1)
@@ -55,18 +56,6 @@ export function lineLineIntersect(l1: Vertex[], l2: Vertex[], bounded = false): 
         ? undefined : details;
 }
 
-// vector functions (unused)
-const dot = (a: Vertex, b: Vertex) => a.x * b.x + a.y * b.y;
-const mag = (v: Vertex) => Math.sqrt(v.x * v.x + v.y * v.y);
-const normalize = (v: Vertex) => {
-    const len = mag(v);
-    const invLen = len > 0 ? 1 / len : 0;
-    return { x: v.x * invLen, y: v.y * invLen };
-}
-const normal = (l: Vertex[]) => {
-    const n = normalize({ x: l[1].x - l[0].x, y: l[1].y - l[0].y });
-    return { x: -n.y, y: n.x };
-}
 
 export function pointOnLine(p: Vertex, l: Vertex[]) {
     const sd = signedLineDistance(l, p);
@@ -126,14 +115,6 @@ export function centerSort(verts: Vertex[]) {
             let d2 = bcx * bcx + bcy * bcy;
             return d1 - d2;
         });
-}
-
-// TODO: depend on FOV?
-const viewSpan = HALF_PI + QUARTER_PI;
-export function angleIsVisible(viewAngle: number, angle: number) {
-    // https://gamedev.stackexchange.com/questions/4467
-    const ang = normalizeAngle(viewAngle - angle);
-    return (-viewSpan < ang && ang < viewSpan);
 }
 
 export function normalizeAngle(angle: number) {

@@ -167,7 +167,8 @@ export class MapObject {
     tick() {
         this._attacker = null;
 
-        if (this.onGround) {
+        // apply friction when on the ground (and we're not a missle/lost soul)
+        if (this.onGround && !(this.info.flags & (MFFlags.MF_MISSILE | MFFlags.MF_SKULLFLY))) {
             // friction (not z because gravity)
             this.velocity.x *= friction;
             this.velocity.y *= friction;
@@ -338,7 +339,6 @@ export class MapObject {
 
         const start = this.position.val;
 
-        const ts = performance.now();
         hitCount += 1;
         const pos = this.position.val;
         let hitFraction = 1;
@@ -354,12 +354,17 @@ export class MapObject {
                     if (!(hit.mobj.info.flags & hittableThing)) {
                         return true; // not hittable
                     }
+                    if (start.z + this.info.height < hit.mobj.position.val.z) {
+                        return true; // passed under target
+                    }
+                    if (start.z > hit.mobj.position.val.z + hit.mobj.info.height) {
+                        return true; // passed over target
+                    }
                     if (hit.mobj.hitC === hitCount) {
                         return true;
                     }
                     hit.mobj.hitC = hitCount;
                     if (this.info.flags & MFFlags.MF_MISSILE) {
-                        // TODO: check z above/below object
                         // TODO: check species (imps don't hit imps, etc.)
                         if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                             return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
@@ -384,7 +389,29 @@ export class MapObject {
                     }
                     return false;
                 } else if ('line' in hit) {
+                    const isMissile = this.info.flags & MFFlags.MF_MISSILE;
                     const twoSided = (hit.line.flags & 0x0004) !== 0;
+                    if (isMissile) {
+                        let explode = false;
+                        if (twoSided) {
+                            const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
+                            const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
+                            if (hitSky(start.z, front, back)) {
+                                this.map.destroy(this);
+                                return false;
+                            }
+
+                            explode = explode || (start.z < back.zFloor.val);
+                            explode = explode || (start.z + this.info.height > back.zCeil.val);
+                        }
+
+                        if (!twoSided || explode) {
+                            this.explode();
+                            return false;
+                        }
+                        return true;
+                    }
+
                     const blocking = (hit.line.flags & 0x0001) !== 0;
                     if (twoSided && !blocking) {
                         const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
@@ -410,17 +437,14 @@ export class MapObject {
                         }
                     }
 
+                    // TODO: hmmm.. if we check for double hits here, we risk triggering specials multiple times.
+                    // maybe we should trigger specials after this? (that is how doom actually does it)
                     if (hit.line.hitC === hitCount) {
                         // we've hit the same line again? better zero the velocity
                         this.velocity.set(0, 0, 0);
                         return true;
                     }
                     hit.line.hitC = hitCount;
-                    if (this.info.flags & MFFlags.MF_MISSILE) {
-                        // TODO: check for sky hit and disappear object instead
-                        this.explode();
-                        return false;
-                    }
 
                     hitFraction = hit.fraction;
                     slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
@@ -429,7 +453,6 @@ export class MapObject {
                 return true;
             });
         }
-        // console.log('move-end', performance.now() - ts)
 
         this.position.set(pos.add(this.velocity));
     }
@@ -442,6 +465,12 @@ export class MapObject {
         // SND: this.info.deathsound
     }
 }
+
+export const hitSky = (z: number, front: Sector, back: Sector) =>
+    (front.ceilFlat.val === 'F_SKY1') && (
+        (z > front.zCeil.val) ||
+        (back && z > back.zCeil.val && back.skyHeight !== undefined && back.skyHeight !== back.zCeil.val)
+);
 
 const slideMove = (vel: Vector3, x: number, y: number) => {
     // slide along wall instead of moving through it

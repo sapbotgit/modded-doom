@@ -3,7 +3,7 @@ import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, randInt } from '../math';
-import { type PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
+import { type PlayerMapObject, type PlayerInventory, MapObject, angleBetween, hitSky } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond, type GameTime } from "../game";
@@ -475,13 +475,8 @@ class ShotTracer {
     }
 
     private hitWallOrSky(shooter: MapObject, front: Sector, back: Sector, spot: Vector3) {
-        if (front.ceilFlat.val === 'F_SKY1') {
-            if (spot.z > front.zCeil.val) {
-                return false;
-            }
-            if (back && spot.z > back.zCeil.val && back.skyHeight !== undefined && back.skyHeight !== back.zCeil.val) {
-                return false;
-            }
+        if (hitSky(spot.z, front, back)) {
+            return false;
         }
         const mobj = shooter.map.spawn(MapObjectIndex.MT_PUFF, spot.x, spot.y, spot.z);
         mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
