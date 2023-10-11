@@ -13,7 +13,7 @@
   let wad: DoomWad;
   let mapNames = [];
   (async () => {
-    const buffer = await fetch('doom2.wad').then(e => e.arrayBuffer());
+    const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
     // selectedMap = wad.readMap('E2M3')

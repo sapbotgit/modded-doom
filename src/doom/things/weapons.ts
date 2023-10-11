@@ -7,7 +7,7 @@ import { type PlayerMapObject, type PlayerInventory, MapObject, angleBetween } f
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond, type GameTime } from "../game";
-import type { HandleTraceHit, LineDef } from "../map-data";
+import { type HandleTraceHit, type Sector } from "../map-data";
 
 export const weaponTop = 32;
 const weaponBottom = 32 - 128;
@@ -280,7 +280,6 @@ const weaponActions: { [key: number]: WeaponAction } = {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        console.log('aim')
         const slope = tracer.zAim(player, scanRange);
         let angle = player.direction.val + Math.PI;
         if (player.refire) {
@@ -445,28 +444,28 @@ class ShotTracer {
                     shooter.map.triggerSpecial(hit.line, shooter, 'G', hit.side);
                 }
 
-                if (hit.line.flags & 0x0004) {
-                    const front = hit.side === -1 ? hit.line.right : hit.line.left;
-                    const back = hit.side === -1 ? hit.line.left : hit.line.right;
+                const oneSided = (hit.line.flags & 0x0004) === 0;
+                if (oneSided) {
+                    return this.hitWallOrSky(shooter, hit.line.right.sector, null, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
+                }
 
-                    const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
-                    const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+                const dist = range * hit.fraction;
+                const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
+                const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
+                const openTop = Math.min(front.zCeil.val, back.zCeil.val);
+                const openBottom = Math.max(front.zFloor.val, back.zFloor.val);
 
-                    const dist = range * hit.fraction;
-                    if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                        const slope = (openTop - this.start.z) / dist;
-                        if (slope < aimSlope) {
-                            return this.hitWallOrSky(shooter, hit.line, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
-                        }
+                if (front.zCeil.val !== back.zCeil.val) {
+                    const slope = (openTop - this.start.z) / dist;
+                    if (slope < aimSlope) {
+                        return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                     }
-                    if (front.sector.zFloor.val !== back.sector.zFloor.val) {
-                        const slope = (openBottom - this.start.z) / dist;
-                        if (slope > aimSlope) {
-                            return this.hitWallOrSky(shooter, hit.line, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
-                        }
+                }
+                if (front.zFloor.val !== back.zFloor.val) {
+                    const slope = (openBottom - this.start.z) / dist;
+                    if (slope > aimSlope) {
+                        return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                     }
-                } else {
-                    return this.hitWallOrSky(shooter, hit.line, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                 }
             } else {
                 // sector?
@@ -475,12 +474,12 @@ class ShotTracer {
         });
     }
 
-    private hitWallOrSky(shooter: MapObject, linedef: LineDef, spot: Vector3) {
-        if (linedef.right.sector.ceilFlat.val === 'F_SKY1') {
-            if (spot.z > linedef.right.sector.zCeil.val) {
+    private hitWallOrSky(shooter: MapObject, front: Sector, back: Sector, spot: Vector3) {
+        if (front.ceilFlat.val === 'F_SKY1') {
+            if (spot.z > front.zCeil.val) {
                 return false;
             }
-            if (linedef.left && linedef.left.sector.ceilFlat.val === 'F_SKY1') {
+            if (back && spot.z > back.zCeil.val && back.skyHeight !== undefined && back.skyHeight !== back.zCeil.val) {
                 return false;
             }
         }
@@ -555,31 +554,31 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                 result.target = hit.mobj;
                 return false;
             } else if ('line' in hit) {
-                if (hit.line.flags & 0x0004) {
-                    const front = hit.side === -1 ? hit.line.right : hit.line.left;
-                    const back = hit.side === -1 ? hit.line.left : hit.line.right;
-
-                    const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
-                    const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
-                    if (openBottom >= openTop) {
-                        // it's a two-sided line but there is no opening (eg. a closed door or a raised platform)
-                        return false;
-                    }
-
-                    const dist = range * hit.fraction;
-                    if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                        slopeTop = Math.min(slopeTop, (openTop - shootZ) / dist);
-                    }
-                    if (front.sector.zFloor.val !== back.sector.zFloor.val) {
-                        slopeBottom = Math.max(slopeBottom, (openBottom - shootZ) / dist);
-                    }
-
-                    if (slopeTop <= slopeBottom) {
-                         // we've run out of gap between top and bottom of walls
-                         return false;
-                    }
-                } else {
+                const oneSided = (hit.line.flags & 0x0004) === 0;
+                if (oneSided) {
                     return false; // single-sided linedefs always stop trace
+                }
+
+                const front = hit.side === -1 ? hit.line.right : hit.line.left;
+                const back = hit.side === -1 ? hit.line.left : hit.line.right;
+                const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
+                const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+                if (openBottom >= openTop) {
+                    // it's a two-sided line but there is no opening (eg. a closed door or a raised platform)
+                    return false;
+                }
+
+                const dist = range * hit.fraction;
+                if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+                    slopeTop = Math.min(slopeTop, (openTop - shootZ) / dist);
+                }
+                if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+                    slopeBottom = Math.max(slopeBottom, (openBottom - shootZ) / dist);
+                }
+
+                if (slopeTop <= slopeBottom) {
+                    // we've run out of gap between top and bottom of walls
+                    return false;
                 }
             } else {
                 // sector?

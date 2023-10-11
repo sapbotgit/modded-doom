@@ -216,15 +216,15 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
     if (!validTrigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0; // one time action so clear special
-    }
     if (mobj.isMonster && !def.monsterTrigger) {
         return;
     }
     const missingKey = def.key && mobj instanceof PlayerMapObject && !mobj.inventory.val.keys.toUpperCase().includes(def.key);
     if (missingKey) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0; // one time action so clear special
     }
 
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
@@ -366,11 +366,11 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
     if (def.trigger !== trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster && !def.monsterTrigger) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
@@ -510,11 +510,11 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
     if (def.trigger !== trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
@@ -603,11 +603,11 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
     if (def.trigger !== trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
@@ -690,11 +690,11 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
     if (def.trigger !== trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
@@ -802,11 +802,11 @@ export const createLightingAction = (mobj: MapObject, linedef: LineDef, trigger:
     if (def.trigger !== trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
@@ -939,14 +939,14 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     if (def.trigger !== trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster && !def.monsterTrigger) {
         return;
     }
     if (mobj instanceof PlayerMapObject && !def.movePlayer) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
@@ -978,11 +978,11 @@ export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, s
     if (trigger !== def.trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
@@ -1074,11 +1074,11 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
     if (def.trigger !== trigger) {
         return;
     }
-    if (!def.repeatable) {
-        linedef.special = 0;
-    }
     if (mobj.isMonster) {
         return;
+    }
+    if (!def.repeatable) {
+        linedef.special = 0;
     }
 
     let triggered = false;
