@@ -75,6 +75,7 @@
         position: absolute;
         top: 0px;
         display: inline-block;
+        line-height: 0;
     }
 
     .root {
@@ -104,27 +105,27 @@
         position: absolute;
     }
     .arms span:nth-child(2) {
-        top: -6px;
+        top: 4px;
         left: -1px;
     }
     .arms span:nth-child(3) {
-        top: -6px;
+        top: 4px;
         left: 11px;
     }
     .arms span:nth-child(4) {
-        top: -6px;
+        top: 4px;
         left: 22.5px;
     }
     .arms span:nth-child(5) {
-        top: 4px;
+        top: 14px;
         left: -1px;
     }
     .arms span:nth-child(6) {
-        top: 4px;
+        top: 14px;
         left: 11px;
     }
     .arms span:nth-child(7) {
-        top: 4px;
+        top: 14px;
         left: 22.5px;
     }
 
@@ -139,23 +140,21 @@
     }
 
     .keys {
-        top: 1px;
-        left: 146px;
+        position: absolute;
+        top: 0px;
+        left: 239px;
     }
     .keys span {
-        position: relative;
+        position: absolute;
     }
     .keys span:nth-child(1) {
-        top: -7px;
-        left: 93px;
+        top: 3px;
     }
     .keys span:nth-child(2) {
-        top: 2px;
-        left: 82px;
+        top: 13px;
     }
     .keys span:nth-child(3) {
-        top: 13px;
-        left: 71px;
+        top: 23px;
     }
 
     .backpack {

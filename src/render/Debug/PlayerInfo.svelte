@@ -32,7 +32,7 @@
     function kfa() {
         return () => {
             fa()();
-            updateInv(inv => inv.keys = 'RYB')();
+            updateInv(inv => inv.keys = 'BYR')();
         };
     }
 
