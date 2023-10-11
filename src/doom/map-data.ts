@@ -357,6 +357,7 @@ function createBspTracer(root: TreeNode) {
             }
 
             if ('segs' in node) {
+                let lastDist = 1;
                 for (const mobj of node.mobjs) {
                     if (complete) {
                         break;
@@ -366,6 +367,7 @@ function createBspTracer(root: TreeNode) {
                     if (hit) {
                         const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
                         const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
+                        lastDist = hit.u;
                         hits.push({ point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u, subsector: node });
                     }
                 }
@@ -392,6 +394,7 @@ function createBspTracer(root: TreeNode) {
                         const side = seg.direction ? 1 : -1;
                         const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
                         const overlap = aabbLineOverlap(point, radius, seg.linedef);
+                        lastDist = hit.u;
                         hits.push({ overlap, point, side, line: seg.linedef, fraction: hit.u, subsector: node });
                     }
                 }

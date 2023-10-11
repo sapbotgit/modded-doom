@@ -120,22 +120,20 @@ export class MapObject {
             const subsector = map.data.findSubSector(p.x, p.y);
             const sector = subsector.sector;
 
-            // clear all subsectors were were previously touching
-            this.subsectorMap.forEach((val, key) => this.subsectorMap.set(key, false));
-            this.subsectorMap.set(subsector, true);
-
             if (!currentSector) {
                 // first time setting sector so set zpos
                 p.z = sector.zFloor.val;
-            } else {
-                // check all subsectors we are touching
-                map.data.traceBlock(p, vec.set(0, 0, 0), this.info.radius, hit => {
-                    this.subsectorMap.set(hit.subsector, true);
-                    return true;
-                });
             }
 
-            // remove from untouched subsectors or add to touched ones
+            // clear all subsectors were were previously touching
+            this.subsectorMap.forEach((val, key) => this.subsectorMap.set(key, false));
+            // add subsector we are fully inside
+            this.subsectorMap.set(subsector, true);
+            // and any subsectors we are touching
+            map.data.traceBlock(p, vec.set(0, 0, 0), this.info.radius, hit =>
+                Boolean(this.subsectorMap.set(hit.subsector, true)));
+
+            // remove mobj from untouched subsectors or add mobj to touched ones
             this.subsectorMap.forEach((val, key) => {
                 if (!val) {
                     key.mobjs = key.mobjs.filter(e => e !== this);
@@ -145,7 +143,7 @@ export class MapObject {
                 }
             });
 
-            // // we want the sector with the highest floor which means we float a little when standing on an edge
+            // we want the sector with the highest floor which means we float a little when standing on an edge
             this.zFloor = highestZFloor(sector, sector.zFloor.val);
             if (currentSector !== sector) {
                 this.sector.set(sector);
