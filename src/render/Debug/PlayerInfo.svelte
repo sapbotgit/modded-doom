@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { Vector3 } from "three";
+    import { MinEquation, Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { ToDegrees, ticksPerSecond } from "../../doom";
+    import { MapObjectIndex, ToDegrees, mapObjectInfo, ticksPerSecond } from "../../doom";
     import { weapons } from "../../doom/things/weapons";
+    import { missing_component } from "svelte/internal";
 
     export let player: PlayerMapObject;
     const { position, direction, velocity, sector, inventory } = player;
@@ -47,7 +48,18 @@
                 w.splice(3, 1);
             }
             inv.weapons = w;
+            inv.armorType = 2;
+            inv.armor = 200;
         });
+    }
+
+    function revive() {
+        // undo effects of MapObject.kill()
+        player.health.set(100);
+        const mInfo = mapObjectInfo[MapObjectIndex.MT_PLAYER];
+        player.info.radius = mInfo.radius;
+        player.info.height = mInfo.height;
+        player.info.flags = mInfo.flags;
     }
 </script>
 
@@ -58,6 +70,7 @@
     <div>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
     <div>camera: {vec($cameraPosition)}</div>
     <div>viewHeight: {vh.toFixed(2)}</div>
+    <button on:click={revive}>Revive</button>
     <button on:click={fa()}>FA</button>
     <button on:click={kfa()}>KFA</button>
     <div class="bonus">

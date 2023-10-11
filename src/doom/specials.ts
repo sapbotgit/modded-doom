@@ -271,18 +271,6 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                 let original = val;
                 val += def.speed * sector.specialData;
 
-                // crush (and reverse direction)
-                if (sector.specialData === -1) {
-                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
-                    if (crushing.length) {
-                        // TODO: if all objects are crushed (dropped items or pools of blood), then we probably don't want to reverse direction
-                        crushing.forEach(crunchMapObject);
-                        // force door to open
-                        sector.specialData = 1;
-                        return original;
-                    }
-                }
-
                 let finished = false;
                 if (val > topHeight) {
                     // hit ceiling
@@ -296,6 +284,18 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                     ticks = def.topWait;
                     val = sector.zFloor.val;
                     sector.specialData = 0;
+                }
+
+                // crush (and reverse direction)
+                if (sector.specialData === -1) {
+                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
+                    if (crushing.length) {
+                        // TODO: if all objects are crushed (dropped items or pools of blood), then we probably don't want to reverse direction
+                        crushing.forEach(crunchMapObject);
+                        // force door to open
+                        sector.specialData = 1;
+                        return original;
+                    }
                 }
 
                 if (finished) {
@@ -404,18 +404,11 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
             }
 
             const mobjs = sectorObjects(map, sector);
-            let finished = false;
             // move lift
             sector.zFloor.update(val => {
+                let finished = false;
                 let original = val;
                 val += def.speed * direction;
-
-                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, val, sector.zCeil.val));
-                if (crushing.length) {
-                    // switch direction
-                    direction = -1;
-                    return original;
-                }
 
                 if (val < low) {
                     // hit bottom
@@ -429,17 +422,28 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
                     val = high;
                     direction = -1;
                 }
+
+                if (direction === 1) {
+                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, val, sector.zCeil.val));
+                    if (crushing.length) {
+                        // switch direction
+                        direction = -1;
+                        ticks = 0;
+                        return original;
+                    }
+                }
+
+                if (finished) {
+                    map.removeAction(action);
+                    sector.specialData = null;
+                    if (def.direction < 0) {
+                        def.effect?.(map, sector, linedef);
+                    }
+                }
+
                 return val;
             });
             mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
-
-            if (finished) {
-                map.removeAction(action);
-                sector.specialData = null;
-                if (def.direction < 0) {
-                    def.effect?.(map, sector, linedef);
-                }
-            }
         };
         sector.specialData = action;
         map.addAction(action);
@@ -533,16 +537,18 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
         const target = def.targetFn(map, sector);
         const action = () => {
             const mobjs = sectorObjects(map, sector);
-            let finished = false;
             // SND: sfx_stnmov (leveltime&7)
 
             sector.zFloor.update(val => {
+                let finished = false;
                 let original = val;
                 val += def.direction;
 
-
-                // FIXME: we need to check we've reached the top before crushing (probably applies for other things too)
-                // (see sectors 51,52,54,etc.) in E2M2
+                if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
+                    // SND: sfx_pstop
+                    finished = true;
+                    val = target;
+                }
 
                 // crush
                 if (def.direction === 1) {
@@ -554,23 +560,17 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
                     }
                 }
 
-                if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
-                    // SND: sfx_pstop
-                    finished = true;
-                    val = target;
+                if (finished) {
+                    sector.specialData = null;
+                    map.removeAction(action);
+                    if (def.direction < 0) {
+                        def.effect?.(map, sector, linedef);
+                    }
                 }
 
                 return val;
             });
             mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
-
-            if (finished) {
-                sector.specialData = null;
-                map.removeAction(action);
-                if (def.direction < 0) {
-                    def.effect?.(map, sector, linedef);
-                }
-            }
         }
         map.addAction(action);
     }
@@ -627,14 +627,18 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
         const target = def.targetFn(map, sector);
         const action = () => {
             const mobjs = sectorObjects(map, sector);
-            let finished = false;
-
             sector.zCeil.update(val => {
+                let finished = false;
                 let original = val;
                 val += def.speed * def.direction;
 
+                if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
+                    finished = true;
+                    val = target;
+                }
+
                 // crush
-                if (def.direction === 1) {
+                if (def.direction === -1) {
                     const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
                     if (crushing.length) {
                         crushing.forEach(crunchMapObject);
@@ -642,19 +646,14 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
                     }
                 }
 
-                if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
-                    finished = true;
-                    val = target;
+                if (finished) {
+                    sector.specialData = null;
+                    map.removeAction(action);
                 }
 
                 return val;
             });
             mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
-
-            if (finished) {
-                sector.specialData = null;
-                map.removeAction(action);
-            }
         }
         map.addAction(action);
     }
@@ -729,8 +728,17 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
                 let original = val;
                 val += def.speed * direction;
 
+                if (val < bottom) {
+                    finished = true;
+                    val = bottom;
+                }
+                if (val > top) {
+                    finished = true;
+                    val = top;
+                }
+
                 // crush
-                if (def.direction === -1) {
+                if (direction === -1) {
                     const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
                     if (crushing.length) {
                         crushing.forEach(crunchAndDamageMapObject);
@@ -742,23 +750,13 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
                     }
                 }
 
-                if (val < bottom) {
-                    finished = true;
-                    val = bottom;
+                if (finished) {
+                    // crushers keep going
+                    direction = -direction;
                 }
-                if (val > top) {
-                    finished = true;
-                    val = top;
-                }
-
                 return val;
             });
             mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
-
-            if (finished) {
-                // crushers keep going
-                direction = -direction;
-            }
         };
         sector.specialData = action;
         map.addAction(action);

@@ -158,10 +158,10 @@
 
     <MapContext map={$map} {renderSectors}>
         <EditPanel map={$map} />
+        {#if showPlayerInfo}
+            <PlayerInfo player={$map.player} />
+        {/if}
     </MapContext>
-    {#if showPlayerInfo}
-        <PlayerInfo player={$map.player} />
-    {/if}
 </div>
 
 <style>
