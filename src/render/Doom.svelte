@@ -30,7 +30,7 @@
 
     let showPlayerInfo = false;
     const { wireframe, showBlockMap } = settings;
-    const { freelook, noclip, freeFly, cameraMode, timescale } = game.settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale } = game.settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -66,6 +66,10 @@
         <option>3p-noclip</option>
         <option>svg</option>
     </select>
+</label>
+<label>
+    <input type="checkbox" bind:checked={$zAimAssist} />
+    Auto Z-Aim
 </label>
 <label>
     <input type="checkbox" bind:checked={$noclip} />

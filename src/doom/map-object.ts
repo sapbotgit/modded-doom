@@ -345,6 +345,8 @@ export class MapObject {
             hitFraction = -1;
             vec.copy(start).add(this.velocity);
             this.map.data.traceMove(start, this.velocity, this.info.radius, hit => {
+                const isMissile = this.info.flags & MFFlags.MF_MISSILE;
+
                 if ('mobj' in hit) {
                     // kind of like PIT_CheckThing
                     if (hit.mobj === this) {
@@ -363,7 +365,7 @@ export class MapObject {
                         return true;
                     }
                     hit.mobj.hitC = hitCount;
-                    if (this.info.flags & MFFlags.MF_MISSILE) {
+                    if (isMissile) {
                         // TODO: check species (imps don't hit imps, etc.)
                         if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                             return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
@@ -448,6 +450,12 @@ export class MapObject {
                     hitFraction = hit.fraction;
                     slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
                     return false;
+                } else if ('flat' in hit) {
+                    // hit a floor or ceiling
+                    if (isMissile) {
+                        this.explode();
+                        return false;
+                    }
                 }
                 return true;
             });

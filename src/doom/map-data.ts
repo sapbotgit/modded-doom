@@ -64,16 +64,14 @@ function fixTextureName(name: string) {
 }
 
 export interface Seg {
-    vx1: Vertex;
-    vx2: Vertex;
+    v: Vertex[];
     angle: number;
     linedef: LineDef;
     direction: number;
     offset: number;
 }
 const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
-    vx1: vertexes[item.vertexStart],
-    vx2: vertexes[item.vertexEnd],
+    v: [vertexes[item.vertexStart], vertexes[item.vertexEnd]],
     angle: (item.angle * Math.PI / 32768),
     linedef: linedefs[item.linedef],
     direction: item.direction,
@@ -174,7 +172,7 @@ interface MapObjectTraceHit extends BaseTraceHit {
     axis: 'x' | 'y';
 }
 interface SectorTraceHit extends BaseTraceHit {
-    sector: Sector;
+    flat: 'floor' | 'ceil';
 }
 export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit | SpecialTraceHit;
 // return true to continue trace, false to stop
@@ -248,18 +246,7 @@ export class MapData {
     }
 
     findSubSector(x: number, y: number): SubSector {
-        let node: TreeNode | SubSector = this.nodes[this.nodes.length - 1];
-        while (true) {
-            if ('segs' in node) {
-                return node;
-            }
-            const side = signedLineDistance(node.v, { x, y });
-            if (side <= 0) {
-                node = node.childLeft
-            } else {
-                node = node.childRight;
-            }
-        }
+        return findSubSector(this.nodes[this.nodes.length - 1], x, y);
     }
 
     findSector(x: number, y: number): Sector {
@@ -347,60 +334,66 @@ function createBspTracer(root: TreeNode) {
                 return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
             });
 
-            for (const hit of hits) {
-                complete = !onHit(hit);
-                if (complete) {
-                    break;
-                }
+            for (let i = 0; !complete && i < hits.length; i++) {
+                complete = !onHit(hits[i]);
             }
             hits.length = 0;
+        }
+
+        function visitSubSector(subsector: SubSector) {
+            // collide with things
+            for (const mobj of subsector.mobjs) {
+                const hit = sweepAABBAABB(start, radius, move, mobj.position.val, mobj.info.radius);
+                if (hit) {
+                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+                    const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
+                    hits.push({ subsector, point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u });
+                }
+            }
+
+            // collide with walls
+            for (const seg of subsector.segs) {
+                // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
+                // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
+                // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
+                // other traces.
+                // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
+                segNormal.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
+                const moveDot = move.dot(segNormal);
+                // NOTE: dot === 0 is special. We allow this only when we are moving
+                // (if we aren't moving, dot will always be 0 and we skip everything)
+                if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
+                    continue;
+                }
+
+                const hit = sweepAABBLine(start, radius, move, seg.v);
+                if (hit) {
+                    const side = seg.direction ? 1 : -1;
+                    const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
+                    const overlap = aabbLineOverlap(point, radius, seg.linedef);
+                    hits.push({ subsector, overlap, point, side, line: seg.linedef, fraction: hit.u });
+                }
+            }
+
+            // collide with floor and ceiling (mostly for bullets and projectiles)
+            const floorHit = flatHit('floor', subsector, subsector.sector.zFloor.val);
+            if (floorHit) {
+                hits.push(floorHit);
+            }
+            const ceilHit = flatHit('ceil', subsector, subsector.sector.zCeil.val);
+            if (ceilHit) {
+                hits.push(ceilHit);
+            }
+
+            notifyHits();
         }
 
         function visitNode(node: TreeNode | SubSector) {
             if (complete) {
                 return;
             }
-
             if ('segs' in node) {
-                for (const mobj of node.mobjs) {
-                    if (complete) {
-                        break;
-                    }
-
-                    const hit = sweepAABBAABB(start, radius, move, mobj.position.val, mobj.info.radius);
-                    if (hit) {
-                        const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                        const ov = aabbAabbOverlap(point, radius, mobj.position.val, mobj.info.radius);
-                        hits.push({ point, mobj, overlap: ov.area, axis: ov.axis, fraction: hit.u, subsector: node });
-                    }
-                }
-                for (const seg of node.segs) {
-                    if (complete) {
-                        break;
-                    }
-
-                    // Allow trace to pass through back-to-front. This allows things, like a player, to move away from
-                    // a wall if they are stuck as long as they move the same direction as the wall normal. The two sided
-                    // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
-                    // other traces.
-                    // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
-                    segNormal.set(seg.vx2.y - seg.vx1.y, seg.vx1.x - seg.vx2.x, 0);
-                    const moveDot = move.dot(segNormal);
-                    // NOTE: dot === 0 is special. We allow this only when we are moving
-                    // (if we aren't moving, dot will always be 0 and we skip everything)
-                    if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
-                        continue;
-                    }
-
-                    const hit = sweepAABBLine(start, radius, move, seg.linedef.v);
-                    if (hit) {
-                        const side = seg.direction ? 1 : -1;
-                        const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
-                        const overlap = aabbLineOverlap(point, radius, seg.linedef);
-                        hits.push({ overlap, point, side, line: seg.linedef, fraction: hit.u, subsector: node });
-                    }
-                }
-                notifyHits();
+                visitSubSector(node);
                 return;
             }
 
@@ -417,7 +410,34 @@ function createBspTracer(root: TreeNode) {
                 visitNode((side <= 0) ? node.childRight : node.childLeft);
             }
         }
+
+        function flatHit(flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number): SectorTraceHit {
+            const u = (zFlat - start.z) / move.z;
+            if (u < 0 || u > 1) {
+                return null
+            }
+            const point = start.clone().addScaledVector(move, u);
+            const inSector = findSubSector(root, point.x, point.y) === subsector;
+            if (!inSector) {
+                return null;
+            }
+            return { flat, subsector, point, overlap: 0, fraction: u };
+        }
+
         visitNode(root);
         notifyHits();
     };
+}
+
+const _findVec = new Vector3();
+function findSubSector(root: TreeNode, x: number, y: number) {
+    _findVec.set(x, y, 0);
+    let node: TreeNode | SubSector = root;
+    while (true) {
+        if ('segs' in node) {
+            return node;
+        }
+        const side = signedLineDistance(node.v, _findVec);
+        node = side <= 0 ? node.childLeft : node.childRight;
+    }
 }

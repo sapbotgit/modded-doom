@@ -23,6 +23,7 @@
   $: game = new Game(wad, difficulty, {
       freeFly: store(false),
       freelook: store(true),
+      zAimAssist: store(true),
       invicibility: store(false),
       noclip: store(false),
       compassMove: store(false),

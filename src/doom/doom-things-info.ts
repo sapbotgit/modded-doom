@@ -27,6 +27,8 @@
 //
 //-----------------------------------------------------------------------------
 
+const puffTime = 4; // a longer puff time is helpful for debugging bullet hits
+
 // Info.h
 enum SpriteIndex {
 	SPR_TROO,
@@ -1434,7 +1436,13 @@ export enum MFFlags {
 	//  use a translation table for player colormaps
 	MF_TRANSLATION = 0xc000000,
 	// Hmm ???.
-	MF_TRANSSHIFT = 26
+	MF_TRANSSHIFT = 26,
+
+	// Non-Classic Doom stuff (ie. stuff I added)
+	InvertSpriteYOffset = 0x4000000,
+	// Only applied to puffs for now. A few other sprites may benefit from this
+	// (example: bfg/plasma/rocket)
+	BillboardSprite = 0x8000000,
 }
 
 // Info.C
@@ -1610,7 +1618,7 @@ export const states = [
 	createState(SpriteIndex.SPR_BLUD, 2, 8, ActionIndex.NULL, StateIndex.S_BLOOD2, 0, 0),  // S_BLOOD1
 	createState(SpriteIndex.SPR_BLUD, 1, 8, ActionIndex.NULL, StateIndex.S_BLOOD3, 0, 0),  // S_BLOOD2
 	createState(SpriteIndex.SPR_BLUD, 0, 8, ActionIndex.NULL, StateIndex.S_NULL, 0, 0),  // S_BLOOD3
-	createState(SpriteIndex.SPR_PUFF, 32768, 4, ActionIndex.NULL, StateIndex.S_PUFF2, 0, 0),  // S_PUFF1
+	createState(SpriteIndex.SPR_PUFF, 32768, puffTime, ActionIndex.NULL, StateIndex.S_PUFF2, 0, 0),  // S_PUFF1
 	createState(SpriteIndex.SPR_PUFF, 1, 4, ActionIndex.NULL, StateIndex.S_PUFF3, 0, 0),  // S_PUFF2
 	createState(SpriteIndex.SPR_PUFF, 2, 4, ActionIndex.NULL, StateIndex.S_PUFF4, 0, 0),  // S_PUFF3
 	createState(SpriteIndex.SPR_PUFF, 3, 4, ActionIndex.NULL, StateIndex.S_NULL, 0, 0),  // S_PUFF4
@@ -3611,7 +3619,7 @@ export const mapObjectInfo = [
 		100,		// mass
 		0,		// damage
 		SoundIndex.sfx_None,		// activesound
-		MFFlags.MF_NOBLOCKMAP | MFFlags.MF_NOGRAVITY,		// flags
+		MFFlags.MF_NOBLOCKMAP | MFFlags.MF_NOGRAVITY | MFFlags.BillboardSprite,		// flags
 		StateIndex.S_NULL		// raisestate
 	),
 

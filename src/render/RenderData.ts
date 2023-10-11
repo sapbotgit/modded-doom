@@ -127,7 +127,7 @@ export function buildRenderSectors(map: MapData) {
 function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
     fixSegs(segs);
     // explicit points
-    let segLines = segs.map(e => [e.vx1, e.vx2]);
+    let segLines = segs.map(e => e.v);
     let verts = segLines.flat();
 
     // implicit points are much more complicated. It took me a while to actually figure this all out.
@@ -160,15 +160,17 @@ function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
 
 function fixSegs(segs: Seg[]) {
     for (const seg of segs) {
-        if (!pointOnLine(seg.vx1, seg.linedef.v)) {
-            seg.vx1 = closestPoint(seg.linedef.v, seg.vx1);
+        // FIXME: this makes a bit of a mess of some sectors. I wonder if we should fix it in the map
+        // vertex list so that neighbouring subsectors also fix their verts?
+        if (!pointOnLine(seg.v[0], seg.linedef.v)) {
+            seg.v[0] = closestPoint(seg.linedef.v, seg.v[0]);
         }
-        if (!pointOnLine(seg.vx2, seg.linedef.v)) {
-            seg.vx2 = closestPoint(seg.linedef.v, seg.vx2);
+        if (!pointOnLine(seg.v[1], seg.linedef.v)) {
+            seg.v[1] = closestPoint(seg.linedef.v, seg.v[1]);
         }
 
         // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
         // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
-        seg.angle = Math.atan2(seg.vx2.y - seg.vx1.y, seg.vx2.x - seg.vx1.x);
+        seg.angle = Math.atan2(seg.v[1].y - seg.v[0].y, seg.v[1].x - seg.v[0].x);
     }
 }

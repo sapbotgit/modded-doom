@@ -15,10 +15,9 @@
     import { Mesh, TransformControls } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, type EulerOrder, ShaderMaterial } from 'three';
     import { useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MapObjectIndex, MFFlags } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
-    import type { Sprite } from '../../doom/sprite';
 
     export let thing: MapObject;
 
@@ -29,6 +28,8 @@
     const extraLight = map.player.extraLight;
 
     const { sector, position, sprite, direction, renderShadow } = thing;
+    const isPuff = (thing.info.flags & MFFlags.InvertSpriteYOffset);
+    const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
 
     $: ang = $mode === 'bird' ? $direction : Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x)
     $: rot = (Math.floor((ang - $direction - EIGHTH_PI) / QUARTER_PI) + 16) % 8 + 1;
@@ -43,21 +44,21 @@
     // https://www.doomworld.com/forum/topic/110008-what-is-this-bs-with-gl-hardware-mode
     // and https://www.doomworld.com/forum/topic/68145-source-port-sprites-through-the-floor
     const hackedSprites = ['MISL', 'PLSE', 'BFE1', 'BFS1'];
-    $: vOffset = Math.max(texture.userData.yOffset - texture.userData.height, 0) + (texture.userData.height * .5);
+    $: vOffset =
+        Math.max(texture.userData.yOffset - texture.userData.height, 0) + (texture.userData.height * .5)
+        * (isPuff ? -1 : 1);
     $: if (hackedSprites.includes($sprite.name)) {
         vOffset += texture.userData.yOffset - texture.userData.height;
     }
-    $: rotation = $mode === 'bird'
-        ? { z: $direction + HALF_PI, y: -Math.PI, x: Math.PI, order: 'ZXY' as EulerOrder }
-        : { y: $cameraRotation.z, x: HALF_PI, order: 'ZXY' as EulerOrder };
 
+    $: rotation =
+        $mode === 'bird' ? { z: $direction + HALF_PI, y: -Math.PI, x: Math.PI, order: 'ZXY' as EulerOrder } :
+        isBillboard ? { x: $cameraRotation.x, z: $cameraRotation.z, order: 'ZXY' as EulerOrder } :
+        { y: $cameraRotation.z, x: HALF_PI, order: 'ZXY' as EulerOrder };
 
-    let material: ShaderMaterial | MeshStandardMaterial;
-    $: if ($renderShadow) {
-        material = new ShaderMaterial({ transparent: true, ...ShadowsShader() });
-    } else {
-        material = new MeshStandardMaterial({ alphaTest: 1, emissive: 'magenta' });
-    }
+    $: material = $renderShadow
+        ? new ShaderMaterial({ transparent: true, ...ShadowsShader() })
+        : new MeshStandardMaterial({ alphaTest: 1, emissive: 'magenta' });
 
     $: if (material instanceof MeshStandardMaterial) {
         material.emissiveIntensity = ($editor.selected === thing) ? 0.1 : 0;

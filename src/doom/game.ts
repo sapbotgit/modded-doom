@@ -14,6 +14,7 @@ export interface GameTime {
 export interface GameSettings {
     timescale: Store<number>;
     freelook: Store<boolean>;
+    zAimAssist: Store<boolean>;
     noclip: Store<boolean>;
     freeFly: Store<boolean>;
     // useful for birds eye view where we may not want to rotate the camera when the player rotates

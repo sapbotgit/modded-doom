@@ -1,9 +1,9 @@
-import { Vector2, Vector3 } from "three";
+import { Euler, Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, randInt } from '../math';
-import { type PlayerMapObject, type PlayerInventory, MapObject, angleBetween, hitSky } from '../map-object';
+import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween, hitSky } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond, type GameTime } from "../game";
@@ -357,21 +357,21 @@ const weaponActions: { [key: number]: WeaponAction } = {
     },
 };
 
+const _shotEuler = new Euler(0, 0, 0, 'ZXY');
 class ShotTracer {
     private _lastTarget: MapObject;
     get lastTarget() { return this._lastTarget; };
 
     private start = new Vector3();
     private direction = new Vector3();
-    zAim(shooter: MapObject, range: number) {
-        const dir = shooter.direction.val + Math.PI;
+    zAim(shooter: MapObject | PlayerMapObject, range: number) {
         this.start.copy(shooter.position.val);
         this.start.z += shooter.info.height * .5 + 8;
+        const dir = shooter.direction.val + Math.PI;
         this.direction.set(
             Math.cos(dir) * range,
             Math.sin(dir) * range,
-            0,
-        );
+            0);
 
         let aim = aimTrace(shooter, this.start.z, range);
         shooter.map.data.traceRay(this.start, this.direction, aim.fn);
@@ -393,16 +393,19 @@ class ShotTracer {
         }
 
         this._lastTarget = aim.target;
+        if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
+            // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
+            // TODO: should the player have it's own rotation.x? feels odd to be using camera angle because we assume 1p pov
+            return Math.cos(shooter.map.camera.rotation.val.x + Math.PI);
+        }
+        // TODO: we convert angle to slope (and later undo this), why not just use angles?
         return aim.target ? aim.slope : 0;
     }
 
     // kind of like PTR_ShootTraverse from p_map.c
     fire(shooter: MapObject, damage: number, angle: number, aimSlope: number, range: number) {
-        this.direction.set(
-            Math.cos(angle) * range,
-            Math.sin(angle) * range,
-            0,
-        );
+        _shotEuler.set(0, Math.acos(aimSlope) - HALF_PI, angle);
+        this.direction.set(range, 0, 0).applyEuler(_shotEuler);
 
         // this scan function is almost the same as the one we use in zAim but it has a few differences:
         // 1) it spawns blood/puffs on impact
@@ -425,15 +428,14 @@ class ShotTracer {
                 if (thingSlopeTop < aimSlope) {
                     return true; // shot over thing
                 }
-
-                let thingSlopebottom = (hit.mobj.position.val.z - this.start.z) / dist;
-                if (thingSlopebottom > aimSlope) {
+                let thingSlopeBottom = (hit.mobj.position.val.z - this.start.z) / dist;
+                if (thingSlopeBottom > aimSlope) {
                     return true; // shot under thing
                 }
 
                 const pos = this.bulletHitLocation(10, hit.fraction, aimSlope, range);
                 if (hit.mobj.info.flags & MFFlags.MF_NOBLOOD) {
-                    shooter.map.spawn(MapObjectIndex.MT_PUFF, pos.x, pos.y, pos.z);
+                    this.spawnPuff(shooter, pos);
                 } else {
                     this.spawnBlood(hit.mobj, pos, damage);
                 }
@@ -452,42 +454,58 @@ class ShotTracer {
                 const dist = range * hit.fraction;
                 const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
                 const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
-                const openTop = Math.min(front.zCeil.val, back.zCeil.val);
-                const openBottom = Math.max(front.zFloor.val, back.zFloor.val);
 
                 if (front.zCeil.val !== back.zCeil.val) {
+                    const openTop = Math.min(front.zCeil.val, back.zCeil.val);
                     const slope = (openTop - this.start.z) / dist;
                     if (slope < aimSlope) {
                         return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                     }
                 }
                 if (front.zFloor.val !== back.zFloor.val) {
+                    const openBottom = Math.max(front.zFloor.val, back.zFloor.val);
                     const slope = (openBottom - this.start.z) / dist;
                     if (slope > aimSlope) {
                         return this.hitWallOrSky(shooter, front, back, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                     }
                 }
-            } else {
-                // sector?
+            } else if ('flat' in hit) {
+                const hitSky =
+                        (hit.flat === 'ceil' && hit.subsector.sector.ceilFlat.val === 'F_SKY1') ||
+                        (hit.flat === 'floor' && hit.subsector.sector.floorFlat.val === 'F_SKY1');
+                if (hitSky) {
+                    return false;
+                }
+                const spot = this.bulletHitLocation(4, hit.fraction, aimSlope, range);
+                const mobj = this.spawnPuff(shooter, spot);
+                if (hit.flat === 'ceil') {
+                    // invert puff sprite when hitting ceiling
+                    mobj.info.flags |= MFFlags.InvertSpriteYOffset;
+                }
+                return false;
             }
             return true;
         });
     }
 
     private hitWallOrSky(shooter: MapObject, front: Sector, back: Sector, spot: Vector3) {
-        if (hitSky(spot.z, front, back)) {
-            return false;
+        if (!hitSky(spot.z, front, back)) {
+            this.spawnPuff(shooter, spot);
         }
+        return false;
+    }
+
+    private spawnPuff(shooter: MapObject, spot: Vector3) {
         const mobj = shooter.map.spawn(MapObjectIndex.MT_PUFF, spot.x, spot.y, spot.z);
         mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
-        return false;
+        return mobj;
     }
 
     // TODO: too many params (and fire() too...), can we refactors these functions a little cleaner?
     private hitLocation = new Vector3();
     private bulletHitLocation(dist: number, frac: number, slope: number, range: number) {
         // position the hit location little bit in front of the actual impact
-        frac = frac - dist / range;
+        frac -= dist / range;
         return this.hitLocation.set(
             frac * this.direction.x + this.start.x,
             frac * this.direction.y + this.start.y,
@@ -533,19 +551,19 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                 }
 
                 const dist = range * hit.fraction;
-                let thingSlopeTop = (hit.mobj.position.val.z +hit.mobj.info.height - shootZ) / dist;
+                let thingSlopeTop = (hit.mobj.position.val.z + hit.mobj.info.height - shootZ) / dist;
                 if (thingSlopeTop < slopeBottom) {
                     return true; // shot over thing
                 }
 
-                let thingSlopebottom = (hit.mobj.position.val.z - shootZ) / dist;
-                if (thingSlopebottom > slopeTop) {
+                let thingSlopeBottom = (hit.mobj.position.val.z - shootZ) / dist;
+                if (thingSlopeBottom > slopeTop) {
                     return true; // shot under thing
                 }
 
                 thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
-                thingSlopebottom = Math.max(thingSlopebottom, slopeBottom);
-                result.slope = (thingSlopeTop + thingSlopebottom) * .5;
+                thingSlopeBottom = Math.max(thingSlopeBottom, slopeBottom);
+                result.slope = (thingSlopeTop + thingSlopeBottom) * .5;
                 result.target = hit.mobj;
                 return false;
             } else if ('line' in hit) {
@@ -599,11 +617,8 @@ function shootMissile(player: MapObject, type: MapObjectIndex.MT_PLASMA | MapObj
     // this is kind of an abuse of "chaseTarget" but missles won't ever change anyone anyway. It's used when a missile
     // hits a target to know who fired it.
     mobj.chaseTarget = player;
-    mobj.velocity.set(
-        mobj.info.speed * Math.cos(angle),
-        mobj.info.speed * Math.sin(angle),
-        mobj.info.speed * slope,
-    );
+    _shotEuler.set(0, Math.acos(slope) - HALF_PI, angle);
+    mobj.velocity.set(mobj.info.speed, 0, 0).applyEuler(_shotEuler);
 }
 
 function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {

@@ -6,11 +6,11 @@
 
     const visible = true;
     const mid = {
-        x: (seg.vx2.x + seg.vx1.x) * 0.5,
-        y: (seg.vx2.y + seg.vx1.y) * 0.5,
+        x: (seg.v[1].x + seg.v[0].x) * 0.5,
+        y: (seg.v[1].y + seg.v[0].y) * 0.5,
     };
-    const vx = seg.vx2.x - seg.vx1.x;
-    const vy = seg.vx2.y - seg.vx1.y;
+    const vx = seg.v[1].x - seg.v[0].x;
+    const vy = seg.v[1].y - seg.v[0].y;
     const width = Math.sqrt(vx * vx + vy * vy);
 
     const linedef = seg.linedef;
