@@ -209,6 +209,7 @@ class BlockMap {
     }
 }
 
+const zeroVec = new Vector3();
 export const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
     private bspTracer: ReturnType<typeof createBspTracer>;
@@ -280,12 +281,16 @@ export class MapData {
         return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
     }
 
-    trace(start: Vector3, move: Vector3, onHit: HandleTraceHit) {
+    traceRay(start: Vector3, move: Vector3, onHit: HandleTraceHit) {
         this.bspTracer(start, move, 0, onHit);
     }
 
-    traceBlock(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
+    traceMove(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
         this.bspTracer(start, move, radius, onHit);
+    }
+
+    traceAABB(position: Vector3, radius: number, onHit: HandleTraceHit) {
+        this.bspTracer(position, zeroVec, radius, onHit);
     }
 }
 

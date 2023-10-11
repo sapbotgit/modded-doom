@@ -389,7 +389,7 @@ class GameInput {
 
             const ang = euler.z + HALF_PI;
             vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
-            this.map.data.trace(pos, vec, hit => {
+            this.map.data.traceRay(pos, vec, hit => {
                 if ('line' in hit) {
                     if (hit.line.special) {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
@@ -483,7 +483,7 @@ class Camera {
         pos.z = Math.max(pos.z, sector.zFloor.val + 3, player.sector.val.zFloor.val + 3);
         pos.z = Math.min(pos.z, sector.zCeil.val - 3, player.sector.val.zCeil.val - 3);
         _3pDir.copy(pos).sub(player.position.val);
-        map.data.trace(player.position.val, _3pDir, hit => {
+        map.data.traceRay(player.position.val, _3pDir, hit => {
             if ('line' in hit) {
                 if ((hit.line.flags & 0x0004) !== 0) {
                     return true; // continue

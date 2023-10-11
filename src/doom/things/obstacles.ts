@@ -47,12 +47,11 @@ export const obstacles: ThingType[] = [
     { type: 2035, class: 'O', description: 'Exploding barrel' },
 ];
 
-const zero = new Vector3();
 type StateChangeAction = (time: GameTime, mobj: MapObject) => void
 export const actions: { [key: number]: StateChangeAction } = {
     [ActionIndex.A_Explode]: (time, mobj: MapObject) => {
         const damage = 128;
-        mobj.map.data.traceBlock(mobj.position.val, zero, damage + 32, hit => {
+        mobj.map.data.traceAABB(mobj.position.val, damage + 32, hit => {
             if ('mobj' in hit) {
                 const thing = hit.mobj;
                 if (!(thing.info.flags & MFFlags.MF_SHOOTABLE)) {
@@ -88,7 +87,7 @@ function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // TODO: we need to check z-coordinates here and look at two-sided walls, etc.
     let los = true;
     losVec.copy(mobj2.position.val).sub(mobj1.position.val);
-    mobj1.map.data.trace(mobj1.position.val, losVec, hit => {
+    mobj1.map.data.traceRay(mobj1.position.val, losVec, hit => {
         if ('line' in hit) {
             if ((hit.line.flags & 0x0004) !== 0) {
                 return true; // ignore two-sided walls for now

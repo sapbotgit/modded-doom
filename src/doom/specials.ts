@@ -540,6 +540,10 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
                 let original = val;
                 val += def.direction;
 
+
+                // FIXME: we need to check we've reached the top before crushing (probably applies for other things too)
+                // (see sectors 51,52,54,etc.) in E2M2
+
                 // crush
                 if (def.direction === 1) {
                     const crunch = def.crush ? crunchAndDamageMapObject : crunchMapObject;

@@ -374,14 +374,14 @@ class ShotTracer {
         );
 
         let aim = aimTrace(shooter, this.start.z, range);
-        shooter.map.data.trace(this.start, this.direction, aim.fn);
+        shooter.map.data.traceRay(this.start, this.direction, aim.fn);
         if (!aim.target) {
             // try aiming slightly left to see if we hit a target
             let dir2 = dir + Math.PI / 40;
             this.direction.x = Math.cos(dir2) * range;
             this.direction.y = Math.sin(dir2) * range;
             aimTrace(shooter, this.start.z, range);
-            shooter.map.data.trace(this.start, this.direction, aim.fn);
+            shooter.map.data.traceRay(this.start, this.direction, aim.fn);
         }
         if (!aim.target) {
             // try aiming slightly right to see if we hit a target
@@ -389,7 +389,7 @@ class ShotTracer {
             this.direction.x = Math.cos(dir2) * range;
             this.direction.y = Math.sin(dir2) * range;
             aimTrace(shooter, this.start.z, range);
-            shooter.map.data.trace(this.start, this.direction, aim.fn);
+            shooter.map.data.traceRay(this.start, this.direction, aim.fn);
         }
 
         this._lastTarget = aim.target;
@@ -411,7 +411,7 @@ class ShotTracer {
         // 4) it does not impact aimSlope (it relies on it being set)
         // it's useful to have a separate aim and fire function because some weapons (notably the shotgun)
         // aim once and fire several bullets
-        shooter.map.data.trace(this.start, this.direction, hit => {
+        shooter.map.data.traceRay(this.start, this.direction, hit => {
             if ('mobj' in hit) {
                 if (hit.mobj === shooter) {
                     return true; // can't shoot ourselves

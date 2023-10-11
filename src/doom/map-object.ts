@@ -72,10 +72,13 @@ export class MapObject {
         }
 
         const highestZFloor = (sector: Sector, zFloor: number) => {
+            const ceil = lowestZCeil(sector, sector.zCeil.val);
             this.subsectors(subsector => {
                 const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor.val;
-                const gap = floor - this.position.val.z;
-                if (gap >= 0 && gap <= maxStepSize) {
+                const step = floor - this.position.val.z;
+                // only allow step if it's small and we can fit in the ceiling/floor gap
+                // (see imp near sector 75 in E1M7)
+                if (step >= 0 && step <= maxStepSize && ceil - floor >= this.info.height) {
                     zFloor = Math.max(floor, zFloor);
                 }
             });
@@ -97,19 +100,16 @@ export class MapObject {
         };
 
         this.sectorChanged = (sector, zFloor, zCeil) => {
-            if (fromCeiling) {
-                this.zFloor = zCeil - this.info.height;
+            // check that we are on the ground before updating zFloor because if we were on the ground before
+            // change, we want to force object to the ground after the change
+            const onGround = this.onGround;
+            this.zFloor = fromCeiling
+                ? zCeil - this.info.height
+                : highestZFloor(sector, zFloor);
+            // ceiling things or things on the ground always update
+            if (fromCeiling || onGround) {
                 this.position.val.z = this.zFloor;
                 this.position.set(this.position.val);
-            } else {
-                // check that we are on the ground before updating zFloor because if we were on the ground before
-                // change, we want to force object to the ground after the change
-                const onGround = this.onGround;
-                this.zFloor = highestZFloor(sector, zFloor);
-                if (onGround) {
-                    this.position.val.z = this.zFloor;
-                    this.position.set(this.position.val);
-                }
             }
         };
 
@@ -125,26 +125,28 @@ export class MapObject {
                 p.z = sector.zFloor.val;
             }
 
-            // clear all subsectors were were previously touching
+            // clear all subsectors we were touching during last update
             this.subsectorMap.forEach((val, key) => this.subsectorMap.set(key, false));
             // add subsector we are fully inside
             this.subsectorMap.set(subsector, true);
-            // and any subsectors we are touching
-            map.data.traceBlock(p, vec.set(0, 0, 0), this.info.radius, hit =>
+            // and any subsectors we are currently touching the lines of
+            map.data.traceAABB(p, this.info.radius, hit =>
                 Boolean(this.subsectorMap.set(hit.subsector, true)));
 
             // remove mobj from untouched subsectors or add mobj to touched ones
-            this.subsectorMap.forEach((val, key) => {
-                if (!val) {
-                    key.mobjs = key.mobjs.filter(e => e !== this);
-                    this.subsectorMap.delete(key);
-                } else if (!key.mobjs.includes(this)) {
-                    key.mobjs.push(this);
+            this.subsectorMap.forEach((touching, subsector) => {
+                if (!touching) {
+                    subsector.mobjs = subsector.mobjs.filter(e => e !== this);
+                    this.subsectorMap.delete(subsector);
+                } else if (!subsector.mobjs.includes(this)) {
+                    subsector.mobjs.push(this);
                 }
             });
 
-            // we want the sector with the highest floor which means we float a little when standing on an edge
-            this.zFloor = highestZFloor(sector, sector.zFloor.val);
+            this.zFloor = fromCeiling
+                ? lowestZCeil(sector, sector.zCeil.val) - this.info.height
+                // we want the sector with the highest floor which means we float a little when standing on an edge
+                : highestZFloor(sector, sector.zFloor.val);
             if (currentSector !== sector) {
                 this.sector.set(sector);
                 this.applyGravity();
@@ -342,7 +344,7 @@ export class MapObject {
         while (hitFraction !== -1) {
             hitFraction = -1;
             vec.copy(start).add(this.velocity);
-            this.map.data.traceBlock(start, this.velocity, this.info.radius, hit => {
+            this.map.data.traceMove(start, this.velocity, this.info.radius, hit => {
                 if ('mobj' in hit) {
                     // kind of like PIT_CheckThing
                     if (hit.mobj === this) {
