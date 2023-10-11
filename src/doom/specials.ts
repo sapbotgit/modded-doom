@@ -1,6 +1,6 @@
 // kind of based on p_spec.c
 import { MapObject, PlayerMapObject } from "./map-object";
-import { ToRadians, lineAABB, randInt } from "./math";
+import { ToRadians, randInt } from "./math";
 import { MFFlags, MapObjectIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
 import { type LineDef, type Sector } from "./map-data";

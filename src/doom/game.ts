@@ -27,7 +27,7 @@ export const ticksPerSecond = 35;
 export const frameTickTime = 1 / ticksPerSecond;
 
 // player info persisted between levels
-interface PlayerStats extends PlayerInventory {
+interface PlayerInfo extends Omit<PlayerInventory, 'keys' | 'items'> {
     health: number;
     lastWeapon: InventoryWeapon;
 }
@@ -68,7 +68,7 @@ export class Game {
         attack: false,
         weaponSelect: 0,
     };
-    readonly inventory: PlayerStats = {
+    readonly inventory: PlayerInfo = {
         health: 100,
         armor: 0,
         armorType: 0,
@@ -78,19 +78,9 @@ export class Game {
             rockets: { amount: 0, max: 50 },
             cells: { amount: 0, max: 300 },
         },
-        items: {
-            berserkTicks: 0,
-            invincibilityTicks: 0,
-            invisibilityTicks: 0,
-            nightVisionTicks: 0,
-            radiationSuitTicks: 0,
-            computerMap: false,
-            berserk: false,
-        },
         lastWeapon: inventoryWeapon('pistol'),
         // null reserves a slot for the chainsaw to keep weapons in order
         weapons: [null, 'fist', 'pistol'].map(inventoryWeapon),
-        keys: '',
     };
     readonly map = store<MapRuntime>(null);
     readonly intermission = store<IntermissionScreen>(null);
@@ -111,10 +101,6 @@ export class Game {
         // we need to process in 1/35s ticks (or less)
         delta *= this.settings.timescale.val;
         const step = Math.min(frameTickTime, delta);
-
-        // TODO: when loading next map, make sure to clear inventory ticks (invul, light visor)
-        //  and bonuses like computer map, berserk, keys, etc. Actually, maybe we need some kind of
-        //  per-level inventory that clears itself...
 
         while (delta > 0) {
             const dt = Math.min(step, delta);

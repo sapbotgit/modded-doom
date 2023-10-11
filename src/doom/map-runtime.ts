@@ -43,8 +43,20 @@ export class MapRuntime {
         this.data = game.wad.readMap(name);
 
         const playerThing = this.data.things.find(e => e.type === 1);
-        this.player = new PlayerMapObject(store(game.inventory), this, playerThing);
-        // preserve values between levels
+        const inv = Object.assign(game.inventory, {
+            items: {
+                berserkTicks: 0,
+                invincibilityTicks: 0,
+                invisibilityTicks: 0,
+                nightVisionTicks: 0,
+                radiationSuitTicks: 0,
+                computerMap: false,
+                berserk: false,
+            },
+            keys: '',
+        });
+        this.player = new PlayerMapObject(store(inv), this, playerThing);
+        // restore values from last level (and subscribe to preserve values for next level)
         this.player.health.set(game.inventory.health);
         this.player.health.subscribe(health => game.inventory.health = health);
         this.player.weapon.set(game.inventory.lastWeapon.fn());
