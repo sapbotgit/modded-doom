@@ -1,17 +1,11 @@
 import { ClampToEdgeWrapping, Color, DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
 import {
-    pointOnLine,
-    closestPoint,
-    centerSort,
-    signedLineDistance,
-    lineLineIntersect,
     type DoomWad,
     type TreeNode,
     type Seg,
     type Vertex,
     type SubSector,
     type Sector,
-    MapRuntime,
     MapData,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
@@ -102,9 +96,8 @@ export function buildRenderSectors(map: MapData) {
 
     function visitNodeChild(child: TreeNode | SubSector) {
         if ('segs' in child) {
-            const sector = child.sector;
-            const vertexes = subsectorVerts(child.segs, bspLines);
-            sectors.push({ sector, vertexes, segs: child.segs, subsec: child, bspLines: [...bspLines] })
+            const { vertexes, sector, segs } = child;
+            sectors.push({ sector, vertexes, segs, subsec: child, bspLines: [...bspLines] })
         } else {
             visitNode(child);
         }
@@ -122,55 +115,4 @@ export function buildRenderSectors(map: MapData) {
 
     visitNode(map.nodes[map.nodes.length - 1]);
     return sectors;
-}
-
-function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
-    fixSegs(segs);
-    // explicit points
-    let segLines = segs.map(e => e.v);
-    let verts = segLines.flat();
-
-    // implicit points are much more complicated. It took me a while to actually figure this all out.
-    // Here are some helpful links:
-    // - https://www.doomworld.com/forum/topic/105730-drawing-flats-from-ssectors/
-    // - https://www.doomworld.com/forum/topic/50442-dooms-floors/
-    // - https://doomwiki.org/wiki/Subsector
-    //
-    // This source code below was particularly helpful and I implemented something quite similar:
-    // https://github.com/cristicbz/rust-doom/blob/6aa7681cee4e181a2b13ecc9acfa3fcaa2df4014/wad/src/visitor.rs#L670
-    for (let i = 0; i < bspLines.length - 1; i++) {
-        for (let j = i; j < bspLines.length; j++) {
-            let point = lineLineIntersect(bspLines[i], bspLines[j]);
-            if (!point) {
-                continue;
-            }
-
-            // The intersection point must lie both within the BSP volume and the segs volume.
-            // the constants here are a little bit of trial and error but E1M1 had a
-            // couple of subsectors in the zigzag room that helped
-            let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .1);
-            let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1000);
-            if (insideBsp && insideSeg) {
-                verts.push({ x: point.x, y: point.y });
-            }
-        }
-    }
-    return centerSort(verts)
-}
-
-function fixSegs(segs: Seg[]) {
-    for (const seg of segs) {
-        // FIXME: this makes a bit of a mess of some sectors. I wonder if we should fix it in the map
-        // vertex list so that neighbouring subsectors also fix their verts?
-        if (!pointOnLine(seg.v[0], seg.linedef.v)) {
-            seg.v[0] = closestPoint(seg.linedef.v, seg.v[0]);
-        }
-        if (!pointOnLine(seg.v[1], seg.linedef.v)) {
-            seg.v[1] = closestPoint(seg.linedef.v, seg.v[1]);
-        }
-
-        // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
-        // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
-        seg.angle = Math.atan2(seg.v[1].y - seg.v[0].y, seg.v[1].x - seg.v[0].x);
-    }
 }

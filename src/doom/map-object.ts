@@ -3,7 +3,7 @@ import { thingSpec, stateChangeActions } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
 import { randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
-import { hittableThing, type Sector, type SubSector, type Thing } from "./map-data";
+import { hittableThing, zeroVec, type Sector, type SubSector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -44,7 +44,6 @@ export class MapObject {
 
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector, zFloor: number, zCeil: number) => void;
-    readonly dispose: () => void;
 
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
@@ -116,48 +115,35 @@ export class MapObject {
         this.direction = store(0);
         this.position = store(new Vector3(pos.x, pos.y, 0));
         this.position.subscribe(p => {
-            const currentSector = this.sector.val;
-            const subsector = map.data.findSubSector(p.x, p.y);
-            const sector = subsector.sector;
-
-            if (!currentSector) {
-                // first time setting sector so set zpos
-                p.z = sector.zFloor.val;
-            }
-
             // clear all subsectors we were touching during last update
             this.subsectorMap.forEach((val, key) => this.subsectorMap.set(key, false));
-            // add subsector we are fully inside
-            this.subsectorMap.set(subsector, true);
-            // and any subsectors we are currently touching the lines of
-            map.data.traceAABB(p, this.info.radius, hit =>
-                Boolean(this.subsectorMap.set(hit.subsector, true)));
-
-            // remove mobj from untouched subsectors or add mobj to touched ones
+            // add any subsectors we are currently touching
+            map.data.traceSubsectors(p, zeroVec, this.info.radius, subsector =>
+                Boolean(this.subsectorMap.set(subsector, true)));
+            // add mobj to touched sectors or remove from untouched sectors
             this.subsectorMap.forEach((touching, subsector) => {
-                if (!touching) {
-                    subsector.mobjs = subsector.mobjs.filter(e => e !== this);
+                if (touching) {
+                    subsector.mobjs.add(this);
+                } else {
+                    subsector.mobjs.delete(this);
                     this.subsectorMap.delete(subsector);
-                } else if (!subsector.mobjs.includes(this)) {
-                    subsector.mobjs.push(this);
                 }
             });
 
+            const sector = map.data.findSector(p.x, p.y);
             this.zFloor = fromCeiling
                 ? lowestZCeil(sector, sector.zCeil.val) - this.info.height
                 // we want the sector with the highest floor which means we float a little when standing on an edge
                 : highestZFloor(sector, sector.zFloor.val);
-            if (currentSector !== sector) {
+            if (!this.sector.val) {
+                // first time setting sector so set zpos based on sector containing the object center
+                p.z = sector.zFloor.val;
+            }
+            if (this.sector.val !== sector) {
                 this.sector.set(sector);
                 this.applyGravity();
             }
         });
-
-        this.dispose = () => {
-            this.subsectors(subsector => {
-                subsector.mobjs = subsector.mobjs.filter(e => e !== this);
-            });
-        }
 
         this._state.setState(this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
@@ -304,7 +290,7 @@ export class MapObject {
         return false;
     }
 
-    protected subsectors(fn: (subsector: SubSector) => void) {
+    subsectors(fn: (subsector: SubSector) => void) {
         this.subsectorMap.forEach((val, key) => fn(key));
     }
 

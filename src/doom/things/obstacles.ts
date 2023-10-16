@@ -3,6 +3,7 @@ import type { ThingType } from '.';
 import { ActionIndex, MFFlags } from '../doom-things-info';
 import type { GameTime } from '../game';
 import type { MapObject } from '../map-object';
+import { zeroVec } from '../map-data';
 
 export const obstacles: ThingType[] = [
     { type: 25, class: 'O', description: 'Impaled human' },
@@ -51,7 +52,7 @@ type StateChangeAction = (time: GameTime, mobj: MapObject) => void
 export const actions: { [key: number]: StateChangeAction } = {
     [ActionIndex.A_Explode]: (time, mobj: MapObject) => {
         const damage = 128;
-        mobj.map.data.traceAABB(mobj.position.val, damage + 32, hit => {
+        mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, hit => {
             if ('mobj' in hit) {
                 const thing = hit.mobj;
                 if (!(thing.info.flags & MFFlags.MF_SHOOTABLE)) {

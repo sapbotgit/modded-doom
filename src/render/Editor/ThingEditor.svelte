@@ -5,6 +5,7 @@
     import { ToDegrees, ToRadians } from "../../doom";
     import FlagList from "./FlagList.svelte";
     import { MapObject } from "../../doom/map-object";
+    import NumberChooser from "./NumberChooser.svelte";
 
     const { editor, textures, wad } = useDoom();
 
@@ -20,7 +21,7 @@
         [0x0010, 'Multiplayer-only'],
     ]
 
-    const { direction, sprite } = thing;
+    const { direction, sprite, position } = thing;
     const frames = wad.spriteFrames($sprite.name);
     const frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
     const texture = textures.get(frame.name, 'sprite');
@@ -64,13 +65,26 @@
         return { value, state, frames, text };
     }
 
+    function changeThing(ev) {
+        const mobj = map.objs.find(e => e.id === ev.detail);
+        if (mobj) {
+            $editor.selected = mobj;
+        }
+    }
+
+    let subsectors = [];
+    $: if ($position) {
+        subsectors = []
+        thing.subsectors(s => subsectors.push(s.num));
+    }
+
     $: types = Object.keys(MapObjectIndex)
         .filter(e => !isNaN(Number(e)))
         .map(editorThing)
         .filter(e => e?.value.mo.doomednum >= 0);
 </script>
 
-<h3>Thing ({thing.id})</h3>
+<h3>Thing <NumberChooser num={thing.id} on:select={changeThing} /></h3>
 <div>
     <button on:click={toggleSelector}>{thing.description}</button>
     {#if showSelector}
@@ -92,6 +106,10 @@
     Hmm... during some refactoring, we removed this data from MObj. Should we bring it back?
     <FlagList info={flagInfo} bind:flags={thing.source.flags} />
     -->
+</div>
+<div>
+    <div>Poisition: {[$position.x,$position.y,$position.z]}</div>
+    <div>Subsectors: [{subsectors}]</div>
 </div>
 <!-- position is edited in Thing.svelte -->
 <div class="direction">

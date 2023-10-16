@@ -2,9 +2,10 @@
     import type { Size } from "@threlte/core";
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
-    import { type MapRuntime, type MapObject as MObj } from "../../doom";
+    import { type MapRuntime, type MapObject as MObj, type TreeNode } from "../../doom";
     import { useDoom, useDoomMap } from "../DoomContext";
     import { Color } from "three";
+    import type { RenderSector } from "../RenderData";
 
     export let size: Size;
     export let map: MapRuntime;
@@ -45,6 +46,11 @@
     let mobjs: MObj[] = [];
     $: if ($rev) {
         mobjs = map.objs;
+    }
+
+    let selRS: RenderSector;
+    function selectRS(rs: RenderSector) {
+        selRS = rs;
     }
 
     const { renderSectors } = useDoomMap();
@@ -89,10 +95,11 @@
         stroke-linecap={'round'}
     >
 
-        <!-- {#each renderSectors as rs, i}
-            <polygon points={rs.vertexes.map(e => e.x + ',' + e.y).join(' ')} fill={namedColor(i)} />
+        {#each renderSectors as rs, i}
+            <polygon points={rs.vertexes.map(e => e.x + ',' + e.y).join(' ')} fill={namedColor(i)}
+                on:click={() => selectRS(rs)}/>
         {/each}
-        {#each map.data.nodes as node}
+        <!-- {#each map.data.nodes as node}
             {#if 'segs' in node.childRight || 'segs' in node.childLeft}
                 <line x1={node.v[0].x} y1={node.v[0].y} x2={node.v[1].x} y2={node.v[1].y} stroke='magenta' stroke-width={5} />
             {/if}
@@ -112,6 +119,12 @@
         {#each mobjs as mobj (mobj.id)}
             <MapObject {mobj} />
         {/each}
+
+        {#if selRS}
+            <rect x={selRS.subsec.bounds.left} y={selRS.subsec.bounds.top}
+                width={selRS.subsec.bounds.right - selRS.subsec.bounds.left} height={selRS.subsec.bounds.bottom - selRS.subsec.bounds.top}
+                stroke='orange' stroke-width={4} fill='none' />
+        {/if}
     </g>
 </svg>
 
@@ -124,5 +137,9 @@
 
     g {
         pointer-events: none;
+    }
+
+    polygon {
+        pointer-events: all;
     }
 </style>
