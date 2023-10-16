@@ -297,19 +297,19 @@ export class MapData {
 }
 
 function aabbLineOverlap(pos: Vector3, radius: number, line: LineDef) {
-    const boxMinX = pos.x - radius;
-    const boxMaxX = pos.x + radius;
-    const boxMinY = pos.y - radius;
-    const boxMaxY = pos.y + radius;
     const lineMinX = Math.min(line.v[0].x, line.v[1].x);
     const lineMaxX = Math.max(line.v[0].x, line.v[1].x);
     const lineMinY = Math.min(line.v[0].y, line.v[1].y);
     const lineMaxY = Math.max(line.v[0].y, line.v[1].y);
     if (lineMinX === lineMaxX) {
         // aabb hit a horizontal line so return y-axis overlap
+        const boxMinY = pos.y - radius;
+        const boxMaxY = pos.y + radius;
         return Math.min(boxMaxY, lineMaxY) - Math.max(boxMinY, lineMinY)
     } else if (lineMinY === lineMaxY) {
         // aabb hit a vertical line so return x-axis overlap
+        const boxMinX = pos.x - radius;
+        const boxMaxX = pos.x + radius;
         return Math.min(boxMaxX, lineMaxX) - Math.max(boxMinX, lineMinX);
     }
     return 0;
@@ -427,12 +427,12 @@ function createSubsectorTrace(root: TreeNode) {
             if ('segs' in node) {
                 // BSP queries always end up in some node (even if we're outside the map)
                 // so check and make sure the aabb's overlap
-                const b1Left = Math.min(start.x, start.x + move.x) - radius;
-                const b1Right = Math.max(start.x, start.x + move.x) + radius;
-                const b1Top = Math.min(start.y, start.y + move.y) - radius;
-                const b1Bottom = Math.max(start.y, start.y + move.y) + radius;
-                const missBox = (node.bounds.left > b1Right || node.bounds.right < b1Left
-                    || node.bounds.top > b1Bottom || node.bounds.bottom < b1Top);
+                const mLeft = Math.min(start.x, start.x + move.x) - radius;
+                const mRight = Math.max(start.x, start.x + move.x) + radius;
+                const mTop = Math.min(start.y, start.y + move.y) - radius;
+                const mBottom = Math.max(start.y, start.y + move.y) + radius;
+                const missBox = (node.bounds.left > mRight || node.bounds.right < mLeft
+                    || node.bounds.top > mBottom || node.bounds.bottom < mTop);
                 if (missBox) {
                     return;
                 }

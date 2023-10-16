@@ -17,7 +17,7 @@ interface AnimatedTexture {
 
 export class MapRuntime {
     readonly data: MapData; // TODO: make this non-public?
-    private actions: Action[] = [];
+    private actions = new Set<Action>();
     private animatedTextures: AnimatedTexture[] = [];
 
     readonly player: PlayerMapObject;
@@ -198,28 +198,27 @@ export class MapRuntime {
     }
 
     addAction(action: Action) {
-        if (action && this.actions.indexOf(action) === -1) {
-            this.actions.push(action);
+        if (action) {
+            this.actions.add(action);
         }
     }
 
     removeAction(action: Action) {
-        // TODO: perf: recreating an array?
-        this.actions = this.actions.filter(e => e !== action);
+        this.actions.delete(action);
     }
 
     // Why a public function? Because "edit" mode can change these while
     // rendering the map and we want them to update
     synchronizeSpecials() {
-        this.actions = [];
+        this.actions.clear();
         this.stats.totalSecrets = 0;
         for (const wall of this.data.linedefs) {
             if (wall.special === 48) {
                 wall.xOffset = store(0);
-                this.actions.push(() => wall.xOffset.update(n => n += 1));
+                this.actions.add(() => wall.xOffset.update(n => n += 1));
             } else if (wall.special === 85) {
                 wall.xOffset = store(0);
-                this.actions.push(() => wall.xOffset.update(n => n -= 1));
+                this.actions.add(() => wall.xOffset.update(n => n -= 1));
             }
         }
 
@@ -227,7 +226,7 @@ export class MapRuntime {
             const type = sector.type;
             const action = sectorLightAnimations[type]?.(this, sector);
             if (action) {
-                this.actions.push(action);
+                this.actions.add(action);
             }
 
             if (type === 9) {

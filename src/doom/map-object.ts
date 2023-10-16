@@ -24,7 +24,7 @@ export class MapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
 
-    // TODO: perf? can we be smarter? this feels awkward
+    // set of subsectors we are touching
     private subsectorMap = new Map<SubSector, boolean>();
 
     protected _state = new SpriteStateMachine(
@@ -43,7 +43,7 @@ export class MapObject {
     chaseTarget: MapObject;
 
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
-    readonly sectorChanged: (sector: Sector, zFloor: number, zCeil: number) => void;
+    readonly sectorChanged: (sector: Sector) => void;
 
     readonly info: MapObjectInfo;
     readonly health: Store<number>;
@@ -69,6 +69,10 @@ export class MapObject {
         if (this.info.flags & MFFlags.MF_SHADOW) {
             this.renderShadow.set(true);
         }
+
+        this._state.setState(this.info.spawnstate);
+        // initial spawn sets ticks a little randomly so animations don't all move at the same time
+        this._state.randomizeTicks();
 
         const highestZFloor = (sector: Sector, zFloor: number) => {
             const ceil = lowestZCeil(sector, sector.zCeil.val);
@@ -98,13 +102,13 @@ export class MapObject {
             return ((ceil - floor) >= this.info.height);
         };
 
-        this.sectorChanged = (sector, zFloor, zCeil) => {
+        this.sectorChanged = sector => {
             // check that we are on the ground before updating zFloor because if we were on the ground before
             // change, we want to force object to the ground after the change
             const onGround = this.onGround;
             this.zFloor = fromCeiling
-                ? zCeil - this.info.height
-                : highestZFloor(sector, zFloor);
+                ? sector.zCeil.val - this.info.height
+                : highestZFloor(sector, sector.zFloor.val);
             // ceiling things or things on the ground always update
             if (fromCeiling || onGround) {
                 this.position.val.z = this.zFloor;
@@ -144,10 +148,6 @@ export class MapObject {
                 this.applyGravity();
             }
         });
-
-        this._state.setState(this.info.spawnstate);
-        // initial spawn sets ticks a little randomly so animations don't all move at the same time
-        this._state.randomizeTicks();
     }
 
     tick() {

@@ -304,7 +304,7 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                 }
                 return val;
             });
-            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
+            mobjs.forEach(mobj => mobj.sectorChanged(sector));
         };
         map.addAction(action);
     }
@@ -443,7 +443,7 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
 
                 return val;
             });
-            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
+            mobjs.forEach(mobj => mobj.sectorChanged(sector));
         };
         sector.specialData = action;
         map.addAction(action);
@@ -570,7 +570,7 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
 
                 return val;
             });
-            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
+            mobjs.forEach(mobj => mobj.sectorChanged(sector));
         }
         map.addAction(action);
     }
@@ -653,7 +653,7 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
 
                 return val;
             });
-            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
+            mobjs.forEach(mobj => mobj.sectorChanged(sector));
         }
         map.addAction(action);
     }
@@ -756,7 +756,7 @@ export const createCrusherCeilingAction = (mobj: MapObject, linedef: LineDef, tr
                 }
                 return val;
             });
-            mobjs.forEach(mobj => mobj.sectorChanged(sector, sector.zFloor.val, sector.zCeil.val));
+            mobjs.forEach(mobj => mobj.sectorChanged(sector));
         };
         sector.specialData = action;
         map.addAction(action);
@@ -973,7 +973,7 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     return triggered ? def : undefined;
 };
 
-// Donut (apparently only in E1M2 and E2M2 and map21 of tnt (none in Doom2 or plutonia)
+// Donut (apparently only in E1M2, E2M2 and MAP21 of tnt (none in Doom2 or plutonia)
 export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     const map = mobj.map;
     const def = { trigger: 'S', repeatable: false };
@@ -1012,13 +1012,14 @@ export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, s
                     val = target;
                 }
 
+                if (finished) {
+                    pillar.specialData = null;
+                    map.removeAction(pillarAction);
+                }
+
                 return val;
             });
-
-            if (finished) {
-                pillar.specialData = null;
-                map.removeAction(pillarAction);
-            }
+            sectorObjects(map, pillar).forEach(mobj => mobj.sectorChanged(pillar));
         };
         map.addAction(pillarAction);
 
@@ -1026,23 +1027,32 @@ export const donut = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, s
         const donutAction = () => {
             let finished = false;
 
+            const mobjs = sectorObjects(map, pillar);
             donut.zFloor.update(val => {
+                let original = val;
                 val += speed;
 
                 if (val > target) {
                     finished = true;
                     val = target;
+                } else {
+                    const crushing = mobjs.filter(mobj => !mobj.canSectorChange(pillar, val, pillar.zCeil.val));
+                    if (crushing.length) {
+                        // stop movement if we hit something
+                        return original;
+                    }
+                }
+
+                if (finished) {
+                    assignFloorFlat(map, model, donut);
+                    assignSectorType(map, model, donut);
+                    donut.specialData = null;
+                    map.removeAction(donutAction);
                 }
 
                 return val;
             });
-
-            if (finished) {
-                assignFloorFlat(map, model, donut);
-                assignSectorType(map, model, donut);
-                donut.specialData = null;
-                map.removeAction(donutAction);
-            }
+            mobjs.forEach(mobj => mobj.sectorChanged(pillar));
         };
         map.addAction(donutAction);
     }
@@ -1113,21 +1123,30 @@ function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number,
     const action = () => {
         let finished = false;
 
+        const mobjs = sectorObjects(map, sector);
         sector.zFloor.update(val => {
+            let original = val;
             val += def.direction * def.speed;
 
             if (val > target) {
                 finished = true;
                 val = target;
+            } else {
+                const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, val, sector.zCeil.val));
+                if (crushing.length) {
+                    // stop movement if we hit something
+                    return original;
+                }
+            }
+
+            if (finished) {
+                sector.specialData = null;
+                map.removeAction(action);
             }
 
             return val;
         });
-
-        if (finished) {
-            sector.specialData = null;
-            map.removeAction(action);
-        }
+        mobjs.forEach(mobj => mobj.sectorChanged(sector));
     }
     map.addAction(action);
 }
@@ -1148,7 +1167,6 @@ const levelExits = [
 ];
 
 export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
-    const map = mobj.map;
     const def = levelExits.find(e => e.type === linedef.special);
     if (!def) {
         console.warn('invalid level exit special', linedef.special);
