@@ -60,7 +60,7 @@ export function lineLineIntersect(l1: Vertex[], l2: Vertex[], bounded = false): 
 export function pointOnLine(p: Vertex, l: Vertex[]) {
     const sd = signedLineDistance(l, p);
     return (
-        sd > -0.0001 && sd < 0.0001 &&
+        sd > -0.00001 && sd < 0.00001 &&
         Math.min(l[0].x, l[1].x) <= p.x && p.x <= Math.max(l[0].x, l[1].x) &&
         Math.min(l[0].y, l[1].y) <= p.y && p.y <= Math.max(l[0].y, l[1].y)
     );
@@ -84,7 +84,7 @@ export function closestPoint(l: Vertex[], p: Vertex): Vertex {
 
 export function centerSort(verts: Vertex[]) {
     // sort points in CCW order https://stackoverflow.com/questions/6989100
-    let center = { x:0, y:0 };
+    let center = { x: 0, y: 0 };
     for (const v of verts) {
         center.x += v.x;
         center.y += v.y;
@@ -93,7 +93,6 @@ export function centerSort(verts: Vertex[]) {
     center.y /= verts.length;
 
     return verts
-        .filter((v, i, arr) => arr.indexOf(v) === i)
         .sort((a, b) => {
             let acx = a.x - center.x, bcx = b.x - center.x,
                 acy = a.y - center.y, bcy = b.y - center.y;

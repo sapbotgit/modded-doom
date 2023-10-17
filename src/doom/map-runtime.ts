@@ -412,11 +412,11 @@ class GameInput {
     }
 
     private forwardVec() {
-        if (this.freeFly.val) {
+        if (this.compassMove.val) {
+            vec.set(0, 1, 0);
+        } else if (this.freeFly.val) {
             // freelook https://stackoverflow.com/questions/63405094
             vec.set(0, 0, -1).applyQuaternion(this.obj.quaternion);
-        } else if (this.compassMove.val) {
-            vec.set(0, 1, 0);
         } else {
             // move forward parallel to the xy-plane (camera.up is z-up)
             vec.setFromMatrixColumn(this.obj.matrix, 0);

@@ -2,7 +2,7 @@
     import type { Size } from "@threlte/core";
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
-    import { type MapRuntime, type MapObject as MObj, type TreeNode } from "../../doom";
+    import { type MapRuntime, type MapObject as MObj } from "../../doom";
     import { useDoom, useDoomMap } from "../DoomContext";
     import { Color } from "three";
     import type { RenderSector } from "../RenderData";
@@ -32,7 +32,7 @@
     }
 
     function mousewheel(ev: WheelEvent) {
-        zoom = Math.max(100, Math.min(2000, zoom + ev.deltaY * 2));
+        zoom = Math.max(50, Math.min(2000, zoom + ev.deltaY * 2));
     }
 
     function mousemove(ev: MouseEvent) {
@@ -50,9 +50,11 @@
 
     let selRS: RenderSector;
     function selectRS(rs: RenderSector) {
+        // helpful for debugging...
         selRS = rs;
     }
 
+    const debugShowSubsectors = false;
     const { renderSectors } = useDoomMap();
     const namedColor = (n: number) =>
         '#' + Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length].toString(16).padStart(6, '0');
@@ -95,15 +97,12 @@
         stroke-linecap={'round'}
     >
 
-        {#each renderSectors as rs, i}
-            <polygon points={rs.vertexes.map(e => e.x + ',' + e.y).join(' ')} fill={namedColor(i)}
-                on:click={() => selectRS(rs)}/>
-        {/each}
-        <!-- {#each map.data.nodes as node}
-            {#if 'segs' in node.childRight || 'segs' in node.childLeft}
-                <line x1={node.v[0].x} y1={node.v[0].y} x2={node.v[1].x} y2={node.v[1].y} stroke='magenta' stroke-width={5} />
-            {/if}
-        {/each} -->
+        {#if debugShowSubsectors}
+            {#each renderSectors as rs, i}
+                <polygon points={rs.vertexes.map(e => e.x + ',' + e.y).join(' ')} fill={namedColor(i)}
+                    on:click={() => selectRS(rs)} />
+            {/each}
+        {/if}
 
         {#if $showBlockmap}
             <rect
@@ -123,7 +122,22 @@
         {#if selRS}
             <rect x={selRS.subsec.bounds.left} y={selRS.subsec.bounds.top}
                 width={selRS.subsec.bounds.right - selRS.subsec.bounds.left} height={selRS.subsec.bounds.bottom - selRS.subsec.bounds.top}
-                stroke='orange' stroke-width={4} fill='none' />
+                stroke='orange' stroke-width={.4} fill='none' />
+            {#each selRS.segs as seg}
+                <line x1={seg.v[0].x} y1={seg.v[0].y} x2={seg.v[1].x} y2={seg.v[1].y} stroke='yellow' stroke-width={3} />
+            {/each}
+            {#each selRS.bspLines as line}
+                {@const x = 5000}
+                {@const m = (line[1].y - line[0].y) / (line[1].x - line[0].x + .00000001)}
+                {@const c = (m * -line[1].x) + line[1].y}
+                <line x1={line[0].x} y1={line[0].y} x2={line[1].x} y2={line[1].y} stroke='cyan' stroke-width={2} />
+                <line x1={-x} y1={-x * m + c} x2={x} y2={x * m + c} stroke='magenta' stroke-width={.2} />
+            {/each}
+            {#each selRS.vertexes as v}
+                <circle cx={v.x} cy={v.y} r={1} fill='blue' />
+                <text x={v.x} y={-v.y} fill='blue'>{v.x.toFixed(2)},{v.y.toFixed(2)}</text>
+            {/each}
+            <text x={selRS.subsec.bounds.left} y={-selRS.subsec.bounds.top - 10} fill='white'>{selRS.subsec.num}</text>
         {/if}
     </g>
 </svg>
@@ -141,5 +155,10 @@
 
     polygon {
         pointer-events: all;
+    }
+
+    text {
+        font-size: .5em;
+        transform: scaleY(-1);
     }
 </style>

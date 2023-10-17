@@ -72,7 +72,12 @@ export interface Seg {
 }
 const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
     v: [vertexes[item.vertexStart], vertexes[item.vertexEnd]],
-    angle: (item.angle * Math.PI / 32768),
+    // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
+    // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
+    angle: Math.atan2(
+        vertexes[item.vertexEnd].y - vertexes[item.vertexStart].y,
+        vertexes[item.vertexEnd].x - vertexes[item.vertexStart].x,
+    ),
     linedef: linedefs[item.linedef],
     direction: item.direction,
     offset: item.offset,
@@ -129,7 +134,7 @@ const toSubSector = (num: number, item: any, segs: Seg[]): SubSector => ({
     segs: segs.slice(item.firstSeg, item.firstSeg + item.count),
     mobjs: new Set(),
     hitC: 0,
-    // the next few properties are re-assigned in completeSubSectors() below
+    // bounds and vertexes will be populated by completeSubSectors()
     bounds: _nullBounds,
     vertexes: [],
 });
@@ -233,6 +238,13 @@ export class MapData {
         this.things = wad.raw[index + 1].contents.entries;
         this.sectors = wad.raw[index + 8].contents.entries.map((s, i) => toSector(i, s));
         this.vertexes = wad.raw[index + 4].contents.entries;
+        fixVertexes(
+            this.vertexes,
+            wad.raw[index + 2].contents.entries, // linedefs
+            wad.raw[index + 5].contents.entries, // segs
+            wad.raw[index + 7].contents.entries, // bsp nodes
+        );
+
         this.blockmap = new BlockMap(wad.raw[index + 10].contents);
         const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
         this.linedefs = wad.raw[index + 2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
@@ -245,7 +257,7 @@ export class MapData {
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
         });
         const rootNode = this.nodes[this.nodes.length - 1];
-        completeSubSectors(rootNode);
+        completeSubSectors(rootNode, subsectors);
         this.bspTracer = createBspTracer(rootNode);
         this.subsectorTrace = createSubsectorTrace(rootNode);
 
@@ -472,7 +484,7 @@ function findSubSector(root: TreeNode, x: number, y: number) {
     }
 }
 
-function completeSubSectors(root: TreeNode) {
+function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
     let bspLines = [];
 
     function visitNodeChild(child: TreeNode | SubSector) {
@@ -496,58 +508,10 @@ function completeSubSectors(root: TreeNode) {
         visitNodeChild(node.childRight);
         bspLines.pop();
     }
+
     visitNode(root);
-}
-
-function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
-    fixSegs(segs);
-    // explicit points
-    let segLines = segs.map(e => e.v);
-    let verts = segLines.flat();
-
-    // implicit points are much more complicated. It took me a while to actually figure this all out.
-    // Here are some helpful links:
-    // - https://www.doomworld.com/forum/topic/105730-drawing-flats-from-ssectors/
-    // - https://www.doomworld.com/forum/topic/50442-dooms-floors/
-    // - https://doomwiki.org/wiki/Subsector
-    //
-    // This source code below was particularly helpful and I implemented something quite similar:
-    // https://github.com/cristicbz/rust-doom/blob/6aa7681cee4e181a2b13ecc9acfa3fcaa2df4014/wad/src/visitor.rs#L670
-    for (let i = 0; i < bspLines.length - 1; i++) {
-        for (let j = i; j < bspLines.length; j++) {
-            let point = lineLineIntersect(bspLines[i], bspLines[j]);
-            if (!point) {
-                continue;
-            }
-
-            // The intersection point must lie both within the BSP volume and the segs volume.
-            // the constants here are a little bit of trial and error but E1M1 had a
-            // couple of subsectors in the zigzag room that helped
-            let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .1);
-            let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1000);
-            if (insideBsp && insideSeg) {
-                verts.push({ x: point.x, y: point.y });
-            }
-        }
-    }
-    return centerSort(verts)
-}
-
-function fixSegs(segs: Seg[]) {
-    for (const seg of segs) {
-        // FIXME: this makes a bit of a mess of some sectors. I wonder if we should fix it in the map
-        // vertex list so that neighbouring subsectors also fix their verts?
-        if (!pointOnLine(seg.v[0], seg.linedef.v)) {
-            seg.v[0] = closestPoint(seg.linedef.v, seg.v[0]);
-        }
-        if (!pointOnLine(seg.v[1], seg.linedef.v)) {
-            seg.v[1] = closestPoint(seg.linedef.v, seg.v[1]);
-        }
-
-        // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
-        // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
-        seg.angle = Math.atan2(seg.v[1].y - seg.v[0].y, seg.v[1].x - seg.v[0].x);
-    }
+    // must be done after visiting all the subsectors because that fills in the initial implicit vertexes
+    subsectors.forEach(subsec => addExtraImplicitVertexes(subsec, createSubsectorTrace(root)));
 }
 
 function computeBounds(verts: Vertex[]): NodeBounds {
@@ -564,4 +528,158 @@ function computeBounds(verts: Vertex[]): NodeBounds {
     }
 
     return { left, right, top, bottom }
+}
+
+function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
+    // explicit points
+    let verts = segs.map(e => e.v).flat();
+
+    // implicit points requiring looking at bsp lines that cut this subsector. It took me a while to figure this out.
+    // Here are some helpful links:
+    // - https://www.doomworld.com/forum/topic/105730-drawing-flats-from-ssectors/
+    // - https://www.doomworld.com/forum/topic/50442-dooms-floors/
+    // - https://doomwiki.org/wiki/Subsector
+    //
+    // This source code below was particularly helpful and I implemented something quite similar:
+    // https://github.com/cristicbz/rust-doom/blob/6aa7681cee4e181a2b13ecc9acfa3fcaa2df4014/wad/src/visitor.rs#L670
+    // NOTE: because we've "fixed" vertexes, we can use very low constants to compare insideBsp and insideSeg
+    let segLines = segs.map(e => e.v);
+    for (let i = 0; i < bspLines.length - 1; i++) {
+        for (let j = i; j < bspLines.length; j++) {
+            let point = lineLineIntersect(bspLines[i], bspLines[j]);
+            if (!point) {
+                continue;
+            }
+
+            // The intersection point must lie both within the BSP volume and the segs volume.
+            // the constants here are a little bit of trial and error but E1M1 had a
+            // couple of subsectors in the zigzag room that helped
+            let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .01);
+            let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1);
+            if (insideBsp && insideSeg) {
+                verts.push({ x: point.x, y: point.y, implicitLines: [bspLines[i], bspLines[j]] } as any);
+            }
+        }
+    }
+
+    const maxDist = .2;
+    // remove vertexes that are "similar"
+    verts = verts.filter((v, i, arr) => arr.findIndex(e => Math.abs(e.x - v.x) < maxDist && Math.abs(e.y - v.y) < maxDist) === i);
+    return centerSort(verts);
+}
+
+function fixVertexes(
+    vertexes: Vertex[],
+    lineDefData: any[],
+    segData: any[],
+    bspNodes: any[],
+) {
+    // Doom vertexes are integers so segs from integers can't always be on the line. These "fixes" are mostly
+    // about taking seg vertices that are close to a linedef but not actually on the linedef. Once we put them on
+    // the linedef, they don't always intersect with the bsp lines so we correct them again later
+    // (see addExtraImplicitVertexes()).
+    for (const seg of segData) {
+        const ld = lineDefData[seg.linedef];
+        const line = [vertexes[ld.vertexStartIdx], vertexes[ld.vertexEndIdx]];
+
+        const vx1 = vertexes[seg.vertexStart];
+        if (!pointOnLine(vx1, line)) {
+            vertexes[seg.vertexStart] = closestPoint(line, vx1);
+        }
+
+        const vx2 = vertexes[seg.vertexEnd];
+        if (!pointOnLine(vx2, line)) {
+            vertexes[seg.vertexEnd] = closestPoint(line, vx2);
+        }
+    }
+
+    // adjust bsp lines based on changes to vertexes above
+    for (const node of bspNodes) {
+        const vx1 = { x: node.xStart, y: node.yStart };
+        let closest = closestVertex(vx1, vertexes);
+        node.xStart = closest.x;
+        node.yStart = closest.y;
+
+        const vx2 = { x: node.xStart + node.xChange, y: node.yStart + node.yChange };
+        closest = closestVertex(vx2, vertexes);
+        node.xChange = closest.x - node.xStart;
+        node.yChange = closest.y - node.yStart;
+    }
+}
+
+const distSqr = (a: Vertex, b: Vertex) => (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y);
+function closestVertex(p: Vertex, vertexes: Vertex[]) {
+    let dist = Infinity;
+    let closest = p;
+    for (const v of vertexes) {
+        let d = distSqr(p, v);
+        if (d < dist) {
+            dist = d;
+            closest = v;
+        }
+    }
+    return closest;
+}
+
+const _vec = new Vector3();
+function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeof createSubsectorTrace>) {
+    // Because of corrections in fixVertxes(), we have to realign some points to the bsp lines (eg. sector 92 in E1M5,
+    // 6 in E1M4, several in sector 7 in E1M7, sector 109 in E4M2). E3M2 has several lines that aren't right, even without
+    // the correctsion from fixVertexes() (eg. near big brown tree in sector 60, near sector 67).
+    // There are probably more in other maps but this is what I've found so far.
+    //
+    // This whole thing is a kludge though.
+    //
+    // This function adjusts the vertexes of each subsector such that they are touching the edges of other subsectors.
+    // There is a still a spot in sector 31 of E3M2 that isn't fixed by this because those vertexes are not implicit
+    // vertexes. Other than E3M2, adding these vertices fixes all other places I could find (although I assume that
+    // if there is one defect in E3M2, there are others in other maps that I just didn't find).
+    for (const vert of subsector.vertexes) {
+        if (!('implicitLines' in vert)) {
+            continue;
+        }
+
+        const bspLines = vert.implicitLines as Vertex[][];
+        _vec.set(vert.x, vert.y, 0);
+        tracer(_vec, zeroVec, 5, subs => {
+            if (subs === subsector) {
+                return true; // skip this subsector
+            }
+
+            const edges = [];
+            edges.push([subs.vertexes[0], subs.vertexes[subs.vertexes.length - 1]]);
+            for (let i = 1; i < subs.vertexes.length; i++) {
+                edges.push([subs.vertexes[i - 1], subs.vertexes[i]]);
+            }
+
+            const onEdge = edges.reduce((on, line) => on || pointOnLine(vert, line), false);
+            if (onEdge) {
+                return true; // vertex is already on the edge of a neighbour subsector so we're all good
+            }
+
+            // vertex is not on the edge of a neighbour subsector so find the closest point (at most 2px away) that is on both the bsp and sub sector line
+            let dist = 4;
+            let closest = { x: 0, y: 0 };
+            for (const edge of edges) {
+                for (const bspLine of bspLines) {
+                    const p = lineLineIntersect(bspLine, edge);
+                    if (!p || !pointOnLine(p, edge)) {
+                        continue;
+                    }
+                    const d = distSqr(p, vert);
+                    if (d > 0 && d < dist) {
+                        dist = d;
+                        closest.x = p.x;
+                        closest.y = p.y;
+                    }
+                }
+            }
+            // if we've found a point, add it
+            if (dist < 4) subsector.vertexes.push(closest);
+            return true;
+        });
+    }
+
+    // re-update subsector vertexes but don't merge any additional points added above
+    subsector.vertexes = centerSort(subsector.vertexes);
 }
