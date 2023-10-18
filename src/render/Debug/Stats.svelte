@@ -5,6 +5,7 @@
     import type { WebGLRenderer } from 'three';
 
     const { renderer } = useThrelte();
+    renderer.info.autoReset = false;
 
     class RenderInfoPanel {
         max: number;
@@ -41,6 +42,7 @@
             // add stats.end at the very end of the executing frameloophandlers
             stats.end();
             panels.forEach(p => p.updateInfo());
+            renderer.info.reset();
         }, {
             order: 100
         });

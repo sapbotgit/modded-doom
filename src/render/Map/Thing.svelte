@@ -15,7 +15,7 @@
     import { Mesh, TransformControls } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, type EulerOrder, ShaderMaterial } from 'three';
     import { useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MapObjectIndex, MFFlags } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
 
