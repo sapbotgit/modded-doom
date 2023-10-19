@@ -6,22 +6,21 @@
     import type { RenderSector } from "../RenderData";
 
     export let renderSector: RenderSector;
-    export let geometry: BufferGeometry;
     export let textureName: string;
     export let vertical: number;
-    export let color: number;
     export let ceiling = false;
 
     const { map } = useDoomMap();
     const { textures, settings, editor } = useDoom();
     const { position: cameraPosition } = map.camera;
     const extraLight = map.player.extraLight;
+    const geometry = renderSector.geometry;
 
     $: visible = (ceiling && $cameraPosition.z <= vertical)
             || (!ceiling && $cameraPosition.z >= vertical);
     const { light } = renderSector.sector;
 
-    $: material = new MeshStandardMaterial({ color, emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
+    $: material = new MeshStandardMaterial({ emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
     $: material.emissiveIntensity = ($editor.selected === renderSector.sector) ? 0.1 : 0;
     $: if (textureName && settings.useTextures) {
         material.map = textures.get(textureName, 'flat');

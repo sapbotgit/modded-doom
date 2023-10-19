@@ -25,7 +25,8 @@ export class MapObject {
     readonly id = MapObject.objectCounter++;
 
     // set of subsectors we are touching
-    private subsectorMap = new Map<SubSector, boolean>();
+    private subsecRev = 0;
+    private subsectorMap = new Map<SubSector, number>();
 
     protected _state = new SpriteStateMachine(
         action => stateChangeActions[action]?.(this.map.game.time, this),
@@ -119,14 +120,13 @@ export class MapObject {
         this.direction = store(0);
         this.position = store(new Vector3(pos.x, pos.y, 0));
         this.position.subscribe(p => {
-            // clear all subsectors we were touching during last update
-            this.subsectorMap.forEach((val, key) => this.subsectorMap.set(key, false));
+            this.subsecRev += 1;
             // add any subsectors we are currently touching
             map.data.traceSubsectors(p, zeroVec, this.info.radius, subsector =>
-                Boolean(this.subsectorMap.set(subsector, true)));
+                Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
-            this.subsectorMap.forEach((touching, subsector) => {
-                if (touching) {
+            this.subsectorMap.forEach((rev, subsector) => {
+                if (rev === this.subsecRev) {
                     subsector.mobjs.add(this);
                 } else {
                     subsector.mobjs.delete(this);

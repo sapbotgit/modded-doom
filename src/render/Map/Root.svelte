@@ -29,10 +29,12 @@
 
 <BlockMap {map} />
 
-{#each renderSectors as renderSector, i}
-    <Flats {renderSector} index={i} />
-    {#each renderSector.segs as seg}
-        <Wall {seg} />
+{#each renderSectors as renderSector}
+    <Flats {renderSector} />
+    {#each renderSector.subsectors as subsector}
+        {#each subsector.segs as seg}
+            <Wall {seg} />
+        {/each}
     {/each}
 {/each}
 

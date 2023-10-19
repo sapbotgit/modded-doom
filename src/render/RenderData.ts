@@ -1,12 +1,12 @@
-import { ClampToEdgeWrapping, Color, DataTexture, RepeatWrapping, SRGBColorSpace, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
-    type TreeNode,
     type Seg,
-    type Vertex,
     type SubSector,
     type Sector,
     MapData,
+    type Vertex,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 
@@ -82,37 +82,34 @@ export class MapTextures {
 
 export interface RenderSector {
     sector: Sector;
-    vertexes: Vertex[];
-    segs: Seg[];
+    subsectors: SubSector[];
+    portalSegs: Seg[];
+    geometry: BufferGeometry;
     // TODO: MapObjects so we only render them if the sector is visible?
-    // these are only helpful for debugging. Maybe we can remove them?
-    subsec: SubSector;
-    bspLines: Vertex[][];
 }
 
 export function buildRenderSectors(map: MapData) {
     let sectors: RenderSector[] = [];
-    let bspLines = [];
-
-    function visitNodeChild(child: TreeNode | SubSector) {
-        if ('segs' in child) {
-            const { vertexes, sector, segs } = child;
-            sectors.push({ sector, vertexes, segs, subsec: child, bspLines: [...bspLines] })
-        } else {
-            visitNode(child);
-        }
+    const allSubsectors = map.nodes.map(e => [e.childLeft, e.childRight]).flat().filter(e => 'segs' in e) as SubSector[];
+    const allSegs = allSubsectors.map(e => e.segs).flat();
+    for (const sector of map.sectors) {
+        const subsectors = allSubsectors.filter(e => e.sector === sector);
+        const portalSegs = allSegs.filter(e => e.direction === 0 && e.linedef.left?.sector === sector);
+        const geos = subsectors.map(e => createShape(e.vertexes))
+        // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
+        const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
+        sectors.push({ sector, subsectors, portalSegs, geometry });
     }
-
-    function visitNode(node: TreeNode) {
-        bspLines.push(node.v);
-        visitNodeChild(node.childLeft);
-        bspLines.pop();
-
-        bspLines.push([node.v[1], node.v[0]]);
-        visitNodeChild(node.childRight);
-        bspLines.pop();
-    }
-
-    visitNode(map.nodes[map.nodes.length - 1]);
     return sectors;
+}
+
+function createShape(verts: Vertex[]) {
+    const shape = new Shape();
+    shape.autoClose = true;
+    shape.arcLengthDivisions = 1;
+    shape.moveTo(verts[0].x, verts[0].y);
+    for (let i = 1; i < verts.length; i++) {
+        shape.lineTo(verts[i].x, verts[i].y);
+    }
+    return new ShapeGeometry(shape, 1);
 }
