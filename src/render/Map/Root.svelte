@@ -11,16 +11,26 @@
     import Wall from "./Wall.svelte";
 
     export let map: MapRuntime;
-    const { rev } = map;
+    const { rev, erev } = map;
     const { renderSectors } = useDoomMap();
 
     let things: MapObject[] = [];
     $: if ($rev) {
+        console.log('things')
         // don't render player here (it's in Player.svelte)
         things = map.objs.filter(e => e.type !== MapObjectIndex.MT_PLAYER);
     }
+    let ethings: MapObject[] = [];
+    $: if ($erev) {
+        console.log('ethings')
+        ethings = map.ephemeralObjs;
+    }
     // TODO: to actually improve performance here, I think we'll have to implement some kind of PVS
     // based on the bsp tree https://cs.gmu.edu/~jchen/cs662/lecture5-2007.pdf
+
+    // Why wrap certain sections in div? It reduces the cost of reflow from adding/removing DOM nodes.
+    // From profiling data, we reduce reflow from 20% of the overall time to 1%. Also mark the divs
+    // as position:absolute to hopefully help(?)
 </script>
 
 <Stats />
@@ -30,18 +40,33 @@
 <BlockMap {map} />
 
 {#each renderSectors as renderSector}
-    <Flats {renderSector} />
-    {#each renderSector.subsectors as subsector}
-        {#each subsector.segs as seg}
-            <Wall {seg} />
+    <div>
+        <Flats {renderSector} />
+        {#each renderSector.subsectors as subsector}
+            {#each subsector.segs as seg}
+                <div><Wall {seg} /></div>
+            {/each}
         {/each}
-    {/each}
+    </div>
 {/each}
 
-{#each things as thing (thing.id)}
-    <Thing {thing} />
-{/each}
+<div>
+    {#each things as thing (thing.id)}
+        <Thing {thing} />
+    {/each}
+</div>
+<div>
+    {#each ethings as thing (thing.id)}
+        <Thing {thing} />
+    {/each}
+</div>
 
 <Player /> <!-- and camera... -->
 
 <EditorTagLink {map} />
+
+<style>
+    div {
+        position: absolute;
+    }
+</style>

@@ -26,7 +26,7 @@
 </script>
 
 <Pass pass={new ShaderPass(GammaCorrectionShader)} />
-<Pass pass={cPass} />/
+<Pass pass={cPass} />
 
 {#if $mode !== "1p"}
     <Thing thing={player} />

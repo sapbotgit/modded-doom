@@ -13,7 +13,7 @@
   let wad: DoomWad;
   let mapNames = [];
   (async () => {
-    const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
+    const buffer = await fetch('tnt.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
     // selectedMap = wad.readMap('E2M3')
@@ -87,7 +87,7 @@
   {/each}
 
   {#if selectedMap}
-    <div>{selectedMap}</div>
+    <div>{game.map.val.name}</div>
 
     {#key game}
       <Doom {game} />

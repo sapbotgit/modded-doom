@@ -1106,6 +1106,7 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
         const flat = sector.floorFlat.val;
         let base = sector;
         while (base) {
+            console.log('rising',base.num)
             target += def.stepSize;
             raiseFloorAction(map, base, def, target);
 
