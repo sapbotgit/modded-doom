@@ -1106,13 +1106,12 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
         const flat = sector.floorFlat.val;
         let base = sector;
         while (base) {
-            console.log('rising',base.num)
             target += def.stepSize;
             raiseFloorAction(map, base, def, target);
 
             // find next step to raise
             const matches = map.data.sectorNeighbours(base)
-                .filter(e => e.floorFlat.val === flat && e.specialData === null);
+                .filter(e => e.floorFlat.val === flat && e.specialData === null && e.zFloor.val === base.zFloor.val);
             base = matches.length ? matches[0] : null;
         }
     }

@@ -2,6 +2,7 @@
   import { DoomWad, Game, store, MapRuntime, type Skill, randInt } from './doom';
   import Doom from './render/Doom.svelte';
   import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
+  import type { Writable } from 'svelte/store';
   // import Picture from './render/Components/Picture.svelte';
   // <Picture name="M_JKILL" />
   // <Picture name="M_ROUGH" />
@@ -10,29 +11,31 @@
   // <Picture name="M_NMARE" />
 
   let game: Game;
+  let map: Writable<MapRuntime>;
   let wad: DoomWad;
   let mapNames = [];
   (async () => {
-    const buffer = await fetch('tnt.wad').then(e => e.arrayBuffer());
+    const buffer = await fetch('doom.wad').then(e => e.arrayBuffer());
     wad = new DoomWad(buffer);
     mapNames = wad.mapNames;
     // selectedMap = wad.readMap('E2M3')
   })();
 
   let difficulty: Skill = 4;
-  $: game = new Game(wad, difficulty, {
-      freeFly: store(false),
-      freelook: store(true),
-      zAimAssist: store(true),
-      invicibility: store(false),
-      noclip: store(false),
-      compassMove: store(false),
-      timescale: store(1),
-      cameraMode: store('1p'),
-  });
 
   let selectedMap: string = null
-  $: if (game && selectedMap) {
+  $: if (selectedMap) {
+      game = new Game(wad, difficulty, {
+        freeFly: store(false),
+        freelook: store(true),
+        zAimAssist: store(true),
+        invicibility: store(false),
+        noclip: store(false),
+        compassMove: store(false),
+        timescale: store(1),
+        cameraMode: store('1p'),
+    });
+    map = game.map;
     game.map.set(new MapRuntime(selectedMap, game));
 
     // // for testing intermisison screen
@@ -86,8 +89,8 @@
     <button on:click={() => selectedMap = name}>{name}</button>
   {/each}
 
-  {#if selectedMap}
-    <div>{game.map.val.name}</div>
+  {#if game}
+    <div>{$map ? $map.name : `Intermission - ${game.intermission.val.finishedMap.name}`}</div>
 
     {#key game}
       <Doom {game} />

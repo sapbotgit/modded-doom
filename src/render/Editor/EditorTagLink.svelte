@@ -35,7 +35,12 @@
 
         if ('zFloor' in item) {
             const rsecs = renderSectors.filter(e => e.sector === item);
-            const verts = rsecs.map(e => e.vertexes).flat();
+            const vec = new Vector3();
+            const verts = rsecs.map(e => {
+                e.geometry.computeBoundingBox()
+                e.geometry.boundingBox.getCenter(vec);
+                return vec.clone();
+            });
             verts.forEach(v => {
                 pos.x += v.x;
                 pos.y += v.y;
