@@ -3,7 +3,7 @@
   import Doom from './render/Doom.svelte';
   import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
   import type { Writable } from 'svelte/store';
-  // import Picture from './render/Components/Picture.svelte';
+  import Picture from './render/Components/Picture.svelte';
   // <Picture name="M_JKILL" />
   // <Picture name="M_ROUGH" />
   // <Picture name="M_HURT" />

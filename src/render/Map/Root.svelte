@@ -16,13 +16,11 @@
 
     let things: MapObject[] = [];
     $: if ($rev) {
-        console.log('things')
         // don't render player here (it's in Player.svelte)
         things = map.objs.filter(e => e.type !== MapObjectIndex.MT_PLAYER);
     }
     let ethings: MapObject[] = [];
     $: if ($erev) {
-        console.log('ethings')
         ethings = map.ephemeralObjs;
     }
     // TODO: to actually improve performance here, I think we'll have to implement some kind of PVS

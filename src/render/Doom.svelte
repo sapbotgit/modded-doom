@@ -15,6 +15,7 @@
     import Intermission from "./Intermission/Intermission.svelte";
     import { fly } from "svelte/transition";
     import { keyboardControls } from "./KeyboardControls";
+    import Picture from "./Components/Picture.svelte";
 
     export let game: Game;
 

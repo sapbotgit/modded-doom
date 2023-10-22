@@ -75,7 +75,7 @@
     let subsectors = [];
     $: if ($position) {
         subsectors = []
-        thing.subsectors(s => subsectors.push(s.num));
+        thing.subsectors(s => subsectors.push(s));
     }
 
     $: types = Object.keys(MapObjectIndex)
@@ -109,7 +109,8 @@
 </div>
 <div>
     <div>Poisition: {[$position.x,$position.y,$position.z]}</div>
-    <div>Subsectors: [{subsectors}]</div>
+    <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
+    <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
 </div>
 <!-- position is edited in Thing.svelte -->
 <div class="direction">

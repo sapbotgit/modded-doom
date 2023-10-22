@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, LinearFilter, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
@@ -41,6 +41,7 @@ export class MapTextures {
                 texture = new DataTexture(buffer, data.width, data.height)
                 texture.wrapS = RepeatWrapping;
                 texture.wrapT = RepeatWrapping;
+                texture.magFilter = NearestFilter;
                 texture.flipY = true;
                 texture.needsUpdate = true;
                 texture.colorSpace = SRGBColorSpace;
