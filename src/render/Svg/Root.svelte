@@ -11,6 +11,7 @@
     export let map: MapRuntime;
 
     const rev = map.rev;
+    const erev = map.erev;
     const { position, direction } = map.player;
     const showBlockmap = useDoom().settings.showBlockMap;
 
@@ -44,8 +45,8 @@
     }
 
     let mobjs: MObj[] = [];
-    $: if ($rev) {
-        mobjs = map.objs;
+    $: if ($rev || $erev) {
+        mobjs = [...map.objs, ...map.ephemeralObjs];
     }
 
     let selRS: RenderSector;
@@ -54,7 +55,7 @@
         selRS = rs;
     }
 
-    const debugShowSubsectors = true;
+    const debugShowSubsectors = false;
     const { renderSectors } = useDoomMap();
     const namedColor = (n: number) =>
         '#' + Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length].toString(16).padStart(6, '0');
@@ -85,9 +86,9 @@
         </marker>
 
         <pattern id="smallGrid" width="32" height="32" patternUnits="userSpaceOnUse">
-            <path d="M 32 0 L 0 0 0 32" fill="none" stroke="grey" stroke-width="0.5"/>
+            <path d="M 32 0 L 0 0 0 32" fill="none" stroke="grey" stroke-width="0.25"/>
         </pattern>
-        <pattern id="grid" width="128" height="128" patternUnits="userSpaceOnUse">
+        <pattern id="grid" x={bounds.left} y={bounds.bottom} width="128" height="128" patternUnits="userSpaceOnUse">
             <!-- <rect width="128" height="128" fill="url(#smallGrid)"/> -->
             <path d="M 128 0 L 0 0 0 128" fill="none" stroke="grey" stroke-width="1"/>
         </pattern>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DoomWad, Game, store, MapRuntime, type Skill, randInt } from './doom';
+  import { DoomWad, Game, store, MapRuntime, type Skill, randInt, type GameSettings } from './doom';
   import Doom from './render/Doom.svelte';
   import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
   import type { Writable } from 'svelte/store';
@@ -10,6 +10,16 @@
   // <Picture name="M_ULTRA" />
   // <Picture name="M_NMARE" />
 
+  let settings: GameSettings = {
+      freeFly: store(false),
+      freelook: store(true),
+      zAimAssist: store(true),
+      invicibility: store(false),
+      noclip: store(false),
+      compassMove: store(false),
+      timescale: store(1),
+      cameraMode: store('1p'),
+  };
   let game: Game;
   let map: Writable<MapRuntime>;
   let wad: DoomWad;
@@ -25,16 +35,7 @@
 
   let selectedMap: string = null
   $: if (selectedMap) {
-      game = new Game(wad, difficulty, {
-        freeFly: store(false),
-        freelook: store(true),
-        zAimAssist: store(true),
-        invicibility: store(false),
-        noclip: store(false),
-        compassMove: store(false),
-        timescale: store(1),
-        cameraMode: store('1p'),
-    });
+      game = new Game(wad, difficulty, settings);
     map = game.map;
     game.map.set(new MapRuntime(selectedMap, game));
 

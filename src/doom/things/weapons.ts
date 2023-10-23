@@ -614,7 +614,7 @@ function shootMissile(player: MapObject, type: MapObjectIndex.MT_PLASMA | MapObj
         // SOUND: mobj.infoseesound
     }
 
-    // this is kind of an abuse of "chaseTarget" but missles won't ever change anyone anyway. It's used when a missile
+    // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
     mobj.chaseTarget = player;
     _shotEuler.set(0, Math.acos(slope) - HALF_PI, angle);

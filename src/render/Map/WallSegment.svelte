@@ -34,8 +34,8 @@
 
     const extraLight = map.player.extraLight;
     const { light } = sidedef.sector;
-    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
-    const { zFloor : zFloorR, zCeil : zCeilR } = linedef.right.sector
+    const { zFloor : zFloorL, zCeil : zCeilL, skyHeight: skyHeightL } = linedef.left?.sector ?? {};
+    const { zFloor : zFloorR, zCeil : zCeilR, skyHeight: skyHeightR } = linedef.right.sector
 
     // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
     // and we get a ~25% performance boost. I'd rather keep this and use the BSP to cull walls
@@ -59,11 +59,8 @@
 
             if (type === 'lower' && (flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
-                // TODO: hmmm... the blue wall with the switch at the far side of E3M6 works with Max(ceilR, ceilL)
-                // but the green wall in E1M1 zigzag works better with just ceilR.
-                // Now I'm not sure which is actually correct :(
-                pegging -= $zCeilR - Math.max($zFloorL, $zFloorR);
-                // pegging -= Math.max($zCeilR, $zCeilL) - Math.max($zFloorL, $zFloorR);
+                // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
+                pegging -= (skyHeightR ?? $zCeilR) - Math.max($zFloorL, $zFloorR);
             } else if (type === 'upper' && !(flags & 0x0008)) {
                 pegging = 0;
             } else if (type === 'middle' && (flags & 0x0010)) {
