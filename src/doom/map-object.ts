@@ -121,8 +121,12 @@ export class MapObject {
         this.position = store(new Vector3(pos.x, pos.y, 0));
         this.position.subscribe(p => {
             this.subsecRev += 1;
+            // NOTE: we subtract .1 from radius because if we use the full radius we don't get doom like behaviour for
+            // our objects. This is most notable in Doom2's MAP20 torches in the cyber/spider room but it happens in many
+            // other places. Slightly reducing the side makes this much better.
+            const traceRadius = this.info.radius - .1
             // add any subsectors we are currently touching
-            map.data.traceSubsectors(p, zeroVec, this.info.radius, subsector =>
+            map.data.traceSubsectors(p, zeroVec, traceRadius, subsector =>
                 Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
             this.subsectorMap.forEach((rev, subsector) => {
