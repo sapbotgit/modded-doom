@@ -2,7 +2,7 @@ import { store, type Store } from "./store";
 import { thingSpec, stateChangeActions } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
-import { randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
+import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
@@ -522,8 +522,16 @@ export class PlayerMapObject extends MapObject {
             const nightVisionTime = inv.items.nightVisionTicks / ticksPerSecond;
             const invunlTime = inv.items.invincibilityTicks / ticksPerSecond;
             // invulnTime is partly coordinated with ScreenColorShader.ts
-            const isFullBright = invunlTime > 1.0 || nightVisionTime > 5 || nightVisionTime % 2 > 1;
-            this.extraLight.set(isFullBright ? 255 : 0);
+            let lightOverride =
+                invunlTime > 1.0 ? 255 :
+                // first 2 seconds we go from 0->255 then stay at 255 until last 5 seconds where we pulse a few times from 0 to 255
+                nightVisionTime ? (
+                    nightVisionTime > 30 ? 255 :
+                    nightVisionTime > 28 ? 255 * Math.sin(HALF_PI * Math.max(0, (30 - nightVisionTime) / 2)) :
+                    nightVisionTime > 4.5 ? 255 :
+                    255 * (Math.sin(Math.PI * 2 * nightVisionTime - HALF_PI) * .5 + .5)
+                ) : 0;
+            this.extraLight.set(lightOverride);
         });
 
         this.sector.subscribe(sector => {

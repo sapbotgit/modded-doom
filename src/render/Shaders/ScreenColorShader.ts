@@ -48,7 +48,7 @@ export const ScreenColorShader = {
         return 1.0 - grey;
     }
     float invlunScale() {
-        return flashTiming(invunlTime, 4.0, 0.5);
+        return flashTiming(invunlTime, 5.0, 0.5);
     }
 
     float damageScale() {

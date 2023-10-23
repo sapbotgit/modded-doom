@@ -1,9 +1,8 @@
 <script lang="ts">
-    import { MinEquation, Vector3 } from "three";
+    import { Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
     import { MapObjectIndex, ToDegrees, mapObjectInfo, ticksPerSecond } from "../../doom";
     import { weapons } from "../../doom/things/weapons";
-    import { missing_component } from "svelte/internal";
 
     export let player: PlayerMapObject;
     const { position, direction, velocity, sector, inventory } = player;
@@ -93,6 +92,7 @@
     .root {
         text-align: left;
         background: black;
+        min-width: 24em;
     }
 
     .bonus {
