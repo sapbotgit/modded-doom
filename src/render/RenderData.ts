@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, LinearFilter, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, LinearFilter, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type NormalBufferAttributes, type Texture } from "three";
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
@@ -85,7 +85,7 @@ export interface RenderSector {
     sector: Sector;
     subsectors: SubSector[];
     portalSegs: Seg[];
-    geometry: BufferGeometry;
+    geometry: BufferGeometry<NormalBufferAttributes>;
     // TODO: MapObjects so we only render them if the sector is visible?
 }
 

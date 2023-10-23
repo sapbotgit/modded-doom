@@ -193,35 +193,6 @@ export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit | Speci
 // return true to continue trace, false to stop
 export type HandleTraceHit<T=TraceHit> = (hit: T) => boolean;
 
-const lastTrace2 = {
-    start: new Vector3(),
-    end: new Vector3(),
-    tMaxX: 0,
-    tMaxY: 0,
-    tDeltaX: 0,
-    tDeltaY: 0,
-}
-// TODO: there are only a few references to this, it would be nice to remove it completely
-class BlockMap {
-    readonly bounds: NodeBounds;
-
-    // TODO: remove these after finishing up debugging
-    lastTrace = store<{ row: number, col: number }[]>([]);
-    traceSegs = store<Seg[]>([]);
-    lastTrace2 = store(lastTrace2);
-
-    constructor(
-        data: { numCols: number, numRows: number, originX: number, originY: number, linedefsInBlock: { linedefs: number[] }[] }
-    ) {
-        this.bounds = {
-            top: data.originY + data.numRows * 128,
-            left: data.originX,
-            bottom: data.originY,
-            right: data.originX + data.numCols * 128,
-        }
-    }
-}
-
 export const zeroVec = new Vector3();
 export const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
@@ -232,7 +203,7 @@ export class MapData {
     readonly vertexes: Vertex[];
     readonly sectors: Sector[];
     readonly nodes: TreeNode[];
-    readonly blockmap: BlockMap;
+    readonly blockMapBounds: NodeBounds;
 
     constructor(readonly wad: DoomWad, index: number) {
         this.things = wad.raw[index + 1].contents.entries;
@@ -245,7 +216,13 @@ export class MapData {
             wad.raw[index + 7].contents.entries, // bsp nodes
         );
 
-        this.blockmap = new BlockMap(wad.raw[index + 10].contents);
+        const blockmap = wad.raw[index + 10].contents;
+        this.blockMapBounds = {
+            top: blockmap.originY + blockmap.numRows * 128,
+            left: blockmap.originX,
+            bottom: blockmap.originY,
+            right: blockmap.originX + blockmap.numCols * 128,
+        }
         const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
         this.linedefs = wad.raw[index + 2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
         const segs: Seg[] = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));

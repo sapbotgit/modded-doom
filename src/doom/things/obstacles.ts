@@ -84,7 +84,7 @@ export const actions: { [key: number]: StateChangeAction } = {
 
 const losVec = new Vector3();
 function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
-    // P_CheckSight use bsp tree... it would be really nice to use that.
+    // Kind of like P_CheckSight
     // TODO: we need to check z-coordinates here and look at two-sided walls, etc.
     let los = true;
     losVec.copy(mobj2.position.val).sub(mobj1.position.val);

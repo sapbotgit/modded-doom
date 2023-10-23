@@ -124,7 +124,7 @@ export class MapObject {
             // NOTE: we subtract .1 from radius because if we use the full radius we don't get doom like behaviour for
             // our objects. This is most notable in Doom2's MAP20 torches in the cyber/spider room but it happens in many
             // other places. Slightly reducing the side makes this much better.
-            const traceRadius = this.info.radius - .1
+            const traceRadius = this.info.radius - .1;
             // add any subsectors we are currently touching
             map.data.traceSubsectors(p, zeroVec, traceRadius, subsector =>
                 Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
@@ -327,9 +327,9 @@ export class MapObject {
             return;
         }
 
+        // cyclomatic complexity of the code below: about 1 bazillion.
         const start = this.position.val;
         hitCount += 1;
-        const pos = this.position.val;
         let hitFraction = 1;
         while (hitFraction !== -1) {
             hitFraction = -1;
@@ -428,7 +428,7 @@ export class MapObject {
                         }
                     }
 
-                    // TODO: hmmm.. if we check for double hits here, we risk triggering specials multiple times.
+                    // TODO: hmmm.. if we check for double hits here (after hitting specials), we risk triggering specials multiple times.
                     // maybe we should trigger specials after this? (that is how doom actually does it)
                     if (hit.line.hitC === hitCount) {
                         // we've already hit this wall? stop moving because we're in a concave corner (e1m1 imp platform or e1m3 near blue key door)
@@ -451,7 +451,7 @@ export class MapObject {
             });
         }
 
-        this.position.set(pos.add(this.velocity));
+        this.position.update(pos => pos.add(this.velocity));
     }
 
     protected explode() {

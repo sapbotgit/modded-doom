@@ -17,7 +17,7 @@
     let zoom = 500;
     $: left = $position.x - zoom * .5;
     $: top = $position.y - zoom * .5;
-    let bounds = map.data.blockmap.bounds;
+    let bounds = map.data.blockMapBounds;
 
     function mousedown(ev: MouseEvent) {
         if (ev.buttons & 1) {
@@ -54,7 +54,7 @@
         selRS = rs;
     }
 
-    const debugShowSubsectors = false;
+    const debugShowSubsectors = true;
     const { renderSectors } = useDoomMap();
     const namedColor = (n: number) =>
         '#' + Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length].toString(16).padStart(6, '0');
@@ -99,8 +99,17 @@
 
         {#if debugShowSubsectors}
             {#each renderSectors as rs, i}
-                <polygon points={rs.vertexes.map(e => e.x + ',' + e.y).join(' ')} fill={namedColor(i)}
-                    on:click={() => selectRS(rs)} />
+                {#each rs.subsectors as subsector, j}
+                    <polygon
+                        points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
+                        fill={namedColor(i)}
+                        on:click={() => selectRS(rs)} />
+                    <polygon
+                        points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
+                        opacity={0.1}
+                        fill={namedColor(j)}
+                        on:click={() => selectRS(rs)} />
+                {/each}
             {/each}
         {/if}
 
@@ -108,6 +117,7 @@
             <rect
                 x={bounds.left} y={bounds.bottom}
                 width={bounds.right - bounds.left} height={bounds.top - bounds.bottom}
+                opacity={0.5}
                 fill="url(#grid)" />
         {/if}
 
@@ -120,24 +130,26 @@
         {/each}
 
         {#if selRS}
-            <rect x={selRS.subsec.bounds.left} y={selRS.subsec.bounds.top}
-                width={selRS.subsec.bounds.right - selRS.subsec.bounds.left} height={selRS.subsec.bounds.bottom - selRS.subsec.bounds.top}
-                stroke='orange' stroke-width={.4} fill='none' />
-            {#each selRS.segs as seg}
-                <line x1={seg.v[0].x} y1={seg.v[0].y} x2={seg.v[1].x} y2={seg.v[1].y} stroke='yellow' stroke-width={3} />
+            {#each selRS.subsectors as subsec}
+                <rect x={subsec.bounds.left} y={subsec.bounds.top}
+                    width={subsec.bounds.right - subsec.bounds.left} height={subsec.bounds.bottom - subsec.bounds.top}
+                    stroke='orange' stroke-width={.4} fill='none' />
+                {#each subsec.segs as seg}
+                    <line x1={seg.v[0].x} y1={seg.v[0].y} x2={seg.v[1].x} y2={seg.v[1].y} stroke='yellow' stroke-width={3} />
+                {/each}
+                <!-- {#each subsec.bspLines as line}
+                    {@const x = 5000}
+                    {@const m = (line[1].y - line[0].y) / (line[1].x - line[0].x + .00000001)}
+                    {@const c = (m * -line[1].x) + line[1].y}
+                    <line x1={line[0].x} y1={line[0].y} x2={line[1].x} y2={line[1].y} stroke='cyan' stroke-width={2} />
+                    <line x1={-x} y1={-x * m + c} x2={x} y2={x * m + c} stroke='magenta' stroke-width={.2} />
+                {/each} -->
+                {#each subsec.vertexes as v}
+                    <circle cx={v.x} cy={v.y} r={1} fill='blue' />
+                    <text x={v.x} y={-v.y} fill='blue'>{v.x.toFixed(2)},{v.y.toFixed(2)}</text>
+                {/each}
+                <text x={subsec.bounds.left} y={-subsec.bounds.top - 10} fill='white'>{subsec.num}</text>
             {/each}
-            {#each selRS.bspLines as line}
-                {@const x = 5000}
-                {@const m = (line[1].y - line[0].y) / (line[1].x - line[0].x + .00000001)}
-                {@const c = (m * -line[1].x) + line[1].y}
-                <line x1={line[0].x} y1={line[0].y} x2={line[1].x} y2={line[1].y} stroke='cyan' stroke-width={2} />
-                <line x1={-x} y1={-x * m + c} x2={x} y2={x * m + c} stroke='magenta' stroke-width={.2} />
-            {/each}
-            {#each selRS.vertexes as v}
-                <circle cx={v.x} cy={v.y} r={1} fill='blue' />
-                <text x={v.x} y={-v.y} fill='blue'>{v.x.toFixed(2)},{v.y.toFixed(2)}</text>
-            {/each}
-            <text x={selRS.subsec.bounds.left} y={-selRS.subsec.bounds.top - 10} fill='white'>{selRS.subsec.num}</text>
         {/if}
     </g>
 </svg>
