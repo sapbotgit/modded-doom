@@ -126,8 +126,8 @@ export class MapObject {
             // other places. Slightly reducing the side makes this much better.
             const traceRadius = this.info.radius - .1;
             // add any subsectors we are currently touching
-            map.data.traceSubsectors(p, zeroVec, traceRadius, subsector =>
-                Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
+            map.data.traceSubsectors(p, zeroVec, traceRadius,
+                subsector => Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
             this.subsectorMap.forEach((rev, subsector) => {
                 if (rev === this.subsecRev) {

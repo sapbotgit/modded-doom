@@ -130,7 +130,6 @@
                     turns === 1 ? (width - i - 1) * width + j :
                     turns === 2 ? i * width + (height - j):
                     (height - j - 1) * width + (width - i - 1);
-                // if (i == 0)console.log(h)
                 buff[out * 4 + 0] = texture.image.data[src * 4 + 0];
                 buff[out * 4 + 1] = texture.image.data[src * 4 + 1];
                 buff[out * 4 + 2] = texture.image.data[src * 4 + 2];

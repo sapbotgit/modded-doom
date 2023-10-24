@@ -12,6 +12,12 @@
         vh = player.computeViewHeight(player.map.game.time);
     }
 
+    let subsectors = [];
+    $: if ($position) {
+        subsectors = []
+        player.subsectors(s => subsectors.push(s));
+    }
+
     function vec(v: Vector3) {
         return `[x: ${v.x.toFixed(2)}, y: ${v.y.toFixed(2)}, z: ${v.z.toFixed(2)}]`;
     }
@@ -67,6 +73,8 @@
     <div>vel: {vec(velocity)}</div>
     <div>dir: [{($direction * ToDegrees).toFixed(3)}]</div>
     <div>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
+    <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
+    <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
     <div>camera: {vec($cameraPosition)}</div>
     <div>viewHeight: {vh.toFixed(2)}</div>
     <button on:click={revive}>Revive</button>

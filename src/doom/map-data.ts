@@ -115,12 +115,15 @@ const toSector = (num: number, sd: any): Sector => {
     return sector;
 }
 
-const _nullBounds: NodeBounds = { top: 0, left: 0, right: 0, bottom: 0 };
+// this bounds will never be true when testing for collisions because if something
+// is bigger than left, it will be less than right and fail (same for top and bottom)
+const _invalidBounds: NodeBounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
 export interface SubSector {
     num: number;
     sector: Sector;
     segs: Seg[];
     vertexes: Vertex[];
+    bspLines: Vertex[][]; // <-- useful for debugging but maybe we can remove it?
     // for collision detection
     mobjs: Set<MapObject>;
     bounds: NodeBounds;
@@ -135,8 +138,9 @@ const toSubSector = (num: number, item: any, segs: Seg[]): SubSector => ({
     mobjs: new Set(),
     hitC: 0,
     // bounds and vertexes will be populated by completeSubSectors()
-    bounds: _nullBounds,
+    bounds: _invalidBounds,
     vertexes: [],
+    bspLines: [],
 });
 
 export interface NodeBounds {
@@ -405,8 +409,14 @@ function createBspTracer(root: TreeNode) {
 
 function createSubsectorTrace(root: TreeNode) {
     const end = new Vector3();
+    const moveBounds = { left: 0, right: 0, top: 0, bottom: 0 };
+
     return (start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) => {
-        end.copy(move).add(start);
+        end.copy(move).add(start).addScalar(radius);
+        moveBounds.left = Math.min(start.x, start.x + move.x) - radius;
+        moveBounds.right = Math.max(start.x, start.x + move.x) + radius;
+        moveBounds.top = Math.min(start.y, start.y + move.y) - radius;
+        moveBounds.bottom = Math.max(start.y, start.y + move.y) + radius;
 
         let complete = false;
         function visitNode(node: TreeNode | SubSector) {
@@ -416,12 +426,11 @@ function createSubsectorTrace(root: TreeNode) {
             if ('segs' in node) {
                 // BSP queries always end up in some node (even if we're outside the map)
                 // so check and make sure the aabb's overlap
-                const mLeft = Math.min(start.x, start.x + move.x) - radius;
-                const mRight = Math.max(start.x, start.x + move.x) + radius;
-                const mTop = Math.min(start.y, start.y + move.y) - radius;
-                const mBottom = Math.max(start.y, start.y + move.y) + radius;
-                const missBox = (node.bounds.left > mRight || node.bounds.right < mLeft
-                    || node.bounds.top > mBottom || node.bounds.bottom < mTop);
+                const missBox = (
+                    node.bounds.left > moveBounds.right
+                    || node.bounds.right < moveBounds.left
+                    || node.bounds.top > moveBounds.bottom
+                    || node.bounds.bottom < moveBounds.top);
                 if (missBox) {
                     return;
                 }
@@ -467,6 +476,7 @@ function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
     function visitNodeChild(child: TreeNode | SubSector) {
         if ('segs' in child) {
             child.vertexes = subsectorVerts(child.segs, bspLines);
+            child.bspLines = [...bspLines];
             // originally I was going to use the TreeNode bounds (boundsLeft/boundsRight) but those bounds don't
             // include the implicit edges from bsp lines so the boxes aren't right. It's easy to compute bounds from
             // a set of vertexes anyway
@@ -489,22 +499,6 @@ function completeSubSectors(root: TreeNode, subsectors: SubSector[]) {
     visitNode(root);
     // must be done after visiting all the subsectors because that fills in the initial implicit vertexes
     subsectors.forEach(subsec => addExtraImplicitVertexes(subsec, createSubsectorTrace(root)));
-}
-
-function computeBounds(verts: Vertex[]): NodeBounds {
-    let left = Infinity;
-    let right = -Infinity;
-    let top = Infinity;
-    let bottom = -Infinity;
-
-    for (let v of verts) {
-        left = Math.min(left, v.x);
-        right = Math.max(right, v.x);
-        top = Math.min(top, v.y);
-        bottom = Math.max(bottom, v.y);
-    }
-
-    return { left, right, top, bottom }
 }
 
 function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
@@ -530,7 +524,7 @@ function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
 
             // The intersection point must lie both within the BSP volume and the segs volume.
             // the constants here are a little bit of trial and error but E1M1 had a
-            // couple of subsectors in the zigzag room that helped
+            // couple of subsectors in the zigzag room that helped and E3M6.
             let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .01);
             let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1);
             if (insideBsp && insideSeg) {
@@ -659,4 +653,26 @@ function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeo
 
     // re-update subsector vertexes but don't merge any additional points added above
     subsector.vertexes = centerSort(subsector.vertexes);
+}
+
+function computeBounds(verts: Vertex[], allowLinearBounds = false): NodeBounds {
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    for (let v of verts) {
+        left = Math.min(left, v.x);
+        right = Math.max(right, v.x);
+        top = Math.min(top, v.y);
+        bottom = Math.max(bottom, v.y);
+    }
+
+    const linearBounds = (left - right === 0 || top - bottom === 0);
+    if (linearBounds && !allowLinearBounds) {
+        // E4M7 (around sectors 78-87 at least) and several plutonia and tnt maps have bounds where one dimension is 0.
+        // These bounds get even more messed up with the implicit vertices added by subsectorVerts so exclude them
+        // and recompute the bounds
+        return computeBounds(verts.filter(e => !('implicitLines' in e)), true);
+    }
+    return { left, right, top, bottom };
 }
