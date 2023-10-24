@@ -203,6 +203,9 @@ export class DoomWad {
     }
 
     wallTextureData(name: string) {
+        if (!name) {
+            return null;
+        }
         const uname = name.toUpperCase();
         // use patches first because sometimes flats and patches have the same name
         // https://doomwiki.org/wiki/Flat_and_texture_mixing

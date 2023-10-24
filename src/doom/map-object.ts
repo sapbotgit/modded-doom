@@ -352,9 +352,10 @@ export class MapObject {
                         return true; // passed over target
                     }
                     if (hit.mobj.hitC === hitCount) {
-                        return true;
+                        return true; // already hit this mobj
                     }
                     hit.mobj.hitC = hitCount;
+
                     if (isMissile) {
                         // TODO: check species (imps don't hit imps, etc.)
                         if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
@@ -535,7 +536,7 @@ export class PlayerMapObject extends MapObject {
         });
 
         this.sector.subscribe(sector => {
-            if (sector.type === 9) {
+            if (sector.type === 9 && this.onGround) {
                 this.stats.secrets += 1;
                 sector.type = 0;
             }

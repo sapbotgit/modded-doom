@@ -52,13 +52,15 @@ const floorHeight = (map: MapRuntime, sector: Sector) => sector.zFloor.val;
 
 const shortestLowerTexture = (map: MapRuntime, sector: Sector) => {
     let target = floorMax;
+    // https://www.doomworld.com/forum/topic/95030-why-does-raise-floor-by-shortest-lower-texture-only-half-work-on-older-ports/#comment-1770824
+    // solves a bug in Doom2's MAP15 but it really doesn't feel right. I'm guessing almost every doom "shortest lower texture"
+    // lindef out there expects 64px (or less) rise because, in my opinion, it's highly unlikely both side lower textures are set
+    const missingTextureSize = 64;
     for (const ld of map.data.linedefs) {
-        if (ld.left?.sector === sector) {
-            const rtx = map.game.wad.wallTextureData(ld.right.lower.val);
+        if (ld.left?.sector === sector || ld.right.sector === sector) {
             const ltx = map.game.wad.wallTextureData(ld.left.lower.val);
-            target = Math.min(target,
-                    (typeof ltx === 'object' ? ltx.height : Infinity),
-                    (typeof rtx === 'object' ? rtx.height : Infinity));
+            const rtx = map.game.wad.wallTextureData(ld.right.lower.val);
+            target = Math.min(target, (ltx?.height ?? missingTextureSize), (rtx?.height ?? missingTextureSize));
         }
     }
     return sector.zFloor.val + target;
