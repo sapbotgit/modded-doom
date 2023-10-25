@@ -2,11 +2,11 @@
     import { GridHelper } from "three";
     import { HALF_PI, type MapRuntime } from "../../doom";
     import { Object3DInstance } from "@threlte/core";
-    import { useDoom } from "../DoomContext";
+    import { useAppContext } from "../DoomContext";
 
     export let map: MapRuntime;
 
-    const showBlockmap = useDoom().settings.showBlockMap;
+    const showBlockmap = useAppContext().settings.showBlockMap;
     const { position: playerPosition } = map.player;
 
     const bbox = map.data.blockMapBounds;

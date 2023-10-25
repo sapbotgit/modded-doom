@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { LineDef, MapRuntime } from "../../doom";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoomMap } from "../DoomContext";
     import FlagList from "./FlagList.svelte";
     import NumberChooser from "./NumberChooser.svelte";
     import SidedefEditor from "./SidedefEditor.svelte";
@@ -8,7 +8,7 @@
     export let map: MapRuntime;
     export let linedef: LineDef;
 
-    const { editor } = useDoom();
+    const { editor } = useAppContext();
     const { renderSectors } = useDoomMap();
     // https://doomwiki.org/wiki/Linedef
     const flagInfo: [number, string][] = [

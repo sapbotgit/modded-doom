@@ -97,7 +97,7 @@ export function buildRenderSectors(map: MapData) {
         const subsectors = allSubsectors.filter(e => e.sector === sector);
         const portalSegs = allSegs.filter(e => e.direction === 0 && e.linedef.left?.sector === sector);
         const geos = subsectors.map(e => createShape(e.vertexes))
-        // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
+        // E3M2 (maybe other maps) has sectors with no subsectors and therefore no vertexes. Odd.
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
         sectors.push({ sector, subsectors, portalSegs, geometry });
     }

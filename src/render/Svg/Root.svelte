@@ -3,7 +3,7 @@
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
     import { type MapRuntime, type MapObject as MObj } from "../../doom";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoomMap } from "../DoomContext";
     import { Color } from "three";
     import type { RenderSector } from "../RenderData";
 
@@ -13,7 +13,7 @@
     const rev = map.rev;
     const erev = map.erev;
     const { position, direction } = map.player;
-    const showBlockmap = useDoom().settings.showBlockMap;
+    const showBlockmap = useAppContext().settings.showBlockMap;
 
     let zoom = 500;
     $: left = $position.x - zoom * .5;

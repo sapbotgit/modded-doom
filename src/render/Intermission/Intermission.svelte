@@ -6,6 +6,7 @@
     import Percent from "./Percent.svelte";
     import Time from "./Time.svelte";
     import { writable } from "svelte/store";
+    import MapNamePic from "../Components/MapNamePic.svelte";
 
     export let details: IntermissionScreen;
     export let size: Size;
@@ -135,11 +136,6 @@
             pauseTime = ticksPerSecond;
         }
     }
-
-    const mapImageName = (mapName: string) =>
-        episodeMaps
-            ? `WILV${episode - 1}${mapNum(mapName)}`
-            : 'CWILV' + String(mapNum(mapName)).padStart(2, '0');
 </script>
 
 <div style="width:{size.width}px;height:{size.height}px;">
@@ -153,11 +149,11 @@
             {#if state === 'next-map'}
                 <div class="title">
                     <span><Picture name="WIENTER" /></span>
-                    <span><Picture name={mapImageName(details.nextMapName)} /></span>
+                    <span><MapNamePic name={details.nextMapName} /></span>
                 </div>
             {:else}
                 <div class="title">
-                    <span><Picture name={mapImageName(details.finishedMap.name)} /></span>
+                    <span><MapNamePic name={details.finishedMap.name} /></span>
                     <span><Picture name="WIF" /></span>
                 </div>
 

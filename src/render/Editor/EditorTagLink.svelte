@@ -1,13 +1,13 @@
 <script lang="ts">
     import { Mesh, Object3DInstance } from "@threlte/core";
     import type { LineDef, MapRuntime, Sector } from "../../doom";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoomMap } from "../DoomContext";
     import { BoxGeometry, BufferGeometry, Color, Line, MeshBasicMaterial, Vector3 } from "three";
     import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 
     export let map: MapRuntime;
 
-    const { editor } = useDoom();
+    const { editor } = useAppContext();
     const { renderSectors } = useDoomMap();
 
     const mapHeight = map.data.sectors.reduce((top, sec) => Math.max(sec.zCeil.val, top), -Infinity);

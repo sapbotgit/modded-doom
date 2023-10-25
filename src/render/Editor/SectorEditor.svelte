@@ -1,13 +1,14 @@
 <script lang="ts">
     import type { MapRuntime, Sector } from "../../doom";
-    import { useDoom } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
     import NumberChooser from "./NumberChooser.svelte";
     import TextureChooser from "./TextureChooser.svelte";
 
     export let map: MapRuntime;
     export let sector: Sector;
 
-    const { editor, wad } = useDoom();
+    const { editor } = useAppContext();
+    const { wad } = useDoom();
     const { light, zCeil, zFloor, floorFlat, ceilFlat } = sector;
 
     let showSelector = false;

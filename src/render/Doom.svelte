@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { Game } from "../doom";
     import { onMount, setContext } from "svelte";
-    import { createContext } from "./DoomContext";
+    import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import { pointerLockControls } from "./PointerLockControls";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
@@ -15,23 +15,29 @@
     import Intermission from "./Intermission/Intermission.svelte";
     import { fly } from "svelte/transition";
     import { keyboardControls } from "./KeyboardControls";
+    import MapNamePic from "./Components/MapNamePic.svelte";
     import Picture from "./Components/Picture.svelte";
 
     export let game: Game;
 
-    const doomContext = createContext(game);
-    setContext('doom-context', doomContext);
-    const { settings, editor } = doomContext;
+    const doomContext = createGameContext(game);
+    setContext('doom-game-context', doomContext);
+    const { url, settings, editor } = useAppContext();
     const { map, intermission } = game;
+    const player = $map.player;
     $: renderSectors = $map ? buildRenderSectors($map.data) : [];
     $: game.settings.compassMove.set($cameraMode === 'svg');
+
+    $: if ($map) {
+        // keep url in sync with game
+        $url = `/${game.wad.name}/skill${game.skill}/${$map.name}`;
+    }
 
     let messageNode: HTMLElement;
     let pointerLocked = false;
 
     let showPlayerInfo = false;
-    const { wireframe, showBlockMap } = settings;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale } = game.settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap } = settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -147,7 +153,22 @@
 
             {#if !pointerLocked}
                 <div class="lock-message" transition:fly={{ y: -40 }}>
-                    <button bind:this={messageNode}>Click to play</button>
+                    <div class="map-status">
+                        <div class="map-stats">
+                            <span>Kills</span><span>{player.stats.kills}</span><span>{$map.stats.totalKills}</span>
+                            <span>Items</span><span>{player.stats.items}</span><span>{$map.stats.totalItems}</span>
+                            <span>Secrets</span><span>{player.stats.secrets}</span><span>{$map.stats.totalSecrets}</span>
+                        </div>
+                        <button>
+                            {#if $intermission}
+                                Intermission
+                            {:else}
+                                <span><MapNamePic name={$map.name} /></span>
+                            {/if}
+                        </button>
+                        <span><Picture name='M_ULTRA' /></span>
+                    </div>
+                    <button class="ctp" bind:this={messageNode}>Click to play</button>
                     <span class="controls">
                         Move: WASD,
                         Use: E,
@@ -189,6 +210,7 @@
     .lock-message {
         background: rgba(.5,.5,.5,.5);
         padding: 1em 0;
+        gap: 1em;
         position: absolute;
         left: 0;
         right: 0;
@@ -198,8 +220,11 @@
         flex-direction: column;
         align-items: center;
     }
-
     .lock-message button {
+        font-size: .5em;
+    }
+    .lock-message .ctp {
+        font-size: 1em;
         max-width: 15em;
     }
 
@@ -210,5 +235,19 @@
         padding: 2em;
         right: unset;
         font-size: 1em;
+    }
+
+    .small-lock-message .map-status {
+        display: none;
+    }
+    .map-status {
+        flex-direction: row;
+        gap: 1em;
+    }
+
+    .map-stats {
+        display: grid;
+        font-size: .5em;
+        grid-template-columns: 1fr 1fr 1fr;
     }
 </style>

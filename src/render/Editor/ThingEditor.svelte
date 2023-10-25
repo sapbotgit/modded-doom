@@ -1,13 +1,14 @@
 <script lang="ts">
     import { thingSpec, type ThingSpec, states, SpriteNames, MapRuntime, mapObjectInfo, MapObjectIndex } from "../../doom";
-    import { useDoom } from "../DoomContext";
+    import { useAppContext, useDoom } from "../DoomContext";
     import ThingSprite from "./ThingSprite.svelte";
     import { ToDegrees, ToRadians } from "../../doom";
     import FlagList from "./FlagList.svelte";
     import { MapObject } from "../../doom/map-object";
     import NumberChooser from "./NumberChooser.svelte";
 
-    const { editor, textures, wad } = useDoom();
+    const { editor } = useAppContext();
+    const { textures, wad } = useDoom();
 
     export let map: MapRuntime;
     export let thing: MapObject;

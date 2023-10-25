@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
     import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial } from "three";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import Wireframe from "../Debug/Wireframe.svelte";
     import type { RenderSector } from "../RenderData";
 
@@ -11,7 +11,8 @@
     export let ceiling = false;
 
     const { map } = useDoomMap();
-    const { textures, settings, editor } = useDoom();
+    const { settings, editor } = useAppContext();
+    const { textures } = useDoom();
     const { position: cameraPosition } = map.camera;
     const extraLight = map.player.extraLight;
     const geometry = renderSector.geometry;

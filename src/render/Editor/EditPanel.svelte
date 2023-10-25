@@ -1,14 +1,14 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
     import type { MapRuntime } from "../../doom";
-    import { useDoom } from "../DoomContext";
+    import { useAppContext } from "../DoomContext";
     import LinedefEditor from "./LinedefEditor.svelte";
     import SectorEditor from "./SectorEditor.svelte";
     import ThingEditor from "./ThingEditor.svelte";
 
     export let map: MapRuntime;
 
-    const { editor } = useDoom();
+    const { editor } = useAppContext();
 
     function close() {
         $editor.selected = null;

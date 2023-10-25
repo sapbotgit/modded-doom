@@ -30,7 +30,7 @@ export class DoomWad {
 
     get mapNames() { return [...this.mapIndex.keys()]; }
 
-    constructor(wad: ArrayBuffer) {
+    constructor(readonly name: string, wad: ArrayBuffer) {
         const data = new DoomWadRaw(new KaitaiStream(wad), null, null);
         this.raw = data.index;
 

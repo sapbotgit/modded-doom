@@ -1,15 +1,22 @@
 <script lang="ts" context="module">
     // cache ImageData so we don't always create a new image context when we load a new image
     const cache = new Map<string, ImageData>();
+    let lastWad: DoomWad;
 </script>
 <script lang="ts">
     import { afterUpdate } from "svelte";
     import { useDoom } from "../DoomContext";
+    import type { DoomWad } from "../../doom";
 
     export let name: string;
     export let type: 'wall' | 'flat' | 'any' = 'any';
+    export let wad: DoomWad = null;
 
-    const { wad } = useDoom();
+    wad = wad ?? useDoom().wad;
+    if (wad !== lastWad) {
+        cache.clear();
+    }
+
     $: data =
         type === 'flat' ? wad.flatTextureData(name) :
         type === 'wall' ? wad.wallTextureData(name) :

@@ -1,9 +1,9 @@
 <script lang="ts">
     import { Object3DInstance, useParent } from "@threlte/core";
     import { LineSegments, WireframeGeometry } from "three";
-    import { useDoom } from "../DoomContext";
+    import { useAppContext } from "../DoomContext";
 
-    const { wireframe } = useDoom().settings;
+    const { wireframe } = useAppContext().settings;
 
     const parent = useParent();
     function obj(p: any, wireframeMode: string) {

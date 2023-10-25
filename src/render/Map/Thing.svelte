@@ -14,7 +14,7 @@
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, type EulerOrder, ShaderMaterial } from 'three';
-    import { useDoom, useDoomMap } from '../DoomContext';
+    import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
@@ -23,7 +23,8 @@
 
     const { map } = useDoomMap();
     const tick = map.game.time.tick;
-    const { textures, editor, wad } = useDoom();
+    const { editor } = useAppContext();
+    const { textures, wad } = useDoom();
     const { position: cameraPosition, rotation: cameraRotation, mode } = map.camera;
     const extraLight = map.player.extraLight;
 

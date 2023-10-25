@@ -3,7 +3,7 @@
     import { Mesh } from "@threlte/core";
     import { HALF_PI, type LineDef, type Seg, type SideDef, type Vertex } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
 
     export let seg: Seg;
     export let linedef: LineDef;
@@ -29,7 +29,8 @@
     const { yOffset, xOffset } = sidedef;
     const { xOffset: animOffset, flags } = linedef;
 
-    const { wad, settings, textures, editor } = useDoom();
+    const { settings, editor } = useAppContext();
+    const { wad, textures } = useDoom();
     const { map } = useDoomMap();
 
     const extraLight = map.player.extraLight;
