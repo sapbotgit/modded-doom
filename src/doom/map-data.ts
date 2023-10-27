@@ -525,6 +525,7 @@ function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
             // The intersection point must lie both within the BSP volume and the segs volume.
             // the constants here are a little bit of trial and error but E1M1 had a
             // couple of subsectors in the zigzag room that helped and E3M6.
+            // FIXME: plutonia MAP25 has a few gaps (-500,-700) and (-1220,-940)
             let insideBsp = bspLines.map(l => signedLineDistance(l, point)).every(dist => dist <= .01);
             let insideSeg = segLines.map(l => signedLineDistance(l, point)).every(dist => dist >= -1);
             if (insideBsp && insideSeg) {

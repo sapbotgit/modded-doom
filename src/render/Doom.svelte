@@ -154,11 +154,13 @@
             {#if !pointerLocked}
                 <div class="lock-message" transition:fly={{ y: -40 }}>
                     <div class="map-status">
-                        <div class="map-stats">
-                            <span>Kills</span><span>{player.stats.kills}</span><span>{$map.stats.totalKills}</span>
-                            <span>Items</span><span>{player.stats.items}</span><span>{$map.stats.totalItems}</span>
-                            <span>Secrets</span><span>{player.stats.secrets}</span><span>{$map.stats.totalSecrets}</span>
-                        </div>
+                        {#if $map}
+                            <div class="map-stats">
+                                <span>Kills</span><span>{player.stats.kills}</span><span>{$map.stats.totalKills}</span>
+                                <span>Items</span><span>{player.stats.items}</span><span>{$map.stats.totalItems}</span>
+                                <span>Secrets</span><span>{player.stats.secrets}</span><span>{$map.stats.totalSecrets}</span>
+                            </div>
+                        {/if}
                         <button>
                             {#if $intermission}
                                 Intermission

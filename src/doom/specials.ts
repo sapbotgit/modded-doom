@@ -1112,13 +1112,26 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
             raiseFloorAction(map, base, def, target);
 
             // find next step to raise
-            const matches = map.data.sectorNeighbours(base)
+            const matches = raiseFloorsectors(base, map.data.linedefs)
                 .filter(e => e.floorFlat.val === flat && e.specialData === null && e.zFloor.val === base.zFloor.val);
             base = matches.length ? matches[0] : null;
         }
     }
     return triggered ? def : undefined;
 };
+
+// rising floors needs a more strict variations of map sectorNeighbours. Thanks Plutonia MAP24...
+function raiseFloorsectors(sector: Sector, mapLinedefs: LineDef[]): Sector[] {
+    const sectors = [];
+    for (const ld of mapLinedefs) {
+        if (ld.flags & 0x0004) {
+            if (ld.right.sector === sector) {
+                sectors.push(ld.left.sector);
+            }
+        }
+    }
+    return sectors.filter((e, i, arr) => arr.indexOf(e) === i && e !== sector);
+}
 
 function raiseFloorAction(map: MapRuntime, sector: Sector, def: { speed: number, direction: number }, target: number) {
     sector.specialData = def;
