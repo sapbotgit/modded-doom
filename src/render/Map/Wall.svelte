@@ -1,21 +1,20 @@
 <script lang="ts">
-    import type { Seg } from "../../doom";
-    import WallSegment from "./WallSegment.svelte";
+    import type { LineDef } from "../../doom";
+    import WallFragment from "./WallFragment.svelte";
 
-    export let seg: Seg;
+    export let linedef: LineDef;
 
     const visible = true;
     const mid = {
-        x: (seg.v[1].x + seg.v[0].x) * 0.5,
-        y: (seg.v[1].y + seg.v[0].y) * 0.5,
+        x: (linedef.v[1].x + linedef.v[0].x) * 0.5,
+        y: (linedef.v[1].y + linedef.v[0].y) * 0.5,
     };
-    const vx = seg.v[1].x - seg.v[0].x;
-    const vy = seg.v[1].y - seg.v[0].y;
+    const vx = linedef.v[1].x - linedef.v[0].x;
+    const vy = linedef.v[1].y - linedef.v[0].y;
     const width = Math.sqrt(vx * vx + vy * vy);
+    const angle = Math.atan2(vy, vx);
+    const leftAngle = angle + Math.PI;
 
-    const linedef = seg.linedef;
-    const useLeft = seg.direction === 1;
-    const sidedef = useLeft ? linedef.left : linedef.right;
     const { flags } = linedef;
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { middle: middleL }  = linedef.left ?? {};
@@ -46,47 +45,54 @@
     // FIXME: what is up with plutonia Map28 and sector 199/198?
 </script>
 
-{#if sidedef && width > 0}
+{#if width > 0}
     {#if needSkyWall && !skyHack}
-        <WallSegment
-            skyHack
-            {seg} {linedef} {sidedef}
-            {visible} {width} height={skyHeight - $zCeilR} top={skyHeight} {mid}
+        <WallFragment
+            skyHack {linedef}
+            {visible} {width} height={skyHeight - $zCeilR} top={skyHeight} {mid} {angle}
         />
     {/if}
 
     {#if flags & 0x0004}
         <!-- two-sided so figure out top and bottom -->
-        {#if $zCeilL !== $zCeilR && !skyHack}
+        {#if $zCeilR !== $zCeilL && !skyHack}
+            {@const useLeft = $zCeilL > $zCeilR}
             {@const height = useLeft ? $zCeilL - $zCeilR : $zCeilR - $zCeilL}
             {@const top = Math.max($zCeilR, $zCeilL)}
             {#if height > 0}
-                <WallSegment
-                    {seg} {linedef} {sidedef}
-                    {visible} {width} {height} {top} {mid}
+                <WallFragment
+                    {linedef} {useLeft}
+                    {visible} {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
                     type={'upper'}
                 />
             {/if}
         {/if}
         {#if $zFloorL !== $zFloorR}
+            {@const useLeft = $zFloorR > $zFloorL}
             {@const height = useLeft ? $zFloorR - $zFloorL : $zFloorL - $zFloorR}
             {@const top = Math.max($zFloorR, $zFloorL)}
             {#if height > 0}
-                <WallSegment
-                    {seg} {linedef} {sidedef}
-                    {visible} {width} {height} {top} {mid}
+                <WallFragment
+                    {linedef} {useLeft}
+                    {visible} {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
                     type={'lower'}
                 />
             {/if}
         {/if}
         <!-- And middle -->
-        {#if seg.direction === 1 ? $middleL : $middleR}
-            {@const top = Math.min($zCeilL, $zCeilR)}
-            {@const height = top - Math.max($zFloorL, $zFloorR)}
-            {#if height > 0}
-                <WallSegment
-                    {seg} {linedef} {sidedef}
-                    {visible} {width} {height} {top} {mid}
+        {@const top = Math.min($zCeilL, $zCeilR)}
+        {@const height = top - Math.max($zFloorL, $zFloorR)}
+        {#if height > 0}
+            {#if $middleL}
+                <WallFragment
+                    {linedef} useLeft doubleSidedMiddle
+                    {visible} {width} {height} {top} {mid} angle={leftAngle}
+                />
+            {/if}
+            {#if $middleR}
+                <WallFragment
+                    {linedef} doubleSidedMiddle
+                    {visible} {width} {height} {top} {mid} {angle}
                 />
             {/if}
         {/if}
@@ -95,9 +101,9 @@
         {@const top = $zCeilR}
         {@const height = top - $zFloorR}
         {#if height > 0}
-            <WallSegment
-                {seg} {linedef} {sidedef}
-                {visible} {width} {height} {top} {mid}
+            <WallFragment
+                {linedef}
+                {visible} {width} {height} {top} {mid} {angle}
             />
         {/if}
     {/if}

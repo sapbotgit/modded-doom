@@ -40,10 +40,8 @@
 {#each renderSectors as renderSector}
     <div>
         <Flats {renderSector} />
-        {#each renderSector.subsectors as subsector}
-            {#each subsector.segs as seg}
-                <div><Wall {seg} /></div>
-            {/each}
+        {#each renderSector.linedefs as linedef}
+            <Wall {linedef} />
         {/each}
     </div>
 {/each}

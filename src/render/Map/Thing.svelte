@@ -1,15 +1,9 @@
 <script lang="ts" context="module">
-    const cache = new Map<string, PlaneGeometry>();
-
-    function planeGeometry(textureData: any) {
-        const key = textureData.width + 'x' + textureData.height;
-        let val = cache.get(key)
-        if (!val) {
-            val = new PlaneGeometry(textureData.width, textureData.height);
-            cache.set(key, val);
-        }
-        return val;
-    }
+    // all things are planes so may as well use the same geometry
+    // TODO: actually we can do better than this. We can use instancing per thing type
+    // so that we only have one draw call per type. It means we'll need to create a sprite
+    // sheet though and uv index to the appropriate frame but it's doable.
+    const geometry = new PlaneGeometry();
 </script>
 <script lang="ts">
     import { Mesh, TransformControls } from '@threlte/core';
@@ -38,7 +32,7 @@
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
     $: texture = textures.get(frame.name, 'sprite');
-    // TODO: for sprites that don't have equal width on each fram, this causes some "jiggle"
+    // TODO: for sprites that don't have equal width on each frame, this causes some "jiggle"
     // most sprites have a consistent width (but not all, consider "burning barrel") so hmmmm
     $: hOffset = -texture.userData.xOffset + (texture.userData.width * .5);
     // Sprite offset is much more complicated than this but this is simple and looks okay-ish.
@@ -102,8 +96,8 @@
     interactive={$editor.active}
     on:click={hit}
     {material}
-    geometry={planeGeometry(texture.userData)}
-    scale={frame.mirror ? { x: -1 } : {}}
+    {geometry}
+    scale={{ y: texture.userData.height, x: frame.mirror ? -texture.userData.width : texture.userData.width }}
     {rotation}
     position={{
         x: $position.x + hOffset,

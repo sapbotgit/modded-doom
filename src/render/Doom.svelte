@@ -24,7 +24,7 @@
     setContext('doom-game-context', doomContext);
     const { url, settings, editor } = useAppContext();
     const { map, intermission } = game;
-    const player = $map.player;
+    $: player = $map?.player;
     $: renderSectors = $map ? buildRenderSectors($map.data) : [];
     $: game.settings.compassMove.set($cameraMode === 'svg');
 
@@ -194,6 +194,8 @@
 
 <style>
     div {
+        user-select: none;
+
         display: flex;
         flex-direction: row;
         position: relative;

@@ -145,6 +145,7 @@ export class MapObject {
                 : highestZFloor(sector, sector.zFloor.val);
             if (!this.sector.val) {
                 // first time setting sector so set zpos based on sector containing the object center
+                this.zFloor = fromCeiling ? (sector.zCeil.val - this.info.height) : sector.zFloor.val;
                 p.z = sector.zFloor.val;
             }
             if (this.sector.val !== sector) {

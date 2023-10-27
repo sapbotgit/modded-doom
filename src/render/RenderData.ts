@@ -7,6 +7,7 @@ import {
     type Sector,
     MapData,
     type Vertex,
+    type LineDef,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 
@@ -85,6 +86,7 @@ export interface RenderSector {
     sector: Sector;
     subsectors: SubSector[];
     portalSegs: Seg[];
+    linedefs: LineDef[];
     geometry: BufferGeometry<NormalBufferAttributes>;
     // TODO: MapObjects so we only render them if the sector is visible?
 }
@@ -96,10 +98,11 @@ export function buildRenderSectors(map: MapData) {
     for (const sector of map.sectors) {
         const subsectors = allSubsectors.filter(e => e.sector === sector);
         const portalSegs = allSegs.filter(e => e.direction === 0 && e.linedef.left?.sector === sector);
-        const geos = subsectors.map(e => createShape(e.vertexes))
+        const geos = subsectors.map(e => createShape(e.vertexes));
+        const linedefs = map.linedefs.filter(e => e.right.sector === sector);
         // E3M2 (maybe other maps) has sectors with no subsectors and therefore no vertexes. Odd.
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
-        sectors.push({ sector, subsectors, portalSegs, geometry });
+        sectors.push({ sector, subsectors, portalSegs, geometry, linedefs });
     }
     return sectors;
 }

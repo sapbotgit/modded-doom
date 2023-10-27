@@ -1,30 +1,36 @@
+<script lang="ts" context="module">
+    // all walls are planes so may as well use the same geometry
+    const geometry = new PlaneGeometry();
+</script>
 <script lang="ts">
     import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
     import { Mesh } from "@threlte/core";
-    import { HALF_PI, type LineDef, type Seg, type SideDef, type Vertex } from "../../doom";
+    import { HALF_PI, type LineDef, type SideDef, type Vertex } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
 
-    export let seg: Seg;
     export let linedef: LineDef;
-    export let sidedef: SideDef;
+    export let useLeft = false;
     export let type: 'upper' | 'lower' | 'middle' = 'middle';
 
     // geometry
     export let skyHack = false;
     export let visible: boolean;
+    export let angle: number;
     export let width: number;
     export let height: number;
     export let top: number;
     export let mid: Vertex;
+    export let doubleSidedMiddle = false;
 
+    const sidedef = useLeft ? linedef.left : linedef.right;
     // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
     // There may be other places this happens but we correct it by doing a little hack
     // Actually gzdoom has lots of little corrections https://github.com/ZDoom/gzdoom/blob/master/wadsrc/static/zscript/level_compatibility.zs
     $: textureL = linedef.left?.[type];
     $: textureR = linedef.right[type];
-    $: texture = seg.direction === 1 ? ($textureL ?? $textureR) : ($textureR ?? $textureL);
+    $: texture = useLeft ? ($textureL ?? $textureR) : ($textureR ?? $textureL);
 
     const { yOffset, xOffset } = sidedef;
     const { xOffset: animOffset, flags } = linedef;
@@ -35,14 +41,18 @@
 
     const extraLight = map.player.extraLight;
     const { light } = sidedef.sector;
-    const { zFloor : zFloorL, zCeil : zCeilL, skyHeight: skyHeightL } = linedef.left?.sector ?? {};
-    const { zFloor : zFloorR, zCeil : zCeilR, skyHeight: skyHeightR } = linedef.right.sector
+    const { zFloor : zFloorL } = linedef.left?.sector ?? {};
+    const { zFloor : zFloorR, zCeil : zCeilR, skyHeight } = linedef.right.sector
 
     // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
     // and we get a ~25% performance boost. I'd rather keep this and use the BSP to cull walls
     $: material = new MeshStandardMaterial({ color: lineStroke() });
     $: texture2 = texture && settings.useTextures ? textures.get(texture, 'wall').clone() : null;
     $: if (texture2) {
+        if (doubleSidedMiddle) {
+            // double sided linedefs (generally for semi-transparent textures) do not repeat vertically
+            height = Math.min(height, texture2.userData.height);
+        }
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;
         material.map = texture2;
@@ -61,17 +71,18 @@
             if (type === 'lower' && (flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
                 // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
-                pegging -= (skyHeightR ?? $zCeilR) - Math.max($zFloorL, $zFloorR);
+                pegging -= (skyHeight ?? $zCeilR) - Math.max($zFloorL, $zFloorR);
             } else if (type === 'upper' && !(flags & 0x0008)) {
                 pegging = 0;
-            } else if (type === 'middle' && (flags & 0x0010)) {
+            } else if (type === 'middle') {
+                // FIXME: the cages in plutonia's MAP24 definitely aren't right
                 pegging = 0;
             }
         } else if (flags & 0x0010) {
             // peg to floor (bottom left)
             pegging = 0;
         }
-        material.map.offset.x = (($animOffset ?? 0) + $xOffset + seg.offset) * texture2.userData.invWidth;
+        material.map.offset.x = (($animOffset ?? 0) + $xOffset) * texture2.userData.invWidth;
         material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
     }
     $: if ($light !== undefined) {
@@ -103,13 +114,14 @@
 </script>
 
 <Mesh
-    visible={visible}
     interactive={$editor.active}
     on:click={hit}
+    visible={visible}
     renderOrder={skyHack ? 0 : 1}
     position={{ x: mid.x, y: mid.y, z: top - height * .5 }}
-    rotation={{ z: seg.angle, x: HALF_PI, order:'ZXY' }}
-    geometry={new PlaneGeometry(width, height)}
+    rotation={{ z: angle, x: HALF_PI, order:'ZXY' }}
+    scale={{ x: width, y: height }}
+    {geometry}
     material={material}
 >
     <Wireframe />

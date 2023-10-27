@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
-    import { BackSide, BufferGeometry, FrontSide, MeshStandardMaterial } from "three";
+    import { BackSide, FrontSide, MeshStandardMaterial } from "three";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import Wireframe from "../Debug/Wireframe.svelte";
     import type { RenderSector } from "../RenderData";
@@ -42,8 +42,8 @@
 </script>
 
 <Mesh
-    {visible}
     interactive={$editor.active}
+    {visible}
     {geometry}
     {material}
     renderOrder={isSky ? 0 : 1}
