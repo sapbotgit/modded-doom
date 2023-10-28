@@ -75,7 +75,10 @@
             } else if (type === 'upper' && !(flags & 0x0008)) {
                 pegging = 0;
             } else if (type === 'middle') {
-                // FIXME: the cages in plutonia's MAP24 definitely aren't right
+                if (doubleSidedMiddle && (flags & 0x0010)) {
+                    // see cages in plutonia MAP24
+                    top = Math.max($zFloorL, $zFloorR) + texture2.userData.height;
+                }
                 pegging = 0;
             }
         } else if (flags & 0x0010) {
