@@ -19,7 +19,7 @@
 
     $: visible = (ceiling && $cameraPosition.z <= vertical)
             || (!ceiling && $cameraPosition.z >= vertical);
-    const { light } = renderSector.sector;
+    const { light } = renderSector;
 
     $: material = new MeshStandardMaterial({ emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
     $: material.emissiveIntensity = ($editor.selected === renderSector.sector) ? 0.1 : 0;

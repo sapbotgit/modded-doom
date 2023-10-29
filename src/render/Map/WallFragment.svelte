@@ -3,9 +3,9 @@
     const geometry = new PlaneGeometry();
 </script>
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
+    import { MeshStandardMaterial, PlaneGeometry, Color, DoubleSide } from "three";
     import { Mesh } from "@threlte/core";
-    import { HALF_PI, type LineDef, type SideDef, type Vertex } from "../../doom";
+    import { HALF_PI, type LineDef, type Vertex } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
 

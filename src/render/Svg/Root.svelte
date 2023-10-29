@@ -53,6 +53,7 @@
     function selectRS(rs: RenderSector) {
         // helpful for debugging...
         selRS = rs;
+        console.log(selRS.sector.num)
     }
 
     const debugShowSubsectors = false;

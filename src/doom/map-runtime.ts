@@ -44,7 +44,8 @@ export class MapRuntime {
     ) {
         this.data = game.wad.readMap(name);
 
-        const playerThing = this.data.things.find(e => e.type === 1);
+        // some maps (plutonia MAP28) have multiple player 1 starts (I guess for coop?) so make sure to findLast()
+        const playerThing = this.data.things.findLast(e => e.type === 1);
         const inv = Object.assign(game.inventory, {
             items: {
                 berserkTicks: 0,
