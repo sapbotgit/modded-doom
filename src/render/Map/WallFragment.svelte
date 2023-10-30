@@ -3,7 +3,7 @@
     const geometry = new PlaneGeometry();
 </script>
 <script lang="ts">
-    import { MeshStandardMaterial, PlaneGeometry, Color, DoubleSide } from "three";
+    import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
     import { Mesh } from "@threlte/core";
     import { HALF_PI, type LineDef, type Vertex } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
@@ -56,18 +56,17 @@
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;
         material.map = texture2;
+    } else if (linedef.transparentWindowHack) {
+        material.transparent = true;
+        material.opacity = 0.1;
     }
+
     $: if (texture2 && (flags || $xOffset || $yOffset || ($animOffset ?? 0))) {
         // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
         // threejs uses 0,0 in bottom left but doom uses 0,0 for top left so we by default
         // "peg" the corner to the top left by offsetting by height
         let pegging = -height;
         if (flags & 0x0004) {
-            // two-sided segs with a middle texture need alpha test
-            if (type === 'middle') {
-                material.alphaTest = 1;
-            }
-
             if (type === 'lower' && (flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
                 // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
@@ -80,6 +79,9 @@
                     top = Math.max($zFloorL, $zFloorR) + texture2.userData.height;
                 }
                 pegging = 0;
+
+                // two-sided segs with a middle texture need alpha test
+                material.alphaTest = 1;
             }
         } else if (flags & 0x0010) {
             // peg to floor (bottom left)

@@ -8,9 +8,11 @@ import {
     MapData,
     type Vertex,
     type LineDef,
+    pointOnLine,
     type Store,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
+import { derived, readable, type Readable } from "svelte/store";
 
 // all flats (floors/ceilings) are 64px
 const flatRepeat = 1 / 64;
@@ -89,17 +91,20 @@ export interface RenderSector {
     portalSegs: Seg[];
     linedefs: LineDef[];
     geometry: BufferGeometry<NormalBufferAttributes>;
+    zHackFloor: Readable<number>;
+    zHackCeil: Readable<number>;
+    flatLighting: Store<number>;
     // TODO: MapObjects so we only render them if the sector is visible?
-
-    // properties copied from sector. A self-referencing sector will use values from a neighbour sector (see below)
-    zFloor: Store<number>;
-    zCeil: Store<number>;
-    floorFlat: Store<string>;
-    ceilFlat: Store<string>;
-    light: Store<number>;
 }
 
-export function buildRenderSectors(map: MapData) {
+export function buildRenderSectors(wad: DoomWad, map: MapData) {
+    // WOW! There are so many nifty rendering (and gameplay) tricks out there:
+    // https://www.doomworld.com/forum/topic/52921-thread-of-vanilla-mapping-tricks/
+    // https://www.doomworld.com/vb/thread/74354
+    // https://www.doomworld.com/vb/thread/103009
+    // https://www.doomworld.com/tutorials/regintro.php
+    // Not sure how many I actually want to implement...
+
     let selfReferencing: RenderSector[] = [];
     let sectors: RenderSector[] = [];
     const allSubsectors = map.nodes.map(e => [e.childLeft, e.childRight]).flat().filter(e => 'segs' in e) as SubSector[];
@@ -111,8 +116,10 @@ export function buildRenderSectors(map: MapData) {
         const linedefs = map.linedefs.filter(ld => ld.right.sector === sector);
         // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
-        const { zFloor, zCeil, floorFlat, ceilFlat, light } = sector;
-        const renderSector: RenderSector = { sector, subsectors, portalSegs, geometry, linedefs, zFloor, zCeil, floorFlat, ceilFlat, light };
+        const zHackCeil = readable(0);
+        const zHackFloor = readable(0);
+        const flatLighting = sector.light;
+        const renderSector: RenderSector = { sector, subsectors, portalSegs, geometry, linedefs, zHackFloor, zHackCeil, flatLighting };
         sectors.push(renderSector);
 
         // fascinating little render hack: self-referencing sector. Basically a sector where all lines are two-sided
@@ -121,9 +128,8 @@ export function buildRenderSectors(map: MapData) {
         // MAP28 (brown sewage) and TNT MAP02 where the backpack is in "deep water".
         // https://doomwiki.org/wiki/Making_a_self-referencing_sector
         // https://doomwiki.org/wiki/Making_deep_water
-        // FIXME: this doesn't fix the "transparent barriers" in TNT MAP02... how does sector 93 (plus 87, 89, and 95) work??
         const leftlines = map.linedefs.filter(ld => ld.left && ld.left.sector === sector);
-        const selfref = leftlines.length && leftlines.every(ld => ld.right.sector === sector);
+        const selfref = leftlines.length === linedefs.length && leftlines.every(ld => ld.right.sector === sector);
         if (selfref) {
             selfReferencing.push(renderSector);
         }
@@ -138,13 +144,69 @@ export function buildRenderSectors(map: MapData) {
             console.warn('no outer sector for self-referencing sector', rs.sector.num);
             continue;
         }
-        rs.zFloor = outerRS.zFloor;
-        rs.zCeil = outerRS.zCeil;
-        rs.floorFlat = outerRS.floorFlat;
-        rs.ceilFlat = outerRS.ceilFlat;
-        // TODO: things and walls use sector.light. Does that matter?
-        rs.light = outerRS.light;
+        // TODO: things and walls have their own sector reference and won't be impacted by this (especially lighting).
+        // Does that matter?
+        rs.flatLighting = outerRS.flatLighting;
+        rs.sector = outerRS.sector;
     }
+
+    // transparent door hack (https://www.doomworld.com/tutorials/fx5.php)
+    for (const linedef of map.linedefs) {
+        if (linedef.left) {
+            const midL = wad.wallTextureData(linedef.left.middle.val);
+            const midR = wad.wallTextureData(linedef.right.middle.val);
+            // I'm not sure these conditions are exactly right but it works for TNT MAP02 and MAP09
+            // and I've tested a bunch of other maps (in Doom and Doom2) and these hacks don't activate
+            // the "window hack" is particularly sensitive (which is why we have the ===1 condition) but it could
+            // also be fixed by adding missing textures on various walls (like https://github.com/ZDoom/gzdoom/blob/master/wadsrc/static/zscript/level_compatibility.zs)
+            // but even that list isn't complete
+            const zeroHeightWithoutUpperAndLower = (
+                linedef.left.sector.zFloor.val === linedef.left.sector.zCeil.val
+                && linedef.left.sector !== linedef.right.sector // already covered in self-referencing above
+                && linedef.left.sector.ceilFlat.val !== 'F_SKY1' && linedef.right.sector.ceilFlat.val !== 'F_SKY1'
+                && !linedef.right.lower.val && !linedef.right.upper.val
+                && !linedef.left.lower.val && !linedef.left.upper.val
+            );
+            const doorHack = zeroHeightWithoutUpperAndLower
+                && midL && midL.height === linedef.left.yOffset.val
+                && midR && midR.height === linedef.right.yOffset.val;
+            const windowHack = zeroHeightWithoutUpperAndLower
+                && linedef.right.sector.zCeil.val - linedef.left.sector.zCeil.val === 1
+                && !midL && !midR;
+            if (!windowHack && !doorHack) {
+                continue;
+            }
+
+            const rs = sectors.find(sec => sec.sector === linedef.left.sector);
+            rs.zHackFloor = derived(
+                [linedef.left.sector.zFloor, linedef.right.sector.zFloor],
+                ([left, right]) => right - left);
+            linedef.transparentDoorHack = doorHack;
+            linedef.transparentWindowHack = windowHack;
+            if (doorHack) {
+                // a door hack means that two flats will probably overlap. We find the sector that is not the door and
+                // overwrite some properties (flats and lighting) to hide the z-fighting. It's definitely a hack.
+                map.linedefs
+                    .filter(ld => pointOnLine(linedef.v[0], ld.v) && linedef.left.sector.light.val !== ld.right.sector.light.val)
+                    .map(ld => sectors.find(sec => sec.sector === ld.right.sector))
+                    .filter(rsec => rsec)
+                    .forEach(rsec => {
+                        rsec.flatLighting = rs.flatLighting;
+                        rsec.sector.floorFlat = rs.sector.floorFlat;
+                        rsec.sector.ceilFlat = rs.sector.ceilFlat;
+                    });
+                rs.zHackCeil = rs.zHackFloor
+            }
+            if (windowHack) {
+                // A window hack (unlike a door hack) doesn't have two sectors BUT  we do need to offset the ceiling
+                // otherwise the geometry won't line up
+                rs.zHackCeil = derived(
+                    [linedef.left.sector.zCeil, linedef.right.sector.zCeil],
+                    ([left, right]) => right - left);
+            }
+        }
+    }
+
     return sectors;
 }
 

@@ -4,20 +4,21 @@
 
     export let renderSector: RenderSector;
 
-    const { geometry, zFloor, zCeil, floorFlat, ceilFlat } = renderSector;
+    const { zFloor, zCeil, floorFlat, ceilFlat } = renderSector.sector;
+    const { geometry, zHackCeil, zHackFloor } = renderSector;
 </script>
 
 {#if geometry}
     <Flat
         {renderSector}
-        vertical={$zFloor}
+        vertical={$zFloor + $zHackFloor}
         textureName={$floorFlat}
     />
 
     <Flat
         ceiling
         {renderSector}
-        vertical={renderSector.sector.skyHeight ?? $zCeil}
+        vertical={(renderSector.sector.skyHeight ?? $zCeil) + $zHackCeil}
         textureName={$ceilFlat}
     />
 {/if}

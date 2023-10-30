@@ -9,6 +9,7 @@
     import SkyBox from "./SkyBox.svelte";
     import Thing from "./Thing.svelte";
     import Wall from "./Wall.svelte";
+    import WallHackTransparentDoor from "./WallHackTransparentDoor.svelte";
 
     export let map: MapRuntime;
     const { rev, erev } = map;
@@ -41,7 +42,11 @@
     <div>
         <Flats {renderSector} />
         {#each renderSector.linedefs as linedef}
-            <Wall {linedef} />
+            {#if linedef.transparentDoorHack}
+                <WallHackTransparentDoor {linedef} />
+            {:else}
+                <Wall {linedef} />
+            {/if}
         {/each}
     </div>
 {/each}

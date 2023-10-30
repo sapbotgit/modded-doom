@@ -26,6 +26,9 @@ export interface LineDef {
     left?: SideDef;
     // derived
     xOffset?: Store<number>;
+    // used by renderer
+    transparentDoorHack: boolean;
+    transparentWindowHack: boolean;
     // For game processing
     buttonTimer: Action;
     hitC: number; // don't hit the same line twice during collision detection
@@ -40,6 +43,8 @@ const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]
     flags: ld.flags,
     buttonTimer: null,
     hitC: 0,
+    transparentDoorHack: false,
+    transparentWindowHack: false,
 });
 
 export interface SideDef {

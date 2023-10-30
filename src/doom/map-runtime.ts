@@ -411,6 +411,7 @@ class GameInput {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
                         return false; // we've triggered a switch/door so stop tracing
                     }
+                    return false;
                 }
                 return true
             });

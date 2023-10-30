@@ -14,7 +14,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
         return donut(mobj, linedef, trigger, side);
     }
     return (
-        createDoorAction(mobj, linedef, trigger) ??
+        createDoorAction(mobj, linedef, trigger, side) ??
         createLiftAction(mobj, linedef, trigger) ??
         createFloorAction(mobj, linedef, trigger) ??
         createCeilingAction(mobj, linedef, trigger) ??
@@ -203,7 +203,7 @@ const doorDefinitions = [
     doorDefinition(137, 'S1', 'Y', blaze, -1, 'openAndStay'),
 ];
 
-export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType): SpecialDefinition | undefined => {
+export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     const map = mobj.map;
     const def = doorDefinitions.find(e => e.type === linedef.special);
     if (!def) {
