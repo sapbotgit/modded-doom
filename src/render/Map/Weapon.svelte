@@ -15,7 +15,7 @@
     $: position = {
         x: $wOffset.x - 160,
         y: $wOffset.y + weaponTop,
-        z: -150,
+        z: -140,
     }
 
     // flash

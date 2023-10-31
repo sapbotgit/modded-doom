@@ -409,9 +409,15 @@ class GameInput {
                 if ('line' in hit) {
                     if (hit.line.special) {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
-                        return false; // we've triggered a switch/door so stop tracing
+                    } else if (hit.line.left) {
+                        const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
+                        const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
+                        const gap = Math.min(front.zCeil.val, back.zCeil.val) - Math.max(front.zFloor.val, back.zFloor.val);
+                        if (gap > 0) {
+                            return true; // allow trace to continue
+                        }
                     }
-                    return false;
+                    return false; // always stop on the first line (unless above says we can continue)
                 }
                 return true
             });

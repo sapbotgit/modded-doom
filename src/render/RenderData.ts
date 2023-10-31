@@ -5,11 +5,13 @@ import {
     type Seg,
     type SubSector,
     type Sector,
-    MapData,
     type Vertex,
     type LineDef,
     pointOnLine,
     type Store,
+    type MapObject,
+    type MapRuntime,
+    MapData,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 import { derived, readable, type Readable } from "svelte/store";
@@ -144,8 +146,6 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
             console.warn('no outer sector for self-referencing sector', rs.sector.num);
             continue;
         }
-        // TODO: things and walls have their own sector reference and won't be impacted by this (especially lighting).
-        // Does that matter?
         rs.flatLighting = outerRS.flatLighting;
         rs.sector = outerRS.sector;
     }
