@@ -1,7 +1,7 @@
 import { getContext } from 'svelte'
 import { MapTextures, type RenderSector } from './RenderData';
 import { Game, MapRuntime, type GameSettings, store } from '../doom';
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 export const createAppContext = () => {
     const url = writable(location.pathname);
@@ -29,6 +29,33 @@ export const createAppContext = () => {
         active: false,
         selected: null,
     });
+
+    function loadSettings() {
+        try {
+            const prefs = JSON.parse(localStorage.getItem('doom-prefs'));
+            Object.keys(settings).filter(k => prefs[k] !== undefined)
+                .forEach(k => {
+                    if (typeof settings[k] === 'object') {
+                        settings[k].set(prefs[k]);
+                    } else {
+                        settings[k] = prefs[k]
+                    };
+                });
+        } catch {
+            console.warn('failed to restore preferences, using defaults');
+        }
+    }
+    loadSettings();
+
+    function saveSettings() {
+        const obj = Object.keys(settings).reduce((o, k) => {
+                o[k] = typeof settings[k] === 'object' ? get(settings[k]) : settings[k];
+                return o;
+            }, {});
+        localStorage.setItem('doom-prefs', JSON.stringify(obj));
+    }
+    Object.keys(settings).filter(k => typeof settings[k] === 'object').forEach(k => settings[k].subscribe(saveSettings));
+
     return { url, settings, editor };
 }
 
