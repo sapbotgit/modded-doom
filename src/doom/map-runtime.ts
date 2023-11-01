@@ -34,8 +34,6 @@ export class MapRuntime {
     objs: MapObject[] = []; // TODO: make this readonly?
     // don't love this rev hack... we need a list with a subscribe method
     readonly rev = store(1);
-    ephemeralObjs: MapObject[] = [];
-    readonly erev = store(1);
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
 
@@ -145,29 +143,16 @@ export class MapRuntime {
         if (z !== undefined) {
             mobj.position.val.z = z;
         }
-        const ephemeral = mobj.info.doomednum === -1 && moType !== MapObjectIndex.MT_PLAYER;
-        if (ephemeral) {
-            this.ephemeralObjs.push(mobj);
-            this.erev.update(v => v += 1);
-        } else {
-            this.objs.push(mobj);
-            this.rev.update(v => v += 1);
-        }
+        this.objs.push(mobj);
+        this.rev.update(v => v += 1);
         return mobj;
     }
 
     destroy(mobj: MapObject) {
         mobj.subsectors(subsector =>  subsector.mobjs.delete(mobj));
-        let len = [this.objs.length, this.ephemeralObjs.length]
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);
-        this.ephemeralObjs = this.ephemeralObjs.filter(e => e !== mobj);
-        if (len[0] !== this.objs.length) {
-            this.rev.update(rev => rev += 1);
-        }
-        if (len[1] !== this.ephemeralObjs.length) {
-            this.erev.update(rev => rev + 1);
-        }
+        this.rev.update(rev => rev += 1);
     }
 
     timeStep(time: GameTime) {
@@ -194,7 +179,6 @@ export class MapRuntime {
         });
 
         this.objs.forEach(thing => thing.tick());
-        this.ephemeralObjs.forEach(thing => thing.tick());
     }
 
     initializeTextureAnimation(target: Store<string>, type: 'wall' | 'flat') {

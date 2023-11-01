@@ -25,7 +25,7 @@
     const { url, settings, editor } = useAppContext();
     const { map, intermission } = game;
     $: player = $map?.player;
-    $: renderSectors = $map ? buildRenderSectors(game.wad, $map.data) : [];
+    $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
     $: game.settings.compassMove.set($cameraMode === 'svg');
 
     $: if ($map) {

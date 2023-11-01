@@ -9,7 +9,8 @@ import {
     type LineDef,
     pointOnLine,
     type Store,
-    MapData,
+    type MapObject,
+    type MapRuntime,
     store,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
@@ -97,10 +98,11 @@ export interface RenderSector {
     zHackFloor: Readable<number>;
     zHackCeil: Readable<number>;
     flatLighting: Store<number>;
+    mobjs: Store<Set<MapObject>>;
     // TODO: MapObjects so we only render them if the sector is visible?
 }
 
-export function buildRenderSectors(wad: DoomWad, map: MapData) {
+export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     // WOW! There are so many nifty rendering (and gameplay) tricks out there:
     // https://www.doomworld.com/forum/topic/52921-thread-of-vanilla-mapping-tricks/
     // https://www.doomworld.com/vb/thread/74354
@@ -108,6 +110,7 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
     // https://www.doomworld.com/tutorials/regintro.php
     // Not sure how many I actually want to implement...
 
+    const map = mapRuntime.data;
     let selfReferencing: RenderSector[] = [];
     let sectors: RenderSector[] = [];
     const allSubsectors = map.nodes.map(e => [e.childLeft, e.childRight]).flat().filter(e => 'segs' in e) as SubSector[];
@@ -128,7 +131,8 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
         const zHackFloor = readable(0);
         const flatLighting = sector.light;
         const visible = store(true)
-        const renderSector: RenderSector = { visible, sector, subsectors, portalSegs, geometry, linedefs, zHackFloor, zHackCeil, flatLighting };
+        const mobjs = store(new Set<MapObject>());
+        const renderSector: RenderSector = { visible, sector, subsectors, portalSegs, geometry, linedefs, zHackFloor, zHackCeil, flatLighting, mobjs };
         sectors.push(renderSector);
 
         // fascinating little render hack: self-referencing sector. Basically a sector where all lines are two-sided
@@ -227,6 +231,39 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
             }
         }
     }
+
+    // keep render sector mobjs lists in sync with mobjs. The assumption here is that most objects won't change sectors
+    // very often therefore it is cheaper to maintain the list this way rather than filtering the mobj list when
+    // draaing the sector. On the other hand, we are updating lists when many sectors won't be drawn.
+    // TODO: Need some profiler input here,
+    let visitNum = 0;
+    let visited = new Map<MapObject, number>();
+    let mobjMap = new Map<MapObject, RenderSector>();
+    let secMap = new Map(sectors.map(rs => [rs.sector, rs]));
+    const monitor = (mobj: MapObject) => {
+        visited.set(mobj, visitNum);
+        if (mobjMap.has(mobj)) {
+            return;
+        }
+        mobj.sector.subscribe(sec => {
+            const lastRS = mobjMap.get(mobj);
+            lastRS?.mobjs.update(s => { s.delete(mobj); return s });
+            const nextRS = secMap.get(sec);
+            mobjMap.set(mobj, nextRS)
+            nextRS.mobjs.update(s => s.add(mobj));
+        });
+    }
+    mapRuntime.rev.subscribe(() => {
+        visitNum += 1;
+        mapRuntime.objs.forEach(monitor);
+        visited.forEach((num, mobj) => {
+            if (num !== visitNum) {
+                const lastRS = mobjMap.get(mobj);
+                lastRS?.mobjs.update(s => { s.delete(mobj); return s });
+                mobjMap.delete(mobj);
+            }
+        });
+    });
 
     return sectors;
 }

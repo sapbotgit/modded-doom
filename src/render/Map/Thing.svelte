@@ -13,8 +13,10 @@
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
+    import type { RenderSector } from '../RenderData';
 
     export let thing: MapObject;
+    export let renderSector: RenderSector;
 
     const { map } = useDoomMap();
     const tick = map.game.time.tick;
@@ -23,6 +25,8 @@
     const { position: cameraPosition, rotation: cameraRotation, mode } = map.camera;
     const extraLight = map.player.extraLight;
 
+    const vis = renderSector.visible;
+    $: visible = $vis;
     const { sector, position: tpos, sprite, direction, renderShadow } = thing;
     const invertYOffset = (thing.info.flags & MFFlags.InvertSpriteYOffset);
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
@@ -111,6 +115,7 @@
     userData={{ type: 'mobj', moType: thing.type }}
     interactive={$editor.active}
     on:click={hit}
+    {visible}
     {material}
     {geometry}
     scale={{ y: texture.userData.height, x: frame.mirror ? -texture.userData.width : texture.userData.width }}

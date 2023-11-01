@@ -10,10 +10,11 @@
     import { ScreenColorShader } from "../Shaders/ScreenColorShader";
     import OrthoCamera from "./OrthoCamera.svelte";
 
-    const { map } = useDoomMap();
+    const { map, renderSectors } = useDoomMap();
     const { mode, position: cameraPosition, rotation: cameraRotation } = map.camera;
     const player = map.player;
-    const { position: playerPosition, damageCount, bonusCount, inventory } = player;
+    const { position: playerPosition, damageCount, bonusCount, inventory, sector } = player;
+    $: renderSector = $sector && renderSectors.find(e => e.sector === $sector)
 
     const yScale = 4 / 3 / (16 / 10);
 
@@ -29,7 +30,7 @@
 <Pass pass={cPass} />
 
 {#if $mode !== "1p"}
-    <Thing thing={player} />
+    <Thing {renderSector} thing={player} />
 
     <Mesh
         geometry={new CircleGeometry(player.info.radius)}
