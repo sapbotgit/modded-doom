@@ -77,31 +77,32 @@
                 />
             {/if}
         {/if}
-        <!-- And middle -->
-        {@const top = Math.min($zCeilL, $zCeilR)}
-        {@const height = top - Math.max($zFloorL, $zFloorR)}
-        {#if height > 0}
-            {#if $middleL}
+        <!-- And middle(s) -->
+        {#if $middleL}
+            {@const height = $zCeilL - $zFloorL}
+            {#if height > 0}
                 <WallFragment
                     {linedef} useLeft doubleSidedMiddle
-                    {visible} {width} {height} {top} {mid} angle={leftAngle}
+                    {visible} {width} {height} top={$zCeilL} {mid} angle={leftAngle}
                 />
             {/if}
-            {#if $middleR}
+        {/if}
+        {#if $middleR}
+            {@const height = $zCeilR - $zFloorR}
+            {#if height > 0}
                 <WallFragment
                     {linedef} doubleSidedMiddle
-                    {visible} {width} {height} {top} {mid} {angle}
+                    {visible} {width} {height} top={$zCeilR} {mid} {angle}
                 />
             {/if}
         {/if}
 
     {:else}
-        {@const top = $zCeilR}
-        {@const height = top - $zFloorR}
+        {@const height = $zCeilR - $zFloorR}
         {#if height > 0}
             <WallFragment
                 {linedef}
-                {visible} {width} {height} {top} {mid} {angle}
+                {visible} {width} {height} top={$zCeilR} {mid} {angle}
             />
         {/if}
     {/if}

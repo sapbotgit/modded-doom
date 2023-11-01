@@ -102,6 +102,7 @@
     }
 
     $: if (skyHack) {
+        material.map = null;
         material.colorWrite = false;
         material.depthWrite = true;
     }
