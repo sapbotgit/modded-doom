@@ -19,6 +19,8 @@ import { derived, readable, type Readable } from "svelte/store";
 // all flats (floors/ceilings) are 64px
 const flatRepeat = 1 / 64;
 
+export const namedColor = (n: number) => Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length];
+
 export class MapTextures {
     private cache = new Map<string, Texture>();
     private lightCache = new Map<number, Color>;

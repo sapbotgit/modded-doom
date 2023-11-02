@@ -1,9 +1,9 @@
 <script lang="ts">
     import { Mesh } from "@threlte/core";
-    import { BackSide, FrontSide, MeshStandardMaterial } from "three";
+    import { BackSide, Color, FrontSide, MeshStandardMaterial } from "three";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import Wireframe from "../Debug/Wireframe.svelte";
-    import type { RenderSector } from "../RenderData";
+    import { namedColor, type RenderSector } from "../RenderData";
 
     export let renderSector: RenderSector;
     export let textureName: string;
@@ -12,6 +12,7 @@
 
     const { map } = useDoomMap();
     const { settings, editor } = useAppContext();
+    const useTextures = settings.useTextures;
     const { textures } = useDoom();
     const { position: cameraPosition } = map.camera;
     const extraLight = map.player.extraLight;
@@ -23,11 +24,13 @@
 
     $: material = new MeshStandardMaterial({ emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
     $: material.emissiveIntensity = ($editor.selected === renderSector.sector) ? 0.1 : 0;
-    $: if (textureName && settings.useTextures) {
-        material.map = textures.get(textureName, 'flat');
+    $: if (textureName) {
+        material.map = $useTextures ? textures.get(textureName, 'flat') : null;
+        material.needsUpdate = true;
     }
     $: if ($light !== undefined) {
-        material.color = textures.lightColor($light + $extraLight);
+        const col = textures.lightColor($light + $extraLight);
+        material.color = $useTextures ? col : new Color(namedColor(renderSector.sector.num)).lerp(col, .5)
     }
 
     $: isSky = textureName === 'F_SKY1';

@@ -8,6 +8,7 @@
     import { HALF_PI, type LineDef, type Vertex } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
+    import { namedColor } from "../RenderData";
 
     export let linedef: LineDef;
     export let useLeft = false;
@@ -36,6 +37,7 @@
     const { xOffset: animOffset, flags } = linedef;
 
     const { settings, editor } = useAppContext();
+    const useTextures = settings.useTextures;
     const { wad, textures } = useDoom();
     const { map } = useDoomMap();
 
@@ -47,7 +49,7 @@
     // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
     // and we get a ~25% performance boost. I'd rather keep this and use the BSP to cull walls
     $: material = new MeshStandardMaterial({ color: lineStroke() });
-    $: texture2 = texture && settings.useTextures ? textures.get(texture, 'wall').clone() : null;
+    $: texture2 = texture ? textures.get(texture, 'wall').clone() : null;
     $: if (texture2) {
         if (doubleSidedMiddle) {
             // double sided linedefs (generally for semi-transparent textures) do not repeat vertically
@@ -55,13 +57,14 @@
         }
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;
-        material.map = texture2;
+        material.map = $useTextures ? texture2 : null;
+        material.needsUpdate = true;
     } else if (linedef.transparentWindowHack) {
         material.transparent = true;
         material.opacity = 0.1;
     }
 
-    $: if (texture2 && (flags || $xOffset || $yOffset || ($animOffset ?? 0))) {
+    $: if (material.map && (flags || $xOffset || $yOffset || ($animOffset ?? 0))) {
         // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
         // threejs uses 0,0 in bottom left but doom uses 0,0 for top left so we by default
         // "peg" the corner to the top left by offsetting by height
@@ -91,7 +94,8 @@
         material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
     }
     $: if ($light !== undefined) {
-        material.color = textures.lightColor($light + $extraLight);
+        const col = textures.lightColor($light + $extraLight);
+        material.color = $useTextures ? col : new Color(namedColor(linedef.num)).lerp(col, .5)
     }
 
     $: if ($editor.selected === linedef) {
@@ -119,7 +123,7 @@
     }
 </script>
 
-{#if texture2 || linedef.transparentWindowHack}
+{#if !$useTextures || texture2 || linedef.transparentWindowHack}
     <Mesh
         interactive={$editor.active}
         on:click={hit}

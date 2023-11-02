@@ -21,7 +21,7 @@ export const createAppContext = () => {
     const settings = {
         ...gameSettings,
         targetFPS: 120,
-        useTextures: true,
+        useTextures: store(true),
         wireframe: writable<'none' | 'visible' | 'all'>('none'),
         showBlockMap: writable(false),
     };
