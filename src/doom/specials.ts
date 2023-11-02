@@ -1112,15 +1112,26 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
             raiseFloorAction(map, base, def, target);
 
             // find next step to raise
-            const matches = raiseFloorsectors(base, map.data.linedefs)
-                .filter(e => e.floorFlat.val === flat && e.specialData === null && e.zFloor.val === base.zFloor.val);
-            base = matches.length ? matches[0] : null;
+            const matches = raiseFloorsectors(base, map.data.linedefs).filter(e => e.floorFlat.val === flat);
+            // why not filter for sectors without specialData? Well, Doom has a "bug" of sorts where it raises the step height
+            // before checking if the sector has special data. TNT MAP 30 takes advantage of this for two stair cases
+            // https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/p_floor.c#L533
+            // https://www.doomworld.com/forum/topic/57014-tnt-map30-stairs/
+            base = null;
+            for (const match of matches) {
+                if (match.specialData) {
+                    target += def.stepSize;
+                } else {
+                    base = match;
+                    break;
+                }
+            }
         }
     }
     return triggered ? def : undefined;
 };
 
-// rising floors needs a more strict variations of map sectorNeighbours. Thanks Plutonia MAP24...
+// rising floors needs a more strict implementation of sectorNeighbours(). Thanks Plutonia MAP24...
 function raiseFloorsectors(sector: Sector, mapLinedefs: LineDef[]): Sector[] {
     const sectors = [];
     for (const ld of mapLinedefs) {
