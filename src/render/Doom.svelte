@@ -37,7 +37,7 @@
     let pointerLocked = false;
 
     let showPlayerInfo = false;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap } = settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures } = settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;

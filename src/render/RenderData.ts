@@ -135,6 +135,20 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
         if (selfref) {
             selfReferencing.push(renderSector);
         }
+
+        // floor hack (TNT MAP18): if only left lines face this sector and have no lower texture (and floor is not equal)
+        // then we want to draw the floor at the height of the outer sector (like deep water). We can see this in the room
+        // where revenants are in the floor or the cyberdemon room with the brown sludge below the floating marble slabs
+        const floorHack =
+            leftlines.length > 0 && linedefs.length === 0
+            && leftlines[0].right.sector.zFloor.val !== sector.zFloor.val
+            && leftlines.every(ld => !ld.right.lower.val && !ld.left.lower.val);
+        if (floorHack) {
+            renderSector.zHackFloor = derived(
+                [sector.zFloor, leftlines[0].right.sector.zFloor],
+                ([left, right]) => right - left);
+        }
+        // TODO: are there cases were we want the ceiling to do this too?
     }
 
     // copy render properties from the outer/containing sector
@@ -198,8 +212,8 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
                 rs.zHackCeil = rs.zHackFloor
             }
             if (windowHack) {
-                // A window hack (unlike a door hack) doesn't have two sectors BUT  we do need to offset the ceiling
-                // otherwise the geometry won't line up
+                // A window hack (unlike a door hack) doesn't have two sectors BUT we do need to offset the ceiling
+                // and floor otherwise the geometry won't line up
                 rs.zHackCeil = derived(
                     [linedef.left.sector.zCeil, linedef.right.sector.zCeil],
                     ([left, right]) => right - left);

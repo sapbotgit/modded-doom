@@ -76,7 +76,7 @@
             } else if (type === 'middle') {
                 if (doubleSidedMiddle && (flags & 0x0010)) {
                     // see cages in plutonia MAP24
-                    top = Math.max($zFloorL, $zFloorR) + texture2.userData.height;
+                    top = Math.max($zFloorL, $zFloorR) + height;
                 }
                 pegging = 0;
 
@@ -109,8 +109,8 @@
 
     function lineStroke() {
         return !linedef.left ? wad.palettes[0][176] :
-            (linedef.left.sector.zFloor !== linedef.right.sector.zFloor) ? wad.palettes[0][64] :
-            (linedef.left.sector.zCeil !== linedef.right.sector.zCeil) ?  wad.palettes[0][231] :
+            (linedef.left.sector.zFloor.val !== linedef.right.sector.zFloor.val) ? wad.palettes[0][64] :
+            (linedef.left.sector.zCeil.val !== linedef.right.sector.zCeil.val) ?  wad.palettes[0][231] :
             wad.palettes[0][96];
     }
 
@@ -119,16 +119,18 @@
     }
 </script>
 
-<Mesh
-    interactive={$editor.active}
-    on:click={hit}
-    visible={visible}
-    renderOrder={skyHack ? 0 : 1}
-    position={{ x: mid.x, y: mid.y, z: top - height * .5 }}
-    rotation={{ z: angle, x: HALF_PI, order:'ZXY' }}
-    scale={{ x: width, y: height }}
-    {geometry}
-    material={material}
->
-    <Wireframe />
-</Mesh>
+{#if texture2 || linedef.transparentWindowHack}
+    <Mesh
+        interactive={$editor.active}
+        on:click={hit}
+        visible={visible}
+        renderOrder={skyHack ? 0 : 1}
+        position={{ x: mid.x, y: mid.y, z: top - height * .5 }}
+        rotation={{ z: angle, x: HALF_PI, order:'ZXY' }}
+        scale={{ x: width, y: height }}
+        {geometry}
+        material={material}
+    >
+        <Wireframe />
+    </Mesh>
+{/if}

@@ -74,7 +74,7 @@
             {#each data.wads as wadInfo}
                 <button on:click={() => $url = `/${wadInfo.path}`}>
                     <div>{wadInfo.name}</div>
-                    <img src={wadInfo.image} alt={wadInfo.name} />
+                    <!-- <img src={wadInfo.image} alt={wadInfo.name} /> -->
                 </button>
             {/each}
         </div>
