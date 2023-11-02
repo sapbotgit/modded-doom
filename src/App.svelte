@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { DoomWad, Game, MapRuntime, type Skill, randInt } from './doom';
+    import { DoomWad, Game, MapRuntime, type Skill, randInt, data } from './doom';
     import Doom from './render/Doom.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
     import Picture from './render/Components/Picture.svelte';
@@ -10,20 +10,6 @@
     const context = createAppContext();
     setContext('doom-app-context', context);
     const { url } = context;
-
-    const wads = [
-        { name: 'Doom', path: 'doom', image: 'https://static.wikia.nocookie.net/doom/images/4/4b/Doom-1-.gif' },
-        { name: 'Doom II', path: 'doom2', image: 'https://static.wikia.nocookie.net/doom/images/5/51/Doom2_title.png' },
-        { name: 'Final Doom: Plutonia', path: 'plutonia', image: 'https://static.wikia.nocookie.net/doom/images/0/0c/Plutonia_title.gif' },
-        { name: 'Final Doom: TNT Evilution', path: 'tnt', image: 'https://static.wikia.nocookie.net/doom/images/e/ed/TNT_title.gif' },
-    ];
-    const skills = [
-        { num: 1, pic: 'M_JKILL', name: "I'm too young to die." },
-        { num: 2, pic: 'M_ROUGH', name: "Hey, not too rough." },
-        { num: 3, pic: 'M_HURT', name: "Hurt me plenty." },
-        { num: 4, pic: 'M_ULTRA', name: "Ultra Violence." },
-        { num: 5, pic: 'M_NMARE', name: "Nightmare!" },
-    ];
 
     let wad: DoomWad;
     let game: Game;
@@ -85,7 +71,7 @@
         {/key}
     {:else if !wad}
         <div class="option-grid">
-            {#each wads as wadInfo}
+            {#each data.wads as wadInfo}
                 <button on:click={() => $url = `/${wadInfo.path}`}>
                     <div>{wadInfo.name}</div>
                     <img src={wadInfo.image} alt={wadInfo.name} />
@@ -116,7 +102,7 @@
                     </button>
                 {/if}
                 <Picture {wad} name="M_SKILL" />
-                {#each skills as skill, i}
+                {#each data.skills as skill, i}
                     <button in:fly={{ y: -60, delay: i * 50 }}
                         on:click={() => $url = `/${wad.name}/skill${skill.num}/${mapName}`}
                         class:skill-selected={difficulty === skill.num}

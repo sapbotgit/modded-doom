@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Game } from "../doom";
+    import { data, type Game } from "../doom";
     import { onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
@@ -168,7 +168,7 @@
                                 <span><MapNamePic name={$map.name} /></span>
                             {/if}
                         </button>
-                        <span><Picture name='M_ULTRA' /></span>
+                        <span><Picture name={data.skills.find(sk => sk.num === game.skill).pic} /></span>
                     </div>
                     <button class="ctp" bind:this={messageNode}>Click to play</button>
                     <span class="controls">
