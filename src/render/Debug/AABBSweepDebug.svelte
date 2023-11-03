@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Vector3 } from "three";
-    import { sweepAABBLine, sweepAABBAABB, lineAABB, type Vertex } from "../../doom";
+    import { sweepAABBLine, sweepAABBAABB, lineAABB, lineBounds } from "../../doom";
 
     const worldSize = 250;
 
@@ -52,60 +52,16 @@
         };
     }
 
-
-    let _sweepAABB = { x: 0, y: 0, u: 0 };
-    function sweepAABBAABB2(
-        p1: Vertex, r1: number, v1: Vertex,
-        p2: Vertex, r2: number,
-    ): Vertex {
-        // test if already overlapping
-        const left = (p2.x - r2) - (p1.x + r1);
-        const right = (p2.x + r2) - (p1.x - r1);
-        const top = (p2.y + r2) - (p1.y - r1);
-        const bottom = (p2.y - r2) - (p1.y + r1);
-        if (left < 0 && right > 0 && top > 0 && bottom < 0) {
-            _sweepAABB.x = p1.x;
-            _sweepAABB.y = p1.y;
-            _sweepAABB.u = 0;
-            return _sweepAABB;
-        }
-
-        // test sweep
-        // See https://www.amanotes.com/post/using-swept-aabb-to-detect-and-process-collision
-        const dxEntry = (v1.x < 0) ? right : left;
-        const dxExit = (v1.x < 0) ? left : right;
-        const dyEntry = (v1.y < 0) ? top : bottom;
-        const dyExit = (v1.y < 0) ? bottom : top;
-
-        const txEntry = dxEntry / v1.x;
-        const txExit = dxExit / v1.x;
-        const tyEntry = dyEntry / v1.y;
-        const tyExit = dyExit / v1.y;
-        const tEntry = Math.max(txEntry, tyEntry);
-        const tExit = Math.min(txExit, tyExit);
-        if (tEntry > tExit) {
-            return null;
-        }
-
-        _sweepAABB.x = p1.x + v1.x * tEntry;
-        _sweepAABB.y = p1.y + v1.y * tEntry;
-        _sweepAABB.u = tEntry;
-        return _sweepAABB;
-    }
-
-    let _lineAABB = { x: 0, y: 0 };
-    function bspAABB(line: Vertex[], pos: Vertex, radius: number) {
-        _lineAABB.x = line[1].x - line[0].x;
-        _lineAABB.y = line[1].y - line[0].y;
-        // we can get lineAABB using sweep and setting the box radius to 0
-        return sweepAABBAABB2(line[0], 0, _lineAABB, pos, radius);
-    }
-
-    let bounded = false;
     $: hit1 = { ...sweepAABBLine(mobj1.position, mobj1.radius, mobj1.velocity, [line.start, line.end]) };
     $: hit2 = { ...lineAABB([line.start, line.end], mobj1.position, mobj1.radius) };
     $: hit3 = { ...sweepAABBAABB(mobj1.position, mobj1.radius, mobj1.velocity, mobj2.position, mobj2.radius) };
     $: hit4 = { ...lineAABB([line.start, line.end], mobj1.position, mobj1.radius, false) };
+    $: hit5 = lineBounds([line.start, line.end], {
+        left: mobj1.position.x - mobj1.radius,
+        right: mobj1.position.x + mobj1.radius,
+        top: mobj1.position.y - mobj1.radius,
+        bottom: mobj1.position.y + mobj1.radius,
+    });
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -147,6 +103,12 @@ Thing Radius {mobj2.radius}px <input type="range" min="0" max="20" bind:value={m
     {#if hit4.x !== undefined}
         <g opacity={.6}>
             <circle cx={hit4.x} cy={hit4.y} r={2} fill="yellow" />
+        </g>
+    {/if}
+    {#if hit5}
+        <g opacity={.6}>
+            <circle cx={hit5[0].x} cy={hit5[0].y} r={2} fill="violet" />
+            <circle cx={hit5[1].x} cy={hit5[1].y} r={2} fill="violet" />
         </g>
     {/if}
 </svg>

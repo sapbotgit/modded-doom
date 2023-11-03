@@ -2,7 +2,7 @@
     import type { Size } from "@threlte/core";
     import MapObject from "./MapObject.svelte";
     import Wall from "./Wall.svelte";
-    import { type MapRuntime, type MapObject as MObj } from "../../doom";
+    import { type MapRuntime, type MapObject as MObj, type SubSector } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import { Color } from "three";
     import type { RenderSector } from "../RenderData";
@@ -50,10 +50,12 @@
     }
 
     let selRS: RenderSector;
-    function selectRS(rs: RenderSector) {
+    let selSubSec: SubSector;
+    function selectRS(rs: RenderSector, subsec: SubSector) {
         // helpful for debugging...
         selRS = rs;
-        console.log(selRS.sector.num)
+        selSubSec = subsec;
+        console.log(selRS.sector.num, subsec.num)
     }
 
     const debugShowSubsectors = false;
@@ -105,12 +107,12 @@
                     <polygon
                         points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
                         fill={namedColor(i)}
-                        on:click={() => selectRS(rs)} />
+                        on:click={() => selectRS(rs, subsector)} />
                     <polygon
                         points={subsector.vertexes.map(e => e.x + ',' + e.y).join(' ')}
                         opacity={.1}
                         fill={namedColor(j)}
-                        on:click={() => selectRS(rs)} />
+                        on:click={() => selectRS(rs, subsector)} />
                 {/each}
             {/each}
         {/if}
@@ -131,29 +133,27 @@
             <MapObject {mobj} />
         {/each}
 
-        {#if selRS}
+        {#if selSubSec}
             <g class="selection-info">
-                {#each selRS.subsectors as subsec}
-                    {#each subsec.segs as seg}
-                        <line x1={seg.v[0].x} y1={seg.v[0].y} x2={seg.v[1].x} y2={seg.v[1].y} stroke='yellow' stroke-width={3} />
-                        <!-- <text x={(seg.v[0].x+seg.v[1].x)/2} y={-(seg.v[0].y+seg.v[1].y)/2} fill='yellow'>{seg.linedef.num}</text> -->
-                    {/each}
-                    {#each subsec.bspLines as line}
-                        {@const x = 5000}
-                        {@const m = (line[1].y - line[0].y) / (line[1].x - line[0].x + .00000001)}
-                        {@const c = (m * -line[1].x) + line[1].y}
-                        <line x1={line[0].x} y1={line[0].y} x2={line[1].x} y2={line[1].y} stroke='cyan' stroke-width={2} />
-                        <line x1={-x} y1={-x * m + c} x2={x} y2={x * m + c} stroke='magenta' stroke-width={.2} />
-                    {/each}
-                    <rect x={subsec.bounds.left} y={subsec.bounds.top}
-                        width={subsec.bounds.right - subsec.bounds.left} height={subsec.bounds.bottom - subsec.bounds.top}
-                        stroke='orange' stroke-width={.4} fill='none' />
-                    {#each subsec.vertexes as v}
-                        <circle cx={v.x} cy={v.y} r={1} fill='blue' />
-                        <text x={v.x} y={-v.y} fill='blue'>{v.x.toFixed(2)},{v.y.toFixed(2)}</text>
-                    {/each}
-                    <text x={subsec.bounds.left} y={-subsec.bounds.top - 10} fill='white'>{subsec.num}</text>
+                {#each selSubSec.segs as seg}
+                    <line x1={seg.v[0].x} y1={seg.v[0].y} x2={seg.v[1].x} y2={seg.v[1].y} stroke='yellow' stroke-width={3} />
+                    <!-- <text x={(seg.v[0].x+seg.v[1].x)/2} y={-(seg.v[0].y+seg.v[1].y)/2} fill='yellow'>{seg.linedef.num}</text> -->
                 {/each}
+                {#each selSubSec.bspLines as line}
+                    {@const x = 5000}
+                    {@const m = (line[1].y - line[0].y) / (line[1].x - line[0].x + .00000001)}
+                    {@const c = (m * -line[1].x) + line[1].y}
+                    <line x1={line[0].x} y1={line[0].y} x2={line[1].x} y2={line[1].y} stroke='cyan' stroke-width={2} />
+                    <line x1={-x} y1={-x * m + c} x2={x} y2={x * m + c} stroke='magenta' stroke-width={.2} />
+                {/each}
+                <rect x={selSubSec.bounds.left} y={selSubSec.bounds.top}
+                    width={selSubSec.bounds.right - selSubSec.bounds.left} height={selSubSec.bounds.bottom - selSubSec.bounds.top}
+                    stroke='orange' stroke-width={.4} fill='none' />
+                {#each selSubSec.vertexes as v}
+                    <circle cx={v.x} cy={v.y} r={1} fill='blue' />
+                    <text x={v.x} y={-v.y} fill='blue'>{v.x.toFixed(2)},{v.y.toFixed(2)}</text>
+                {/each}
+                <text x={selSubSec.bounds.left} y={-selSubSec.bounds.top - 10} fill='white'>{selSubSec.num}</text>
             </g>
         {/if}
     </g>

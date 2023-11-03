@@ -332,8 +332,6 @@ const liftDefinition = (type: number, trigger: string, waitTimeS: number, speed:
 // Some combination of the unofficial doom spec https://www.gamers.org/dhs/helpdocs/dmsp1666.html
 // and doomwiki https://doomwiki.org/wiki/Linedef_type#Platforms_.28lifts.29
 // Note doomwiki categorizes some floor movements as "lifts" while the doom spec calls them moving floors
-const slow = 4;
-const fast = 2 * slow;
 const liftDefinitions = [
     liftDefinition(14, 'S1', 0, .5, 1, adjust(floorValue, 32), 'normal', effect([assignFloorFlat, zeroSectorType], selectTrigger)),
     liftDefinition(15, 'S1', 0, .5, 1, adjust(floorValue, 24), 'normal', effect([assignFloorFlat], selectTrigger)),
@@ -466,44 +464,44 @@ const floorDefinition = (type: number, trigger: string, direction: number, speed
 });
 
 const floorDefinitions = [
-    floorDefinition(23, 'S1', -1, slow, null, false, lowestNeighbourFloor),
-    floorDefinition(60, 'SR', -1, slow, null, false, lowestNeighbourFloor),
-    floorDefinition(82, 'WR', -1, slow, null, false, lowestNeighbourFloor),
-    floorDefinition(38, 'W1', -1, slow, null, false, lowestNeighbourFloor),
-    floorDefinition(84, 'WR', -1, slow, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
-    floorDefinition(37, 'W1', -1, slow, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
-    floorDefinition(69, 'SR', 1, slow, null, false, nextNeighbourFloor),
-    floorDefinition(18, 'S1', 1, slow, null, false, nextNeighbourFloor),
-    floorDefinition(128, 'WR', 1, slow, null, false, nextNeighbourFloor),
-    floorDefinition(119, 'W1', 1, slow, null, false, nextNeighbourFloor),
-    floorDefinition(132, 'SR', 1, fast, null, false, nextNeighbourFloor),
-    floorDefinition(131, 'S1', 1, fast, null, false, nextNeighbourFloor),
-    floorDefinition(129, 'WR', 1, fast, null, false, nextNeighbourFloor),
-    floorDefinition(130, 'W1', 1, fast, null, false, nextNeighbourFloor),
-    floorDefinition(64, 'SR', 1, slow, null, false, lowestNeighbourCeiling),
-    floorDefinition(101, 'S1', 1, slow, null,  false, lowestNeighbourCeiling),
-    floorDefinition(91, 'WR', 1, slow, null, false, lowestNeighbourCeiling),
-    floorDefinition(5, 'W1', 1, slow, null, false, lowestNeighbourCeiling),
-    floorDefinition(24, 'G1', 1, slow, null, false, lowestNeighbourCeiling),
-    floorDefinition(65, 'SR', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(55, 'S1', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(94, 'WR', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(56, 'W1', 1, slow, null, true, adjust(lowestNeighbourCeiling, -8)),
-    floorDefinition(45, 'SR', -1, slow, null,  false, highestNeighbourFloor),
-    floorDefinition(102, 'S1', -1, slow, null, false, highestNeighbourFloor),
-    floorDefinition(83, 'WR', -1, slow, null,  false, highestNeighbourFloor),
-    floorDefinition(19, 'W1', -1, slow, null,  false, highestNeighbourFloor),
-    floorDefinition(70, 'SR', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(71, 'S1', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(98, 'WR', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(36, 'W1', -1, fast, null,  false, adjust(highestNeighbourFloor, 8)),
-    floorDefinition(92, 'WR', 1, slow, null, false, adjust(floorValue, 24)),
-    floorDefinition(58, 'W1', 1, slow, null, false, adjust(floorValue, 24)),
-    floorDefinition(93, 'WR', 1, slow, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
-    floorDefinition(59, 'W1', 1, slow, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
-    floorDefinition(96, 'WR', 1, slow, null, false, shortestLowerTexture),
-    floorDefinition(30, 'W1', 1, slow, null, false, shortestLowerTexture),
-    floorDefinition(140, 'S1', 1, slow, null, false, adjust(floorValue, 512)),
+    floorDefinition(23, 'S1', -1, 1, null, false, lowestNeighbourFloor),
+    floorDefinition(60, 'SR', -1, 1, null, false, lowestNeighbourFloor),
+    floorDefinition(82, 'WR', -1, 1, null, false, lowestNeighbourFloor),
+    floorDefinition(38, 'W1', -1, 1, null, false, lowestNeighbourFloor),
+    floorDefinition(84, 'WR', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
+    floorDefinition(37, 'W1', -1, 1, effect([assignFloorFlat, assignSectorType], selectNum), false, lowestNeighbourFloor),
+    floorDefinition(69, 'SR', 1, 1, null, false, nextNeighbourFloor),
+    floorDefinition(18, 'S1', 1, 1, null, false, nextNeighbourFloor),
+    floorDefinition(128, 'WR', 1, 1, null, false, nextNeighbourFloor),
+    floorDefinition(119, 'W1', 1, 1, null, false, nextNeighbourFloor),
+    floorDefinition(132, 'SR', 1, 4, null, false, nextNeighbourFloor),
+    floorDefinition(131, 'S1', 1, 4, null, false, nextNeighbourFloor),
+    floorDefinition(129, 'WR', 1, 4, null, false, nextNeighbourFloor),
+    floorDefinition(130, 'W1', 1, 4, null, false, nextNeighbourFloor),
+    floorDefinition(64, 'SR', 1, 1, null, false, lowestNeighbourCeiling),
+    floorDefinition(101, 'S1', 1, 1, null,  false, lowestNeighbourCeiling),
+    floorDefinition(91, 'WR', 1, 1, null, false, lowestNeighbourCeiling),
+    floorDefinition(5, 'W1', 1, 1, null, false, lowestNeighbourCeiling),
+    floorDefinition(24, 'G1', 1, 1, null, false, lowestNeighbourCeiling),
+    floorDefinition(65, 'SR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(55, 'S1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(94, 'WR', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(56, 'W1', 1, 1, null, true, adjust(lowestNeighbourCeiling, -8)),
+    floorDefinition(45, 'SR', -1, 1, null,  false, highestNeighbourFloor),
+    floorDefinition(102, 'S1', -1, 1, null, false, highestNeighbourFloor),
+    floorDefinition(83, 'WR', -1, 1, null,  false, highestNeighbourFloor),
+    floorDefinition(19, 'W1', -1, 1, null,  false, highestNeighbourFloor),
+    floorDefinition(70, 'SR', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(71, 'S1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(98, 'WR', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(36, 'W1', -1, 4, null,  false, adjust(highestNeighbourFloor, 8)),
+    floorDefinition(92, 'WR', 1, 1, null, false, adjust(floorValue, 24)),
+    floorDefinition(58, 'W1', 1, 1, null, false, adjust(floorValue, 24)),
+    floorDefinition(93, 'WR', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
+    floorDefinition(59, 'W1', 1, 1, effect([assignFloorFlat, assignSectorType], selectTrigger),  false, adjust(floorValue, 24)),
+    floorDefinition(96, 'WR', 1, 1, null, false, shortestLowerTexture),
+    floorDefinition(30, 'W1', 1, 1, null, false, shortestLowerTexture),
+    floorDefinition(140, 'S1', 1, 1, null, false, adjust(floorValue, 512)),
 ];
 
 export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: TriggerType): SpecialDefinition | undefined => {
@@ -544,7 +542,7 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
             sector.zFloor.update(val => {
                 let finished = false;
                 let original = val;
-                val += def.direction;
+                val += def.direction * def.speed;
 
                 if ((def.direction > 0 && val > target) || (def.direction < 0 && val < target)) {
                     // SND: sfx_pstop

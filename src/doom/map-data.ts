@@ -2,7 +2,7 @@ import { store, type Store } from "./store";
 import type { DoomWad } from "./wad/doomwad";
 import { Vector3 } from "three";
 import { MapObject } from "./map-object";
-import { centerSort, closestPoint, lineAABB, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Vertex } from "./math";
+import { centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
 
@@ -122,7 +122,7 @@ const toSector = (num: number, sd: any): Sector => {
 
 // this bounds will never be true when testing for collisions because if something
 // is bigger than left, it will be less than right and fail (same for top and bottom)
-const _invalidBounds: NodeBounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+const _invalidBounds: Bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
 export interface SubSector {
     num: number;
     sector: Sector;
@@ -131,7 +131,7 @@ export interface SubSector {
     bspLines: Vertex[][]; // <-- useful for debugging but maybe we can remove it?
     // for collision detection
     mobjs: Set<MapObject>;
-    bounds: NodeBounds;
+    bounds: Bounds;
     hitC: number;
 }
 const toSubSector = (num: number, item: any, segs: Seg[]): SubSector => ({
@@ -148,16 +148,10 @@ const toSubSector = (num: number, item: any, segs: Seg[]): SubSector => ({
     bspLines: [],
 });
 
-export interface NodeBounds {
-    top: number;
-    left: number;
-    bottom: number;
-    right: number;
-}
 export interface TreeNode {
     v: Vertex[];
-    boundsRight: NodeBounds;
-    boundsLeft: NodeBounds;
+    boundsRight: Bounds;
+    boundsLeft: Bounds;
     childRight: TreeNode | SubSector;
     childLeft: TreeNode | SubSector;
 }
@@ -212,7 +206,7 @@ export class MapData {
     readonly vertexes: Vertex[];
     readonly sectors: Sector[];
     readonly nodes: TreeNode[];
-    readonly blockMapBounds: NodeBounds;
+    readonly blockMapBounds: Bounds;
 
     constructor(readonly wad: DoomWad, index: number) {
         this.things = wad.raw[index + 1].contents.entries;
@@ -255,6 +249,36 @@ export class MapData {
                     .reduce((val, sec) => Math.max(val, sec.zCeil.val), sector.zCeil.val);
                 sector.skyHeight = skyHeight;
             }
+        }
+
+        // really? linedefs without segs? I've only found this in a few final doom maps (plutonia29, tnt20, tnt21, tnt27)
+        // and all of them are two-sided, most have special flags which is a particular problem. Because we are detection
+        // collisions with subsectors and segs, we miss collisions with specials lines and key level events won't happen.
+        // To fix this, we add fake segs based on the intersection of the linedef and the subsector bounding box.
+        // NOTE: segmenting this way results in duplicates (ie. the same section of a linedef may be segmented into multiple
+        // subsectors if the subector bounds overlap or the linedef is on the edge of the bounds) so room to improve.
+        const segLines = new Set(segs.map(seg => seg.linedef));
+        const linedefsWithoutSegs = this.linedefs.filter(ld => !segLines.has(ld));
+        const lineStart = new Vector3();
+        const lineVec = new Vector3();
+        for (const linedef of linedefsWithoutSegs) {
+            lineStart.set(linedef.v[0].x, linedef.v[0].y, 0);
+            lineVec.set(linedef.v[1].x - linedef.v[0].x, linedef.v[1].y - linedef.v[0].y, 0);
+            // note: offset and angle are not used
+            const partialSeg = { linedef, offset: 0, angle: 0 };
+
+            this.subsectorTrace(lineStart, lineVec, 0, subsec => {
+                const intersect = lineBounds(linedef.v, subsec.bounds);
+                if (intersect) {
+                    const v1 = { x: intersect[0].x, y: intersect[0].y };
+                    const v2 = { x: intersect[1].x, y: intersect[1].y };
+                    subsec.segs.push({ ...partialSeg, v: [v1, v2], direction: 0 });
+                    if (linedef.left) {
+                        subsec.segs.push({ ...partialSeg, v: [v2, v1], direction: 1 });
+                    }
+                }
+                return true; // continue to next subsector
+            });
         }
     }
 
@@ -661,7 +685,7 @@ function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeo
     subsector.vertexes = centerSort(subsector.vertexes);
 }
 
-function computeBounds(verts: Vertex[], allowLinearBounds = false): NodeBounds {
+function computeBounds(verts: Vertex[], allowLinearBounds = false): Bounds {
     let left = Infinity;
     let right = -Infinity;
     let top = Infinity;

@@ -10,6 +10,13 @@ export interface Vertex {
 }
 const dot = (a: Vertex, b: Vertex) => a.x * b.x + a.y * b.y;
 
+export interface Bounds {
+    top: number;
+    left: number;
+    bottom: number;
+    right: number;
+}
+
 interface IntersectionPoint extends Vertex {
     u: number; // distance from point1 to point2 of the impact (0-1)
 }
@@ -221,8 +228,7 @@ export function sweepAABBAABB(
         return _sweepAABB;
     }
 
-    // test sweep
-    // See https://www.amanotes.com/post/using-swept-aabb-to-detect-and-process-collision
+    // test sweeping aabb (based on https://www.amanotes.com/post/using-swept-aabb-to-detect-and-process-collision)
     const dxEntry = (v1.x < 0) ? right : left;
     const dxExit = (v1.x < 0) ? left : right;
     const dyEntry = (v1.y < 0) ? top : bottom;
@@ -245,6 +251,52 @@ export function sweepAABBAABB(
     _sweepAABB.y = p1.y + v1.y * tEntry;
     _sweepAABB.u = tEntry;
     return _sweepAABB;
+}
+
+let _lineAABB2 = [
+    { x: 0, y: 0, u: 0 },
+    { x: 0, y: 0, u: 0 },
+];
+export function lineBounds(line: Vertex[], bounds: Bounds) {
+    // hmmm.. this function is very similar to sweepAABBAABB.. maybe we can combine them?
+    const left = bounds.left - line[0].x;
+    const right = bounds.right - line[0].x;
+    const top = bounds.top - line[0].y;
+    const bottom = bounds.bottom - line[0].y;
+    const vx = line[1].x - line[0].x;
+    const vy = line[1].y - line[0].y;
+
+    // test sweeping aabb (based on https://www.amanotes.com/post/using-swept-aabb-to-detect-and-process-collision)
+    const dxEntry = (vx < 0) ? right : left;
+    const dxExit = (vx < 0) ? left : right;
+    const dyEntry = (vy < 0) ? bottom : top;
+    const dyExit = (vy < 0) ? top : bottom;
+
+    const txEntry = dxEntry / vx;
+    const txExit = dxExit / vx;
+    const tyEntry = dyEntry / vy;
+    const tyExit = dyExit / vy;
+    let tEntry =
+        isNaN(txEntry) ? tyEntry :
+        isNaN(tyEntry) ? txEntry :
+        Math.max(txEntry, tyEntry);
+    let tExit =
+        isNaN(txExit) ? tyExit :
+        isNaN(tyExit) ? txExit :
+        Math.min(txExit, tyExit);
+    if (tEntry > tExit || tExit < 0 || tEntry > 1) {
+        return null;
+    }
+
+    tEntry = Math.max(0, tEntry);
+    tExit = Math.min(1, tExit);
+    _lineAABB2[0].x = line[0].x + vx * tEntry;
+    _lineAABB2[0].y = line[0].y + vy * tEntry;
+    _lineAABB2[0].u = tEntry;
+    _lineAABB2[1].x = line[0].x + vx * tExit;
+    _lineAABB2[1].y = line[0].y + vy * tExit;
+    _lineAABB2[1].u = tExit;
+    return _lineAABB2;
 }
 
 let _lineAABB = { x: 0, y: 0 };
