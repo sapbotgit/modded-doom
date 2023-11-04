@@ -45,7 +45,7 @@
             {#if linedef.transparentDoorHack}
                 <WallHackTransparentDoor {linedef} />
             {:else}
-                <Wall {linedef} />
+                <Wall {renderSector} {linedef} />
             {/if}
         {/each}
     </div>

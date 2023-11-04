@@ -37,7 +37,7 @@
     const { xOffset: animOffset, flags } = linedef;
 
     const { settings, editor } = useAppContext();
-    const useTextures = settings.useTextures;
+    const { useTextures, cameraMode } = settings;
     const { wad, textures } = useDoom();
     const { map } = useDoomMap();
 
@@ -58,6 +58,7 @@
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;
         material.map = $useTextures ? texture2 : null;
+        material.transparent = ($cameraMode === 'ortho');
         material.needsUpdate = true;
     } else if (linedef.transparentWindowHack) {
         material.transparent = true;
@@ -95,7 +96,7 @@
     }
     $: if ($light !== undefined) {
         const col = textures.lightColor($light + $extraLight);
-        material.color = $useTextures ? col : new Color(namedColor(linedef.num)).lerp(col, .5)
+        material.color = $useTextures ? col : new Color(namedColor(linedef.num)).lerp(col, .5);
     }
 
     $: if ($editor.selected === linedef) {
@@ -125,6 +126,7 @@
 
 {#if !$useTextures || texture2 || linedef.transparentWindowHack}
     <Mesh
+        userData={{ type: 'wall' }}
         interactive={$editor.active}
         on:click={hit}
         visible={visible}

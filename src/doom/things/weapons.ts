@@ -148,7 +148,8 @@ function giveWeapon(name: WeaponName) {
             }
             return inv;
         });
-        return (player.map.game.mode === 'solo');
+        const removeItem = (player.map.game.mode === 'solo');
+        return removeItem;
     }
 }
 

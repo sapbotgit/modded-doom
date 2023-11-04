@@ -370,7 +370,7 @@ class GameInput {
         euler.x -= this.input.aim.y * 0.002 * this.pointerSpeed;
         euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
         this.player.direction.set(euler.z - HALF_PI);
-        this.map.camera.zoom += this.input.aim.z;
+        this.map.camera.zoom.update(zoom => zoom += this.input.aim.z);
         // clear for next eval
         this.input.aim.set(0, 0, 0);
 
@@ -461,35 +461,46 @@ class Camera {
     private pos = new Vector3();
     private angle = new Euler(0, 0, 0, 'ZXY');
 
-    zoom = 0;
+    readonly zoom = store(0);
     readonly rotation = store(this.angle);
     readonly position = store(this.pos);
     readonly mode: Game['settings']['cameraMode'];
     update: () => void;
 
     constructor(player: PlayerMapObject, map: MapRuntime, game: Game) {
+        // TODO: should this really be in the core game? The more I think about it... the more I'd like to move it into svelte
         this.mode = game.settings.cameraMode;
         const pos = player.position.val;
         const freeFly = game.settings.freeFly;
         const sub = game.settings.cameraMode.subscribe(mode => {
-            if (mode === '3p' || mode === '3p-noclip' || mode === 'ortho') {
+            if (mode === '3p' || mode === '3p-noclip') {
                 const shoulderOffset = 15;
                 this.update = () => {
-                    this.zoom = Math.max(50, Math.min(1000, this.zoom));
+                    this.zoom.update(zoom => Math.max(50, Math.min(1000, zoom)));
                     const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
-                    this.pos.x = -Math.sin(-this.angle.z) * this.zoom + pos.x - shoulderOffset;
-                    this.pos.y = -Math.cos(-this.angle.z) * this.zoom + pos.y;
-                    this.pos.z = Math.cos(-this.angle.x) * this.zoom + pos.z + playerViewHeight;
+                    this.pos.x = -Math.sin(-this.angle.z) * this.zoom.val + pos.x - shoulderOffset;
+                    this.pos.y = -Math.cos(-this.angle.z) * this.zoom.val + pos.y;
+                    this.pos.z = Math.cos(-this.angle.x) * this.zoom.val + pos.z + playerViewHeight;
                     if (mode === '3p') {
                         this.clipPosition(this.pos, map, player);
                     }
                     this.position.set(this.pos);
                     this.rotation.set(this.angle);
                 };
+            } else if (mode === 'ortho') {
+                this.update = () => {
+                    this.zoom.update(zoom => Math.max(50, Math.min(1000, zoom)));
+                    this.angle.x = HALF_PI * 2 / 3;
+                    this.pos.x = -Math.sin(-this.angle.z) * 400 + pos.x;
+                    this.pos.y = -Math.cos(-this.angle.z) * 400 + pos.y;
+                    this.pos.z = Math.cos(-this.angle.x) * 400 + pos.z + 41;
+                    this.position.set(this.pos);
+                    this.rotation.set(this.angle);
+                };
             } else if (mode === 'bird') {
                 this.update = () => {
-                    this.zoom = Math.max(100, Math.min(1500, this.zoom));
-                    this.pos.set(pos.x, pos.y, pos.z + this.zoom);
+                    this.zoom.update(zoom => Math.max(100, Math.min(1500, zoom)));
+                    this.pos.set(pos.x, pos.y, pos.z + this.zoom.val);
                     this.position.set(this.pos);
                     this.angle.x = 0;
                     this.rotation.set(this.angle);

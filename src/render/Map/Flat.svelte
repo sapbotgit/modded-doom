@@ -12,25 +12,27 @@
 
     const { map } = useDoomMap();
     const { settings, editor } = useAppContext();
-    const useTextures = settings.useTextures;
+    const { useTextures, cameraMode } = settings;
     const { textures } = useDoom();
     const { position: cameraPosition } = map.camera;
     const extraLight = map.player.extraLight;
     const geometry = renderSector.geometry;
+    const vis = renderSector.visible;
 
-    $: visible = (ceiling && $cameraPosition.z <= vertical)
-            || (!ceiling && $cameraPosition.z >= vertical);
+    $: visible = $vis && ((ceiling && $cameraPosition.z <= vertical)
+            || (!ceiling && $cameraPosition.z >= vertical));
     const light = renderSector.flatLighting;
 
     $: material = new MeshStandardMaterial({ emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
     $: material.emissiveIntensity = ($editor.selected === renderSector.sector) ? 0.1 : 0;
     $: if (textureName) {
         material.map = $useTextures ? textures.get(textureName, 'flat') : null;
+        material.transparent = ($cameraMode === 'ortho');
         material.needsUpdate = true;
     }
     $: if ($light !== undefined) {
         const col = textures.lightColor($light + $extraLight);
-        material.color = $useTextures ? col : new Color(namedColor(renderSector.sector.num)).lerp(col, .5)
+        material.color = $useTextures ? col : new Color(namedColor(renderSector.sector.num)).lerp(col, .5);
     }
 
     $: isSky = textureName === 'F_SKY1';
@@ -45,6 +47,7 @@
 </script>
 
 <Mesh
+    userData={{ type: 'flat' }}
     interactive={$editor.active}
     {visible}
     {geometry}

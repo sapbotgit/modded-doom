@@ -93,6 +93,7 @@
 </script>
 
 <Mesh
+    userData={{ type: 'mobj', moType: thing.type }}
     interactive={$editor.active}
     on:click={hit}
     {material}

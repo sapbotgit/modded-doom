@@ -1,10 +1,13 @@
 <script lang="ts">
     import type { LineDef } from "../../doom";
+    import type { RenderSector } from "../RenderData";
     import WallFragment from "./WallFragment.svelte";
 
+    export let renderSector: RenderSector;
     export let linedef: LineDef;
 
-    const visible = true;
+    const vis = renderSector.visible;
+    $: visible = $vis;
     const mid = {
         x: (linedef.v[1].x + linedef.v[0].x) * 0.5,
         y: (linedef.v[1].y + linedef.v[0].y) * 0.5,

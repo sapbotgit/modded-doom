@@ -10,6 +10,7 @@ import {
     pointOnLine,
     type Store,
     MapData,
+    store,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 import { derived, readable, type Readable } from "svelte/store";
@@ -88,6 +89,7 @@ export class MapTextures {
 }
 
 export interface RenderSector {
+    visible: Store<boolean>;
     sector: Sector;
     subsectors: SubSector[];
     portalSegs: Seg[];
@@ -113,15 +115,21 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
     const allSegs = allSubsectors.map(e => e.segs).flat();
     for (const sector of map.sectors) {
         const subsectors = allSubsectors.filter(subsec => subsec.sector === sector);
-        const portalSegs = allSegs.filter(seg => seg.direction === 0 && seg.linedef.left?.sector === sector);
+        const portalSegs = allSegs.filter(seg => seg.linedef.left && (seg.linedef.left.sector === sector || seg.linedef.right.sector === sector));
         const geos = subsectors.map(subsec => createShape(subsec.vertexes));
         const linedefs = map.linedefs.filter(ld => ld.right.sector === sector);
         // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
+        if (geometry) {
+            geometry.computeBoundingBox();
+            sector.zFloor.subscribe(floor => geometry.boundingBox.min.z = floor);
+            sector.zCeil.subscribe(ceil => geometry.boundingBox.max.z = ceil);
+        }
         const zHackCeil = readable(0);
         const zHackFloor = readable(0);
         const flatLighting = sector.light;
-        const renderSector: RenderSector = { sector, subsectors, portalSegs, geometry, linedefs, zHackFloor, zHackCeil, flatLighting };
+        const visible = store(true)
+        const renderSector: RenderSector = { visible, sector, subsectors, portalSegs, geometry, linedefs, zHackFloor, zHackCeil, flatLighting };
         sectors.push(renderSector);
 
         // fascinating little render hack: self-referencing sector. Basically a sector where all lines are two-sided

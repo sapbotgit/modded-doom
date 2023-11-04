@@ -1,13 +1,14 @@
 <script lang="ts">
-    import { Mesh, OrthographicCamera, Pass, PerspectiveCamera } from "@threlte/core";
+    import { Mesh, Pass, PerspectiveCamera } from "@threlte/core";
     import Thing from "./Thing.svelte";
-    import { MeshBasicMaterial, PlaneGeometry } from "three";
+    import { CircleGeometry, MeshStandardMaterial } from "three";
     import Weapon from "./Weapon.svelte";
     import { useDoomMap } from "../DoomContext";
     import { ticksPerSecond } from "../../doom";
     import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
     import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
     import { ScreenColorShader } from "../Shaders/ScreenColorShader";
+    import OrthoCamera from "./OrthoCamera.svelte";
 
     const { map } = useDoomMap();
     const { mode, position: cameraPosition, rotation: cameraRotation } = map.camera;
@@ -15,7 +16,6 @@
     const { position: playerPosition, damageCount, bonusCount, inventory } = player;
 
     const yScale = 4 / 3 / (16 / 10);
-    $: camPos = $cameraPosition;
 
     const cPass = new ShaderPass(ScreenColorShader);
     $: cPass.uniforms.invunlTime.value = $inventory.items.invincibilityTicks / ticksPerSecond;
@@ -32,29 +32,23 @@
     <Thing thing={player} />
 
     <Mesh
-        geometry={new PlaneGeometry(
-            player.info.radius * 2,
-            player.info.radius * 2
-        )}
+        geometry={new CircleGeometry(player.info.radius)}
+        renderOrder={2}
         position={{
             x: $playerPosition.x,
             y: $playerPosition.y,
             z: player.sector.val.zFloor.val + 1,
         }}
-        material={new MeshBasicMaterial({ color: "green" })}
+        material={new MeshStandardMaterial({ color: "black", opacity: 0.6, transparent: true })}
     />
 {/if}
 
 {#if $mode === "ortho"}
-    <OrthographicCamera
-        rotation={$cameraRotation}
-        position={camPos}
-        far={100000}
-    />
+    <OrthoCamera {yScale} />
 {:else}
     <PerspectiveCamera
         rotation={$cameraRotation}
-        position={camPos}
+        position={$cameraPosition}
         far={100000}
         fov={72}
         scale={{ y: yScale }}
