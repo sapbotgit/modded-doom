@@ -9,6 +9,7 @@ import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
+import { exitLevel } from "./specials";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
@@ -483,6 +484,8 @@ const slideMove = (vel: Vector3, x: number, y: number) => {
 const tickingItems: (Exclude<keyof PlayerInventory['items'], 'computerMap' | 'berserk'>)[] =
     ['berserkTicks', 'invincibilityTicks', 'invisibilityTicks', 'nightVisionTicks', 'radiationSuitTicks'];
 
+// interestingly, sector type 4 and 16 CAN hurt even with radiation suit
+const superSlimePainChance = 5 / 255;
 const bobTime = ticksPerSecond / 20;
 const playerMaxBob = 16;
 const playerViewHeightDefault = 41;
@@ -535,13 +538,6 @@ export class PlayerMapObject extends MapObject {
                 ) : 0;
             this.extraLight.set(lightOverride);
         });
-
-        this.sector.subscribe(sector => {
-            if (sector.type === 9 && this.onGround) {
-                this.stats.secrets += 1;
-                sector.type = 0;
-            }
-        });
     }
 
     tick() {
@@ -559,6 +555,38 @@ export class PlayerMapObject extends MapObject {
             }
             return inv;
         });
+
+        // check special sectors
+        const sector = this.sector.val;
+        // different from this.onGround because that depends on this.zFloor which takes into account surrounding sector
+        // here we are only looking at the sector containing the player center
+        const onGround = this.position.val.z <= sector.zFloor.val;
+        if (sector.type && onGround) {
+            const haveRadiationSuit = this.inventory.val.items.radiationSuitTicks > 0;
+            // only cause pain every 31st tick or about .89s
+            const isPainTick = (this.map.game.time.tick.val & 0x1f) === 0;
+            const causePain = !haveRadiationSuit && isPainTick;
+            if (sector.type === 9) {
+                this.stats.secrets += 1;
+                sector.type = 0;
+            } else if (sector.type === 5 && causePain) {
+                this.damage(10);
+            } else if (sector.type === 7 && causePain) {
+                this.damage(5);
+            } else if (sector.type === 16 || sector.type === 4) {
+                if ((!haveRadiationSuit || Math.random() < superSlimePainChance) && isPainTick) {
+                    this.damage(20);
+                }
+            } else if (sector.type === 11) {
+                // TODO: turn off invincibility
+                if (causePain) {
+                    this.damage(20);
+                }
+                if (this.health.val < 11) {
+                    exitLevel(this, 'normal');
+                }
+            }
+        }
 
         const vel = this.velocity.length();
         if (this._state.index === StateIndex.S_PLAY && vel > .5) {

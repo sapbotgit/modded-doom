@@ -1203,6 +1203,12 @@ export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger
         return;
     }
 
+    exitLevel(mobj, def.place);
+    // level exists always trigger the switch (but it won't be rendered anyway)
+    return def;
+};
+
+export function exitLevel(mobj: MapObject, target: 'secret' | 'normal', nextMapOverride?: string) {
     // figure out next map based on current map name
     const mapName = mobj.map.name;
     const episodeFormat = mapName.startsWith('E');
@@ -1210,8 +1216,8 @@ export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger
     const prefix = mapName.substring(0, 3);
     const mapNum = parseInt(mapName.substring(3, 5));
     // a rather complex (but kind of fun to write...) ternary
-    const nextMapName =
-        def.place === 'secret' ? (
+    const nextMapName = nextMapOverride ?? (
+        target === 'secret' ? (
             episodeFormat ? prefix + '9' :
             mapNum === 31 ? `MAP32` : 'MAP31'
         ) :
@@ -1222,7 +1228,8 @@ export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger
         (mapName === 'E4M9') ? 'E4M3' :
         `${prefix}${episodeFormat
             ? (mapNum + 1)
-            : (mapNum + 1).toString().padStart(2, '0')}`;
+            : (mapNum + 1).toString().padStart(2, '0')}`
+    );
 
     // intermission screen stats
     mobj.map.game.time.playTime += mobj.map.stats.elapsedTime;
@@ -1234,7 +1241,4 @@ export const createLevelExitAction = (mobj: MapObject, linedef: LineDef, trigger
     });
     mobj.map.game.map.set(null);
     mobj.map.dispose();
-
-    // level exists always trigger the switch (but it won't be rendered anyway)
-    return def;
-};
+}

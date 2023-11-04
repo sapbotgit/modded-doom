@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type NormalBufferAttributes, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
@@ -9,8 +9,6 @@ import {
     type LineDef,
     pointOnLine,
     type Store,
-    type MapObject,
-    type MapRuntime,
     MapData,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
@@ -94,7 +92,7 @@ export interface RenderSector {
     subsectors: SubSector[];
     portalSegs: Seg[];
     linedefs: LineDef[];
-    geometry: BufferGeometry<NormalBufferAttributes>;
+    geometry: BufferGeometry;
     zHackFloor: Readable<number>;
     zHackCeil: Readable<number>;
     flatLighting: Store<number>;

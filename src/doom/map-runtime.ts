@@ -337,7 +337,6 @@ class GameInput {
     }
 
     evaluate(delta: number) {
-        // console.log('gi',JSON.stringify(this.input.move))
         // change weapon
         if (this.input.weaponSelect) {
             let candidates = this.player.inventory.val.weapons.filter(e => e?.keynum === this.input.weaponSelect);
@@ -385,7 +384,7 @@ class GameInput {
             if (this.input.move.x) {
                 this.player.velocity.addScaledVector(this.rightVec(), this.input.move.x * speed * dt);
             }
-            if (this.input.move.z && this.freeFly) {
+            if (this.input.move.z && this.freeFly.val) {
                 this.player.velocity.addScaledVector(this.upVec(), this.input.move.z * speed * dt);
             }
             if (this.freeFly.val) {
