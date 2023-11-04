@@ -40,25 +40,25 @@ export const keyboardControls: Action<HTMLElement, Params> =
     function keydown(ev: KeyboardEvent) {
         switch (ev.code) {
             case "Digit1":
-                input.weaponSelect = 1;
+                input.weaponKeyNum = 1;
                 break;
             case "Digit2":
-                input.weaponSelect = 2;
+                input.weaponKeyNum = 2;
                 break;
             case "Digit3":
-                input.weaponSelect = 3;
+                input.weaponKeyNum = 3;
                 break;
             case "Digit4":
-                input.weaponSelect = 4;
+                input.weaponKeyNum = 4;
                 break;
             case "Digit5":
-                input.weaponSelect = 5;
+                input.weaponKeyNum = 5;
                 break;
             case "Digit6":
-                input.weaponSelect = 6;
+                input.weaponKeyNum = 6;
                 break;
             case "Digit7":
-                input.weaponSelect = 7;
+                input.weaponKeyNum = 7;
                 break;
 
             case "KeyE":

@@ -41,7 +41,10 @@ export interface ControllerInput {
     slow: boolean;
     use: boolean;
     attack: boolean;
-    weaponSelect: number;
+    // select a weapon by slot number (eg. 1 maps to both chainsaw and fist)
+    weaponKeyNum: number;
+    // directly select a weapon
+    weaponIndex: number;
 }
 
 export interface IntermissionScreen {
@@ -67,7 +70,8 @@ export class Game {
         slow: false,
         use: false,
         attack: false,
-        weaponSelect: 0,
+        weaponKeyNum: 0,
+        weaponIndex: -1,
     };
     readonly inventory: PlayerInfo = {
         health: 100,

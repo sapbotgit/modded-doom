@@ -2,8 +2,7 @@
     import { Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
     import { MapObjectIndex, ToDegrees, mapObjectInfo, ticksPerSecond } from "../../doom";
-    import { weapons } from "../../doom/things/weapons";
-
+    import { allWeapons } from "../../doom/things/weapons";
     export let player: PlayerMapObject;
     const { position, direction, velocity, sector, inventory } = player;
     const { position: cameraPosition } = player.map.camera;
@@ -47,7 +46,7 @@
             for (const t of Object.keys(inv.ammo)) {
                 inv.ammo[t].amount = inv.ammo[t].max;
             }
-            let w = [...weapons];
+            let w = [...allWeapons];
             if (!player.map.game.wad.spriteTextureData('SHT2A0')) {
                 // no super shotgun in this wad so remove it from the weapon list
                 w.splice(3, 1);

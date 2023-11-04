@@ -70,7 +70,7 @@ export class PlayerWeapon {
     }
 }
 
-export const weapons: InventoryWeapon[] = [
+export const allWeapons: InventoryWeapon[] = [
     {
         name: 'chainsaw',
         keynum: 1,
@@ -117,7 +117,7 @@ export const weapons: InventoryWeapon[] = [
         fn: () => new PlayerWeapon('bfg', 'cells', 40, StateIndex.S_BFGUP, StateIndex.S_BFGDOWN, StateIndex.S_BFG, StateIndex.S_BFG1, StateIndex.S_BFGFLASH1),
     },
 ];
-export const inventoryWeapon = (name: WeaponName) => weapons.find(e => e.name === name);
+export const inventoryWeapon = (name: WeaponName) => allWeapons.find(e => e.name === name);
 
 export const weaponItems: ThingType[] = [
     { type: 82, class: 'W', description: 'Super shotgun', onPickup: giveWeapon('super shotgun') },
@@ -139,7 +139,7 @@ function giveWeapon(name: WeaponName) {
                 const clipCount = (mobj.info.flags & MFFlags.MF_DROPPED) ? 1 : 2;
                 giveAmmo(player, inv, weapon.ammoType, clipCount);
             }
-            const wIndex = Object.values(weapons).indexOf(factory);
+            const wIndex = Object.values(allWeapons).indexOf(factory);
             if (!inv.weapons[wIndex]) {
                 // keep weapons in the same order as the above weapons list so select works properly
                 // (ie. select chainsaw before fist if we have a chainsaw)

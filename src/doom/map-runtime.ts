@@ -7,6 +7,7 @@ import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type Tri
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
 import { mapObjectInfo, MapObjectIndex, MFFlags } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
+import type { InventoryWeapon } from "./things/weapons";
 
 interface AnimatedTexture {
     frames: string[];
@@ -338,21 +339,27 @@ class GameInput {
 
     evaluate(delta: number) {
         // change weapon
-        if (this.input.weaponSelect) {
-            let candidates = this.player.inventory.val.weapons.filter(e => e?.keynum === this.input.weaponSelect);
+        let selectedWeapon: InventoryWeapon;
+        const weapon = this.player.weapon.val;
+        if (this.input.weaponIndex !== -1) {
+            selectedWeapon = this.player.inventory.val.weapons[this.input.weaponIndex];
+        } else if (this.input.weaponKeyNum) {
+            let candidates = this.player.inventory.val.weapons.filter(e => e?.keynum === this.input.weaponKeyNum);
             let weapon = this.player.weapon.val;
-            let selectedWeapon =
+            selectedWeapon =
                 // key press for a weapon we haven't picked up (yet)
                 candidates.length === 0 ? null :
                 // normal case where the key press is for a weapon we have
                 candidates.length === 1 ? candidates[0] :
                 // some weapons (chainsaw and shotgun) use the same number slot so toggle
                 (weapon.name === candidates[0].name) ? candidates[1] : candidates[0];
-            if (selectedWeapon && selectedWeapon.name !== weapon.name) {
-                this.player.nextWeapon = selectedWeapon;
-            }
-            this.input.weaponSelect = 0;
         }
+        if (selectedWeapon && selectedWeapon.name !== weapon.name) {
+            this.player.nextWeapon = selectedWeapon;
+        }
+        // clear for next eval
+        this.input.weaponIndex = -1;
+        this.input.weaponKeyNum = 0;
 
         // attack
         this.player.attacking = this.input.attack;
@@ -466,11 +473,11 @@ class Camera {
         const freeFly = game.settings.freeFly;
         const sub = game.settings.cameraMode.subscribe(mode => {
             if (mode === '3p' || mode === '3p-noclip' || mode === 'ortho') {
-                const sholderOffset = 15;
+                const shoulderOffset = 15;
                 this.update = () => {
                     this.zoom = Math.max(50, Math.min(1000, this.zoom));
                     const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
-                    this.pos.x = -Math.sin(-this.angle.z) * this.zoom + pos.x - sholderOffset;
+                    this.pos.x = -Math.sin(-this.angle.z) * this.zoom + pos.x - shoulderOffset;
                     this.pos.y = -Math.cos(-this.angle.z) * this.zoom + pos.y;
                     this.pos.z = Math.cos(-this.angle.x) * this.zoom + pos.z + playerViewHeight;
                     if (mode === '3p') {
