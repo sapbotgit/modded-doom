@@ -283,6 +283,21 @@ export class MapObject {
         this.position.update(pos => pos.set(target.x, target.y, sector.zFloor.val));
         this.direction.set(Math.PI + target.angle * ToRadians);
         // TODO: 18-tick freeze (reaction) time?
+
+        if (this.isMonster && this.map.name !== 'MAP30') {
+            return; // monsters only telefrag in level 30
+        }
+        // telefrag anything in our way
+        this.map.data.traceMove(this.position.val, zeroVec, this.info.radius, hit => {
+            if ('mobj' in hit) {
+                // skip non hittable things and (obviously) don't hit ourselves
+                if (!(hit.mobj.info.flags & hittableThing) || hit.mobj === this) {
+                    return true;
+                }
+                hit.mobj.damage(10_000, this, this);
+            }
+            return true;
+        });
     }
 
     touchingSector(sector: Sector) {
@@ -398,6 +413,9 @@ export class MapObject {
                         }
 
                         if (!twoSided || explode) {
+                            if (hit.line.special) {
+                                this.map.triggerSpecial(hit.line, this, 'G', hit.side);
+                            }
                             this.explode();
                             return false;
                         }

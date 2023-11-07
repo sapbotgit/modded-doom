@@ -3,7 +3,8 @@ import { MapObject, PlayerMapObject } from "./map-object";
 import { ToRadians, randInt } from "./math";
 import { MFFlags, MapObjectIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
-import { type LineDef, type Sector } from "./map-data";
+import { zeroVec, type LineDef, type Sector, hittableThing } from "./map-data";
+import { Vector3 } from "three";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -927,6 +928,7 @@ const teleportDefinitions = [
     createTeleportDefinition(125, 'W1'),
 ];
 
+const teletportVec = new Vector3();
 export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     if (side === 1) {
         // don't triggering teleports when leaving the teleport space
@@ -954,7 +956,28 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     let triggered = false;
     const teleports = map.data.things.filter(e => e.type === 14)
     for (const tp of teleports) {
-        let sector = map.data.findSector(tp.x, tp.y);
+        const sector = map.data.findSector(tp.x, tp.y);
+
+        if (mobj.isMonster) {
+            // monsters cannot teleport if something is blocking teleport landing
+            let blocked = false;
+            teletportVec.set(tp.x, tp.y, sector.zFloor.val);
+            map.data.traceMove(teletportVec, zeroVec, mobj.info.radius, hit => {
+                if ('mobj' in hit) {
+                    // skip non hittable things
+                    if (!(hit.mobj.info.flags & hittableThing)) {
+                        return true; // not hittable
+                    }
+                    blocked = true;
+                    return false;
+                }
+                return true;
+            });
+
+            if (blocked) {
+                continue;
+            }
+        }
 
         if (sector.tag === linedef.tag) {
             // teleport fog in old and new locations
