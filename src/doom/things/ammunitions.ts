@@ -1,5 +1,5 @@
 import type { ThingType } from ".";
-import type { AmmoType, MapObject, PlayerInventory, PlayerMapObject } from "../map-object";
+import type { AmmoType, PlayerInventory, PlayerMapObject } from "../map-object";
 
 export const clipAmmo: { [k in AmmoType]: number} = {
     'bullets': 10,

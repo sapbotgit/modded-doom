@@ -338,6 +338,12 @@ class GameInput {
     }
 
     evaluate(delta: number) {
+        if (this.player.isDead) {
+            // TODO: we should handle use/click to restart the level
+            this.player.xyMove();
+            return;
+        }
+
         // change weapon
         let selectedWeapon: InventoryWeapon;
         const weapon = this.player.weapon.val;

@@ -956,8 +956,6 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     for (const tp of teleports) {
         let sector = map.data.findSector(tp.x, tp.y);
 
-        // TODO: for monster teleports, check space is blocked
-
         if (sector.tag === linedef.tag) {
             // teleport fog in old and new locations
             const pos = mobj.position.val;

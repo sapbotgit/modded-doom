@@ -505,6 +505,7 @@ export class PlayerMapObject extends MapObject {
     readonly extraLight = store(0);
     readonly weapon = store<PlayerWeapon>(null);
     nextWeapon: InventoryWeapon = null;
+    get isDead() { return this.health.val <= 0; }
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
@@ -544,6 +545,10 @@ export class PlayerMapObject extends MapObject {
         this.damageCount.update(val => Math.max(0, val - 1));
         this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();
+        if (this.isDead) {
+            // TODO: set direction to see our killer
+            return;
+        }
 
         this.inventory.update(inv => {
             for (const name of tickingItems) {
@@ -631,7 +636,8 @@ export class PlayerMapObject extends MapObject {
     kill(source?: MapObject) {
         super.kill(source);
 
-        // TODO: some map stats and drop weapon
+        // TODO: some map stats
+        this.weapon.val.deactivate();
     }
 
     private get enablePlayerCollisions() { return !this.map.game.settings.noclip.val; }
@@ -675,8 +681,11 @@ export class PlayerMapObject extends MapObject {
 
     // P_CalcHeight in p_user.c
     computeViewHeight(time: GameTime) {
+        if (this.isDead) {
+            return this.computeDeadViewHeight(time);
+        }
+
         const delta = time.delta;
-        // if (alive) {
         this.viewHeight += this.deltaViewHeight * 35 * delta;
 
         if (this.viewHeight > playerViewHeightDefault) {
@@ -704,6 +713,12 @@ export class PlayerMapObject extends MapObject {
         let viewHeight = this.viewHeight + bob;
         const maxHeight = this.sector.val.zCeil.val - 4 - this.position.val.z;
         return Math.min(maxHeight, viewHeight);
+    }
+
+    private computeDeadViewHeight(time: GameTime) {
+        // Doom player falls 1 unit per tick (or 35 units per second) until 6 units above the ground so...
+        this.viewHeight = Math.max(6, this.viewHeight - 35 * time.delta);
+        return this.viewHeight;
     }
 
     // kind of P_TouchSpecialThing in p_inter.c

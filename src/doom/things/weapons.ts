@@ -183,6 +183,11 @@ const weaponActions: { [key: number]: WeaponAction } = {
     },
     [ActionIndex.A_Lower]: (time, player, weapon) => {
         weapon.position.update(pos => {
+            if (player.isDead) {
+                pos.y = weaponBottom;
+                return pos;
+            }
+
             pos.y -= 6;
             if (pos.y < weaponBottom) {
                 pos.y = weaponBottom;

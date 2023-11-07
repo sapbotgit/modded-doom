@@ -3,6 +3,7 @@
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
     import { MapObjectIndex, ToDegrees, mapObjectInfo, ticksPerSecond } from "../../doom";
     import { allWeapons } from "../../doom/things/weapons";
+    import { tweened } from "svelte/motion";
     export let player: PlayerMapObject;
     const { position, direction, velocity, sector, inventory } = player;
     const { position: cameraPosition } = player.map.camera;
@@ -59,11 +60,15 @@
 
     function revive() {
         // undo effects of MapObject.kill()
-        player.health.set(100);
+        const tw = tweened(0);
+        tw.subscribe(v => player.health.set(v));
+        tw.set(100, { duration: 2000 });
         const mInfo = mapObjectInfo[MapObjectIndex.MT_PLAYER];
+        player.setState(mInfo.spawnstate);
         player.info.radius = mInfo.radius;
         player.info.height = mInfo.height;
         player.info.flags = mInfo.flags;
+        player.weapon.val.activate(player);
     }
 </script>
 
