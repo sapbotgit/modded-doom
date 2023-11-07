@@ -123,10 +123,8 @@ export function centerSort(verts: Vertex[]) {
         });
 }
 
-export function normalizeAngle(angle: number) {
-    // https://gamedev.stackexchange.com/questions/4467
-    return Math.PI - Math.abs(Math.abs(angle - HALF_PI) - Math.PI);
-}
+const PIx2 = Math.PI * 2;
+export const normalizeAngle = (angle: number) => Math.abs(angle % PIx2);
 
 let _sweepZeroLine = [
     { x: 0, y: 0 },

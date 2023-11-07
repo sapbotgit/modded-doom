@@ -497,8 +497,8 @@ class Camera {
                 this.update = () => {
                     this.zoom.update(zoom => Math.max(50, Math.min(1000, zoom)));
                     this.angle.x = HALF_PI * 3 / 4;
-                    this.pos.x = -Math.sin(-this.angle.z) * 400 + pos.x;
-                    this.pos.y = -Math.cos(-this.angle.z) * 400 + pos.y;
+                    this.pos.x = -Math.sin(-this.angle.z) * 300 + pos.x;
+                    this.pos.y = -Math.cos(-this.angle.z) * 300 + pos.y;
                     this.pos.z = Math.cos(-this.angle.x) * 400 + pos.z + 41;
                     this.position.set(this.pos);
                     this.rotation.set(this.angle);
