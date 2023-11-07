@@ -4,6 +4,7 @@
     import { tweened, type Tweened } from "svelte/motion";
     import { Mesh, OrthographicCamera, useFrame, useThrelte } from "@threlte/core";
     import { useDoom, useDoomMap } from "../DoomContext";
+    import Player from "./Player.svelte";
 
     export let yScale: number;
 
@@ -47,20 +48,34 @@
         hits.clear();
         playerDist = Infinity;
 
+        // convert player bounds to screen bounds
+        const radius2x = map.player.info.radius * 2;
+        matrix.identity().multiplyMatrices($cam.projectionMatrix, $cam.matrixWorldInverse);
+        // make x-dimension a little wider
+        bboxMin.set(map.player.position.val.x - radius2x, map.player.position.val.y - map.player.info.radius, map.player.position.val.z);
+        bboxMax.set(map.player.position.val.x + radius2x, map.player.position.val.y + map.player.info.radius, map.player.position.val.z + map.player.info.height);
+        // shrink the box a little so our traces don't hit the floor
+        bbox.expandByScalar(-10);
+        bbox.applyMatrix4(matrix);
+
         // surely there is a better way than 8 ray traces :(
-        // traceHits(vec.set(0, 0)); // this trace often hits the floor we are standing on which is annoying
-        traceHits(vec.set(0, .1));
-        traceHits(vec.set(0, .2));
-        traceHits(vec.set(-.05, 0));
-        traceHits(vec.set(-.05, .2));
-        traceHits(vec.set(-.1, 0.1));
-        traceHits(vec.set(.05, 0));
-        traceHits(vec.set(.05, .2));
-        traceHits(vec.set(.1, .1));
+        const midX = (bboxMin.x + bboxMax.x) * .5;
+        const midY = (bboxMin.y + bboxMax.y) * .5;
+        // only trace top and bottom for x-middle
+        traceHits(vec.set(midX, midY));
+        traceHits(vec.set(midX, bboxMax.y));
+        // left edge
+        traceHits(vec.set(bboxMin.x, bboxMin.y));
+        traceHits(vec.set(bboxMin.x, midY));
+        traceHits(vec.set(bboxMin.x, bboxMax.y));
+        // right edge
+        traceHits(vec.set(bboxMax.x, bboxMin.y));
+        traceHits(vec.set(bboxMax.x, midY));
+        traceHits(vec.set(bboxMax.x, bboxMax.y));
 
         tweens.forEach((tween, obj) => {
             if (!hits.has(obj)) {
-                tween.set(1).then(() => tweens.delete(obj));
+                tween.set(1, { duration: 1000 }).then(() => tweens.delete(obj));
             }
         });
 
@@ -69,7 +84,7 @@
         // // mark all sectors as hidden
         // renderSectors.forEach(rs => rs.visible.set(false));
         // // show reachable sectors
-        // matrix.identity().multiplyMatrices($cam.projectionMatrix, $cam.matrixWorldInverse);
+        matrix.identity().multiplyMatrices($cam.projectionMatrix, $cam.matrixWorldInverse);
         // frustum.setFromProjectionMatrix(matrix);
         // const psec = renderSectors.find(rs => rs.sector === map.player.sector.val);
         // const q = [psec];
@@ -112,7 +127,7 @@
             if ('moType' in int.object.userData && int.object.userData.moType === MapObjectIndex.MT_PLAYER) {
                 playerDist = int.distance;
                 break; // stop here
-            } else if (int.distance > playerDist) {
+            } else if (int.distance >= playerDist) {
                 break; // gone too far
             }
             if ('material' in int.object && int.object.material instanceof MeshStandardMaterial) {
