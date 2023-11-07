@@ -66,7 +66,6 @@ export class MapObject {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
         this.info = { ...spec.mo };
         this.health = store(this.info.spawnhealth);
-        const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
 
         if (this.info.flags & MFFlags.MF_SHADOW) {
             this.renderShadow.set(true);
@@ -76,27 +75,33 @@ export class MapObject {
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
         this._state.randomizeTicks();
 
-        const highestZFloor = (sector: Sector, zFloor: number) => {
-            const ceil = lowestZCeil(sector, sector.zCeil.val);
-            this.subsectors(subsector => {
-                const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor.val;
-                const step = floor - this.position.val.z;
-                // only allow step if it's small and we can fit in the ceiling/floor gap
-                // (see imp near sector 75 in E1M7)
-                if (step >= 0 && step <= maxStepSize && ceil - floor >= this.info.height) {
-                    zFloor = Math.max(floor, zFloor);
-                }
-            });
-            return zFloor;
-        }
+        // only players, monsters, and missiles are moveable which affects how we choose zFloor and zCeil
+        const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_MISSILE) || spec.moType === MapObjectIndex.MT_PLAYER;
+        const highestZFloor = !moveable
+            ? (sector: Sector, zFloor: number) => (this.sector.val ?? sector).zFloor.val
+            : (sector: Sector, zFloor: number) => {
+                const ceil = lowestZCeil(sector, sector.zCeil.val);
+                this.subsectors(subsector => {
+                    const floor = (sector === subsector.sector) ? zFloor : subsector.sector.zFloor.val;
+                    const step = floor - this.position.val.z;
+                    // only allow step if it's small and we can fit in the ceiling/floor gap
+                    // (see imp near sector 75 in E1M7)
+                    if (step >= 0 && step <= maxStepSize && ceil - floor >= this.info.height) {
+                        zFloor = Math.max(floor, zFloor);
+                    }
+                });
+                return zFloor;
+            };
 
-        const lowestZCeil = (sector: Sector, zCeil: number) => {
-            this.subsectors(subsector => {
-                const ceil = (sector === subsector.sector) ? zCeil : subsector.sector.zCeil.val;
-                zCeil = Math.min(ceil, zCeil);
-            });
-            return zCeil;
-        }
+        const lowestZCeil = !moveable
+            ? (sector: Sector, zCeil: number) => (this.sector.val ?? sector).zCeil.val
+            : (sector: Sector, zCeil: number) => {
+                this.subsectors(subsector => {
+                    const ceil = (sector === subsector.sector) ? zCeil : subsector.sector.zCeil.val;
+                    zCeil = Math.min(ceil, zCeil);
+                });
+                return zCeil;
+            };
 
         this.canSectorChange = (sector, zFloor, zCeil) => {
             const floor = highestZFloor(sector, zFloor);
@@ -104,12 +109,13 @@ export class MapObject {
             return ((ceil - floor) >= this.info.height);
         };
 
+        const fromCeiling = (this.info.flags & MFFlags.MF_SPAWNCEILING);
         this.sectorChanged = sector => {
             // check that we are on the ground before updating zFloor because if we were on the ground before
             // change, we want to force object to the ground after the change
             const onGround = this.onGround;
             this.zFloor = fromCeiling
-                ? sector.zCeil.val - this.info.height
+                ? lowestZCeil(sector, sector.zCeil.val) - this.info.height
                 : highestZFloor(sector, sector.zFloor.val);
             // ceiling things or things on the ground always update
             if (fromCeiling || onGround) {
@@ -122,12 +128,8 @@ export class MapObject {
         this.position = store(new Vector3(pos.x, pos.y, 0));
         this.position.subscribe(p => {
             this.subsecRev += 1;
-            // NOTE: we subtract a little from radius because if we use the full radius we don't get doom like behaviour for
-            // our objects. This is most notable in Doom2's MAP20 torches in the cyber/spider room but it happens in many
-            // other places. Slightly reducing the side makes this much better.
-            const traceRadius = this.info.radius - .01;
             // add any subsectors we are currently touching
-            map.data.traceSubsectors(p, zeroVec, traceRadius,
+            map.data.traceSubsectors(p, zeroVec, this.info.radius,
                 subsector => Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
             this.subsectorMap.forEach((rev, subsector) => {
@@ -146,7 +148,6 @@ export class MapObject {
                 : highestZFloor(sector, sector.zFloor.val);
             if (!this.sector.val) {
                 // first time setting sector so set zpos based on sector containing the object center
-                this.zFloor = fromCeiling ? (sector.zCeil.val - this.info.height) : sector.zFloor.val;
                 p.z = sector.zFloor.val;
             }
             if (this.sector.val !== sector) {
@@ -279,10 +280,7 @@ export class MapObject {
 
     teleport(target: Thing, sector: Sector) {
         this.velocity.set(0, 0, 0);
-        this.position.val.x = target.x;
-        this.position.val.y = target.y;
-        this.position.val.z = sector.zFloor.val;
-        this.position.set(this.position.val);
+        this.position.update(pos => pos.set(target.x, target.y, sector.zFloor.val));
         this.direction.set(Math.PI + target.angle * ToRadians);
         // TODO: 18-tick freeze (reaction) time?
     }
