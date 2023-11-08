@@ -7,8 +7,8 @@
     const geometry = new PlaneGeometry();
 </script>
 <script lang="ts">
-    import { Mesh, TransformControls } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, type EulerOrder, ShaderMaterial } from 'three';
+    import { Mesh, TransformControls, type Rotation } from '@threlte/core';
+    import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
@@ -23,34 +23,48 @@
     const { position: cameraPosition, rotation: cameraRotation, mode } = map.camera;
     const extraLight = map.player.extraLight;
 
-    const { sector, position, sprite, direction, renderShadow } = thing;
-    const isPuff = (thing.info.flags & MFFlags.InvertSpriteYOffset);
+    const { sector, position: tpos, sprite, direction, renderShadow } = thing;
+    const invertYOffset = (thing.info.flags & MFFlags.InvertSpriteYOffset);
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
 
-    $: ang = $mode === 'bird' ? $direction : Math.atan2($position.y - $cameraPosition.y, $position.x - $cameraPosition.x);
-    $: rot = 8 - Math.floor((EIGHTH_PI + normalizeAngle(ang - $direction)) / QUARTER_PI) % 8;
+    $: ang = $mode === 'bird' ? $direction : Math.atan2($tpos.y - $cameraPosition.y, $tpos.x - $cameraPosition.x);
+    $: ang2 = normalizeAngle(ang - $direction);
+    $: rot = 8 - Math.floor((EIGHTH_PI + ang2) / QUARTER_PI) % 8;
     $: frames = wad.spriteFrames($sprite.name);
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 
     $: texture = textures.get(frame.name, 'sprite');
-    // TODO: for sprites that don't have equal width on each frame, this causes some "jiggle"
-    // most sprites have a consistent width (but not all, consider "burning barrel") so hmmmm
-    $: hOffset = -texture.userData.xOffset + (texture.userData.width * .5);
     // Sprite offset is much more complicated than this but this is simple and looks okay-ish.
     // https://www.doomworld.com/forum/topic/110008-what-is-this-bs-with-gl-hardware-mode
     // and https://www.doomworld.com/forum/topic/68145-source-port-sprites-through-the-floor
     const hackedSprites = ['MISL', 'PLSE', 'BFE1', 'BFS1'];
     $: vOffset =
         Math.max(texture.userData.yOffset - texture.userData.height, 0) + (texture.userData.height * .5)
-        * (isPuff ? -1 : 1);
+        * (invertYOffset ? -1 : 1);
     $: if (hackedSprites.includes($sprite.name)) {
         vOffset += texture.userData.yOffset - texture.userData.height;
     }
+    $: hOffset = (texture.userData.xOffset - texture.userData.width) + (texture.userData.width * .5);
+    // why not just $: position = {...}?? From profiling, it seems slightly cheaper (about 0.2%) to do it this way
+    // (which makes sense because we are not allocating a new object)
+    const position = { x: 0, y: 0, z: 0 };
+    // because we have to offset both x and y, we have to apply them in proportion to the camera angle
+    $: position.x = $tpos.x - Math.sin(ang) * hOffset;
+    $: position.y = $tpos.y + Math.cos(ang) * hOffset;
+    $: position.z = $tpos.z + vOffset;
 
-    $: rotation =
-        $mode === 'bird' ? { z: $direction + HALF_PI, y: -Math.PI, x: Math.PI, order: 'ZXY' as EulerOrder } :
-        isBillboard ? { x: $cameraRotation.x, z: $cameraRotation.z, order: 'ZXY' as EulerOrder } :
-        { y: $cameraRotation.z, x: HALF_PI, order: 'ZXY' as EulerOrder };
+    const rotation: Rotation = { order: 'ZXY' };
+    $: if ($mode === 'bird') {
+        rotation.x = Math.PI;
+        rotation.y = -Math.PI;
+        rotation.z = $direction + HALF_PI;
+    } else if (isBillboard) {
+        rotation.x = $cameraRotation.x;
+        rotation.z = $cameraRotation.z;
+    } else {
+        rotation.x = HALF_PI;
+        rotation.y = $cameraRotation.z;
+    }
 
     $: material = $renderShadow
         ? new ShaderMaterial({ transparent: true, ...ShadowsShader() })
@@ -87,9 +101,9 @@
     }
 
     function positionChanged(ev) {
-        position.val.x = Math.floor(ev.detail.target.worldPosition.x);
-        position.val.y = Math.floor(ev.detail.target.worldPosition.y);
-        position.set(position.val);
+        tpos.val.x = Math.floor(ev.detail.target.worldPosition.x);
+        tpos.val.y = Math.floor(ev.detail.target.worldPosition.y);
+        tpos.set(tpos.val);
     }
 </script>
 
@@ -101,11 +115,7 @@
     {geometry}
     scale={{ y: texture.userData.height, x: frame.mirror ? -texture.userData.width : texture.userData.width }}
     {rotation}
-    position={{
-        x: $position.x + hOffset,
-        y: $position.y + hOffset,
-        z: $position.z + vOffset,
-    }}
+    {position}
 >
     {#if $editor.selected === thing}
         <TransformControls

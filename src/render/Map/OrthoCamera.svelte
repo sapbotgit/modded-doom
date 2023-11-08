@@ -84,7 +84,7 @@
         // // mark all sectors as hidden
         // renderSectors.forEach(rs => rs.visible.set(false));
         // // show reachable sectors
-        matrix.identity().multiplyMatrices($cam.projectionMatrix, $cam.matrixWorldInverse);
+        // matrix.identity().multiplyMatrices($cam.projectionMatrix, $cam.matrixWorldInverse);
         // frustum.setFromProjectionMatrix(matrix);
         // const psec = renderSectors.find(rs => rs.sector === map.player.sector.val);
         // const q = [psec];

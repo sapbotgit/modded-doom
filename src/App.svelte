@@ -63,7 +63,6 @@
 
 <main>
     <!-- <AABBSweepDebug /> -->
-    <!-- <MathDebug /> -->
 
     {#if game}
         {#key game}

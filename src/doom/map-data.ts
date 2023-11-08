@@ -495,7 +495,7 @@ function findSubSector(root: TreeNode, x: number, y: number) {
             return node;
         }
         const side = signedLineDistance(node.v, _findVec);
-        node = side <= 0 ? node.childLeft : node.childRight;
+        node = side < 0 ? node.childLeft : node.childRight;
     }
 }
 

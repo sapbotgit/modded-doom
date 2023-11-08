@@ -49,12 +49,12 @@
 <Mesh
     userData={{ type: 'flat' }}
     interactive={$editor.active}
+    on:click={hit}
     {visible}
     {geometry}
     {material}
     renderOrder={isSky ? 0 : 1}
     position={{ z: vertical }}
-    on:click={hit}
 >
     <Wireframe />
 </Mesh>
