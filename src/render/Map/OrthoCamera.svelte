@@ -4,7 +4,6 @@
     import { tweened, type Tweened } from "svelte/motion";
     import { Mesh, OrthographicCamera, useFrame, useThrelte } from "@threlte/core";
     import { useDoom, useDoomMap } from "../DoomContext";
-    import Player from "./Player.svelte";
 
     export let yScale: number;
 

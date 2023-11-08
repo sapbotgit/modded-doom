@@ -83,7 +83,7 @@ const selectNum = (map: MapRuntime, sector: Sector) => {
 }
 
 const selectTrigger = (map: MapRuntime, sector: Sector, linedef: LineDef) => {
-    return (!linedef.left || sector !== linedef.left.sector) ? linedef.right.sector : linedef.left.sector;
+    return (!linedef.left || sector === linedef.left.sector) ? linedef.right.sector : linedef.left.sector;
 }
 
 // effects
