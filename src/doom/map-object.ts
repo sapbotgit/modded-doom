@@ -25,6 +25,8 @@ export class MapObject {
     private static objectCounter = 0;
     readonly id = MapObject.objectCounter++;
 
+    // check for already hit lines/mobjs
+    private hitC: number;
     // set of subsectors we are touching
     private subsecRev = 0;
     private subsectorMap = new Map<SubSector, number>();
@@ -39,7 +41,6 @@ export class MapObject {
 
     protected _reactiontime: number;
     get reactiontime() { return this._reactiontime; }
-    private hitC: number;
 
     chaseThreshold = 0;
     chaseTarget: MapObject;
@@ -66,6 +67,7 @@ export class MapObject {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
         this.info = { ...spec.mo };
         this.health = store(this.info.spawnhealth);
+        this._reactiontime = map.game.skill === 5 ? 0 : this.info.reactiontime;
 
         if (this.info.flags & MFFlags.MF_SHADOW) {
             this.renderShadow.set(true);
@@ -282,7 +284,6 @@ export class MapObject {
         this.velocity.set(0, 0, 0);
         this.position.update(pos => pos.set(target.x, target.y, sector.zFloor.val));
         this.direction.set(Math.PI + target.angle * ToRadians);
-        // TODO: 18-tick freeze (reaction) time?
 
         if (this.isMonster && this.map.name !== 'MAP30') {
             return; // monsters only telefrag in level 30
@@ -560,6 +561,8 @@ export class PlayerMapObject extends MapObject {
     tick() {
         super.tick();
 
+        this._reactiontime = Math.max(0, this._reactiontime - 1);
+        console.log('ra',this._reactiontime)
         this.damageCount.update(val => Math.max(0, val - 1));
         this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();
@@ -656,6 +659,11 @@ export class PlayerMapObject extends MapObject {
 
         // TODO: some map stats
         this.weapon.val.deactivate();
+    }
+
+    teleport(target: Thing, sector: Sector): void {
+        this._reactiontime = 18; // freeze player after teleporting
+        super.teleport(target, sector);
     }
 
     private get enablePlayerCollisions() { return !this.map.game.settings.noclip.val; }

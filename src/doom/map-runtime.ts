@@ -409,7 +409,9 @@ class GameInput {
         }
 
         const pos = this.player.position.val;
-        this.player.xyMove();
+        if (!this.player.reactiontime) {
+            this.player.xyMove();
+        }
 
         // use stuff (switches, doors, etc)
         if (this.input.use && !this.handledUsePress) {

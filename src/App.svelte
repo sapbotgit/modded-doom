@@ -69,6 +69,7 @@
             <Doom {game} />
         {/key}
     {:else if !wad}
+        <div>IWAD</div>
         <div class="option-grid">
             {#each data.wads as wadInfo}
                 <button on:click={() => $url = `/${wadInfo.path}`}>
