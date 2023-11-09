@@ -13,9 +13,9 @@
     const { position: cameraPosition, rotation: cameraRotation, zoom } = map.camera;
     $: scale = ($zoom / 1000) + .25;
 
+    const weaponMat = new MeshStandardMaterial({ alphaTest: 1 });
     const { weapon } = map.player;
     $: sprite = $weapon.sprite;
-    const weaponMat = new MeshStandardMaterial({ alphaTest: .5, opacity: 0.5, transparent: true });
     $: frames = map.game.wad.spriteFrames($sprite.name);
     let tx: Texture;
     $: if (frames.length) {

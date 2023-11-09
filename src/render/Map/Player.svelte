@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Mesh, Pass, PerspectiveCamera } from "@threlte/core";
+    import { Group, Mesh, Pass, PerspectiveCamera } from "@threlte/core";
     import Thing from "./Thing.svelte";
     import { CircleGeometry, MeshStandardMaterial } from "three";
     import Weapon from "./Weapon.svelte";
@@ -53,8 +53,10 @@
         fov={72}
         scale={{ y: yScale }}
     >
-        {#if $mode === "1p"}
-            <Weapon {player} />
-        {/if}
+         <Group scale={{ y: 1 / yScale }}>
+            {#if $mode === "1p"}
+                <Weapon {player} />
+            {/if}
+        </Group>
     </PerspectiveCamera>
 {/if}
