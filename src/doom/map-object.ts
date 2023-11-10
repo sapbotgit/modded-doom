@@ -562,7 +562,6 @@ export class PlayerMapObject extends MapObject {
         super.tick();
 
         this._reactiontime = Math.max(0, this._reactiontime - 1);
-        console.log('ra',this._reactiontime)
         this.damageCount.update(val => Math.max(0, val - 1));
         this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();

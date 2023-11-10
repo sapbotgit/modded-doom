@@ -92,7 +92,7 @@
 </label>
 <label>
     <input type="checkbox" bind:checked={$editor.active} on:change={() => $editor.selected = null} />
-    Editing
+    Inspector
 </label>
 <label>
     <input type="checkbox" bind:checked={showPlayerInfo} />

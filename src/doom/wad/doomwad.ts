@@ -1,7 +1,3 @@
-//
-// Adapted from pieces of https://github.com/jmickle66666666/wad-js/blob/develop/src/wad/mapdata.js
-//
-
 import KaitaiStream from 'kaitai-struct/KaitaiStream';
 import DoomWadRaw from './doom-wad.ksy.ts';
 import { MapData } from '../map-data.ts';
@@ -13,42 +9,80 @@ interface SpriteFrame {
     mirror: boolean;
 }
 
-// TODO: support pwads
+export class WadFile {
+    raw: any[];
+
+    constructor(readonly name: string, buffer: ArrayBuffer) {
+        const data = new DoomWadRaw(new KaitaiStream(buffer), null, null);
+        this.raw = data.index;
+    }
+
+    lumpByName(name: string) {
+        return this.raw.find(p => p.name === name);
+    }
+}
+
 export class DoomWad {
     private spriteFrameTable = new Map<string, SpriteFrame[][]>();
-    private mapIndex = new Map<string, number>();
     readonly palettes: Palette[] = [];
-    raw: any[];
-    private textureLumps: any[];
-    private flatLumps: any[];
-    private spriteLumps: any[];
+    private textureLumps: any[] = [];
+    private flatLumps: any[] = [];
+    private spriteLumps: any[] = [];
+    private mapLumps = new Map<string, any[]>();
     private pnames: string[];
 
     private switchWalls: string[][];
     private animatedFlats: string[][];
     private animatedWalls: string[][];
 
-    get mapNames() { return [...this.mapIndex.keys()]; }
+    get mapNames() { return [...this.mapLumps.keys()]; }
+    get isIWAD() {
+        // this is a _very_ cheap (and incorrect) version of the check from https://doomwiki.org/wiki/IWAD.
+        // It will probably cause problems and need to be improved
+        return Boolean(this.pnames.length && this.textureLumps.length && this.spriteLumps.length && this.flatLumps.length
+            && this.palettes.length && this.animatedFlats.length && this.animatedWalls.length && this.switchWalls.length
+            && this.mapNames.length && this.lumpByName('ENDOOM') && this.lumpByName('COLORMAP'));
+    }
 
-    constructor(readonly name: string, wad: ArrayBuffer) {
-        const data = new DoomWadRaw(new KaitaiStream(wad), null, null);
-        this.raw = data.index;
+    constructor(readonly name: string, private wads: WadFile[]) {
+        // use maps so that the last wad wins
+        const textures = new Map<string, any>();
+        const sprites = new Map<string, any>();
+        const flats = new Map<string, any>();
+        const patches = new Set<string>();
+        for (const wad of wads) {
+            const pnames = wad.lumpByName('PNAMES')?.contents.names.map(e => e.toUpperCase()) ?? [];
+            pnames.forEach(name => patches.add(name));
 
-        this.pnames = this.lumpByName('PNAMES').contents.names.map(e => e.toUpperCase());
+            const texture1 = wad.lumpByName('TEXTURE1')?.contents.textures ?? [];
+            const texture2 = wad.lumpByName('TEXTURE2')?.contents.textures ?? [];
+            [...texture1, ...texture2].forEach(lump => textures.set(lump.body.name, lump));
 
-        const texture1 = this.lumpByName('TEXTURE1').contents.textures;
-        // not all wads have texture2? (looking at you plutonia...)
-        const texture2 = this.lumpByName('TEXTURE2')?.contents.textures ?? [];
-        this.textureLumps = [...texture1, ...texture2];
+            const sStartIndex = wad.raw.findIndex(e => e.name === 'S_START');
+            const sEndIndex = wad.raw.findIndex(e => e.name === 'S_END');
+            for (let i = sStartIndex; i < sEndIndex; i++) {
+                sprites.set(wad.raw[i].name, wad.raw[i]);
+            }
 
-        const sStartIndex = this.raw.findIndex(e => e.name === 'S_START');
-        const sEndIndex = this.raw.findIndex(e => e.name === 'S_END');
-        this.spriteLumps = this.raw.filter((e, i) => i > sStartIndex && i < sEndIndex);
+            const fStartIndex = wad.raw.findIndex(e => e.name === 'F_START');
+            const fEndIndex = wad.raw.findIndex(e => e.name === 'F_END');
+            for (let i = fStartIndex; i < fEndIndex; i++) {
+                if (!wad.raw[i].name.endsWith('_START') && !wad.raw[i].name.endsWith('_END')) {
+                    flats.set(wad.raw[i].name, wad.raw[i]);
+                }
+            }
 
-        const fStartIndex = this.raw.findIndex(e => e.name === 'F_START');
-        const fEndIndex = this.raw.findIndex(e => e.name === 'F_END');
-        this.flatLumps = this.raw.slice(fStartIndex, fEndIndex + 1)
-            .filter(e => !e.name.endsWith('_START') && !e.name.endsWith('_END'));
+            for (let i = 0; i < wad.raw.length; i++) {
+                if (isMap(wad.raw[i])) {
+                    this.mapLumps.set(wad.raw[i].name, wad.raw.slice(i, i + 11));
+                }
+            }
+        }
+
+        this.pnames = [...patches];
+        this.textureLumps = [...textures.values()];
+        this.spriteLumps = [...sprites.values()];
+        this.flatLumps = [...flats.values()];
 
         // https://doomwiki.org/wiki/PLAYPAL
         const playpal = this.lumpByName('PLAYPAL');
@@ -62,12 +96,6 @@ export class DoomWad {
                     palette.push(new Color(r, g, b));
                 }
                 this.palettes.push(palette);
-            }
-        }
-
-        for (let i = 0; i < this.raw.length; i++) {
-            if (isMap(this.raw[i])) {
-                this.mapIndex.set(this.raw[i].name, i);
             }
         }
 
@@ -161,8 +189,8 @@ export class DoomWad {
     }
 
     readMap(name: string) {
-        const index = this.mapIndex.get(name)
-        return index !== undefined ? new MapData(this, index) : null;
+        const lumps = this.mapLumps.get(name)
+        return lumps ? new MapData(this, lumps) : null;
     }
 
     switchToggle(name: string): string | undefined {
@@ -289,10 +317,6 @@ export class DoomWad {
         return null;
     }
 
-    private lumpByName(name: string) {
-        return this.raw.find(p => p.name === name);
-    }
-
     graphic(name: string): Picture {
         const uname = name.toUpperCase();
         const lump = this.lumpByName(uname);
@@ -300,6 +324,16 @@ export class DoomWad {
             return null;
         }
         return new LumpPicture(lump, this.palettes[0]);
+    }
+
+    private lumpByName(name: string) {
+        // go from last wad to first because the last wad lump wins
+        for (let i = this.wads.length - 1; i >= 0; i--) {
+            const lump = this.wads[i].lumpByName(name);
+            if (lump) {
+                return lump;
+            }
+        }
     }
 }
 

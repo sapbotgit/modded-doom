@@ -208,30 +208,30 @@ export class MapData {
     readonly nodes: TreeNode[];
     readonly blockMapBounds: Bounds;
 
-    constructor(readonly wad: DoomWad, index: number) {
-        this.things = wad.raw[index + 1].contents.entries;
-        this.sectors = wad.raw[index + 8].contents.entries.map((s, i) => toSector(i, s));
-        this.vertexes = wad.raw[index + 4].contents.entries;
+    constructor(readonly wad: DoomWad, lumps: any[]) {
+        this.things = lumps[1].contents.entries;
+        this.sectors = lumps[8].contents.entries.map((s, i) => toSector(i, s));
+        this.vertexes = lumps[4].contents.entries;
         fixVertexes(
             this.vertexes,
-            wad.raw[index + 2].contents.entries, // linedefs
-            wad.raw[index + 5].contents.entries, // segs
-            wad.raw[index + 7].contents.entries, // bsp nodes
+            lumps[2].contents.entries, // linedefs
+            lumps[5].contents.entries, // segs
+            lumps[7].contents.entries, // bsp nodes
         );
 
-        const blockmap = wad.raw[index + 10].contents;
+        const blockmap = lumps[10].contents;
         this.blockMapBounds = {
             top: blockmap.originY + blockmap.numRows * 128,
             left: blockmap.originX,
             bottom: blockmap.originY,
             right: blockmap.originX + blockmap.numCols * 128,
         }
-        const sidedefs: SideDef[] = wad.raw[index + 3].contents.entries.map(e => toSideDef(e, this.sectors));
-        this.linedefs = wad.raw[index + 2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
-        const segs: Seg[] = wad.raw[index + 5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
-        const subsectors: SubSector[] = wad.raw[index + 6].contents.entries.map((e, i) => toSubSector(i, e, segs));
+        const sidedefs: SideDef[] = lumps[3].contents.entries.map(e => toSideDef(e, this.sectors));
+        this.linedefs = lumps[2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
+        const segs: Seg[] = lumps[5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
+        const subsectors: SubSector[] = lumps[6].contents.entries.map((e, i) => toSubSector(i, e, segs));
 
-        this.nodes = wad.raw[index + 7].contents.entries.map(d => toNode(d));
+        this.nodes = lumps[7].contents.entries.map(d => toNode(d));
         this.nodes.forEach(n => {
             n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);

@@ -24,7 +24,6 @@ export class MapTextures {
     private cache = new Map<string, Texture>();
     private lightCache = new Map<number, Color>;
 
-    // TODO: array of doom wads for pwads?
     constructor(readonly wad: DoomWad) {
         const maxLight = 255;
         for (let i = 0; i < maxLight + 1; i++) {
@@ -116,7 +115,7 @@ export function buildRenderSectors(wad: DoomWad, map: MapData) {
     for (const sector of map.sectors) {
         const subsectors = allSubsectors.filter(subsec => subsec.sector === sector);
         const portalSegs = allSegs.filter(seg => seg.linedef.left && (seg.linedef.left.sector === sector || seg.linedef.right.sector === sector));
-        const geos = subsectors.map(subsec => createShape(subsec.vertexes));
+        const geos = subsectors.map(subsec => createShape(subsec.vertexes)).filter(e => e);
         const linedefs = map.linedefs.filter(ld => ld.right.sector === sector);
         // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
@@ -272,6 +271,9 @@ function computeBounds(rs: RenderSector) {
 }
 
 function createShape(verts: Vertex[]) {
+    if (!verts.length) {
+        return null;
+    }
     const shape = new Shape();
     shape.autoClose = true;
     shape.arcLengthDivisions = 1;

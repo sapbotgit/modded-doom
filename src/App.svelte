@@ -1,12 +1,15 @@
 <script lang="ts">
-    import { DoomWad, Game, MapRuntime, type Skill, randInt, data } from './doom';
+    import { DoomWad, Game, MapRuntime, type Skill, randInt, data, WadFile } from './doom';
     import Doom from './render/Doom.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
     import Picture from './render/Components/Picture.svelte';
     import { createAppContext } from './render/DoomContext';
     import { setContext } from 'svelte';
     import { fly } from 'svelte/transition';
+    import WadScreen from './WadScreen.svelte';
+    import { WadStore } from './WadStore';
 
+    const wadStore = new WadStore();
     const context = createAppContext();
     setContext('doom-app-context', context);
     const { url } = context;
@@ -21,11 +24,14 @@
         // TODO: this function needs more validation (like upper/lower case, bounds checks, etc)
         const parts = url.split('/').filter(e => e);
 
-        const urlWadName = parts[0];
-        if (urlWadName !== wad?.name) {
-            if (urlWadName) {
-                const buffer = await fetch('/' + urlWadName + '.wad').then(e => e.arrayBuffer());
-                wad = new DoomWad(urlWadName, buffer);
+        const urlWads = parts[0];
+        if (urlWads !== wad?.name) {
+            if (urlWads) {
+                // Does your wad have a + in the name? too bad, you'll find a bug :)
+                const wadNames = urlWads.split('+');
+                const wadResolvers = wadNames.map(name => wadStore.fetchWad(name).then(buff => new WadFile(name, buff)));
+                const wads = await Promise.all(wadResolvers);
+                wad = new DoomWad(urlWads, wads);
             } else {
                 wad = null;
             }
@@ -69,15 +75,7 @@
             <Doom {game} />
         {/key}
     {:else if !wad}
-        <div>IWAD</div>
-        <div class="option-grid">
-            {#each data.wads as wadInfo}
-                <button on:click={() => $url = `/${wadInfo.path}`}>
-                    <div>{wadInfo.name}</div>
-                    <!-- <img src={wadInfo.image} alt={wadInfo.name} /> -->
-                </button>
-            {/each}
-        </div>
+        <WadScreen {wadStore} />
     {:else if wad}
         <div class="vstack">
             <button on:click={() => $url = '/'}><Picture {wad} name="TITLEPIC" /></button>
