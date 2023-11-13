@@ -3,7 +3,7 @@ import type { DoomWad } from "./wad/doomwad";
 import { Vector3 } from "three";
 import { MapObject } from "./map-object";
 import { centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
-import { MFFlags } from "./doom-things-info";
+import { MapObjectIndex, MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
 
 export type Action = (time: GameTime) => void;

@@ -1,8 +1,8 @@
 import { Vector3 } from 'three';
 import type { ThingType } from '.';
-import { ActionIndex, MFFlags } from '../doom-things-info';
+import { ActionIndex, MFFlags, MapObjectIndex } from '../doom-things-info';
 import type { GameTime } from '../game';
-import type { MapObject } from '../map-object';
+import { MapObject } from '../map-object';
 import { zeroVec } from '../map-data';
 
 export const obstacles: ThingType[] = [
@@ -52,53 +52,89 @@ type StateChangeAction = (time: GameTime, mobj: MapObject) => void
 export const actions: { [key: number]: StateChangeAction } = {
     [ActionIndex.A_Explode]: (time, mobj: MapObject) => {
         const damage = 128;
+        // use a map so we don't hit the same object multiple times
+        let hits = new Map<MapObject, number>();
         mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, hit => {
             if ('mobj' in hit) {
-                const thing = hit.mobj;
-                if (!(thing.info.flags & MFFlags.MF_SHOOTABLE)) {
+                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                     return true;
                 }
+                if (hits.has(hit.mobj)) {
+                    return true; // already hit this, so continue to next
+                }
                 // Boss spider and cyberdemon take no damage from explosions
-                if (thing.info.doomednum === 16 || thing.info.doomednum === 7) {
+                if (hit.mobj.type === MapObjectIndex.MT_CYBORG || hit.mobj.type === MapObjectIndex.MT_SPIDER) {
                     return true;
                 }
 
                 let dist = Math.max(
-                    Math.abs(thing.position.val.x - mobj.position.val.x),
-                    Math.abs(thing.position.val.y - mobj.position.val.y)) - thing.info.radius;
+                    Math.abs(hit.mobj.position.val.x - mobj.position.val.x),
+                    Math.abs(hit.mobj.position.val.y - mobj.position.val.y)) - hit.mobj.info.radius;
                 if (dist < 0) {
                     dist = 0;
                 }
                 if (dist >= damage) {
                     return true; // out of range
                 }
-
-                if (hasLineOfSight(thing, mobj)) {
-                    thing.damage(damage - dist, mobj, mobj.chaseTarget);
-                }
+                hits.set(hit.mobj, dist);
             }
             return true;
         });
+
+        // don't apply damage in traceMove() because hasLineOfSight() also performs a trace and nested traces don't work
+        for (const [hitMobj, dist] of hits.entries()) {
+            if (hasLineOfSight(mobj, hitMobj)) {
+                hitMobj.damage(damage - dist, mobj, mobj.chaseTarget);
+            }
+        }
     },
 }
 
+const losStart = new Vector3();
 const losVec = new Vector3();
 function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // Kind of like P_CheckSight
-    // TODO: we need to check z-coordinates here and look at two-sided walls, etc.
     let los = true;
-    losVec.copy(mobj2.position.val).sub(mobj1.position.val);
+    // start from the "eyes" of mobj1 (or about half-height)
+    losStart.copy(mobj1.position.val);
+    losStart.z += mobj1.info.height * .5;
+    losVec.copy(mobj2.position.val).sub(losStart);
+    const zTop = mobj2.position.val.z + mobj2.info.height;
+    let zMax = (zTop - losStart.z);
+    let zMin = (mobj2.position.val.z - losStart.z);
+
     mobj1.map.data.traceRay(mobj1.position.val, losVec, hit => {
         if ('line' in hit) {
-            if ((hit.line.flags & 0x0004) !== 0) {
-                return true; // ignore two-sided walls for now
+            if (!hit.line.left) {
+                // we've hit a solid wall so line of sight is false
+                los = false;
+                return false;
             }
-            // we've hit a wall so line of sight is false
-            los = false;
-            return false;
+
+            const front = hit.side === -1 ? hit.line.right : hit.line.left;
+            const back = hit.side === -1 ? hit.line.left : hit.line.right;
+            const openTop = Math.min(front.sector.zCeil.val, back.sector.zCeil.val);
+            const openBottom = Math.max(front.sector.zFloor.val, back.sector.zFloor.val);
+            if (openBottom >= openTop) {
+                // it's a two-sided line but there is no opening (eg. a closed door)
+                los = false;
+                return false;
+            }
+
+            if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+                zMax = Math.min(zMax, (openTop - zTop));
+            }
+            if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+                zMin = Math.max(zMin, (openBottom - mobj2.position.val.z));
+            }
+
+            if (zMax <= zMin) {
+                // no room means no line of sight so stop searching
+                los = false;
+                return false;
+            }
         }
-        // keep searching...
-        return true;
+        return true; // keep searching...
     });
     return los;
 }
