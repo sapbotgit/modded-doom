@@ -14,13 +14,11 @@
     const { settings, editor } = useAppContext();
     const { useTextures, cameraMode } = settings;
     const { textures } = useDoom();
-    const { position: cameraPosition } = map.camera;
     const extraLight = map.player.extraLight;
     const geometry = renderSector.geometry;
     const vis = renderSector.visible;
 
-    $: visible = $vis && ((ceiling && $cameraPosition.z <= vertical)
-            || (!ceiling && $cameraPosition.z >= vertical));
+    $: visible = $vis;
     const light = renderSector.flatLighting;
 
     $: material = new MeshStandardMaterial({ emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
