@@ -533,8 +533,8 @@ class Camera {
         _3pDir.copy(pos).sub(player.position.val);
         map.data.traceRay(player.position.val, _3pDir, hit => {
             if ('line' in hit) {
-                if ((hit.line.flags & 0x0004) !== 0) {
-                    return true; // continue
+                if (hit.line.left) {
+                    return true; // two-sided so continue (we should check zvalues...)
                 }
                 pos.x = hit.point.x;
                 pos.y = hit.point.y;

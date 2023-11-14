@@ -58,14 +58,14 @@ export class DoomWad {
             const texture2 = wad.lumpByName('TEXTURE2')?.contents.textures ?? [];
             [...texture1, ...texture2].forEach(lump => textures.set(lump.body.name, lump));
 
-            const sStartIndex = wad.raw.findIndex(e => e.name === 'S_START');
-            const sEndIndex = wad.raw.findIndex(e => e.name === 'S_END');
+            const sStartIndex = wad.raw.findIndex(e => e.name === 'S_START' || e.name === 'SS_START');
+            const sEndIndex = wad.raw.findIndex(e => e.name === 'S_END' || e.name === 'SS_END');
             for (let i = sStartIndex; i < sEndIndex; i++) {
                 sprites.set(wad.raw[i].name, wad.raw[i]);
             }
 
-            const fStartIndex = wad.raw.findIndex(e => e.name === 'F_START');
-            const fEndIndex = wad.raw.findIndex(e => e.name === 'F_END');
+            const fStartIndex = wad.raw.findIndex(e => e.name === 'F_START' || e.name === 'FF_START');
+            const fEndIndex = wad.raw.findIndex(e => e.name === 'F_END' || e.name === 'FF_END');
             for (let i = fStartIndex; i < fEndIndex; i++) {
                 if (!wad.raw[i].name.endsWith('_START') && !wad.raw[i].name.endsWith('_END')) {
                     flats.set(wad.raw[i].name, wad.raw[i]);

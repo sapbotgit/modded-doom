@@ -398,7 +398,7 @@ export class MapObject {
                     return false;
                 } else if ('line' in hit) {
                     const isMissile = this.info.flags & MFFlags.MF_MISSILE;
-                    const twoSided = (hit.line.flags & 0x0004) !== 0;
+                    const twoSided = Boolean(hit.line.left);
                     if (isMissile) {
                         let explode = false;
                         if (twoSided) {

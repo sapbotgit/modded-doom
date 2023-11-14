@@ -70,7 +70,7 @@
         // threejs uses 0,0 in bottom left but doom uses 0,0 for top left so we by default
         // "peg" the corner to the top left by offsetting by height
         let pegging = -height;
-        if (flags & 0x0004) {
+        if (linedef.left) {
             if (type === 'lower' && (flags & 0x0010)) {
                 // unpegged so subtract higher floor from ceiling to get real offset
                 // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.

@@ -73,7 +73,7 @@ type SectorSelectorFunction = (map: MapRuntime, sector: Sector, linedef: LineDef
 const selectNum = (map: MapRuntime, sector: Sector) => {
     let line: LineDef = null;
     for (const ld of map.data.linedefs) {
-        if (ld.flags & 0x0004) {
+        if (ld.left) {
             if (ld.left.sector === sector && ld.right.sector.zFloor.val === sector.zFloor.val) {
                 line = (line && line.num < ld.num) ? line : ld;
             }
@@ -1154,7 +1154,7 @@ export const createRisingStairAction = (mobj: MapObject, linedef: LineDef, trigg
 function raiseFloorsectors(sector: Sector, mapLinedefs: LineDef[]): Sector[] {
     const sectors = [];
     for (const ld of mapLinedefs) {
-        if (ld.flags & 0x0004) {
+        if (ld.left) {
             if (ld.right.sector === sector) {
                 sectors.push(ld.left.sector);
             }

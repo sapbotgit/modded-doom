@@ -293,8 +293,8 @@ export class MapData {
     sectorNeighbours(sector: Sector): Sector[] {
         const sectors = [];
         for (const ld of this.linedefs) {
-            if (ld.flags & 0x0004) {
-                if (ld.left?.sector === sector) {
+            if (ld.left) { // two-sided
+                if (ld.left.sector === sector) {
                     sectors.push(ld.right.sector);
                 }
                 if (ld.right.sector === sector) {

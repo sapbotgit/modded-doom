@@ -452,7 +452,7 @@ class ShotTracer {
                     shooter.map.triggerSpecial(hit.line, shooter, 'G', hit.side);
                 }
 
-                const oneSided = (hit.line.flags & 0x0004) === 0;
+                const oneSided = !Boolean(hit.line.left);
                 if (oneSided) {
                     return this.hitWallOrSky(shooter, hit.line.right.sector, null, this.bulletHitLocation(4, hit.fraction, aimSlope, range));
                 }
@@ -573,7 +573,7 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                 result.target = hit.mobj;
                 return false;
             } else if ('line' in hit) {
-                const oneSided = (hit.line.flags & 0x0004) === 0;
+                const oneSided = !Boolean(hit.line.left);
                 if (oneSided) {
                     return false; // single-sided linedefs always stop trace
                 }
