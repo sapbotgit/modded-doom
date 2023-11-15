@@ -2,7 +2,7 @@ import { Euler, Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
-import { HALF_PI, randInt } from '../math';
+import { HALF_PI, QUARTER_PI, randInt } from '../math';
 import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween, hitSky } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
@@ -165,7 +165,7 @@ const weaponBobTime = 128 / ticksPerSecond;
 // is isolated from other things). Long term, we could also move enemy and other bits to their own files too so that
 // all the declarations for a type of "thing" are in a single place. Something to aspire to.
 type WeaponAction = (time: GameTime, player: PlayerMapObject, weapon: PlayerWeapon) => void
-const weaponActions: { [key: number]: WeaponAction } = {
+export const weaponActions: { [key: number]: WeaponAction } = {
     [ActionIndex.NULL]: (time, player, weapon) => {},
     [ActionIndex.A_Light0]: (time, player, weapon) => {
         player.extraLight.set(0);
@@ -354,12 +354,47 @@ const weaponActions: { [key: number]: WeaponAction } = {
         shootMissile(player, MapObjectIndex.MT_PLASMA);
     },
 
+    [ActionIndex.A_BFGsound]: (time, player, weapon) => {
+        // SND: sfx_bfg
+    },
     [ActionIndex.A_FireBFG]: (time, player, weapon) => {
         useAmmo(player, weapon);
         shootMissile(player, MapObjectIndex.MT_BFG);
     },
-    [ActionIndex.A_BFGSpray]: (time, player, weapon) => {
-        // TODO: bfg spray
+
+    // This isn't really a "weapon" thing (the BFG spray comes frmm the missile) but because the trace is so
+    // similar to firing a weapon, I'm leaving it here for now.
+    [ActionIndex.A_BFGSpray]: (time, mobj, weapon) => {
+        // shooter is the chaseTarget who fired this missile
+        const tDir = new Vector3();
+        const shooter = mobj.chaseTarget;
+        const dir = mobj.direction.val + Math.PI;
+        const aim = aimTrace(shooter, mobj.position.val.z, scanRange);
+        for (let i = 0; i < 40; i++) {
+            let angle = dir - QUARTER_PI + HALF_PI / 40 * i;
+
+            // scan from the direction of the _missile_ but the position of the _shooter_ (!)
+            // https://doomwiki.org/wiki/BFG9000
+            tDir.set(
+                Math.cos(angle) * scanRange,
+                Math.sin(angle) * scanRange,
+                0);
+            aim.target = null; // must clear before running the trace otherwise we could get stale data
+            mobj.map.data.traceRay(shooter.position.val, tDir, aim.fn);
+            if (!aim.target) {
+                continue;
+            }
+
+            const hit = aim.target;
+            const pos = hit.position.val;
+            mobj.map.spawn(MapObjectIndex.MT_EXTRABFG, pos.x, pos.y, pos.z + aim.target.info.height * .5);
+
+            let damage = 0;
+            for (let j = 0; j < 15; j++) {
+                damage += randInt(1, 8);
+            }
+            hit.damage(damage, shooter, shooter);
+        }
     },
 };
 

@@ -11,7 +11,6 @@
     export let map: MapRuntime;
 
     const rev = map.rev;
-    const erev = map.erev;
     const { position, direction } = map.player;
     const showBlockmap = useAppContext().settings.showBlockMap;
 
@@ -45,8 +44,8 @@
     }
 
     let mobjs: MObj[] = [];
-    $: if ($rev || $erev) {
-        mobjs = [...map.objs, ...map.ephemeralObjs];
+    $: if ($rev) {
+        mobjs = map.objs;
     }
 
     let selRS: RenderSector;

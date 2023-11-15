@@ -1,6 +1,6 @@
-import { MapObjectIndex, mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
+import { ActionIndex, MapObjectIndex, mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
 import type { MapObject, PlayerMapObject } from '../map-object';
-import { weaponItems } from './weapons';
+import { weaponItems, weaponActions } from './weapons';
 import { monsters } from './monsters';
 import { ammunitions } from './ammunitions';
 import { items } from './items';
@@ -41,4 +41,7 @@ export function thingSpec(moType: MapObjectIndex): ThingSpec {
     return { ...t, moType, mo: mapObjectInfo[moType] };
 }
 
-export const stateChangeActions = { ...obstacleActions };
+export const stateChangeActions = {
+    ...obstacleActions,
+    [ActionIndex.A_BFGSpray]: weaponActions[ActionIndex.A_BFGSpray],
+};
