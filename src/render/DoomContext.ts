@@ -16,6 +16,7 @@ export const createAppContext = () => {
         noclip: store(false),
         compassMove: store(false),
         timescale: store(1),
+        monsterAI: store('enabled'),
         cameraMode: store('1p'),
     };
     const settings = {

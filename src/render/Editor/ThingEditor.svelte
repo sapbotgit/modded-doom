@@ -6,6 +6,7 @@
     import FlagList from "./FlagList.svelte";
     import { MapObject } from "../../doom/map-object";
     import NumberChooser from "./NumberChooser.svelte";
+    import { toHalfFloat } from "three/src/extras/DataUtils";
 
     const { editor } = useAppContext();
     const { textures, wad } = useDoom();
@@ -109,7 +110,7 @@
     -->
 </div>
 <div>
-    <div>Poisition: {[$position.x,$position.y,$position.z]}</div>
+    <div>Position: {[$position.x.toFixed(2), $position.y.toFixed(2), $position.z.toFixed(2)]}</div>
     <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
     <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
 </div>
@@ -118,9 +119,9 @@
     <button class:selected={directionButton === 7} on:click={setDirection(315)}>NW</button>
     <button class:selected={directionButton === 6} on:click={setDirection(270)}>North</button>
     <button class:selected={directionButton === 5} on:click={setDirection(225)}>NE</button>
-    <button class:selected={directionButton === 0} on:click={setDirection(0)}>East</button>
+    <button class:selected={directionButton === 0} on:click={setDirection(0)}>West</button>
     <span>{Math.floor($direction * ToDegrees)} degrees</span>
-    <button class:selected={directionButton === 4} on:click={setDirection(180)}>West</button>
+    <button class:selected={directionButton === 4} on:click={setDirection(180)}>East</button>
     <button class:selected={directionButton === 1} on:click={setDirection(45)}>SW</button>
     <button class:selected={directionButton === 2} on:click={setDirection(90)}>South</button>
     <button class:selected={directionButton === 3} on:click={setDirection(135)}>SE</button>

@@ -2,7 +2,7 @@ import { Euler, Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
-import { HALF_PI, QUARTER_PI, randInt } from '../math';
+import { HALF_PI, QUARTER_PI, angleNoise, randInt } from '../math';
 import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween, hitSky } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
@@ -156,7 +156,6 @@ function giveWeapon(name: WeaponName) {
 const meleeRange = 1 * 64;
 const scanRange = 16 * 64;
 const attackRange = 32 * 64;
-const angleNoise = (radius: number) => (Math.random() - Math.random()) * (Math.PI / radius);
 const bulletDamage = () => 5 * randInt(1, 3);
 
 const weaponBobTime = 128 / ticksPerSecond;

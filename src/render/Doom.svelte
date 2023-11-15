@@ -37,7 +37,7 @@
     let pointerLocked = false;
 
     let showPlayerInfo = false;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures } = settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI } = settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -63,61 +63,71 @@
     });
 </script>
 
-<label>
-    Camera
-    <select bind:value={$cameraMode}>
-        <option>bird</option>
-        <option>ortho</option>
-        <option>1p</option>
-        <option>3p</option>
-        <option>3p-noclip</option>
-        <option>svg</option>
-    </select>
-</label>
-<label>
-    <input type="checkbox" bind:checked={$zAimAssist} />
-    Auto Z-Aim
-</label>
-<label>
-    <input type="checkbox" bind:checked={$noclip} />
-    noclip
-</label>
-<label>
-    <input type="checkbox" bind:checked={$freelook} />
-    Free look
-</label>
-<label>
-    <input type="checkbox" bind:checked={$freeFly} />
-    Free fly
-</label>
-<label>
-    <input type="checkbox" bind:checked={$editor.active} on:change={() => $editor.selected = null} />
-    Inspector
-</label>
-<label>
-    <input type="checkbox" bind:checked={showPlayerInfo} />
-    Player debug
-</label>
-<label>
-    <input type="checkbox" bind:checked={$showBlockMap} />
-    Show blockmap
-</label>
-<label>
-    <input type="checkbox" bind:checked={$useTextures} />
-    Show textures
-</label>
-<label style="width:6em; display:inline-block">
-    <input style="width:100%" type="range" min={0.05} max={2} step={0.05} bind:value={$timescale} />
-    Time ({$timescale})x
-</label>
-<label>
-    Show geometry
-    <select bind:value={$wireframe}>
-        <option>none</option>
-        <option>visible</option>
-        <option>all</option>
-    </select>
-</label>
+<div class="settings">
+    <label>
+        Camera
+        <select bind:value={$cameraMode}>
+            <option>bird</option>
+            <option>ortho</option>
+            <option>1p</option>
+            <option>3p</option>
+            <option>3p-noclip</option>
+            <option>svg</option>
+        </select>
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$zAimAssist} />
+        Auto Z-Aim
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$noclip} />
+        noclip
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$freelook} />
+        Free look
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$freeFly} />
+        Free fly
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$editor.active} on:change={() => $editor.selected = null} />
+        Inspector
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={showPlayerInfo} />
+        Player debug
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$showBlockMap} />
+        Show blockmap
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$useTextures} />
+        Show textures
+    </label>
+    <label style="width:6em; display:inline-block">
+        <input style="width:100%" type="range" min={0.05} max={2} step={0.05} bind:value={$timescale} />
+        Time ({$timescale})x
+    </label>
+    <label>
+        AI Mode
+        <select bind:value={$monsterAI}>
+            <option>enabled</option>
+            <option>disabled</option>
+            <option>fast</option>
+        </select>
+    </label>
+    <label>
+        Show geometry
+        <select bind:value={$wireframe}>
+            <option>none</option>
+            <option>visible</option>
+            <option>all</option>
+        </select>
+    </label>
+</div>
 
 <div>
     {#if $cameraMode === 'svg'}
@@ -205,6 +215,11 @@
         position: relative;
         justify-content: center;
         align-content: center;
+    }
+
+    .settings {
+        font-size: .9m;
+        gap: .5em;
     }
 
     .game {

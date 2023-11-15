@@ -17,6 +17,7 @@ export interface GameSettings {
     zAimAssist: Store<boolean>;
     noclip: Store<boolean>;
     freeFly: Store<boolean>;
+    monsterAI: Store<'enabled' | 'disabled' | 'fast'>;
     // useful for birds eye view where we may not want to rotate the camera when the player rotates
     compassMove: Store<boolean>;
     invicibility: Store<boolean>;

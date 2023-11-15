@@ -92,7 +92,7 @@ export const actions: { [key: number]: StateChangeAction } = {
 
 const losStart = new Vector3();
 const losVec = new Vector3();
-function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
+export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // Kind of like P_CheckSight
     let los = true;
     // start from the "eyes" of mobj1 (or about half-height)
@@ -122,7 +122,7 @@ function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
             }
 
             if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                zMax = Math.min(zMax, (openTop - zTop));
+                zMax = Math.min(zMax, (openTop - losStart.z));
             }
             if (front.sector.zFloor.val !== back.sector.zFloor.val) {
                 zMin = Math.max(zMin, (openBottom - mobj2.position.val.z));

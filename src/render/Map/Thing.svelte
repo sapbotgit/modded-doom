@@ -10,7 +10,7 @@
     import { Mesh, TransformControls, type Rotation } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle, ToDegrees } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';
@@ -32,8 +32,7 @@
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
 
     $: ang = $mode === 'bird' ? $direction : Math.atan2($tpos.y - $cameraPosition.y, $tpos.x - $cameraPosition.x);
-    $: ang2 = normalizeAngle(ang - $direction);
-    $: rot = 8 - Math.floor((EIGHTH_PI + ang2) / QUARTER_PI) % 8;
+    $: rot =  Math.floor((EIGHTH_PI + normalizeAngle(ang - $direction)) / QUARTER_PI) % 8;
     $: frames = wad.spriteFrames($sprite.name);
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
 

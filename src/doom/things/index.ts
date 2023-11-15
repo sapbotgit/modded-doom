@@ -1,7 +1,7 @@
 import { ActionIndex, MapObjectIndex, mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
 import type { MapObject, PlayerMapObject } from '../map-object';
 import { weaponItems, weaponActions } from './weapons';
-import { monsters } from './monsters';
+import { monsters, monsterActions } from './monsters';
 import { ammunitions } from './ammunitions';
 import { items } from './items';
 import { powerups } from './powerups';
@@ -9,6 +9,7 @@ import { keys } from './keys';
 import { obstacles, actions as obstacleActions } from './obstacles';
 import { decorations } from './decorations';
 import { other } from './other';
+import type { GameTime } from '../game';
 
 export { inventoryWeapon, weaponTop, PlayerWeapon } from './weapons';
 
@@ -41,7 +42,12 @@ export function thingSpec(moType: MapObjectIndex): ThingSpec {
     return { ...t, moType, mo: mapObjectInfo[moType] };
 }
 
-export const stateChangeActions = {
+const actions = {
     ...obstacleActions,
     [ActionIndex.A_BFGSpray]: weaponActions[ActionIndex.A_BFGSpray],
+}
+export const stateChangeAction = (action: ActionIndex, time: GameTime, mobj: MapObject) => {
+    const aiActions = mobj.map.game.settings.monsterAI.val !== 'disabled' ? monsterActions : {};
+    const fn = actions[action] ?? aiActions[action];
+    return fn?.(time, mobj);
 };

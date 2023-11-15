@@ -7,6 +7,7 @@
     export let player: PlayerMapObject;
 
     const { game } = useDoom();
+    const invuln = game.settings.invicibility;
     const { tick } = game.time;
     const { health, inventory, damageCount } = player;
 
@@ -41,7 +42,7 @@
             // TODO: pain from enemy => left/right/ouch/mad (`STFTL${healthIndex}0` or `STFR${healthIndex}0` or see below)
             // TODO: pain from self => ouch/mad () or `STFKILL${healthIndex}`)
             rampageTime > 2 * ticksPerSecond ? faceState(`STFKILL${healthIndex}`, 5, 1) :
-            $inventory.items.invincibilityTicks ? faceState('STFGOD0', 4, 1) : // invincibility
+            $invuln || $inventory.items.invincibilityTicks ? faceState('STFGOD0', 4, 1) : // invincibility
             faceState(`STFST${healthIndex}${variation}`, 0, Math.trunc(ticksPerSecond * 0.5)); // straight or left/right eye brow
     }
 

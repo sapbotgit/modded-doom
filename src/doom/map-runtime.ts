@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { MapData, type LineDef, type Thing, type Action } from "./map-data";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, ToRadians } from "./math";
+import { HALF_PI, normalizeAngle, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
@@ -128,7 +128,7 @@ export class MapRuntime {
 
         const type = mapObjectInfo.findIndex(e => e.doomednum === thing.type);
         const mobj = this.spawn(type, thing.x, thing.y);
-        mobj.direction.set(Math.PI + thing.angle * ToRadians);
+        mobj.direction.set(normalizeAngle(Math.PI + thing.angle * ToRadians));
 
         if (mobj.info.flags & MFFlags.MF_COUNTKILL) {
             this.stats.totalKills += 1;

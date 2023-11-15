@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { thingSpec, stateChangeActions } from "./things";
+import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
@@ -32,16 +32,17 @@ export class MapObject {
     private subsectorMap = new Map<SubSector, number>();
 
     protected _state = new SpriteStateMachine(
-        action => stateChangeActions[action]?.(this.map.game.time, this),
+        action => stateChangeAction(action, this.map.game.time, this),
         () => this.map.destroy(this));
     protected zFloor = -Infinity;
 
     protected _attacker: MapObject;
     get attacker() { return this._attacker; }
 
-    protected _reactiontime: number;
-    get reactiontime() { return this._reactiontime; }
-
+    // ai stuff
+    movedir = 0;
+    movecount = 0;
+    reactiontime = 0;
     chaseThreshold = 0;
     chaseTarget: MapObject;
 
@@ -57,6 +58,7 @@ export class MapObject {
     readonly velocity = new Vector3();
     readonly renderShadow = store(false);
 
+    get isDead() { return this.health.val <= 0; }
     get onGround() { return this.position.val.z <= this.zFloor; }
     get isMonster() { return this.spec.class === 'M'; }
     get type() { return this.spec.moType; }
@@ -67,7 +69,7 @@ export class MapObject {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
         this.info = { ...spec.mo };
         this.health = store(this.info.spawnhealth);
-        this._reactiontime = map.game.skill === 5 ? 0 : this.info.reactiontime;
+        this.reactiontime = map.game.skill === 5 ? 0 : this.info.reactiontime;
 
         if (this.info.flags & MFFlags.MF_SHADOW) {
             this.renderShadow.set(true);
@@ -172,6 +174,7 @@ export class MapObject {
         this.applyGravity();
 
         this._state.tick();
+        // TODO: update movecount?
     }
 
     // kind of like P_DamageMobj
@@ -213,7 +216,7 @@ export class MapObject {
             return;
         }
 
-        this._reactiontime = 0;
+        this.reactiontime = 0;
         if (Math.random() < this.info.painchance) {
             this.info.flags |= MFFlags.MF_JUSTHIT;
             this.setState(this.info.painstate);
@@ -524,7 +527,6 @@ export class PlayerMapObject extends MapObject {
     readonly extraLight = store(0);
     readonly weapon = store<PlayerWeapon>(null);
     nextWeapon: InventoryWeapon = null;
-    get isDead() { return this.health.val <= 0; }
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
@@ -561,7 +563,7 @@ export class PlayerMapObject extends MapObject {
     tick() {
         super.tick();
 
-        this._reactiontime = Math.max(0, this._reactiontime - 1);
+        this.reactiontime = Math.max(0, this.reactiontime - 1);
         this.damageCount.update(val => Math.max(0, val - 1));
         this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();
@@ -623,7 +625,6 @@ export class PlayerMapObject extends MapObject {
         let inv = this.inventory.val;
         if (inv.items.invincibilityTicks || this.map.game.settings.invicibility.val) {
             // TODO: doom does damage to invincible players if damage is above 1000 but... why?
-            // TODO: we still need to apply thrust (super.damage())
             return;
         }
         if (this.map.game.skill === 1) {
@@ -661,7 +662,7 @@ export class PlayerMapObject extends MapObject {
     }
 
     teleport(target: Thing, sector: Sector): void {
-        this._reactiontime = 18; // freeze player after teleporting
+        this.reactiontime = 18; // freeze player after teleporting
         super.teleport(target, sector);
     }
 

@@ -22,6 +22,8 @@ interface IntersectionPoint extends Vertex {
 }
 
 export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+// larger radius means less noise
+export const angleNoise = (radius: number) => (Math.random() - Math.random()) * (Math.PI / radius);
 
 export function signedLineDistance(l: Vertex[], v: Vertex) {
     // https://math.stackexchange.com/questions/274712
@@ -124,7 +126,9 @@ export function centerSort(verts: Vertex[]) {
 }
 
 const PIx2 = Math.PI * 2;
-export const normalizeAngle = (angle: number) => Math.abs(angle % PIx2);
+// Angle between 0 and 2PI
+// https://stackoverflow.com/questions/2320986
+export const normalizeAngle = (angle: number) => Math.PI + angle - (Math.floor((angle + Math.PI) / PIx2)) * PIx2;
 
 let _sweepZeroLine = [
     { x: 0, y: 0 },
@@ -214,6 +218,9 @@ export function sweepAABBAABB(
     p2: Vertex, r2: number,
     bounded = true,
 ): IntersectionPoint {
+    // FIXME: is there a bug here? We do sometimes get stuck in monsters and now that we have AI, monsters seem to
+    // get stuck to each other. I wonder if this is related to the NaN check in lineBounds. Maybe we can unify these?
+
     // test if already overlapping
     const left = (p2.x - r2) - (p1.x + r1);
     const right = (p2.x + r2) - (p1.x - r1);

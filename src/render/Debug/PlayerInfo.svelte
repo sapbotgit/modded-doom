@@ -70,6 +70,10 @@
         player.info.flags = mInfo.flags;
         player.weapon.val.activate(player);
     }
+
+    function invincible() {
+        player.map.game.settings.invicibility.update(v => !v);
+    }
 </script>
 
 <div class="root">
@@ -82,6 +86,7 @@
     <div>camera: {vec($cameraPosition)}</div>
     <div>viewHeight: {vh.toFixed(2)}</div>
     <button on:click={revive}>Revive</button>
+    <button on:click={invincible}>IDDQD</button>
     <button on:click={fa()}>FA</button>
     <button on:click={kfa()}>KFA</button>
     <div class="bonus">
