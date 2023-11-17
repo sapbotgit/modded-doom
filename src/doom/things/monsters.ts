@@ -480,8 +480,8 @@ function newChaseDir(mobj: MapObject, target: MapObject) {
     // set search direction baesd on location of target and mobj
     const dx = target.position.val.x - mobj.position.val.x;
     const dy = target.position.val.y - mobj.position.val.y;
-    _moveDir[0] = dx > 10 ? CompassDirection.East : dx < 10 ? CompassDirection.West : CompassDirection.None;
-    _moveDir[1] = dy > 10 ? CompassDirection.North : dy < 10 ? CompassDirection.South : CompassDirection.None;
+    _moveDir[0] = dx > 10 ? CompassDirection.East : dx < -10 ? CompassDirection.West : CompassDirection.None;
+    _moveDir[1] = dy > 10 ? CompassDirection.North : dy < -10 ? CompassDirection.South : CompassDirection.None;
     const originalDir = mobj.movedir;
     const oppositeDir = compassOpposite[originalDir];
 
