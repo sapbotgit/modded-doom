@@ -1,9 +1,10 @@
 import { store, type Store } from "./store";
-import { PlayerMapObject, type PlayerInventory } from "./map-object";
+import { PlayerMapObject, type PlayerInventory, MapObject } from "./map-object";
 import type { DoomWad } from "./wad/doomwad";
 import type { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 import { Vector3 } from "three";
+import { SoundIndex } from "./doom-things-info";
 
 export interface GameTime {
     elapsed: number; // seconds
@@ -54,6 +55,15 @@ export interface IntermissionScreen {
     playerStats: PlayerMapObject['stats'][];
 }
 
+export class SoundSystem {
+    play(snd: SoundIndex, mobj?: MapObject) {
+        if (snd === SoundIndex.sfx_None) {
+            return;
+        }
+        // TODO: actually play the sound
+    }
+}
+
 export class Game {
     private nextTickTime = 0; // seconds
     time = {
@@ -90,6 +100,8 @@ export class Game {
     };
     readonly map = store<MapRuntime>(null);
     readonly intermission = store<IntermissionScreen>(null);
+    readonly sound = new SoundSystem();
+    get episodic() { return !this.wad.mapNames.includes('MAP01'); }
 
     constructor(
         readonly wad: DoomWad,

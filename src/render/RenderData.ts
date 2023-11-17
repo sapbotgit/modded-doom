@@ -12,6 +12,7 @@ import {
     type MapObject,
     type MapRuntime,
     store,
+    MFFlags,
 } from "../doom";
 import { sineIn } from 'svelte/easing';
 import { derived, readable, type Readable } from "svelte/store";
@@ -242,7 +243,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     let secMap = new Map(sectors.map(rs => [rs.sector, rs]));
     const monitor = (mobj: MapObject) => {
         visited.set(mobj, visitNum);
-        if (mobjMap.has(mobj)) {
+        if (mobjMap.has(mobj) || mobj.info.flags & MFFlags.MF_NOSECTOR) {
             return;
         }
         mobj.sector.subscribe(sec => {

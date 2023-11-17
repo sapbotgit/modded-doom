@@ -22,6 +22,7 @@ interface IntersectionPoint extends Vertex {
 }
 
 export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+export const randomChoice = (list: any[]) => list[randInt(0, list.length - 1)];
 // larger radius means less noise
 export const angleNoise = (radius: number) => (Math.random() - Math.random()) * (Math.PI / radius);
 

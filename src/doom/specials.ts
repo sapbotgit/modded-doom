@@ -954,14 +954,15 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     }
 
     let triggered = false;
-    const teleports = map.data.things.filter(e => e.type === 14)
+    const teleports = map.objs.filter(mo => mo.type === MapObjectIndex.MT_TELEPORTMAN);
     for (const tp of teleports) {
-        const sector = map.data.findSector(tp.x, tp.y);
+        const tpos = tp.position.val;
+        const sector = map.data.findSector(tpos.x, tpos.y);
 
         if (mobj.isMonster) {
             // monsters cannot teleport if something is blocking teleport landing
             let blocked = false;
-            teletportVec.set(tp.x, tp.y, sector.zFloor.val);
+            teletportVec.set(tpos.x, tpos.y, sector.zFloor.val);
             map.data.traceMove(teletportVec, zeroVec, mobj.info.radius, hit => {
                 if ('mobj' in hit) {
                     // skip non hittable things
@@ -983,8 +984,9 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
             // teleport fog in old and new locations
             const pos = mobj.position.val;
             map.spawn(MapObjectIndex.MT_TFOG, pos.x, pos.y);
-            const dir = tp.angle * ToRadians;
-            map.spawn(MapObjectIndex.MT_TFOG, tp.x + 20 * Math.cos(dir), tp.y + 20 * Math.sin(dir));
+            map.spawn(MapObjectIndex.MT_TFOG,
+                tpos.x + 20 * Math.cos(tp.direction.val),
+                tpos.y + 20 * Math.sin(tp.direction.val));
 
             mobj.teleport(tp, sector);
             triggered = true;

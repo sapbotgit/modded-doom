@@ -1,13 +1,14 @@
 import { randInt } from 'three/src/math/MathUtils';
 import type { ThingType } from '.';
-import { ActionIndex, MFFlags, MapObjectIndex } from '../doom-things-info';
+import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
 import type { GameTime } from '../game';
 import type { MapObject } from '../map-object';
-import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToDegrees, ToRadians, angleNoise, normalizeAngle } from '../math';
+import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice } from '../math';
 import { hasLineOfSight } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
+import { exitLevel } from '../specials';
 
 export const monsters: ThingType[] = [
     { type: 7, class: 'M', description: 'Spiderdemon' },
@@ -31,10 +32,120 @@ export const monsters: ThingType[] = [
     { type: 3006, class: 'M', description: 'Lost soul' },
 ];
 
+const smallDeathSounds = [SoundIndex.sfx_podth1, SoundIndex.sfx_podth2, SoundIndex.sfx_podth3];
+const bigDeathSounds = [SoundIndex.sfx_bgdth1, SoundIndex.sfx_bgdth2];
+
+const smallSeeYouSounds = [SoundIndex.sfx_posit1, SoundIndex.sfx_posit2, SoundIndex.sfx_posit3];
+const bigSeeYouSounds = [SoundIndex.sfx_bgsit1, SoundIndex.sfx_bgsit2];
+
 const mancubusMissileSpread = HALF_PI / 8;
 const halfMancubusMissileSpread = mancubusMissileSpread * .5;
-type MonsterAction = (time: GameTime, mobj: MapObject) => void
-export const monsterActions: { [key: number]: MonsterAction } = {
+
+type MonsterAction = (time: GameTime, mobj: MapObject) => void;
+type ActionMap = { [key: number]: MonsterAction };
+
+let currentBrainTarget = 0;
+let brainTargets: MapObject[] = [];
+const brainExplosionVelocity = 512 / (1 << 16);
+const doom2BossActions: ActionMap = {
+	[ActionIndex.A_BrainDie]: (time, mobj) => {
+        exitLevel(mobj, 'normal');
+    },
+	[ActionIndex.A_BrainPain]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_bospn);
+    },
+	[ActionIndex.A_BrainScream]: (time, mobj) => {
+        for (let x = mobj.position.val.x - 196; x < mobj.position.val.x + 320; x += 8) {
+            const explode = mobj.map.spawn(MapObjectIndex.MT_ROCKET,
+                x, mobj.position.val.y - 320, 128 + randInt(0, 510));
+            explode.velocity.z = Math.random() * brainExplosionVelocity;
+            explode.setState(StateIndex.S_BRAINEXPLODE1, -randInt(0, 7));
+        }
+        mobj.map.game.sound.play(SoundIndex.sfx_bosdth);
+    },
+    [ActionIndex.A_BrainExplode]: (time, mobj) => {
+        const explode = mobj.map.spawn(MapObjectIndex.MT_ROCKET,
+            mobj.position.val.x + randInt(-2048, 2048),
+            mobj.position.val.y,
+            128 + randInt(0, 510));
+        explode.velocity.z = Math.random() * brainExplosionVelocity;
+        explode.setState(StateIndex.S_BRAINEXPLODE1, -randInt(0, 7));
+    },
+	[ActionIndex.A_BrainAwake]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_bossit);
+        // find all brain targets (ideally we could attach this to the map but I guess it's okay to use a global variable)
+        currentBrainTarget = 0;
+        brainTargets = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_BOSSTARGET);
+    },
+	[ActionIndex.A_BrainSpit]: (time, mobj) => {
+        // easy ^= 1;
+        // if (gameskill <= sk_easy && (!easy))
+        // return;
+
+        const target = brainTargets[currentBrainTarget];
+        currentBrainTarget = (currentBrainTarget + 1) % brainTargets.length;
+
+        const missile = shootMissile(mobj, target, MapObjectIndex.MT_SPAWNSHOT);
+        missile.chaseTarget = target;
+        missile.reactiontime = Math.floor((target.position.val.y - mobj.position.val.y) / missile.velocity.y / states[missile.info.spawnstate].tics);
+        mobj.map.game.sound.play(SoundIndex.sfx_bospit);
+    },
+	[ActionIndex.A_SpawnSound]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_boscub, mobj);
+        allActions[ActionIndex.A_SpawnFly](time, mobj);
+    },
+	[ActionIndex.A_SpawnFly]: (time, mobj) => {
+        mobj.reactiontime -= 1;
+        if (mobj.reactiontime) {
+            return;	// still flying
+        }
+
+        const target = mobj.chaseTarget;
+        const tpos = target.position.val;
+
+        // choose monster type (see https://doomwiki.org/wiki/Monster_spawner)
+        const chance = randInt(0, 255);
+        const type =
+            chance < 50 ? MapObjectIndex.MT_TROOP :
+            chance < 90 ? MapObjectIndex.MT_SERGEANT :
+            chance < 120 ? MapObjectIndex.MT_SHADOWS :
+            chance < 130 ? MapObjectIndex.MT_PAIN :
+            chance < 160 ? MapObjectIndex.MT_HEAD :
+            chance < 162 ? MapObjectIndex.MT_VILE :
+            chance < 172 ? MapObjectIndex.MT_UNDEAD :
+            chance < 192 ? MapObjectIndex.MT_BABY :
+            chance < 222 ? MapObjectIndex.MT_FATSO :
+            chance < 246 ? MapObjectIndex.MT_KNIGHT :
+            MapObjectIndex.MT_BRUISER;
+        const monster = mobj.map.spawn(type, tpos.x, tpos.y, tpos.z);
+        monster.chaseTarget = findPlayerTarget(monster, true);
+        if (monster.chaseTarget) {
+            monster.setState(monster.info.seestate);
+        }
+        // call teleport to telefrag anything in the way
+        monster.teleport(target, monster.sector.val);
+
+        // teleport flame
+        const fog = mobj.map.spawn(MapObjectIndex.MT_SPAWNFIRE, tpos.x, tpos.y, tpos.z);
+        mobj.map.game.sound.play(SoundIndex.sfx_telept, fog);
+        // remove ourself
+        mobj.map.destroy(mobj);
+    },
+};
+
+const archvileActions: ActionMap = {
+    [ActionIndex.A_VileChase]: (time, mobj) => {},
+	[ActionIndex.A_VileStart]: (time, mobj) => {},
+	[ActionIndex.A_VileTarget]: (time, mobj) => {},
+	[ActionIndex.A_VileAttack]: (time, mobj) => {},
+	[ActionIndex.A_StartFire]: (time, mobj) => {},
+	[ActionIndex.A_Fire]: (time, mobj) => {},
+	[ActionIndex.A_FireCrackle]: (time, mobj) => {},
+}
+
+export const monsterAiActions: ActionMap = {
+    ...archvileActions,
+
     // Movement actions
     [ActionIndex.A_Look]: (time, mobj) => {
         if (!mobj.position) {
@@ -51,7 +162,12 @@ export const monsterActions: { [key: number]: MonsterAction } = {
             return;
         }
 
-        // SND: seesound ?
+        const sound =
+            smallSeeYouSounds.includes(mobj.info.seesound) ? randomChoice(smallSeeYouSounds) :
+            bigSeeYouSounds.includes(mobj.info.seesound) ? randomChoice(bigSeeYouSounds) :
+            mobj.info.seesound;
+        const soundActor = mobj.type === MapObjectIndex.MT_SPIDER || mobj.type === MapObjectIndex.MT_CYBORG ? null : mobj;
+        mobj.map.game.sound.play(sound, soundActor);
         mobj.setState(mobj.info.seestate);
     },
     [ActionIndex.A_Chase]: (time, mobj) => {
@@ -68,14 +184,15 @@ export const monsterActions: { [key: number]: MonsterAction } = {
             }
         }
 
-        // make a quarter turn if mobj.direction !== mobj.movedir
+        // make a small turns when mobj.direction !== mobj.movedir
         if (mobj.movedir !== CompassDirection.None) {
             const diff = normalizeAngle((mobj.direction.val + Math.PI) - mobj.movedir) - Math.PI;
-            if (Math.abs(diff) > EIGHTH_PI) { // only update if we're off by 1/8 of a turn
+            if (Math.abs(diff) > EIGHTH_PI) { // only update if we're off by large-ish amount
                 mobj.direction.update(val => val + ((diff < 0) ? QUARTER_PI : -QUARTER_PI));
             }
         }
 
+        // no target or target is not shootable (dead)? find a new one
         if (!mobj.chaseTarget || !(mobj.chaseTarget.info.flags & MFFlags.MF_SHOOTABLE)) {
             // no target or target is no longer shootable (dead?) so find a new target
             mobj.chaseTarget = findPlayerTarget(mobj, true);
@@ -97,7 +214,7 @@ export const monsterActions: { [key: number]: MonsterAction } = {
 
         // melee attack
         if (mobj.info.meleestate && canMeleeAttack(mobj, mobj.chaseTarget)) {
-            // SND: attacksound
+            mobj.map.game.sound.play(mobj.info.attacksound, mobj);
             mobj.setState(mobj.info.meleestate);
             return;
         }
@@ -110,7 +227,7 @@ export const monsterActions: { [key: number]: MonsterAction } = {
             return;
         }
 
-        // possibly choose another target
+        // in net games, try to find another target when we can no longer see the current one
         if (game.mode !== 'solo' && !mobj.chaseThreshold && !hasLineOfSight(mobj, mobj.chaseTarget)) {
             const newTarget = findPlayerTarget(mobj, true);
             if (newTarget) {
@@ -135,7 +252,10 @@ export const monsterActions: { [key: number]: MonsterAction } = {
             mobj.position.update(pos => pos.add(_moveVec));
         }
 
-        // SND: activesound on random() < 3/255
+        // sometimes play "active" sound
+        if (randInt(0, 255) < 3) {
+            mobj.map.game.sound.play(mobj.info.activesound, mobj);
+        }
     },
     [ActionIndex.A_FaceTarget]: (time, mobj) => {
         if (!mobj.chaseTarget) {
@@ -157,9 +277,9 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
+        mobj.map.game.sound.play(SoundIndex.sfx_pistol, mobj);
 
-        // SND sfx_pistol
         const slope = shotTracer.zAim(mobj, attackRange, mobj.direction.val);
         const angle = mobj.direction.val + angleNoise(25);
         const damage = 3 * randInt(1, 5);
@@ -169,9 +289,9 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
+        mobj.map.game.sound.play(SoundIndex.sfx_shotgn, mobj);
 
-        // SND sfx_shotgn
         const slope = shotTracer.zAim(mobj, attackRange, mobj.direction.val);
         for (let i = 0; i < 3; i++) {
             const angle = mobj.direction.val + angleNoise(25);
@@ -183,25 +303,25 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
             return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
-        // SND: sfx_skeswg
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
+        mobj.map.game.sound.play(SoundIndex.sfx_skeswg, mobj);
     },
 	[ActionIndex.A_SkelFist]: (time, mobj) => {
         if (!mobj.chaseTarget) {
             return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         if (canMeleeAttack(mobj, mobj.chaseTarget)) {
-            // SND: sfx_skepch
             const damage = 6 * randInt(1, 10);
             mobj.chaseTarget.damage(damage, mobj, mobj);
+            mobj.map.game.sound.play(SoundIndex.sfx_skepch, mobj);
         }
     },
 	[ActionIndex.A_SkelMissile]: (time, mobj) => {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         const tracer = shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_TRACER);
         tracer.tracerTarget = mobj.chaseTarget;
         // revenant missiles are spawned a little higher than most things so adjust the z and re-launch the projectile
@@ -212,8 +332,8 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
-        // SND: sfx_shotgn
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
+        mobj.map.game.sound.play(SoundIndex.sfx_shotgn, mobj);
 
         const angle = mobj.direction.val + angleNoise(25);
         const damage = 3 * randInt(1, 5);
@@ -221,7 +341,7 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
     },
 	[ActionIndex.A_CPosRefire]: (time, mobj) => {
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         if (randInt(0, 255) < 40) {
             return; // only check for active target occasionally (about 16% of the time)
         }
@@ -234,12 +354,12 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
 
         if (canMeleeAttack(mobj, mobj.chaseTarget)) {
-            // SND sfx_claw
             const damage = 3 * randInt(1, 8);
             mobj.chaseTarget.damage(damage, mobj, mobj);
+            mobj.map.game.sound.play(SoundIndex.sfx_claw, mobj);
             return;
         }
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_TROOPSHOT);
@@ -248,7 +368,7 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
             return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
 
         if (canMeleeAttack(mobj, mobj.chaseTarget)) {
             const damage = 4 * randInt(1, 10);
@@ -259,7 +379,7 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
 
         if (canMeleeAttack(mobj, mobj.chaseTarget)) {
             const damage = 10 * randInt(1, 6);
@@ -272,12 +392,12 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
 
         if (canMeleeAttack(mobj, mobj.chaseTarget)) {
-            // SND sfx_claw
             const damage = 10 * randInt(1, 8);
             mobj.chaseTarget.damage(damage, mobj, mobj);
+            mobj.map.game.sound.play(SoundIndex.sfx_claw, mobj);
             return;
         }
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_BRUISERSHOT);
@@ -286,33 +406,33 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
-        // SND: mobj.info.attacksound
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
 
         mobj.info.flags |= MFFlags.MF_SKULLFLY;
+        mobj.map.game.sound.play(mobj.info.attacksound, mobj);
         launchMapObject(mobj, mobj.chaseTarget, mobj.chaseTarget.info.height * .5, 20);
     },
     [ActionIndex.A_FatRaise]: (time, mobj) => {
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
-        // SND sfx_manatk
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
+        mobj.map.game.sound.play(SoundIndex.sfx_manatk, mobj);
     },
 	[ActionIndex.A_FatAttack1]: (time, mobj) => {
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val + mancubusMissileSpread);
     },
 	[ActionIndex.A_FatAttack2]: (time, mobj) => {
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val - mancubusMissileSpread);
     },
 	[ActionIndex.A_FatAttack3]: (time, mobj) => {
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val - halfMancubusMissileSpread);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val + halfMancubusMissileSpread);
     },
 	[ActionIndex.A_SpidRefire]: (time, mobj) => {
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         if (randInt(0, 255) < 10) {
             return; // only check for active target occasionally (about 4% of the time)
         }
@@ -325,21 +445,21 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         if (!mobj.chaseTarget) {
             return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_ARACHPLAZ);
     },
 	[ActionIndex.A_CyberAttack]: (time, mobj) => {
         if (!mobj.chaseTarget) {
 	        return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_ROCKET);
     },
 	[ActionIndex.A_PainAttack]: (time, mobj) => {
         if (!mobj.chaseTarget) {
             return;
         }
-        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
         spawnLostSoul(time, mobj, mobj.direction.val);
     },
 
@@ -387,42 +507,61 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         const slope = ((target.position.val.z + 40) - missile.position.val.z) / dist * missile.info.speed;
         missile.velocity.z += slope < missile.velocity.z ? -zAdjust : zAdjust;
     },
+}
+
+export const monsterActions = {
+    ...doom2BossActions,
 
     // Death Actions
-	[ActionIndex.A_PainDie]: (time, mobj) => {},
-    [ActionIndex.A_Scream]: (time, mobj) => {},
+	[ActionIndex.A_PainDie]: (time, mobj) => {
+        allActions[ActionIndex.A_Fall](time, mobj);
+        spawnLostSoul(time, mobj, mobj.direction.val + HALF_PI);
+        spawnLostSoul(time, mobj, mobj.direction.val + Math.PI);
+        spawnLostSoul(time, mobj, mobj.direction.val - HALF_PI);
+    },
+    [ActionIndex.A_Scream]: (time, mobj) => {
+        const sound = smallDeathSounds.includes(mobj.info.deathsound) ? randomChoice(smallDeathSounds) :
+            bigDeathSounds.includes(mobj.info.deathsound) ? randomChoice(bigDeathSounds) :
+            mobj.info.deathsound;
+        // don't set location for bosses so the sound plays at full volume
+        const location = (mobj.type === MapObjectIndex.MT_SPIDER || mobj.type === MapObjectIndex.MT_CYBORG) ? null : mobj;
+        mobj.map.game.sound.play(sound, location);
+    },
+    // These two are related to sector tags 666 and 667
 	[ActionIndex.A_KeenDie]: (time, mobj) => {},
 	[ActionIndex.A_BossDeath]: (time, mobj) => {},
 
-    // Arch-vile
-    [ActionIndex.A_VileChase]: (time, mobj) => {},
-	[ActionIndex.A_VileStart]: (time, mobj) => {},
-	[ActionIndex.A_VileTarget]: (time, mobj) => {},
-	[ActionIndex.A_VileAttack]: (time, mobj) => {},
-	[ActionIndex.A_StartFire]: (time, mobj) => {},
-	[ActionIndex.A_Fire]: (time, mobj) => {},
-	[ActionIndex.A_FireCrackle]: (time, mobj) => {},
-
     // Mostly about playing a sound
-    [ActionIndex.A_Metal]: (time, mobj) => {},
-	[ActionIndex.A_BabyMetal]: (time, mobj) => {},
-	[ActionIndex.A_Hoof]: (time, mobj) => {},
-    [ActionIndex.A_Pain]: (time, player) => {},
+    [ActionIndex.A_Metal]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_metal, mobj);
+        allActions[ActionIndex.A_Chase](time, mobj);
+    },
+	[ActionIndex.A_BabyMetal]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_bspwlk, mobj);
+        allActions[ActionIndex.A_Chase](time, mobj);
+    },
+	[ActionIndex.A_Hoof]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_hoof, mobj);
+        allActions[ActionIndex.A_Chase](time, mobj);
+    },
+    [ActionIndex.A_Pain]: (time, mobj) => {
+        mobj.map.game.sound.play(mobj.info.painsound, mobj);
+    },
+	[ActionIndex.A_Fall]: (time, mobj) => {
+        mobj.info.flags &= ~MFFlags.MF_SOLID;
+    },
+	[ActionIndex.A_XScream]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_slop, mobj);
+    },
     // player only so maybe it could be moved to a player specific place?
-	[ActionIndex.A_PlayerScream]: (time, player) => {},
-	[ActionIndex.A_Fall]: (time, player) => {},
-	[ActionIndex.A_XScream]: (time, player) => {},
-
-    // Doom2 boss
-	[ActionIndex.A_BrainPain]: (time, mobj) => {},
-	[ActionIndex.A_BrainScream]: (time, mobj) => {},
-	[ActionIndex.A_BrainDie]: (time, mobj) => {},
-	[ActionIndex.A_BrainAwake]: (time, mobj) => {},
-	[ActionIndex.A_BrainSpit]: (time, mobj) => {},
-	[ActionIndex.A_SpawnSound]: (time, mobj) => {},
-	[ActionIndex.A_SpawnFly]: (time, mobj) => {},
-	[ActionIndex.A_BrainExplode]: (time, mobj) => {},
+	[ActionIndex.A_PlayerScream]: (time, player) => {
+        const sound = player.health.val < -50 && !player.map.game.episodic
+            ? SoundIndex.sfx_pdiehi : SoundIndex.sfx_pldeth;
+        player.map.game.sound.play(sound, player);
+    },
 };
+
+const allActions = { ...monsterActions, ...monsterAiActions, ...doom2BossActions, ...archvileActions };
 
 function findPlayerTarget(mobj: MapObject, allAround = false) {
     // TODO: in multiplayer, there are multiple players to look for
@@ -656,22 +795,23 @@ type MissileType =
     // doom
     MapObjectIndex.MT_TROOPSHOT | MapObjectIndex.MT_HEADSHOT | MapObjectIndex.MT_BRUISERSHOT | MapObjectIndex.MT_ROCKET |
     // doom 2
-    MapObjectIndex.MT_ARACHPLAZ | MapObjectIndex.MT_FATSHOT | MapObjectIndex.MT_TRACER;
+    MapObjectIndex.MT_ARACHPLAZ | MapObjectIndex.MT_FATSHOT | MapObjectIndex.MT_TRACER | MapObjectIndex.MT_SPAWNSHOT;
 // TODO: similar (but also different) from player shootMissile in weapon.ts. Maybe we can combine these?
-// The biggest difference is speed is only x/y, z speed is completely different
 function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, angle?: number) {
     const pos = shooter.position.val;
     const mobj = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset);
-    // TODO: shadow objects (invisibility) should add error to angle
-    mobj.direction.set(angle ?? shooter.direction.val);
+    let an = angle ?? Math.atan2(target.position.val.y - shooter.position.val.y, target.position.val.x - shooter.position.val.x);
+    if (target.info.flags & MFFlags.MF_SHADOW) {
+        // shadow objects (invisibility) should add error to angle
+        an += angleNoise(25);
+    }
+    mobj.direction.set(an);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
     mobj.chaseTarget = shooter;
 
-    if (mobj.info.seesound) {
-        // SOUND: mobj.infoseesound
-    }
     launchMapObject(mobj, target, shotZOffset, mobj.info.speed);
+    mobj.map.game.sound.play(mobj.info.seesound, mobj);
     return mobj;
 }
 
@@ -707,5 +847,5 @@ function spawnLostSoul(time: GameTime, parent: MapObject, angle: number) {
     }
 
     lostSoul.chaseTarget = parent.chaseTarget;
-    monsterActions[ActionIndex.A_SkullAttack](time, lostSoul);
+    monsterAiActions[ActionIndex.A_SkullAttack](time, lostSoul);
 }

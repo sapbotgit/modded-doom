@@ -138,7 +138,7 @@ export class MapObject {
                 subsector => Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
             this.subsectorMap.forEach((rev, subsector) => {
-                if (rev === this.subsecRev) {
+                if (rev === this.subsecRev && !(this.info.flags & MFFlags.MF_NOBLOCKMAP)) {
                     subsector.mobjs.add(this);
                 } else {
                     subsector.mobjs.delete(this);
@@ -236,9 +236,6 @@ export class MapObject {
     }
 
     kill(source?: MapObject) {
-        // TODO: this should be moved to A_Fall but we haven't implemented actions for object states (only weapon states)
-        this.info.flags &= ~MFFlags.MF_SOLID;
-
         this.info.flags |= MFFlags.MF_CORPSE | MFFlags.MF_DROPOFF;
         this.info.flags &= ~(MFFlags.MF_SHOOTABLE | MFFlags.MF_FLOAT | MFFlags.MF_SKULLFLY);
         if (this.type !== MapObjectIndex.MT_SKULL) {
@@ -284,10 +281,10 @@ export class MapObject {
         this._state.setState(stateIndex, tickOffset);
     }
 
-    teleport(target: Thing, sector: Sector) {
+    teleport(target: MapObject, sector: Sector) {
         this.velocity.set(0, 0, 0);
-        this.position.update(pos => pos.set(target.x, target.y, sector.zFloor.val));
-        this.direction.set(Math.PI + target.angle * ToRadians);
+        this.position.update(pos => pos.set(target.position.val.x, target.position.val.y, sector.zFloor.val));
+        this.direction.set(target.direction.val + Math.PI);
 
         if (this.isMonster && this.map.name !== 'MAP30') {
             return; // monsters only telefrag in level 30
@@ -338,6 +335,11 @@ export class MapObject {
     // kind of P_XYMovement
     protected updatePosition() {
         if (this.velocity.lengthSq() < stopVelocity) {
+            return;
+        }
+
+        if (this.info.flags & MFFlags.MF_NOCLIP) {
+            this.position.update(pos => pos.add(this.velocity));
             return;
         }
 
@@ -666,18 +668,13 @@ export class PlayerMapObject extends MapObject {
         this.weapon.val.deactivate();
     }
 
-    teleport(target: Thing, sector: Sector): void {
+    teleport(target: MapObject, sector: Sector): void {
         this.reactiontime = 18; // freeze player after teleporting
         super.teleport(target, sector);
     }
 
-    private get enablePlayerCollisions() { return !this.map.game.settings.noclip.val; }
     xyMove(): void {
-        if (this.enablePlayerCollisions) {
-            super.updatePosition();
-        } else {
-            this.position.update(pos => pos.add(this.velocity));
-        }
+        super.updatePosition();
     }
 
     protected updatePosition(): void {

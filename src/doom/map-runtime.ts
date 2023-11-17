@@ -107,9 +107,6 @@ export class MapRuntime {
             || thing.type === 3
             || thing.type === 4
             || thing.type === 11
-            || thing.type === 14
-            || thing.type === 87
-            || thing.type === 89
         );
         if (noSpawn) {
             return;
@@ -149,6 +146,7 @@ export class MapRuntime {
     }
 
     destroy(mobj: MapObject) {
+        console.log('destroy',mobj.id)
         mobj.subsectors(subsector =>  subsector.mobjs.delete(mobj));
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);
@@ -311,6 +309,13 @@ class GameInput {
         this.freeFly = this.map.game.settings.freeFly;
         this.compassMove = this.map.game.settings.compassMove;
         this.map.disposables.push(
+            this.map.game.settings.noclip.subscribe(noclip => {
+                if (noclip) {
+                    this.player.info.flags |= MFFlags.MF_NOCLIP;
+                } else {
+                    this.player.info.flags &= ~MFFlags.MF_NOCLIP;
+                }
+            }),
             this.map.game.settings.freelook.subscribe(val => {
                 if (val) {
                     this.minPolarAngle = -HALF_PI;

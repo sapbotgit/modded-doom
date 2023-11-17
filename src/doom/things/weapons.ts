@@ -597,6 +597,8 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                     return true; // shot under thing
                 }
 
+                // FIXME: something not quite right here. Especially baddies on platforms shooting down seem to shoot
+                // at feet (or below feet) and miss
                 thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
                 thingSlopeBottom = Math.max(thingSlopeBottom, slopeBottom);
                 result.slope = (thingSlopeTop + thingSlopeBottom) * .5;

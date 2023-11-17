@@ -119,6 +119,7 @@
     userData={{ type: 'mobj', moType: thing.type }}
     interactive={$editor.active}
     on:click={hit}
+    renderOrder={1}
     {visible}
     {material}
     {geometry}

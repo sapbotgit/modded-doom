@@ -1240,7 +1240,7 @@ const createMapObjectInfo = (
 });
 
 // sounds.h
-enum SoundIndex {
+export enum SoundIndex {
 	sfx_None,
 	sfx_pistol,
 	sfx_shotgn,

@@ -1,7 +1,7 @@
 import { ActionIndex, MapObjectIndex, mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
 import type { MapObject, PlayerMapObject } from '../map-object';
 import { weaponItems, weaponActions } from './weapons';
-import { monsters, monsterActions } from './monsters';
+import { monsters, monsterActions, monsterAiActions } from './monsters';
 import { ammunitions } from './ammunitions';
 import { items } from './items';
 import { powerups } from './powerups';
@@ -44,10 +44,13 @@ export function thingSpec(moType: MapObjectIndex): ThingSpec {
 
 const actions = {
     ...obstacleActions,
+    ...monsterActions,
     [ActionIndex.A_BFGSpray]: weaponActions[ActionIndex.A_BFGSpray],
 }
 export const stateChangeAction = (action: ActionIndex, time: GameTime, mobj: MapObject) => {
-    const aiActions = mobj.map.game.settings.monsterAI.val !== 'disabled' ? monsterActions : {};
+    // disable ai actions based on setting (but we must not disable BOSSPIT because that is the thing that triggers the MAP30 spawning)
+    const aiActions = mobj.map.game.settings.monsterAI.val !== 'disabled' || mobj.type === MapObjectIndex.MT_BOSSSPIT
+        ? monsterAiActions : {};
     const fn = actions[action] ?? aiActions[action];
     return fn?.(time, mobj);
 };
