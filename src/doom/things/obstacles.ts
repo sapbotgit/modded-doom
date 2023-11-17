@@ -95,13 +95,12 @@ const _losVec = new Vector3();
 export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // Kind of like P_CheckSight
     let los = true;
-    // start from the "eyes" of mobj1 (or about half height)
+    // start from the "eyes" of mobj1 (or about 75% of height)
     _losStart.copy(mobj1.position.val);
-    _losStart.z += mobj1.info.height * .5;
+    _losStart.z += mobj1.info.height * .75;
     _losVec.copy(mobj2.position.val).sub(_losStart);
-    const zTop = mobj2.position.val.z + mobj2.info.height;
-    let zMax = (zTop - _losStart.z);
-    let zMin = (mobj2.position.val.z - _losStart.z);
+    let zTop = (mobj2.position.val.z + mobj2.info.height) - _losStart.z;
+    let zBottom = mobj2.position.val.z - _losStart.z;
 
     mobj1.map.data.traceRay(mobj1.position.val, _losVec, hit => {
         if ('line' in hit) {
@@ -122,13 +121,13 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
             }
 
             if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                zMax = Math.min(zMax, (openTop - _losStart.z));
+                zTop = Math.min(zTop, (openTop - _losStart.z) / hit.fraction);
             }
             if (front.sector.zFloor.val !== back.sector.zFloor.val) {
-                zMin = Math.max(zMin, (openBottom - _losStart.z));
+                zBottom = Math.max(zBottom, (openBottom - _losStart.z) / hit.fraction);
             }
 
-            if (zMax <= zMin) {
+            if (zTop <= zBottom) {
                 // no room means no line of sight so stop searching
                 los = false;
                 return false;
