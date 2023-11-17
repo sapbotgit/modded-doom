@@ -57,6 +57,10 @@
     $: position.y = $tpos.y + Math.cos(ang) * hOffset;
     $: position.z = $tpos.z + vOffset;
 
+    const scale = { x: 0, y: 0 };
+    $: scale.y = texture.userData.height;
+    $: scale.x = frame.mirror ? -texture.userData.width : texture.userData.width;
+
     const rotation: Rotation = { order: 'ZXY' };
     $: if ($mode === 'bird') {
         rotation.x = Math.PI;
@@ -118,7 +122,7 @@
     {visible}
     {material}
     {geometry}
-    scale={{ y: texture.userData.height, x: frame.mirror ? -texture.userData.width : texture.userData.width }}
+    {scale}
     {rotation}
     {position}
 >
