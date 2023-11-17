@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
-import { Vector3 } from "three";
+import { TextureLoader, Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
@@ -358,33 +358,37 @@ export class MapObject {
 
                 if ('mobj' in hit) {
                     // kind of like PIT_CheckThing
-                    if (hit.mobj === this) {
-                        return true; // don't collide with yourself
-                    }
-                    if (!(hit.mobj.info.flags & hittableThing)) {
-                        return true; // not hittable
-                    }
-                    if (start.z + this.info.height < hit.mobj.position.val.z) {
-                        return true; // passed under target
-                    }
-                    if (start.z > hit.mobj.position.val.z + hit.mobj.info.height) {
-                        return true; // passed over target
-                    }
-                    if (hit.mobj.hitC === hitCount) {
-                        return true; // already hit this mobj
+                    const ignoreHit = (false
+                        || (hit.mobj === this) // don't collide with yourself
+                        || (!(hit.mobj.info.flags & hittableThing)) // not hittable
+                        || (start.z + this.info.height < hit.mobj.position.val.z) // passed under target
+                        || (start.z > hit.mobj.position.val.z + hit.mobj.info.height) // passed over target
+                        || (hit.mobj.hitC === hitCount) // already hit this mobj
+                    );
+                    if (ignoreHit) {
+                        return true;
                     }
                     hit.mobj.hitC = hitCount;
 
                     if (isMissile) {
-                        // TODO: check species (imps don't hit imps, etc.)
                         if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
                             return !(hit.mobj.info.flags & MFFlags.MF_SOLID);
                         }
                         if (this.chaseTarget === hit.mobj) {
                             return true; // don't hit shooter, continue trace
                         }
-                        const damage = randInt(1, 8) * this.info.damage;
-                        hit.mobj.damage(damage, this, this.chaseTarget);
+                        // same species does not damage hit.mobj but still explodes missile
+                        // this is quite clever because bullets shooters (chaingun guys, shotgun guys, etc.) don't shoot
+                        // missiles and therefore will still attack each other
+                        const sameSpecies = this.chaseTarget && (
+                            this.chaseTarget.type === hit.mobj.type ||
+                            (this.chaseTarget.type === MapObjectIndex.MT_KNIGHT && hit.mobj.type === MapObjectIndex.MT_BRUISER)||
+                            (this.chaseTarget.type === MapObjectIndex.MT_BRUISER && hit.mobj.type === MapObjectIndex.MT_KNIGHT)
+                        );
+                        if (!sameSpecies) {
+                            const damage = randInt(1, 8) * this.info.damage;
+                            hit.mobj.damage(damage, this, this.chaseTarget);
+                        }
                         this.explode();
                         return false;
                     }

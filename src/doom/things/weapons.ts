@@ -153,9 +153,9 @@ function giveWeapon(name: WeaponName) {
     }
 }
 
-const meleeRange = 1 * 64;
-const scanRange = 16 * 64;
-const attackRange = 32 * 64;
+export const meleeRange = 1 * 64;
+export const scanRange = 16 * 64;
+export const attackRange = 32 * 64;
 const bulletDamage = () => 5 * randInt(1, 3);
 
 const weaponBobTime = 128 / ticksPerSecond;
@@ -241,12 +241,12 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         }
 
         let angle = player.direction.val + Math.PI + angleNoise(20);
-        const slope = tracer.zAim(player, meleeRange);
-        tracer.fire(player, damage, angle, slope, meleeRange);
+        const slope = shotTracer.zAim(player, meleeRange);
+        shotTracer.fire(player, damage, angle, slope, meleeRange);
 
         // turn to face target
-        if (tracer.lastTarget) {
-            player.direction.set(angleBetween(player, tracer.lastTarget));
+        if (shotTracer.lastTarget) {
+            player.direction.set(angleBetween(player, shotTracer.lastTarget));
         }
     },
     [ActionIndex.A_Saw]: (time, player, weapon) => {
@@ -254,10 +254,10 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         let angle = player.direction.val + Math.PI + angleNoise(20);
 
         // use meleerange + 1 se the puff doesn't skip the flash
-        const slope = tracer.zAim(player, meleeRange + 1);
-        tracer.fire(player, damage, angle, slope, meleeRange + 1);
+        const slope = shotTracer.zAim(player, meleeRange + 1);
+        shotTracer.fire(player, damage, angle, slope, meleeRange + 1);
 
-        if (!tracer.lastTarget) {
+        if (!shotTracer.lastTarget) {
             // TODO: play sfx_sawful
             return;
         }
@@ -265,7 +265,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 
         // turn to face target
         player.direction.update(dir => {
-            const newAngle = angleBetween(player, tracer.lastTarget);
+            const newAngle = angleBetween(player, shotTracer.lastTarget);
             if (newAngle - dir > Math.PI) {
                 dir = (newAngle - dir > -HALF_PI / 20)
                     ? newAngle + HALF_PI / 21
@@ -285,22 +285,22 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        const slope = tracer.zAim(player, scanRange);
+        const slope = shotTracer.zAim(player, scanRange);
         let angle = player.direction.val + Math.PI;
         if (player.refire) {
             // mess up angle slightly for refire
             angle += angleNoise(20);
         }
-        tracer.fire(player, bulletDamage(), angle, slope, attackRange);
+        shotTracer.fire(player, bulletDamage(), angle, slope, attackRange);
     },
     [ActionIndex.A_FireShotgun]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        const slope = tracer.zAim(player, scanRange);
+        const slope = shotTracer.zAim(player, scanRange);
         const angle = player.direction.val + Math.PI;
         for (let i = 0; i < 7; i++) {
-            tracer.fire(player, bulletDamage(), angle + angleNoise(20), slope, attackRange);
+            shotTracer.fire(player, bulletDamage(), angle + angleNoise(20), slope, attackRange);
         }
     },
 
@@ -311,10 +311,10 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
 
-        const slope = tracer.zAim(player, scanRange);
+        const slope = shotTracer.zAim(player, scanRange);
         let angle = player.direction.val + Math.PI;
         for (let i = 0; i < 20; i++) {
-            tracer.fire(player, bulletDamage(), angle + angleNoise(15), slope + angleNoise(30), attackRange);
+            shotTracer.fire(player, bulletDamage(), angle + angleNoise(15), slope + angleNoise(30), attackRange);
         }
     },
     [ActionIndex.A_OpenShotgun2]: (time, player, weapon) => {
@@ -332,13 +332,13 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         player.setState(StateIndex.S_PLAY_ATK2);
         useAmmo(player, weapon);
 
-        const slope = tracer.zAim(player, scanRange);
+        const slope = shotTracer.zAim(player, scanRange);
         let angle = player.direction.val + Math.PI;
         if (player.refire) {
             // mess up angle slightly for refire
             angle += angleNoise(20);
         }
-        tracer.fire(player, bulletDamage(), angle, slope, attackRange);
+        shotTracer.fire(player, bulletDamage(), angle, slope, attackRange);
     },
 
     [ActionIndex.A_FireMissile]: (time, player, weapon) => {
@@ -404,10 +404,12 @@ class ShotTracer {
 
     private start = new Vector3();
     private direction = new Vector3();
-    zAim(shooter: MapObject | PlayerMapObject, range: number) {
+    zAim(shooter: MapObject | PlayerMapObject, range: number, angle?: number) {
         this.start.copy(shooter.position.val);
         this.start.z += shooter.info.height * .5 + 8;
-        const dir = shooter.direction.val + Math.PI;
+        // TODO: $direction+Math.PI ?? This is applied so inconsistently in the code and I've not bothered to track down
+        // what is really going on there. This needs to be cleaned up
+        const dir = angle ?? (shooter.direction.val + Math.PI);
         this.direction.set(
             Math.cos(dir) * range,
             Math.sin(dir) * range,
@@ -564,7 +566,7 @@ class ShotTracer {
         }
     }
 }
-const tracer = new ShotTracer();
+export const shotTracer = new ShotTracer();
 
 interface AimTrace {
     target: MapObject;
@@ -642,21 +644,21 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
     return result;
 }
 
-function shootMissile(player: MapObject, type: MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG) {
-    const slope = tracer.zAim(player, scanRange);
-
-    const angle = player.direction.val + Math.PI;
-    const pos = player.position.val;
-    const mobj = player.map.spawn(type, pos.x, pos.y, pos.z + 32);
-    mobj.direction.set(player.direction.val);
+type PlayerMissileType = MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG;
+function shootMissile(shooter: MapObject, type: PlayerMissileType) {
+    const angle = shooter.direction.val + Math.PI;
+    const pos = shooter.position.val;
+    const mobj = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32);
+    mobj.direction.set(angle);
+    // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
+    // hits a target to know who fired it.
+    mobj.chaseTarget = shooter;
 
     if (mobj.info.seesound) {
         // SOUND: mobj.infoseesound
     }
 
-    // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
-    // hits a target to know who fired it.
-    mobj.chaseTarget = player;
+    const slope = shotTracer.zAim(shooter, scanRange);
     _shotEuler.set(0, Math.acos(slope) - HALF_PI, angle);
     mobj.velocity.set(mobj.info.speed, 0, 0).applyEuler(_shotEuler);
 }

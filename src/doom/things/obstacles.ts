@@ -90,20 +90,20 @@ export const actions: { [key: number]: StateChangeAction } = {
     },
 }
 
-const losStart = new Vector3();
-const losVec = new Vector3();
+const _losStart = new Vector3();
+const _losVec = new Vector3();
 export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
     // Kind of like P_CheckSight
     let los = true;
-    // start from the "eyes" of mobj1 (or about half-height)
-    losStart.copy(mobj1.position.val);
-    losStart.z += mobj1.info.height * .5;
-    losVec.copy(mobj2.position.val).sub(losStart);
+    // start from the "eyes" of mobj1 (or about half height)
+    _losStart.copy(mobj1.position.val);
+    _losStart.z += mobj1.info.height * .5;
+    _losVec.copy(mobj2.position.val).sub(_losStart);
     const zTop = mobj2.position.val.z + mobj2.info.height;
-    let zMax = (zTop - losStart.z);
-    let zMin = (mobj2.position.val.z - losStart.z);
+    let zMax = (zTop - _losStart.z);
+    let zMin = (mobj2.position.val.z - _losStart.z);
 
-    mobj1.map.data.traceRay(mobj1.position.val, losVec, hit => {
+    mobj1.map.data.traceRay(mobj1.position.val, _losVec, hit => {
         if ('line' in hit) {
             if (!hit.line.left) {
                 // we've hit a solid wall so line of sight is false
@@ -122,10 +122,10 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
             }
 
             if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                zMax = Math.min(zMax, (openTop - losStart.z));
+                zMax = Math.min(zMax, (openTop - _losStart.z));
             }
             if (front.sector.zFloor.val !== back.sector.zFloor.val) {
-                zMin = Math.max(zMin, (openBottom - mobj2.position.val.z));
+                zMin = Math.max(zMin, (openBottom - _losStart.z));
             }
 
             if (zMax <= zMin) {
