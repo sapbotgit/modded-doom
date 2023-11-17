@@ -45,6 +45,7 @@ export class MapObject {
     reactiontime = 0;
     chaseThreshold = 0;
     chaseTarget: MapObject;
+    tracerTarget: MapObject;
 
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector) => void;

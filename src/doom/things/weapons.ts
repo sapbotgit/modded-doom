@@ -477,7 +477,7 @@ class ShotTracer {
 
                 const pos = this.bulletHitLocation(10, hit.fraction, aimSlope, range);
                 if (hit.mobj.info.flags & MFFlags.MF_NOBLOOD) {
-                    this.spawnPuff(shooter, pos);
+                    spawnPuff(shooter, pos);
                 } else {
                     this.spawnBlood(hit.mobj, pos, damage);
                 }
@@ -519,7 +519,7 @@ class ShotTracer {
                     return false;
                 }
                 const spot = this.bulletHitLocation(4, hit.fraction, aimSlope, range);
-                const mobj = this.spawnPuff(shooter, spot);
+                const mobj = spawnPuff(shooter, spot);
                 if (hit.flat === 'ceil') {
                     // invert puff sprite when hitting ceiling
                     mobj.info.flags |= MFFlags.InvertSpriteYOffset;
@@ -532,15 +532,9 @@ class ShotTracer {
 
     private hitWallOrSky(shooter: MapObject, front: Sector, back: Sector, spot: Vector3) {
         if (!hitSky(spot.z, front, back)) {
-            this.spawnPuff(shooter, spot);
+            spawnPuff(shooter, spot);
         }
         return false;
-    }
-
-    private spawnPuff(shooter: MapObject, spot: Vector3) {
-        const mobj = shooter.map.spawn(MapObjectIndex.MT_PUFF, spot.x, spot.y, spot.z);
-        mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
-        return mobj;
     }
 
     // TODO: too many params (and fire() too...), can we refactors these functions a little cleaner?
@@ -668,4 +662,11 @@ function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {
         inv.ammo[weapon.ammoType].amount = Math.max(inv.ammo[weapon.ammoType].amount - weapon.ammoPerShot, 0);
         return inv;
     });
+}
+
+export function spawnPuff(parent: MapObject, spot: Vector3) {
+    const zNoise = randInt(-5, 5) * .5;
+    const mobj = parent.map.spawn(MapObjectIndex.MT_PUFF, spot.x, spot.y, spot.z + zNoise);
+    mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
+    return mobj;
 }

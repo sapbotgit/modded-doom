@@ -3,11 +3,11 @@ import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex } from '../doom-things-info';
 import type { GameTime } from '../game';
 import type { MapObject } from '../map-object';
-import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle } from '../math';
+import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToDegrees, ToRadians, angleNoise, normalizeAngle } from '../math';
 import { hasLineOfSight } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing } from '../map-data';
-import { attackRange, meleeRange, shotTracer } from './weapons';
+import { hittableThing, zeroVec } from '../map-data';
+import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
 
 export const monsters: ThingType[] = [
     { type: 7, class: 'M', description: 'Spiderdemon' },
@@ -31,12 +31,15 @@ export const monsters: ThingType[] = [
     { type: 3006, class: 'M', description: 'Lost soul' },
 ];
 
+const mancubusMissileSpread = HALF_PI / 8;
+const halfMancubusMissileSpread = mancubusMissileSpread * .5;
 type MonsterAction = (time: GameTime, mobj: MapObject) => void
 export const monsterActions: { [key: number]: MonsterAction } = {
     // Movement actions
     [ActionIndex.A_Look]: (time, mobj) => {
         if (!mobj.position) {
             // TODO: this only happens during MapObject constructor because we call A_Look before we set position. Can we avoid this check?
+            // (see also A_Tracer)
             return;
         }
         mobj.chaseThreshold = 0;
@@ -176,11 +179,57 @@ export const monsterActions: { [key: number]: MonsterAction } = {
             shotTracer.fire(mobj, damage, angle, slope, attackRange);
         }
     },
-    [ActionIndex.A_SkelWhoosh]: (time, mobj) => {},
-	[ActionIndex.A_SkelFist]: (time, mobj) => {},
-	[ActionIndex.A_SkelMissile]: (time, mobj) => {},
-	[ActionIndex.A_CPosAttack]: (time, mobj) => {},
-	[ActionIndex.A_CPosRefire]: (time, mobj) => {},
+    [ActionIndex.A_SkelWhoosh]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+            return;
+        }
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        // SND: sfx_skeswg
+    },
+	[ActionIndex.A_SkelFist]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+            return;
+        }
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        if (canMeleeAttack(mobj, mobj.chaseTarget)) {
+            // SND: sfx_skepch
+            const damage = 6 * randInt(1, 10);
+            mobj.chaseTarget.damage(damage, mobj, mobj);
+        }
+    },
+	[ActionIndex.A_SkelMissile]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+	        return;
+        }
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        const tracer = shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_TRACER);
+        tracer.tracerTarget = mobj.chaseTarget;
+        // revenant missiles are spawned a little higher than most things so adjust the z and re-launch the projectile
+        tracer.position.update(pos => pos.setZ(pos.z + 16));
+        launchMapObject(tracer, mobj.chaseTarget, shotZOffset, tracer.info.speed);
+    },
+	[ActionIndex.A_CPosAttack]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+	        return;
+        }
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        // SND: sfx_shotgn
+
+        const angle = mobj.direction.val + angleNoise(25);
+        const damage = 3 * randInt(1, 5);
+        const slope = shotTracer.zAim(mobj, attackRange, mobj.direction.val);
+        shotTracer.fire(mobj, damage, angle, slope, attackRange);
+    },
+	[ActionIndex.A_CPosRefire]: (time, mobj) => {
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        if (randInt(0, 255) < 40) {
+            return; // only check for active target occasionally (about 16% of the time)
+        }
+        const stopShooting = !mobj.chaseTarget || mobj.chaseTarget.isDead || !hasLineOfSight(mobj, mobj.chaseTarget)
+        if (stopShooting) {
+            mobj.setState(mobj.info.seestate);
+        }
+    },
 	[ActionIndex.A_TroopAttack]: (time, mobj) => {
         if (!mobj.chaseTarget) {
 	        return;
@@ -243,10 +292,25 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         mobj.info.flags |= MFFlags.MF_SKULLFLY;
         launchMapObject(mobj, mobj.chaseTarget, mobj.chaseTarget.info.height * .5, 20);
     },
-    [ActionIndex.A_FatRaise]: (time, mobj) => {},
-	[ActionIndex.A_FatAttack1]: (time, mobj) => {},
-	[ActionIndex.A_FatAttack2]: (time, mobj) => {},
-	[ActionIndex.A_FatAttack3]: (time, mobj) => {},
+    [ActionIndex.A_FatRaise]: (time, mobj) => {
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        // SND sfx_manatk
+    },
+	[ActionIndex.A_FatAttack1]: (time, mobj) => {
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val + mancubusMissileSpread);
+    },
+	[ActionIndex.A_FatAttack2]: (time, mobj) => {
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val - mancubusMissileSpread);
+    },
+	[ActionIndex.A_FatAttack3]: (time, mobj) => {
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val - halfMancubusMissileSpread);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_FATSHOT, mobj.direction.val + halfMancubusMissileSpread);
+    },
 	[ActionIndex.A_SpidRefire]: (time, mobj) => {
         monsterActions[ActionIndex.A_FaceTarget](time, mobj);
         if (randInt(0, 255) < 10) {
@@ -257,7 +321,13 @@ export const monsterActions: { [key: number]: MonsterAction } = {
             mobj.setState(mobj.info.seestate);
         }
     },
-	[ActionIndex.A_BspiAttack]: (time, mobj) => {},
+	[ActionIndex.A_BspiAttack]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+            return;
+        }
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_ARACHPLAZ);
+    },
 	[ActionIndex.A_CyberAttack]: (time, mobj) => {
         if (!mobj.chaseTarget) {
 	        return;
@@ -265,10 +335,58 @@ export const monsterActions: { [key: number]: MonsterAction } = {
         monsterActions[ActionIndex.A_FaceTarget](time, mobj);
         shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_ROCKET);
     },
-	[ActionIndex.A_PainAttack]: (time, mobj) => {},
+	[ActionIndex.A_PainAttack]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+            return;
+        }
+        monsterActions[ActionIndex.A_FaceTarget](time, mobj);
+        spawnLostSoul(time, mobj, mobj.direction.val);
+    },
 
-    // smoke behind mancubus shots?
-    [ActionIndex.A_Tracer]: (time, mobj) => {},
+    // revenant missiles (tracking and smoke)
+    [ActionIndex.A_Tracer]: (time, missile) => {
+        // I actually never noticed that some revenant missiles do not emit smoke and do not track the player. Wow!
+        // This condition creates a really subtle behaviour. https://zdoom.org/wiki/A_Tracer
+        if ( !missile.position) {
+            return;
+        }
+
+        // decorations like puff and smoke
+        spawnPuff(missile, missile.position.val);
+        const smoke = missile.map.spawn(MapObjectIndex.MT_SMOKE,
+                missile.position.val.x - missile.velocity.x,
+                missile.position.val.y - missile.velocity.y,
+                missile.position.val.z);
+        smoke.velocity.z = 1;
+        smoke.setState(smoke.info.spawnstate, -randInt(0, 2));
+
+        // adjust direction
+        const target = missile.tracerTarget;
+        if (!target || target.isDead) {
+            return;
+        }
+
+        // adjust x/y direction
+        const adjustment = -1.1; // this constant isn't quite what doom uses (I not 100% confident in the integer angle math...) but it feels close
+        const angle = Math.atan2(target.position.val.y - missile.position.val.y, target.position.val.x - missile.position.val.x);
+        let missileAngle = missile.direction.val;
+        if (normalizeAngle(angle - missileAngle) > Math.PI) {
+            missileAngle -= adjustment;
+            missile.direction.set(normalizeAngle(angle - missileAngle) < Math.PI ? angle : missileAngle);
+        } else {
+            missileAngle += adjustment;
+            missile.direction.set(normalizeAngle(angle - missileAngle) > Math.PI ? angle : missileAngle);
+        }
+        missile.velocity.x = Math.cos(missile.direction.val) * missile.info.speed;
+        missile.velocity.y = Math.sin(missile.direction.val) * missile.info.speed;
+
+        // adjust z
+        const zAdjust = .125;
+        _deltaVec.copy(target.position.val).sub(missile.position.val);
+        const dist = Math.sqrt(_deltaVec.x * _deltaVec.x + _deltaVec.y * _deltaVec.y);
+        const slope = ((target.position.val.z + 40) - missile.position.val.z) / dist * missile.info.speed;
+        missile.velocity.z += slope < missile.velocity.z ? -zAdjust : zAdjust;
+    },
 
     // Death Actions
 	[ActionIndex.A_PainDie]: (time, mobj) => {},
@@ -535,13 +653,17 @@ function canShootAttack(mobj: MapObject, target: MapObject) {
 
 const shotZOffset = 32;
 type MissileType =
-    MapObjectIndex.MT_TROOPSHOT | MapObjectIndex.MT_HEADSHOT | MapObjectIndex.MT_BRUISERSHOT | MapObjectIndex.MT_ROCKET;
+    // doom
+    MapObjectIndex.MT_TROOPSHOT | MapObjectIndex.MT_HEADSHOT | MapObjectIndex.MT_BRUISERSHOT | MapObjectIndex.MT_ROCKET |
+    // doom 2
+    MapObjectIndex.MT_ARACHPLAZ | MapObjectIndex.MT_FATSHOT | MapObjectIndex.MT_TRACER;
 // TODO: similar (but also different) from player shootMissile in weapon.ts. Maybe we can combine these?
 // The biggest difference is speed is only x/y, z speed is completely different
-function shootMissile(shooter: MapObject, target: MapObject, type: MissileType) {
+function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, angle?: number) {
     const pos = shooter.position.val;
     const mobj = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset);
-    mobj.direction.set(shooter.direction.val);
+    // TODO: shadow objects (invisibility) should add error to angle
+    mobj.direction.set(angle ?? shooter.direction.val);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
     mobj.chaseTarget = shooter;
@@ -550,14 +672,40 @@ function shootMissile(shooter: MapObject, target: MapObject, type: MissileType) 
         // SOUND: mobj.infoseesound
     }
     launchMapObject(mobj, target, shotZOffset, mobj.info.speed);
+    return mobj;
 }
 
-const _delta = new Vector3;
+const _deltaVec = new Vector3;
 function launchMapObject(mobj: MapObject, target: MapObject, zOffset: number, speed: number) {
-    _delta.copy(target.position.val).sub(mobj.position.val);
-    const dist = Math.sqrt(_delta.x * _delta.x + _delta.y * _delta.y);
+    _deltaVec.copy(target.position.val).sub(mobj.position.val);
+    const dist = Math.sqrt(_deltaVec.x * _deltaVec.x + _deltaVec.y * _deltaVec.y);
     mobj.velocity.set(
         Math.cos(mobj.direction.val) * speed,
         Math.sin(mobj.direction.val) * speed,
-        (_delta.z + zOffset) / dist * speed);
+        (_deltaVec.z + zOffset) / dist * speed);
+}
+
+function spawnLostSoul(time: GameTime, parent: MapObject, angle: number) {
+    const lostSoulCount = parent.map.objs.reduce((count, m) => count + (m.type === MapObjectIndex.MT_SKULL ? 1 : 0), 0);
+    // TODO: add a config to override this. It can be fun to see a huge flock of lost souls floating around
+    if (lostSoulCount > 20) {
+	    return;
+    }
+
+    const lostSoul = parent.map.spawn(MapObjectIndex.MT_SKULL, parent.position.val.x, parent.position.val.y, parent.position.val.z);
+    const offset = 4 + 1.5 * (parent.info.radius + lostSoul.info.radius);
+    lostSoul.position.update(pos => {
+        pos.x += Math.cos(angle) * offset;
+        pos.y += Math.sin(angle) * offset;
+        pos.z += 8;
+        return pos;
+    });
+    // if the lost soul can't move, destroy it
+    if (!moveBlocked(lostSoul, lostSoul.position.val, zeroVec)) {
+        lostSoul.damage(10_000, parent, parent);
+        return;
+    }
+
+    lostSoul.chaseTarget = parent.chaseTarget;
+    monsterActions[ActionIndex.A_SkullAttack](time, lostSoul);
 }

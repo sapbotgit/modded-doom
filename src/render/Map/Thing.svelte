@@ -40,7 +40,8 @@
     // Sprite offset is much more complicated than this but this is simple and looks okay-ish.
     // https://www.doomworld.com/forum/topic/110008-what-is-this-bs-with-gl-hardware-mode
     // and https://www.doomworld.com/forum/topic/68145-source-port-sprites-through-the-floor
-    const hackedSprites = ['MISL', 'PLSE', 'BFE1', 'BFS1'];
+    // hmm.. is the list below basically thing.info.flags & MFFlags.MF_MISSILE?
+    const hackedSprites = ['MISL', 'PLSE', 'BFE1', 'BFS1', 'MANF', 'BAL1', 'BAL2', 'BAL7', 'FATB'];
     $: vOffset =
         Math.max(texture.userData.yOffset - texture.userData.height, 0) + (texture.userData.height * .5)
         * (invertYOffset ? -1 : 1);
