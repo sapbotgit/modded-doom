@@ -240,7 +240,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
             damage *= 10;
         }
 
-        let angle = player.direction.val + Math.PI + angleNoise(20);
+        let angle = player.direction.val + angleNoise(20);
         const slope = shotTracer.zAim(player, meleeRange);
         shotTracer.fire(player, damage, angle, slope, meleeRange);
 
@@ -251,7 +251,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     },
     [ActionIndex.A_Saw]: (time, player, weapon) => {
         let damage = randInt(1, 10) * 2;
-        let angle = player.direction.val + Math.PI + angleNoise(20);
+        let angle = player.direction.val + angleNoise(20);
 
         // use meleerange + 1 se the puff doesn't skip the flash
         const slope = shotTracer.zAim(player, meleeRange + 1);
@@ -286,7 +286,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         useAmmo(player, weapon);
 
         const slope = shotTracer.zAim(player, scanRange);
-        let angle = player.direction.val + Math.PI;
+        let angle = player.direction.val;
         if (player.refire) {
             // mess up angle slightly for refire
             angle += angleNoise(20);
@@ -298,7 +298,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         useAmmo(player, weapon);
 
         const slope = shotTracer.zAim(player, scanRange);
-        const angle = player.direction.val + Math.PI;
+        const angle = player.direction.val;
         for (let i = 0; i < 7; i++) {
             shotTracer.fire(player, bulletDamage(), angle + angleNoise(20), slope, attackRange);
         }
@@ -312,7 +312,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         useAmmo(player, weapon);
 
         const slope = shotTracer.zAim(player, scanRange);
-        let angle = player.direction.val + Math.PI;
+        let angle = player.direction.val;
         for (let i = 0; i < 20; i++) {
             shotTracer.fire(player, bulletDamage(), angle + angleNoise(15), slope + angleNoise(30), attackRange);
         }
@@ -333,7 +333,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         useAmmo(player, weapon);
 
         const slope = shotTracer.zAim(player, scanRange);
-        let angle = player.direction.val + Math.PI;
+        let angle = player.direction.val;
         if (player.refire) {
             // mess up angle slightly for refire
             angle += angleNoise(20);
@@ -407,9 +407,7 @@ class ShotTracer {
     zAim(shooter: MapObject | PlayerMapObject, range: number, angle?: number) {
         this.start.copy(shooter.position.val);
         this.start.z += shooter.info.height * .5 + 8;
-        // TODO: $direction+Math.PI ?? This is applied so inconsistently in the code and I've not bothered to track down
-        // what is really going on there. This needs to be cleaned up
-        const dir = angle ?? (shooter.direction.val + Math.PI);
+        const dir = angle ?? shooter.direction.val;
         this.direction.set(
             Math.cos(dir) * range,
             Math.sin(dir) * range,
@@ -438,7 +436,7 @@ class ShotTracer {
         if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
             // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
             // TODO: should the player have it's own rotation.x? feels odd to be using camera angle because we assume 1p pov
-            return Math.cos(shooter.map.camera.rotation.val.x + Math.PI);
+            return Math.cos(shooter.map.camera.rotation.val.x);
         }
         // TODO: we convert angle to slope (and later undo this), why not just use angles?
         return aim.target ? aim.slope : 0;
@@ -640,7 +638,7 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
 
 type PlayerMissileType = MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG;
 function shootMissile(shooter: MapObject, type: PlayerMissileType) {
-    const angle = shooter.direction.val + Math.PI;
+    const angle = shooter.direction.val;
     const pos = shooter.position.val;
     const mobj = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32);
     mobj.direction.set(angle);

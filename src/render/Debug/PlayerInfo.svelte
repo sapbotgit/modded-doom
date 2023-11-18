@@ -60,7 +60,7 @@
 
     function revive() {
         // undo effects of MapObject.kill()
-        const tw = tweened(0);
+        const tw = tweened(player.health.val);
         tw.subscribe(v => player.health.set(v));
         tw.set(100, { duration: 2000 });
         const mInfo = mapObjectInfo[MapObjectIndex.MT_PLAYER];

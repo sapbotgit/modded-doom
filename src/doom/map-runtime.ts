@@ -125,7 +125,7 @@ export class MapRuntime {
 
         const type = mapObjectInfo.findIndex(e => e.doomednum === thing.type);
         const mobj = this.spawn(type, thing.x, thing.y);
-        mobj.direction.set(normalizeAngle(Math.PI + thing.angle * ToRadians));
+        mobj.direction.set(thing.angle * ToRadians);
 
         if (mobj.info.flags & MFFlags.MF_COUNTKILL) {
             this.stats.totalKills += 1;
@@ -300,7 +300,7 @@ class GameInput {
         const euler = this.map.camera.rotation.val;
         euler.x = HALF_PI;
         this.player.direction.subscribe(dir => {
-            euler.z = dir + HALF_PI;
+            euler.z = dir - HALF_PI;
             this.obj.quaternion.setFromEuler(euler);
             this.obj.updateMatrix();
         });
@@ -363,7 +363,7 @@ class GameInput {
         euler.z -= this.input.aim.x * 0.002 * this.pointerSpeed;
         euler.x -= this.input.aim.y * 0.002 * this.pointerSpeed;
         euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
-        this.player.direction.set(euler.z - HALF_PI);
+        this.player.direction.set(euler.z + HALF_PI);
         this.map.camera.zoom.update(zoom => zoom += this.input.aim.z);
         // clear for next eval
         this.input.aim.set(0, 0, 0);

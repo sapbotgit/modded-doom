@@ -2,13 +2,13 @@ import { randInt } from 'three/src/math/MathUtils';
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
 import type { GameTime } from '../game';
-import type { MapObject } from '../map-object';
+import { angleBetween, type MapObject } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice } from '../math';
 import { hasLineOfSight } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
-import { exitLevel, triggerSpecial } from '../specials';
+import { exitLevel } from '../specials';
 
 export const monsters: ThingType[] = [
     { type: 7, class: 'M', description: 'Spiderdemon' },
@@ -186,7 +186,7 @@ export const monsterAiActions: ActionMap = {
 
         // make a small turns when mobj.direction !== mobj.movedir
         if (mobj.movedir !== MoveDirection.None) {
-            const diff = normalizeAngle((mobj.direction.val + Math.PI) - mobj.movedir) - Math.PI;
+            const diff = normalizeAngle(mobj.direction.val - mobj.movedir) - Math.PI;
             if (Math.abs(diff) > EIGHTH_PI) { // only update if we're off by large-ish amount
                 mobj.direction.update(val => val + ((diff < 0) ? QUARTER_PI : -QUARTER_PI));
             }
@@ -246,8 +246,8 @@ export const monsterAiActions: ActionMap = {
         if (canMove(mobj, mobj.movedir)) {
             // TODO: trigger doors
             _moveVec.set(
-                Math.cos(mobj.movedir + Math.PI) * mobj.info.speed,
-                Math.sin(mobj.movedir + Math.PI) * mobj.info.speed,
+                Math.cos(mobj.movedir) * mobj.info.speed,
+                Math.sin(mobj.movedir) * mobj.info.speed,
                 0);
             mobj.position.update(pos => pos.add(_moveVec));
         }
@@ -263,7 +263,7 @@ export const monsterAiActions: ActionMap = {
         }
 
         mobj.info.flags &= ~MFFlags.MF_AMBUSH;
-        let angle = Math.atan2(mobj.chaseTarget.position.val.y - mobj.position.val.y, mobj.chaseTarget.position.val.x - mobj.position.val.x);
+        let angle = angleBetween(mobj, mobj.chaseTarget);
         if (mobj.chaseTarget.info.flags & MFFlags.MF_SHADOW) {
             angle += angleNoise(5);
         }
@@ -488,7 +488,7 @@ export const monsterAiActions: ActionMap = {
 
         // adjust x/y direction
         const adjustment = -1.1; // this constant isn't quite what doom uses (I not 100% confident in the integer angle math...) but it feels close
-        const angle = Math.atan2(target.position.val.y - missile.position.val.y, target.position.val.x - missile.position.val.x);
+        const angle = angleBetween(missile, target);
         let missileAngle = missile.direction.val;
         if (normalizeAngle(angle - missileAngle) > Math.PI) {
             missileAngle -= adjustment;
@@ -534,7 +534,7 @@ export const monsterActions: ActionMap = {
             return;
         }
         const fakeLine: any = { tag: 666, special: 2 };
-        triggerSpecial(mobj.map.player, fakeLine, 'W', -1);
+        mobj.map.triggerSpecial(fakeLine, mobj.map.player, 'W');
     },
 	[ActionIndex.A_BossDeath]: (time, mobj) => {
         let fakeLine: any = null;
@@ -561,17 +561,17 @@ export const monsterActions: ActionMap = {
             fakeLine = { tag: 666, special: 38 };
         }
 
-        if (!fakeLine) {
-            return;
+        // only tigger when:
+        // (1) above code needs to have set the line
+        // (2) at least one player alive
+        // (3) all monster of same type as mobj are dead
+        const trigger = true
+            && fakeLine
+            && anyMonstersOfSameTypeAlive(mobj.map.player)
+            && !anyMonstersOfSameTypeAlive(mobj);
+        if (trigger) {
+            mobj.map.triggerSpecial(fakeLine, mobj.map.player, 'W');
         }
-        // TODO: multiplayer needs to have at least one player alive
-        if (mobj.map.player.isDead) {
-            return;
-        }
-        if (anyMonstersOfSameTypeAlive(mobj)) {
-            return;
-        }
-        triggerSpecial(mobj.map.player, fakeLine, 'W', -1);
     },
 
     // Mostly about playing a sound
@@ -618,7 +618,7 @@ function findPlayerTarget(mobj: MapObject, allAround = false) {
 
     const lineOfSight = hasLineOfSight(mobj, mobj.map.player);
     if (lineOfSight) {
-        const delta = Math.atan2(mobj.map.player.position.val.y - mobj.position.val.y, mobj.map.player.position.val.x - mobj.position.val.x);
+        const delta = angleBetween(mobj, mobj.map.player);
         const angle = normalizeAngle(delta - mobj.direction.val) - Math.PI;
         if (allAround || (angle > -HALF_PI && angle < HALF_PI)) {
             return mobj.map.player;
@@ -628,14 +628,14 @@ function findPlayerTarget(mobj: MapObject, allAround = false) {
 }
 
 enum MoveDirection {
-    West = 0,
-    SouthWest = QUARTER_PI,
-    South = HALF_PI,
-    SouthEast = HALF_PI + QUARTER_PI,
-    East = Math.PI,
-    NorthEast = Math.PI + QUARTER_PI,
-    North = Math.PI + HALF_PI,
-    NorthWest = Math.PI + HALF_PI + QUARTER_PI,
+    East = 0,
+    NorthEast = QUARTER_PI,
+    North = HALF_PI,
+    NorthWest = HALF_PI + QUARTER_PI,
+    West = Math.PI,
+    SouthWest = Math.PI + QUARTER_PI,
+    South = Math.PI + HALF_PI,
+    SouthEast = Math.PI + HALF_PI + QUARTER_PI,
     None = -1,
 }
 const compassOpposite = {
@@ -737,7 +737,6 @@ function canMove(mobj: MapObject, dir: number) {
     if (dir === MoveDirection.None) {
         return false; // this means no movement so don't bother checking anything
     }
-    dir += Math.PI;
     const start = mobj.position.val;
     _moveVec.set(
         Math.cos(dir) * mobj.info.speed,
@@ -851,7 +850,7 @@ type MissileType =
 function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, angle?: number) {
     const pos = shooter.position.val;
     const mobj = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset);
-    let an = angle ?? Math.atan2(target.position.val.y - shooter.position.val.y, target.position.val.x - shooter.position.val.x);
+    let an = angle ?? angleBetween(shooter, target);
     if (target.info.flags & MFFlags.MF_SHADOW) {
         // shadow objects (invisibility) should add error to angle
         an += angleNoise(25);

@@ -68,10 +68,12 @@
         rotation.z = $direction + HALF_PI;
     } else if (isBillboard) {
         rotation.x = $cameraRotation.x;
+        rotation.y = 0;
         rotation.z = $cameraRotation.z;
     } else {
         rotation.x = HALF_PI;
         rotation.y = $cameraRotation.z;
+        rotation.z = 0;
     }
 
     $: material = $renderShadow

@@ -60,8 +60,8 @@
     <!-- <line
         x1={$position.x}
         y1={$position.y}
-        y2={radius * Math.sin($direction + Math.PI) + $position.y}
-        x2={radius * Math.cos($direction + Math.PI) + $position.x}
+        y2={radius * Math.sin($direction) + $position.y}
+        x2={radius * Math.cos($direction) + $position.x}
         fill={thingColor(mobj)}
         marker-end="url(#arrow)"
     /> -->

@@ -13,8 +13,8 @@ import { exitLevel } from "./specials";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
-        mobj1.position.val.y - mobj2.position.val.y,
-        mobj1.position.val.x - mobj2.position.val.x);
+        mobj2.position.val.y - mobj1.position.val.y,
+        mobj2.position.val.x - mobj1.position.val.x);
 
 const vec = new Vector3();
 const maxStepSize = 24;
@@ -284,7 +284,7 @@ export class MapObject {
     teleport(target: MapObject, sector: Sector) {
         this.velocity.set(0, 0, 0);
         this.position.update(pos => pos.set(target.position.val.x, target.position.val.y, sector.zFloor.val));
-        this.direction.set(target.direction.val + Math.PI);
+        this.direction.set(target.direction.val);
 
         if (this.isMonster && this.map.name !== 'MAP30') {
             return; // monsters only telefrag in level 30
@@ -537,7 +537,7 @@ export class PlayerMapObject extends MapObject {
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
-        this.direction.set(Math.PI + source.angle * ToRadians);
+        this.direction.set(source.angle * ToRadians);
 
         this.renderShadow.subscribe(shadow => {
             if (shadow) {

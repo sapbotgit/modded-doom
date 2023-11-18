@@ -39,7 +39,7 @@
         let p = new DOMPoint(ev.clientX, ev.clientY);
         let sp = p.matrixTransform((ev.target as any).getScreenCTM().inverse());
         // set player direction based on click location
-        const ang = Math.atan2(sp.y - $position.y, sp.x - $position.x) + Math.PI;
+        const ang = Math.atan2(sp.y - $position.y, sp.x - $position.x);
         direction.set(ang);
     }
 
