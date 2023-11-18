@@ -185,7 +185,7 @@ export const monsterAiActions: ActionMap = {
         }
 
         // make a small turns when mobj.direction !== mobj.movedir
-        if (mobj.movedir !== CompassDirection.None) {
+        if (mobj.movedir !== MoveDirection.None) {
             const diff = normalizeAngle((mobj.direction.val + Math.PI) - mobj.movedir) - Math.PI;
             if (Math.abs(diff) > EIGHTH_PI) { // only update if we're off by large-ish amount
                 mobj.direction.update(val => val + ((diff < 0) ? QUARTER_PI : -QUARTER_PI));
@@ -581,7 +581,7 @@ function findPlayerTarget(mobj: MapObject, allAround = false) {
     return null;
 }
 
-enum CompassDirection {
+enum MoveDirection {
     West = 0,
     SouthWest = QUARTER_PI,
     South = HALF_PI,
@@ -593,45 +593,49 @@ enum CompassDirection {
     None = -1,
 }
 const compassOpposite = {
-    [CompassDirection.West]: CompassDirection.East,
-    [CompassDirection.SouthWest]: CompassDirection.NorthEast,
-    [CompassDirection.South]: CompassDirection.North,
-    [CompassDirection.SouthEast]: CompassDirection.NorthWest,
-    [CompassDirection.East]: CompassDirection.West,
-    [CompassDirection.NorthEast]: CompassDirection.SouthWest,
-    [CompassDirection.North]: CompassDirection.South,
-    [CompassDirection.NorthWest]: CompassDirection.SouthEast,
-    [CompassDirection.None]: CompassDirection.None
+    [MoveDirection.West]: MoveDirection.East,
+    [MoveDirection.SouthWest]: MoveDirection.NorthEast,
+    [MoveDirection.South]: MoveDirection.North,
+    [MoveDirection.SouthEast]: MoveDirection.NorthWest,
+    [MoveDirection.East]: MoveDirection.West,
+    [MoveDirection.NorthEast]: MoveDirection.SouthWest,
+    [MoveDirection.North]: MoveDirection.South,
+    [MoveDirection.NorthWest]: MoveDirection.SouthEast,
+    [MoveDirection.None]: MoveDirection.None
 }
 const searchDirections = [
-    CompassDirection.East, CompassDirection.NorthEast, CompassDirection.North, CompassDirection.NorthWest,
-    CompassDirection.West, CompassDirection.SouthWest, CompassDirection.South, CompassDirection.SouthEast,
+    MoveDirection.East, MoveDirection.NorthEast, MoveDirection.North, MoveDirection.NorthWest,
+    MoveDirection.West, MoveDirection.SouthWest, MoveDirection.South, MoveDirection.SouthEast,
 ];
 const reverseSearchDirections = searchDirections.toReversed();
+// A table like these feels more doom-like than a conditional expression
+const compassDiagonals = {
+    [MoveDirection.East]: {
+        [MoveDirection.North]: MoveDirection.NorthEast,
+        [MoveDirection.South]: MoveDirection.SouthEast,
+    },
+    [MoveDirection.West]: {
+        [MoveDirection.North]: MoveDirection.NorthWest,
+        [MoveDirection.South]: MoveDirection.SouthWest,
+    }
+};
 const swapDirectionChance = 200 / 255;
 let _moveDir = [0, 0];
 function newChaseDir(mobj: MapObject, target: MapObject) {
     // Kind of P_NewChaseDir but also helped along by a doomworld discussion
     // https://www.doomworld.com/forum/topic/122794-source-code-monster-behavior-moving-around-objects/
 
-    // FIXME: it seems like monsters move diagonally more than I expect. Is there a bug here?
-
     // set search direction baesd on location of target and mobj
     const dx = target.position.val.x - mobj.position.val.x;
     const dy = target.position.val.y - mobj.position.val.y;
-    _moveDir[0] = dx > 10 ? CompassDirection.East : dx < -10 ? CompassDirection.West : CompassDirection.None;
-    _moveDir[1] = dy > 10 ? CompassDirection.North : dy < -10 ? CompassDirection.South : CompassDirection.None;
+    _moveDir[0] = dx > 10 ? MoveDirection.East : dx < -10 ? MoveDirection.West : MoveDirection.None;
+    _moveDir[1] = dy > 10 ? MoveDirection.North : dy < -10 ? MoveDirection.South : MoveDirection.None;
     const originalDir = mobj.movedir;
     const oppositeDir = compassOpposite[originalDir];
 
     // diagonal is best, let's try that first
-    if (_moveDir[0] !== CompassDirection.None && _moveDir[1] !== CompassDirection.None) {
-        // TODO: doom used a pretty cool lookup table... can we do that too?
-        const moveDir =
-            _moveDir[0] === CompassDirection.East && _moveDir[1] === CompassDirection.South ? CompassDirection.SouthEast :
-            _moveDir[0] === CompassDirection.West && _moveDir[1] === CompassDirection.South ? CompassDirection.SouthWest :
-            _moveDir[0] === CompassDirection.East && _moveDir[1] === CompassDirection.North ? CompassDirection.NorthEast :
-            CompassDirection.NorthWest;
+    if (_moveDir[0] !== MoveDirection.None && _moveDir[1] !== MoveDirection.None) {
+        const moveDir = compassDiagonals[_moveDir[0]][_moveDir[1]];
         if (moveDir !== oppositeDir && setMovement(mobj, moveDir)) {
             return;
         }
@@ -668,7 +672,8 @@ function newChaseDir(mobj: MapObject, target: MapObject) {
         return;
     }
 
-    mobj.movedir = CompassDirection.None;
+    // nothing works, stop moving(?)
+    mobj.movedir = MoveDirection.None;
 }
 
 function setMovement(mobj: MapObject, dir: number) {
@@ -683,7 +688,7 @@ function setMovement(mobj: MapObject, dir: number) {
 
 const _moveVec = new Vector3();
 function canMove(mobj: MapObject, dir: number) {
-    if (dir === CompassDirection.None) {
+    if (dir === MoveDirection.None) {
         return false; // this means no movement so don't bother checking anything
     }
     dir += Math.PI;
