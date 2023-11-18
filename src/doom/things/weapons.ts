@@ -589,16 +589,14 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
                 const dist = range * hit.fraction;
                 let thingSlopeTop = (hit.mobj.position.val.z + hit.mobj.info.height - shootZ) / dist;
                 if (thingSlopeTop < slopeBottom) {
-                    return true; // shot over thing
+                    return true; // shoot over
                 }
 
                 let thingSlopeBottom = (hit.mobj.position.val.z - shootZ) / dist;
                 if (thingSlopeBottom > slopeTop) {
-                    return true; // shot under thing
+                    return true; // shoot under
                 }
 
-                // FIXME: something not quite right here. Especially baddies on platforms shooting down seem to shoot
-                // at feet (or below feet) and miss
                 thingSlopeTop = Math.min(thingSlopeTop, slopeTop);
                 thingSlopeBottom = Math.max(thingSlopeBottom, slopeBottom);
                 result.slope = (thingSlopeTop + thingSlopeBottom) * .5;

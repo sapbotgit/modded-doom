@@ -759,7 +759,7 @@ function moveBlocked(mobj: MapObject, start: Vector3, move: Vector3) {
                 || (start.z + mobj.info.height < hit.mobj.position.val.z) // passed under target
                 || (start.z > hit.mobj.position.val.z + hit.mobj.info.height) // passed over target
             if (ignore) {
-                return true;
+                return true; // continue our search
             }
             hitSomething = true;
         } else if ('line' in hit) {
