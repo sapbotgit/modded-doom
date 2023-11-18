@@ -146,7 +146,6 @@ export class MapRuntime {
     }
 
     destroy(mobj: MapObject) {
-        console.log('destroy',mobj.id)
         mobj.subsectors(subsector =>  subsector.mobjs.delete(mobj));
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);

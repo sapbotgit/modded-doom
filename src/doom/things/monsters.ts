@@ -8,7 +8,7 @@ import { hasLineOfSight } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
-import { exitLevel } from '../specials';
+import { exitLevel, triggerSpecial } from '../specials';
 
 export const monsters: ThingType[] = [
     { type: 7, class: 'M', description: 'Spiderdemon' },
@@ -271,7 +271,7 @@ export const monsterAiActions: ActionMap = {
     },
 
     // Attack actions
-    // TODO: it would be a fun exercise to write some unit tests for these and then convert them see if these could be
+    // TODO: it would be a fun exercise to write some unit tests for these and then see if these could be
     // written in a functional way by combining smaller functions
     [ActionIndex.A_PosAttack]: (time, mobj) => {
         if (!mobj.chaseTarget) {
@@ -509,7 +509,7 @@ export const monsterAiActions: ActionMap = {
     },
 }
 
-export const monsterActions = {
+export const monsterActions: ActionMap = {
     ...doom2BossActions,
 
     // Death Actions
@@ -528,8 +528,51 @@ export const monsterActions = {
         mobj.map.game.sound.play(sound, location);
     },
     // These two are related to sector tags 666 and 667
-	[ActionIndex.A_KeenDie]: (time, mobj) => {},
-	[ActionIndex.A_BossDeath]: (time, mobj) => {},
+	[ActionIndex.A_KeenDie]: (time, mobj) => {
+        allActions[ActionIndex.A_Fall](time, mobj);
+        if (anyMonstersOfSameTypeAlive(mobj)) {
+            return;
+        }
+        const fakeLine: any = { tag: 666, special: 2 };
+        triggerSpecial(mobj.map.player, fakeLine, 'W', -1);
+    },
+	[ActionIndex.A_BossDeath]: (time, mobj) => {
+        let fakeLine: any = null;
+
+        if (mobj.map.name === 'MAP07' && (mobj.type === MapObjectIndex.MT_FATSO || mobj.type === MapObjectIndex.MT_BABY)) {
+            fakeLine =
+                (mobj.type === MapObjectIndex.MT_FATSO) ? { tag: 666, special: 38 } :
+                (mobj.type === MapObjectIndex.MT_BABY) ? { tag: 667, special: 30 } :
+                null; // <-- we should never get here
+        }
+        if (mobj.map.name === 'E1M8' && mobj.type === MapObjectIndex.MT_BRUISER) {
+            fakeLine = { tag: 666, special: 38 };
+        }
+        if (mobj.map.name === 'E2M8' && mobj.type === MapObjectIndex.MT_CYBORG) {
+            fakeLine = { special: 52 };
+        }
+        if (mobj.map.name === 'E3M8' && mobj.type === MapObjectIndex.MT_SPIDER) {
+            fakeLine = { special: 52 };
+        }
+        if (mobj.map.name === 'E4M6' && mobj.type === MapObjectIndex.MT_CYBORG) {
+            fakeLine = { tag: 666, special: 109 };
+        }
+        if (mobj.map.name === 'E4M8' && mobj.type === MapObjectIndex.MT_SPIDER) {
+            fakeLine = { tag: 666, special: 38 };
+        }
+
+        if (!fakeLine) {
+            return;
+        }
+        // TODO: multiplayer needs to have at least one player alive
+        if (mobj.map.player.isDead) {
+            return;
+        }
+        if (anyMonstersOfSameTypeAlive(mobj)) {
+            return;
+        }
+        triggerSpecial(mobj.map.player, fakeLine, 'W', -1);
+    },
 
     // Mostly about playing a sound
     [ActionIndex.A_Metal]: (time, mobj) => {
@@ -560,6 +603,9 @@ export const monsterActions = {
         player.map.game.sound.play(sound, player);
     },
 };
+
+const anyMonstersOfSameTypeAlive = (mobj: MapObject) =>
+    mobj.map.objs.filter(mo => mo.type === mobj.type).some(mo => !mo.isDead);
 
 const allActions = { ...monsterActions, ...monsterAiActions, ...doom2BossActions, ...archvileActions };
 

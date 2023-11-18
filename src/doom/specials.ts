@@ -212,9 +212,9 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
         return;
     }
     const validTrigger = (
-        // We treat P === S but P has the distinction of not needing a sector tag (it's a local door)
-        (trigger === 'S' && def.trigger === 'P')
-        || def.trigger === trigger
+        def.trigger === trigger
+        // treat P === S because P is a special case (local door) and does not need a sector tag
+        || (trigger === 'S' && def.trigger === 'P')
     )
     if (!validTrigger) {
         return;

@@ -147,7 +147,7 @@ export class MapObject {
             });
 
             const sector = map.data.findSector(p.x, p.y);
-            this.zFloor = fromCeiling
+            this.zFloor = fromCeiling && !this.isDead //<-- for keens
                 ? lowestZCeil(sector, sector.zCeil.val) - this.info.height
                 // we want the sector with the highest floor which means we float a little when standing on an edge
                 : highestZFloor(sector, sector.zFloor.val);
