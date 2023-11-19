@@ -404,10 +404,10 @@ class ShotTracer {
 
     private start = new Vector3();
     private direction = new Vector3();
-    zAim(shooter: MapObject | PlayerMapObject, range: number, angle?: number) {
+    zAim(shooter: MapObject | PlayerMapObject, range: number) {
         this.start.copy(shooter.position.val);
         this.start.z += shooter.info.height * .5 + 8;
-        const dir = angle ?? shooter.direction.val;
+        const dir = shooter.direction.val;
         this.direction.set(
             Math.cos(dir) * range,
             Math.sin(dir) * range,

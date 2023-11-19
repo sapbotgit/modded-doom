@@ -194,7 +194,7 @@ export class MapObject {
                 || !(source instanceof PlayerMapObject)
                 || source.weapon.val.name !== 'chainsaw'));
         if (shouldApplyThrust) {
-            let angle = angleBetween(this, inflictor);
+            let angle = angleBetween(inflictor, this);
             // 12.5 is (100 * (1 << 16 >> 3)) / (1<<16) (see P_DamageMobj)
             let thrust = amount * 12.5 / this.info.mass;
             // as a nifty effect, fall forwards sometimes on kill shots (when player is below thing they are shooting at)

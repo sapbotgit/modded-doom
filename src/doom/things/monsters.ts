@@ -280,7 +280,7 @@ export const monsterAiActions: ActionMap = {
         allActions[ActionIndex.A_FaceTarget](time, mobj);
         mobj.map.game.sound.play(SoundIndex.sfx_pistol, mobj);
 
-        const slope = shotTracer.zAim(mobj, attackRange, mobj.direction.val);
+        const slope = shotTracer.zAim(mobj, attackRange);
         const angle = mobj.direction.val + angleNoise(25);
         const damage = 3 * randInt(1, 5);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
@@ -292,7 +292,7 @@ export const monsterAiActions: ActionMap = {
         allActions[ActionIndex.A_FaceTarget](time, mobj);
         mobj.map.game.sound.play(SoundIndex.sfx_shotgn, mobj);
 
-        const slope = shotTracer.zAim(mobj, attackRange, mobj.direction.val);
+        const slope = shotTracer.zAim(mobj, attackRange);
         for (let i = 0; i < 3; i++) {
             const angle = mobj.direction.val + angleNoise(25);
             const damage = 3 * randInt(1, 5);
@@ -337,7 +337,7 @@ export const monsterAiActions: ActionMap = {
 
         const angle = mobj.direction.val + angleNoise(25);
         const damage = 3 * randInt(1, 5);
-        const slope = shotTracer.zAim(mobj, attackRange, mobj.direction.val);
+        const slope = shotTracer.zAim(mobj, attackRange);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
     },
 	[ActionIndex.A_CPosRefire]: (time, mobj) => {
@@ -610,18 +610,20 @@ const anyMonstersOfSameTypeAlive = (mobj: MapObject) =>
 const allActions = { ...monsterActions, ...monsterAiActions, ...doom2BossActions, ...archvileActions };
 
 function findPlayerTarget(mobj: MapObject, allAround = false) {
-    // TODO: in multiplayer, there are multiple players to look for
-    const dist = mobj.position.val.distanceTo(mobj.map.player.position.val);
-    if (dist < meleeRange) {
-        return mobj.map.player;
-    }
+    const players = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_PLAYER && !mo.isDead);
+    for (const player of players) {
+        const dist = mobj.position.val.distanceTo(player.position.val);
+        if (dist < meleeRange) {
+            return player;
+        }
 
-    const lineOfSight = hasLineOfSight(mobj, mobj.map.player);
-    if (lineOfSight) {
-        const delta = angleBetween(mobj, mobj.map.player);
-        const angle = normalizeAngle(delta - mobj.direction.val) - Math.PI;
-        if (allAround || (angle > -HALF_PI && angle < HALF_PI)) {
-            return mobj.map.player;
+        const lineOfSight = hasLineOfSight(mobj, player);
+        if (lineOfSight) {
+            const delta = angleBetween(mobj, player);
+            const angle = normalizeAngle(delta - mobj.direction.val) - Math.PI;
+            if (allAround || (angle > -HALF_PI && angle < HALF_PI)) {
+                return player;
+            }
         }
     }
     return null;
@@ -853,7 +855,7 @@ function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, 
     let an = angle ?? angleBetween(shooter, target);
     if (target.info.flags & MFFlags.MF_SHADOW) {
         // shadow objects (invisibility) should add error to angle
-        an += angleNoise(25);
+        an += angleNoise(15);
     }
     mobj.direction.set(an);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
