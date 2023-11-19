@@ -1,12 +1,12 @@
 import { randInt } from 'three/src/math/MathUtils';
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
-import type { GameTime } from '../game';
-import { angleBetween, type MapObject } from '../map-object';
+import { ticksPerSecond, type GameTime } from '../game';
+import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
 import { hasLineOfSight } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
 import { exitLevel } from '../specials';
 
@@ -239,28 +239,24 @@ export const monsterAiActions: ActionMap = {
             }
         }
 
-        // continue chase
-        mobj.movecount -= 1;
-        if (mobj.movecount < 0 || moveBlocked(mobj, mobj.position.val, _moveVec)) {
-            newChaseDir(mobj, mobj.chaseTarget);
-        }
-
-        // move
-        moveSpecials.length = 0;
-        if (canMove(mobj, mobj.movedir, moveSpecials)) {
-            _moveVec.set(
-                Math.cos(mobj.movedir) * mobj.info.speed,
-                Math.sin(mobj.movedir) * mobj.info.speed,
-                0);
-            mobj.position.update(pos => pos.add(_moveVec));
-        }
-        // only trigger specials once per move otherwise we may open/close doors rapidly which looks silly
-        moveSpecials.forEach(hit =>
-            mobj.map.triggerSpecial(hit.line, mobj, doorTypes.includes(hit.line.special) ? 'S' : 'W', hit.side));
-
         // sometimes play "active" sound
         if (randInt(0, 255) < 3) {
             mobj.map.game.sound.play(mobj.info.activesound, mobj);
+        }
+
+        // continue chase or find new chase direction
+        mobj.movecount -= 1;
+        if (mobj.movecount < 0 || !canMove(mobj, mobj.movedir)) {
+            newChaseDir(mobj, mobj.chaseTarget);
+        }
+
+        moveSpecials.length = 0;
+        if (!(mobj.info.flags & MFFlags.MF_INFLOAT) && canMove(mobj, mobj.movedir, moveSpecials)) {
+            // NOTE: _moveVec is already set correctly by canMove()
+            mobj.position.update(pos => pos.add(_moveVec));
+            // only trigger specials once per move otherwise we may open/close doors rapidly which looks silly
+            moveSpecials.forEach(hit =>
+                mobj.map.triggerSpecial(hit.line, mobj, doorTypes.includes(hit.line.special) ? 'S' : 'W', hit.side));
         }
     },
     [ActionIndex.A_FaceTarget]: (time, mobj) => {
@@ -492,24 +488,21 @@ export const monsterAiActions: ActionMap = {
             return;
         }
 
-        // adjust x/y direction
-        const adjustment = -1.1; // this constant isn't quite what doom uses (I not 100% confident in the integer angle math...) but it feels close
+        const xyAdjust = -1.1; // this constant isn't quite what doom uses (I not 100% confident in the integer angle math...) but it feels close
         const angle = angleBetween(missile, target);
         let missileAngle = missile.direction.val;
         if (normalizeAngle(angle - missileAngle) > Math.PI) {
-            missileAngle -= adjustment;
+            missileAngle -= xyAdjust;
             missile.direction.set(normalizeAngle(angle - missileAngle) < Math.PI ? angle : missileAngle);
         } else {
-            missileAngle += adjustment;
+            missileAngle += xyAdjust;
             missile.direction.set(normalizeAngle(angle - missileAngle) > Math.PI ? angle : missileAngle);
         }
         missile.velocity.x = Math.cos(missile.direction.val) * missile.info.speed;
         missile.velocity.y = Math.sin(missile.direction.val) * missile.info.speed;
 
-        // adjust z
         const zAdjust = .125;
-        _deltaVec.copy(target.position.val).sub(missile.position.val);
-        const dist = Math.sqrt(_deltaVec.x * _deltaVec.x + _deltaVec.y * _deltaVec.y);
+        const dist = xyDistanceBetween(missile, target);
         const slope = ((target.position.val.z + 40) - missile.position.val.z) / dist * missile.info.speed;
         missile.velocity.z += slope < missile.velocity.z ? -zAdjust : zAdjust;
     },
@@ -743,40 +736,49 @@ function setMovement(mobj: MapObject, dir: number) {
 const _moveVec = new Vector3();
 function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     if (dir === MoveDirection.None) {
-        return false; // don't allow no movement, monsters should move as much as possible
+        return false; // don't allow None movements, monsters should move as much as possible
     }
     _moveVec.set(
         Math.cos(dir) * mobj.info.speed,
         Math.sin(dir) * mobj.info.speed,
         0);
-    return !moveBlocked(mobj, mobj.position.val, _moveVec, specialLines);
+    const blocked = findMoveBlocker(mobj, mobj.position.val, _moveVec, specialLines);
+    // if we can float and we're blocked by a two-sided line then float!
+    if (blocked && 'line' in blocked && blocked.line.left?.sector && mobj.info.flags & MFFlags.MF_FLOAT) {
+        const zmove = mobj.position.val.z < blocked.line.left.sector.zFloor.val ? maxFloatSpeed : -maxFloatSpeed;
+        mobj.position.update(pos => pos.setZ(pos.z + zmove));
+        mobj.info.flags |= MFFlags.MF_INFLOAT;
+        // actually we are blocked but return true so we don't chage direction. the last part of A_Chase will look at
+        // MF_INFLOAT to decide if we should move along xy. Kind of messy :/
+        return true;
+    }
+    mobj.info.flags &= ~MFFlags.MF_INFLOAT;
+    return !blocked;
 }
 
-const maxStepSize = 24;
 const _moveEnd = new Vector3();
-function moveBlocked(mobj: MapObject, start: Vector3, move: Vector3, specialLines?: LineTraceHit[]) {
-    let hitSomething = false;
+function findMoveBlocker(mobj: MapObject, start: Vector3, move: Vector3, specialLines?: LineTraceHit[]) {
+    let blocker: TraceHit = null;
     // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
     _moveEnd.copy(start).add(move).addScalar(mobj.info.radius);
     mobj.map.data.traceMove(start, move, mobj.info.radius, hit => {
         if ('mobj' in hit) {
             const skipHit = false
                 || (hit.mobj === mobj) // don't collide with yourself
-                || (!(hit.mobj.info.flags & hittableThing)) // not hittable
+                || !(hit.mobj.info.flags & hittableThing) // not hittable
                 || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
                 || (start.z + mobj.info.height < hit.mobj.position.val.z) // passed under target
                 || (start.z > hit.mobj.position.val.z + hit.mobj.info.height) // passed over target
             if (skipHit) {
                 return true; // continue search
             }
-            hitSomething = true;
+            blocker = hit;
         } else if ('line' in hit) {
             const twoSided = Boolean(hit.line.left);
             const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
             if (twoSided && !blocking) {
                 const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
 
-                // FIXME: we probably need something slightly different for floating monsters
                 const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
                 const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
                 const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
@@ -801,11 +803,11 @@ function moveBlocked(mobj: MapObject, start: Vector3, move: Vector3, specialLine
                     return true; // step/ceiling/drop-off collision is okay so try next line
                 }
             }
-            hitSomething = true;
+            blocker = hit;
         }
-        return !hitSomething;
+        return !blocker;
     });
-    return hitSomething;
+    return blocker;
 }
 
 function canMeleeAttack(mobj: MapObject, target: MapObject) {
@@ -913,7 +915,7 @@ function spawnLostSoul(time: GameTime, parent: MapObject, angle: number) {
         return pos;
     });
     // if the lost soul can't move, destroy it
-    if (!moveBlocked(lostSoul, lostSoul.position.val, zeroVec)) {
+    if (!findMoveBlocker(lostSoul, lostSoul.position.val, zeroVec)) {
         lostSoul.damage(10_000, parent, parent);
         return;
     }

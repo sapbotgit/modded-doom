@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
-import { TextureLoader, Vector3 } from "three";
+import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
@@ -15,9 +15,15 @@ export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
         mobj2.position.val.y - mobj1.position.val.y,
         mobj2.position.val.x - mobj1.position.val.x);
+const _distVec = new Vector3();
+export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
+    _distVec.copy(mobj2.position.val).sub(mobj1.position.val);
+    return Math.sqrt(_distVec.x * _distVec.x + _distVec.y * _distVec.y);
+}
 
 const vec = new Vector3();
-const maxStepSize = 24;
+export const maxFloatSpeed = 4;
+export const maxStepSize = 24;
 const stopVelocity = 0.001;
 const friction = .90625;
 let hitCount = 0;
@@ -34,7 +40,10 @@ export class MapObject {
     protected _state = new SpriteStateMachine(
         action => stateChangeAction(action, this.map.game.time, this),
         () => this.map.destroy(this));
-    protected zFloor = -Infinity;
+    protected _zFloor = -Infinity;
+    protected _zCeil = Infinity;
+    get zCeil() { return this._zCeil; }
+    get zFloor() { return this._zFloor; }
 
     protected _attacker: MapObject;
     get attacker() { return this._attacker; }
@@ -119,8 +128,9 @@ export class MapObject {
             // check that we are on the ground before updating zFloor because if we were on the ground before
             // change, we want to force object to the ground after the change
             const onGround = this.onGround;
-            this.zFloor = fromCeiling
-                ? lowestZCeil(sector, sector.zCeil.val) - this.info.height
+            this._zCeil = lowestZCeil(sector, sector.zCeil.val);
+            this._zFloor = fromCeiling
+                ? this.zCeil - this.info.height
                 : highestZFloor(sector, sector.zFloor.val);
             // ceiling things or things on the ground always update
             if (fromCeiling || onGround) {
@@ -147,8 +157,9 @@ export class MapObject {
             });
 
             const sector = map.data.findSector(p.x, p.y);
-            this.zFloor = fromCeiling && !this.isDead //<-- for keens
-                ? lowestZCeil(sector, sector.zCeil.val) - this.info.height
+            this._zCeil = lowestZCeil(sector, sector.zCeil.val);
+            this._zFloor = fromCeiling && !this.isDead //<-- for keens
+                ? this.zCeil - this.info.height
                 // we want the sector with the highest floor which means we float a little when standing on an edge
                 : highestZFloor(sector, sector.zFloor.val);
             if (!this.sector.val) {
@@ -218,7 +229,7 @@ export class MapObject {
         }
 
         this.reactiontime = 0;
-        if (Math.random() < this.info.painchance) {
+        if (Math.random() < this.info.painchance && !(this.info.flags & MFFlags.MF_SKULLFLY)) {
             this.info.flags |= MFFlags.MF_JUSTHIT;
             this.setState(this.info.painstate);
         }
@@ -321,6 +332,23 @@ export class MapObject {
 
     // kind of P_ZMovement
     protected applyGravity() {
+        if (this.info.flags & MFFlags.MF_FLOAT && this.chaseTarget) {
+            if (!(this.info.flags & (MFFlags.MF_SKULLFLY | MFFlags.MF_INFLOAT))) {
+                const dist = xyDistanceBetween(this, this.chaseTarget);
+                const zDelta = 3 * ((this.chaseTarget.position.val.z + this.chaseTarget.info.height * .5) - this.position.val.z);
+                if (zDelta < 0 && dist < -zDelta) {
+                    this.velocity.z = Math.max(-maxFloatSpeed, this.velocity.z - maxFloatSpeed * this.map.game.time.delta);
+                } else if (zDelta > 0 && dist < zDelta) {
+                    this.velocity.z = Math.min(maxFloatSpeed, this.velocity.z + maxFloatSpeed * this.map.game.time.delta);
+                } else {
+                    this.velocity.z *= friction;
+                }
+            }
+        }
+        if (this.position.val.z + this.info.height > this.zCeil) {
+            this.velocity.z = 0;
+            this.position.val.z = this.zCeil - this.info.height;
+        }
         if (this.onGround) {
             this.velocity.z = 0;
             this.position.val.z = this.zFloor;
@@ -693,6 +721,11 @@ export class PlayerMapObject extends MapObject {
             this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
         }
 
+        // TODO: some of this is duplicate of parent class, I wonder if we can separate these better? Maybe we don't even need to override?
+        if (this.position.val.z + this.info.height > this.zCeil) {
+            this.velocity.z = 0;
+            this.position.val.z = this.zCeil - this.info.height;
+        }
         if (this.onGround) {
             if (this.velocity.z < -8) {
                 // if we hit the ground hard, drop the screen a bit
