@@ -178,7 +178,7 @@ interface BaseTraceHit {
     overlap: number; // used to resolve a tie in hit fraction
     point: Vector3; // point of hit (maybe redundant because we can compute it from fraction and we don't use z anyway)
 }
-interface LineTraceHit extends BaseTraceHit {
+export interface LineTraceHit extends BaseTraceHit {
     side: -1 | 1; // did we hit front side (1) or back side (-1)
     line: LineDef;
 }

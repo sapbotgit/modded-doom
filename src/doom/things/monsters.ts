@@ -3,10 +3,10 @@ import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
 import type { GameTime } from '../game';
 import { angleBetween, type MapObject } from '../map-object';
-import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice } from '../math';
+import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
 import { hasLineOfSight } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
 import { exitLevel } from '../specials';
 
@@ -143,6 +143,9 @@ const archvileActions: ActionMap = {
 	[ActionIndex.A_FireCrackle]: (time, mobj) => {},
 }
 
+// monsters can only open certain kinds of doors
+const doorTypes = [1, 32, 33, 34];
+const moveSpecials: LineTraceHit[] = [];
 export const monsterAiActions: ActionMap = {
     ...archvileActions,
 
@@ -243,14 +246,17 @@ export const monsterAiActions: ActionMap = {
         }
 
         // move
-        if (canMove(mobj, mobj.movedir)) {
-            // TODO: trigger doors
+        moveSpecials.length = 0;
+        if (canMove(mobj, mobj.movedir, moveSpecials)) {
             _moveVec.set(
                 Math.cos(mobj.movedir) * mobj.info.speed,
                 Math.sin(mobj.movedir) * mobj.info.speed,
                 0);
             mobj.position.update(pos => pos.add(_moveVec));
         }
+        // only trigger specials once per move otherwise we may open/close doors rapidly which looks silly
+        moveSpecials.forEach(hit =>
+            mobj.map.triggerSpecial(hit.line, mobj, doorTypes.includes(hit.line.special) ? 'S' : 'W', hit.side));
 
         // sometimes play "active" sound
         if (randInt(0, 255) < 3) {
@@ -720,7 +726,7 @@ function newChaseDir(mobj: MapObject, target: MapObject) {
         return;
     }
 
-    // nothing works, stop moving(?)
+    // nothing works, stop moving and we'll try again another time
     mobj.movedir = MoveDirection.None;
 }
 
@@ -728,39 +734,40 @@ function setMovement(mobj: MapObject, dir: number) {
     if (!canMove(mobj, dir)) {
         return false;
     }
+    // only set movedir and not direction (direction is adjusted gradually in A_Chase)
     mobj.movedir = dir;
-    // don't set direction immediately, we do it gradually in A_Chase
     mobj.movecount = randInt(0, 15);
     return true;
 }
 
 const _moveVec = new Vector3();
-function canMove(mobj: MapObject, dir: number) {
+function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     if (dir === MoveDirection.None) {
-        return false; // this means no movement so don't bother checking anything
+        return false; // don't allow no movement, monsters should move as much as possible
     }
-    const start = mobj.position.val;
     _moveVec.set(
         Math.cos(dir) * mobj.info.speed,
         Math.sin(dir) * mobj.info.speed,
         0);
-    return !moveBlocked(mobj, start, _moveVec);
+    return !moveBlocked(mobj, mobj.position.val, _moveVec, specialLines);
 }
 
 const maxStepSize = 24;
-function moveBlocked(mobj: MapObject, start: Vector3, move: Vector3) {
+const _moveEnd = new Vector3();
+function moveBlocked(mobj: MapObject, start: Vector3, move: Vector3, specialLines?: LineTraceHit[]) {
     let hitSomething = false;
-    // a simplified version of the move trace from MapObject.updatePosition()
+    // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
+    _moveEnd.copy(start).add(move).addScalar(mobj.info.radius);
     mobj.map.data.traceMove(start, move, mobj.info.radius, hit => {
         if ('mobj' in hit) {
-            const ignore = false
+            const skipHit = false
                 || (hit.mobj === mobj) // don't collide with yourself
                 || (!(hit.mobj.info.flags & hittableThing)) // not hittable
                 || (hit.mobj.info.flags & MFFlags.MF_SPECIAL) // skip pickupable things because monsters don't pick things up
                 || (start.z + mobj.info.height < hit.mobj.position.val.z) // passed under target
                 || (start.z > hit.mobj.position.val.z + hit.mobj.info.height) // passed over target
-            if (ignore) {
-                return true; // continue our search
+            if (skipHit) {
+                return true; // continue search
             }
             hitSomething = true;
         } else if ('line' in hit) {
@@ -777,7 +784,20 @@ function moveBlocked(mobj: MapObject, start: Vector3, move: Vector3) {
                     (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
                     (start.z - endSect.zFloor.val <= maxStepSize);
 
+                if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
+                    // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
+                    mobj.movedir = MoveDirection.None;
+                    specialLines?.push(hit);
+                }
+
                 if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
+                    if (specialLines && hit.line.special) {
+                        const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
+                        const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1;
+                        if (startSide !== endSide) {
+                            specialLines.push(hit);
+                        }
+                    }
                     return true; // step/ceiling/drop-off collision is okay so try next line
                 }
             }

@@ -450,7 +450,7 @@ export class MapObject {
                                 const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
                                 const endSide = signedLineDistance(hit.line.v, vec) < 0 ? -1 : 1
                                 if (startSide !== endSide) {
-                                    this.map.triggerSpecial(hit.line, this, 'W', hit.side)
+                                    this.map.triggerSpecial(hit.line, this, 'W', hit.side);
                                 }
                             }
 

@@ -928,7 +928,6 @@ const teleportDefinitions = [
     createTeleportDefinition(125, 'W1'),
 ];
 
-const teletportVec = new Vector3();
 export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: TriggerType, side: -1 | 1): SpecialDefinition | undefined => {
     if (side === 1) {
         // don't triggering teleports when leaving the teleport space
@@ -960,21 +959,12 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
         const sector = map.data.findSector(tpos.x, tpos.y);
 
         if (mobj.isMonster) {
-            // monsters cannot teleport if something is blocking teleport landing
+            // monsters cannot teleport if a hittable mobj is blocking teleport landing
             let blocked = false;
-            teletportVec.set(tpos.x, tpos.y, sector.zFloor.val);
-            map.data.traceMove(teletportVec, zeroVec, mobj.info.radius, hit => {
-                if ('mobj' in hit) {
-                    // skip non hittable things
-                    if (!(hit.mobj.info.flags & hittableThing)) {
-                        return true; // not hittable
-                    }
-                    blocked = true;
-                    return false;
-                }
-                return true;
+            map.data.traceMove(tpos, zeroVec, mobj.info.radius, hit => {
+                blocked = Boolean('mobj' in hit && hit.mobj.info.flags & hittableThing);
+                return !blocked;
             });
-
             if (blocked) {
                 continue;
             }
