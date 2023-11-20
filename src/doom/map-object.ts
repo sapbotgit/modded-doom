@@ -174,8 +174,6 @@ export class MapObject {
     }
 
     tick() {
-        this._attacker = null;
-
         // apply friction when on the ground (and we're not a missle/lost soul)
         if (this.onGround && !(this.info.flags & (MFFlags.MF_MISSILE | MFFlags.MF_SKULLFLY))) {
             // friction (not z because gravity)
@@ -617,7 +615,10 @@ export class PlayerMapObject extends MapObject {
         this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();
         if (this.isDead) {
-            // TODO: set direction to see our killer
+            if (this.attacker) {
+                const ang = angleBetween(this, this.attacker);
+                this.direction.set(ang);
+            }
             return;
         }
 

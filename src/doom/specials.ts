@@ -1,10 +1,9 @@
 // kind of based on p_spec.c
 import { MapObject, PlayerMapObject } from "./map-object";
-import { ToRadians, randInt } from "./math";
+import { randInt } from "./math";
 import { MFFlags, MapObjectIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
 import { zeroVec, type LineDef, type Sector, hittableThing } from "./map-data";
-import { Vector3 } from "three";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!

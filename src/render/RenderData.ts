@@ -100,7 +100,6 @@ export interface RenderSector {
     zHackCeil: Readable<number>;
     flatLighting: Store<number>;
     mobjs: Store<Set<MapObject>>;
-    // TODO: MapObjects so we only render them if the sector is visible?
 }
 
 export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
