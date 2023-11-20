@@ -750,7 +750,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     // if we can float and we're blocked by a two-sided line then float!
     if (blocked && 'line' in blocked && blocked.line.left?.sector && mobj.info.flags & MFFlags.MF_FLOAT) {
         const zmove = mobj.position.val.z < blocked.line.left.sector.zFloor.val ? maxFloatSpeed : -maxFloatSpeed;
-        // TODO: just moving down like this means we may come down on top of someone and get stuck. Probably we need a better z-collision mechanism
+        // TODO: moving down without checking for collisions means we may come down on top of someone and get stuck. Probably we need a better z-collision mechanism
         mobj.position.update(pos => pos.setZ(pos.z + zmove));
         mobj.info.flags |= MFFlags.MF_INFLOAT;
         // actually we are blocked but return true so we don't chage direction. the last part of A_Chase will look at

@@ -42,6 +42,7 @@ export function thingSpec(moType: MapObjectIndex): ThingSpec {
     return { ...t, moType, mo: mapObjectInfo[moType] };
 }
 
+const noActions = {};
 const actions = {
     ...obstacleActions,
     ...monsterActions,
@@ -52,8 +53,8 @@ export const stateChangeAction = (action: ActionIndex, time: GameTime, mobj: Map
     const aiActions =
         // enable full AI for MAP30 boss to feel pain and fire cubes (what the cubes do is up to the other conditions here)
         mobj.type === MapObjectIndex.MT_BOSSSPIT ? monsterAiActions :
-        mobj.map.game.settings.monsterAI.val === 'disabled' ? {} :
         mobj.map.game.settings.monsterAI.val === 'move-only' ? monsterMoveActions :
+        mobj.map.game.settings.monsterAI.val === 'disabled' ? noActions :
         monsterAiActions;
     const fn = actions[action] ?? aiActions[action];
     return fn?.(time, mobj);

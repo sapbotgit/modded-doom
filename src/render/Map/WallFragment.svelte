@@ -124,7 +124,7 @@
     }
 </script>
 
-{#if !$useTextures || texture2 || linedef.transparentWindowHack}
+{#if !$useTextures || texture2 || skyHack || linedef.transparentWindowHack}
     <Mesh
         userData={{ type: 'wall' }}
         interactive={$editor.active}
