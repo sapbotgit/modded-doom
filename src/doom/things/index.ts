@@ -1,7 +1,7 @@
 import { ActionIndex, MapObjectIndex, mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
 import type { MapObject, PlayerMapObject } from '../map-object';
 import { weaponItems, weaponActions } from './weapons';
-import { monsters, monsterActions, monsterAiActions } from './monsters';
+import { monsters, monsterActions, monsterAiActions, monsterMoveActions } from './monsters';
 import { ammunitions } from './ammunitions';
 import { items } from './items';
 import { powerups } from './powerups';
@@ -49,8 +49,12 @@ const actions = {
 }
 export const stateChangeAction = (action: ActionIndex, time: GameTime, mobj: MapObject) => {
     // disable ai actions based on setting (but we must not disable BOSSPIT because that is the thing that triggers the MAP30 spawning)
-    const aiActions = mobj.map.game.settings.monsterAI.val !== 'disabled' || mobj.type === MapObjectIndex.MT_BOSSSPIT
-        ? monsterAiActions : {};
+    const aiActions =
+        // enable full AI for MAP30 boss to feel pain and fire cubes (what the cubes do is up to the other conditions here)
+        mobj.type === MapObjectIndex.MT_BOSSSPIT ? monsterAiActions :
+        mobj.map.game.settings.monsterAI.val === 'disabled' ? {} :
+        mobj.map.game.settings.monsterAI.val === 'move-only' ? monsterMoveActions :
+        monsterAiActions;
     const fn = actions[action] ?? aiActions[action];
     return fn?.(time, mobj);
 };

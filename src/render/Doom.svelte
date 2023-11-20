@@ -116,6 +116,7 @@
         <select bind:value={$monsterAI}>
             <option>enabled</option>
             <option>disabled</option>
+            <option>move-only</option>
             <option>fast</option>
         </select>
     </label>

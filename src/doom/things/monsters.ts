@@ -1,7 +1,7 @@
 import { randInt } from 'three/src/math/MathUtils';
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
-import { ticksPerSecond, type GameTime } from '../game';
+import { type GameTime } from '../game';
 import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
 import { hasLineOfSight } from './obstacles';
@@ -147,10 +147,7 @@ const archvileActions: ActionMap = {
 // As usual, doom wiki is very helpful https://doomwiki.org/wiki/Monster_behavior
 const doorTypes = [1, 32, 33, 34];
 const moveSpecials: LineTraceHit[] = [];
-export const monsterAiActions: ActionMap = {
-    ...archvileActions,
-
-    // Movement actions
+export const monsterMoveActions: ActionMap = {
     [ActionIndex.A_Look]: (time, mobj) => {
         if (!mobj.position) {
             // TODO: this only happens during MapObject constructor because we call A_Look before we set position. Can we avoid this check?
@@ -272,7 +269,12 @@ export const monsterAiActions: ActionMap = {
         }
         mobj.direction.set(angle);
     },
+}
 
+export const monsterAttackActions: ActionMap = {
+    ...archvileActions,
+
+    // Movement actions
     // Attack actions
     // TODO: it would be a fun exercise to write some unit tests for these and then see if these could be
     // written in a functional way by combining smaller functions
@@ -607,6 +609,7 @@ export const monsterActions: ActionMap = {
 const anyMonstersOfSameTypeAlive = (mobj: MapObject) =>
     mobj.map.objs.filter(mo => mo.type === mobj.type).some(mo => !mo.isDead);
 
+export const monsterAiActions = { ...monsterMoveActions, ...monsterAttackActions };
 const allActions = { ...monsterActions, ...monsterAiActions, ...doom2BossActions, ...archvileActions };
 
 function findPlayerTarget(mobj: MapObject, allAround = false) {
