@@ -3,7 +3,7 @@ import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
-import { hittableThing, zeroVec, type Sector, type SubSector, type Thing } from "./map-data";
+import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit } from "./map-data";
 import { ticksPerSecond, type GameTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -235,8 +235,8 @@ export class MapObject {
         }
 
         const setChaseTarget =
-            (!this.chaseThreshold || this.info.doomednum == 64)
-            && source && this !== source && source.info.doomednum != 64
+            (!this.chaseThreshold || this.type === MapObjectIndex.MT_VILE)
+            && source && this !== source && source.type !== MapObjectIndex.MT_VILE
         if (setChaseTarget) {
             this.chaseTarget = source;
             this.chaseThreshold = 100;
@@ -380,9 +380,9 @@ export class MapObject {
         // cyclomatic complexity of the code below: about 1 bazillion.
         const start = this.position.val;
         hitCount += 1;
-        let hitFraction = 1;
-        while (hitFraction !== -1) {
-            hitFraction = -1;
+        let blocker: TraceHit = 1 as any;
+        while (blocker) {
+            blocker = null;
             vec.copy(start).add(this.velocity);
             this.map.data.traceMove(start, this.velocity, this.info.radius, hit => {
                 const isMissile = this.info.flags & MFFlags.MF_MISSILE;
@@ -427,13 +427,12 @@ export class MapObject {
                         this.pickup(hit.mobj);
                         return true;
                     }
-                    hitFraction = hit.fraction;
+                    blocker = hit;
                     if (hit.axis === 'y') {
                         slideMove(this.velocity, 1, 0);
                     } else {
                         slideMove(this.velocity, 0, 1);
                     }
-                    return false;
                 } else if ('line' in hit) {
                     const isMissile = this.info.flags & MFFlags.MF_MISSILE;
                     const twoSided = Boolean(hit.line.left);
@@ -495,18 +494,33 @@ export class MapObject {
                     }
                     hit.line.hitC = hitCount;
 
-                    hitFraction = hit.fraction;
+                    blocker = hit;
                     slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
-                    return false;
                 } else if ('flat' in hit) {
                     // hit a floor or ceiling
+                    if (isMissile || this.info.flags & MFFlags.MF_SKULLFLY) {
+                        // TODO: hmmm.. I wonder if we can cleanup some of the mess in applyGravity() (especially between player and mobj)
+                        // by using this a little more? Maybe even set position based on height and collision with ceiling?
+                        blocker = hit;
+                    }
                     if (isMissile) {
                         this.explode();
-                        return false;
                     }
                 }
-                return true;
+                return !blocker;
             });
+
+            if (blocker && this.info.flags & MFFlags.MF_SKULLFLY) {
+                // skull hit something so stop flying
+                this.info.flags &= ~MFFlags.MF_SKULLFLY;
+                this.setState(this.info.spawnstate);
+                // if hit is a mobj, then damage it
+                if ('mobj' in blocker) {
+                    const damage = this.info.damage * randInt(1, 8);
+                    blocker.mobj.damage(damage, this, this);
+                    this.velocity.set(0, 0, 0);
+                }
+            }
         }
 
         this.position.update(pos => pos.add(this.velocity));
