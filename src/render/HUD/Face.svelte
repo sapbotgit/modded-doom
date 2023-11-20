@@ -1,6 +1,5 @@
 <script lang="ts">
-    import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { angleBetween, normalizeAngle, randInt } from "../../doom";
+    import { type PlayerMapObject, type  PlayerInventory, ToDegrees, angleBetween, normalizeAngle, randInt, QUARTER_PI } from "../../doom";
     import Picture from "../Components/Picture.svelte";
     import { useDoom } from "../DoomContext";
 
@@ -34,13 +33,11 @@
             hasNewWeapon($inventory) ? faceState(`STFEVL${healthIndex}`, 9, 2 * ticksPerSecond) : // grin
             $damageCount && bigHurt() ? faceState(`STFOUCH${healthIndex}`, 7, ticksPerSecond) :
             $damageCount && player.attacker && player.attacker !== player ? (
-                angle === 'left' ? faceState(`STFTL${healthIndex}`, 7, ticksPerSecond) :
-                angle === 'right' ? faceState(`STFR${healthIndex}`, 7, ticksPerSecond) :
+                angle === 'left' ? faceState(`STFTL${healthIndex}0`, 7, ticksPerSecond) :
+                angle === 'right' ? faceState(`STFTR${healthIndex}0`, 7, ticksPerSecond) :
                 faceState(`STFKILL${healthIndex}`, 7, ticksPerSecond)
             ) :
             $damageCount ? faceState(`STFKILL${healthIndex}`, 6, ticksPerSecond) :
-            // TODO: pain from enemy => left/right/ouch/mad (`STFTL${healthIndex}0` or `STFR${healthIndex}0` or see below)
-            // TODO: pain from self => ouch/mad () or `STFKILL${healthIndex}`)
             rampageTime > 2 * ticksPerSecond ? faceState(`STFKILL${healthIndex}`, 5, 1) :
             $invuln || $inventory.items.invincibilityTicks ? faceState('STFGOD0', 4, 1) : // invincibility
             faceState(`STFST${healthIndex}${variation}`, 0, Math.trunc(ticksPerSecond * 0.5)); // straight or left/right eye brow
@@ -64,11 +61,14 @@
     }
 
     function badGuyAngle(): 'left' | 'right' | 'other' {
-        // maybe after we get some ai working...
-        // const dir = player.direction.val;
-        // const ang = angleBetween(player, player.attacker);
-        // const angle = normalizeAngle(ang - dir);
-        return 'other';
+        if (!player.attacker) {
+            return 'other';
+        }
+        const dir = player.direction.val;
+        const ang = angleBetween(player, player.attacker);
+        const angle = normalizeAngle(ang - dir) - Math.PI;
+        return (angle > -QUARTER_PI && angle < QUARTER_PI) ? 'other' :
+            angle > 0 ? 'left' : 'right';
     }
 
     function faceState(face: string, order: number, ticks: number) {
