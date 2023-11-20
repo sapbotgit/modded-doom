@@ -286,7 +286,7 @@ export const monsterAttackActions: ActionMap = {
         mobj.map.game.sound.play(SoundIndex.sfx_pistol, mobj);
 
         const slope = shotTracer.zAim(mobj, attackRange);
-        const angle = mobj.direction.val + angleNoise(25);
+        const angle = mobj.direction.val + angleNoise(12);
         const damage = 3 * randInt(1, 5);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
     },
@@ -299,7 +299,7 @@ export const monsterAttackActions: ActionMap = {
 
         const slope = shotTracer.zAim(mobj, attackRange);
         for (let i = 0; i < 3; i++) {
-            const angle = mobj.direction.val + angleNoise(25);
+            const angle = mobj.direction.val + angleNoise(12);
             const damage = 3 * randInt(1, 5);
             shotTracer.fire(mobj, damage, angle, slope, attackRange);
         }
@@ -340,7 +340,7 @@ export const monsterAttackActions: ActionMap = {
         allActions[ActionIndex.A_FaceTarget](time, mobj);
         mobj.map.game.sound.play(SoundIndex.sfx_shotgn, mobj);
 
-        const angle = mobj.direction.val + angleNoise(25);
+        const angle = mobj.direction.val + angleNoise(12);
         const damage = 3 * randInt(1, 5);
         const slope = shotTracer.zAim(mobj, attackRange);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
