@@ -5,7 +5,7 @@ import { HALF_PI, normalizeAngle, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
-import { mapObjectInfo, MapObjectIndex, MFFlags } from "./doom-things-info";
+import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
 
@@ -253,26 +253,34 @@ export class MapRuntime {
     private tryToggle(special: SpecialDefinition, linedef: LineDef, tex: Store<string>) {
         const name = tex.val;
         const toggle = this.game.wad.switchToggle(name);
-        if (toggle) {
-            if (special.repeatable && !linedef.buttonTimer) {
-                let ticks = ticksPerSecond; // 1 sec
-                const action = () => {
-                    if (--ticks) {
-                        return;
-                    }
-                    // restore original state
-                    tex.set(name);
-                    linedef.buttonTimer = null;
-                    this.removeAction(action);
-                }
+        if (!toggle || linedef.switchAction) {
+            return false;
+        }
 
-                linedef.buttonTimer = action;
-                this.addAction(action);
-            }
-            tex.set(toggle);
+        // play a different sound on level exit
+        const sound = (linedef.special === 11 || linedef.special === 51)
+            ? SoundIndex.sfx_swtchx : SoundIndex.sfx_swtchn;
+        this.game.sound.play(sound, linedef.right.sector);
+        tex.set(toggle);
+        if (!special.repeatable) {
             return true;
         }
-        return false;
+
+        // it's a repeatable switch so restore the state after 1 second
+        let ticks = ticksPerSecond; // 1 sec
+        const action = () => {
+            if (--ticks) {
+                return;
+            }
+            // restore original state
+            this.game.sound.play(SoundIndex.sfx_swtchn, linedef.right.sector);
+            tex.set(name);
+            linedef.switchAction = null;
+            this.removeAction(action);
+        };
+        linedef.switchAction = action;
+        this.addAction(action);
+        return true;
     }
 }
 
@@ -418,6 +426,7 @@ class GameInput {
                         if (gap > 0) {
                             return true; // allow trace to continue
                         }
+                        this.map.game.sound.play(SoundIndex.sfx_noway, this.player);
                     }
                     return false; // always stop on the first line (unless above says we can continue)
                 }

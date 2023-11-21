@@ -1,6 +1,6 @@
 import { Euler, Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
-import { ActionIndex, MFFlags, MapObjectIndex, StateIndex } from "../doom-things-info";
+import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, QUARTER_PI, angleNoise, randInt } from '../math';
 import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween, hitSky } from '../map-object';
@@ -52,6 +52,10 @@ export class PlayerWeapon {
         this.player = player;
         this.player.refire = false;
         this._sprite.setState(this.upState);
+
+        if (this.name === 'chainsaw') {
+            player.map.game.sound.play(SoundIndex.sfx_sawup, player);
+        }
     }
     deactivate() { this._sprite.setState(this.downState); }
     ready() { this._sprite.setState(this.readyState); }
@@ -217,6 +221,10 @@ export const weaponActions: { [key: number]: WeaponAction } = {
             weapon.fire();
         }
 
+        // if (player.weapon.val.name === 'chainsaw' && psp->state == &states[S_SAW]) {
+        //     player.map.game.sound.play(SoundIndex.sfx_sawidl, player);
+        // }
+
         // bob the weapon based on movement speed
         weapon.position.update(pos => {
             let angle = (weaponBobTime * time.elapsed) * HALF_PI;
@@ -246,6 +254,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 
         // turn to face target
         if (shotTracer.lastTarget) {
+            player.map.game.sound.play(SoundIndex.sfx_punch, player);
             player.direction.set(angleBetween(player, shotTracer.lastTarget));
         }
     },
@@ -258,10 +267,10 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         shotTracer.fire(player, damage, angle, slope, meleeRange + 1);
 
         if (!shotTracer.lastTarget) {
-            // TODO: play sfx_sawful
+            player.map.game.sound.play(SoundIndex.sfx_sawful, player);
             return;
         }
-        // TODO: play sfx_sawhit
+        player.map.game.sound.play(SoundIndex.sfx_sawhit, player);
 
         // turn to face target
         player.direction.update(dir => {
@@ -284,6 +293,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     [ActionIndex.A_FirePistol]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
+        player.map.game.sound.play(SoundIndex.sfx_pistol, player);
 
         const slope = shotTracer.zAim(player, scanRange);
         let angle = player.direction.val;
@@ -296,6 +306,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     [ActionIndex.A_FireShotgun]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
+        player.map.game.sound.play(SoundIndex.sfx_shotgn, player);
 
         const slope = shotTracer.zAim(player, scanRange);
         const angle = player.direction.val;
@@ -310,6 +321,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         // chocolate doom but not gzdoom
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
         useAmmo(player, weapon);
+        player.map.game.sound.play(SoundIndex.sfx_dshtgn, player);
 
         const slope = shotTracer.zAim(player, scanRange);
         let angle = player.direction.val;
@@ -318,12 +330,13 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         }
     },
     [ActionIndex.A_OpenShotgun2]: (time, player, weapon) => {
-        // TODO: sound?
+        player.map.game.sound.play(SoundIndex.sfx_dbopn, player)
     },
     [ActionIndex.A_LoadShotgun2]: (time, player, weapon) => {
-        // TODO: sound?
+        player.map.game.sound.play(SoundIndex.sfx_dbload, player)
     },
     [ActionIndex.A_CloseShotgun2]: (time, player, weapon) => {
+        player.map.game.sound.play(SoundIndex.sfx_dbcls, player)
         weaponActions[ActionIndex.A_ReFire](time, player, weapon);
     },
 
@@ -331,6 +344,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         weapon.flash(weapon.sprite.val.frame);
         player.setState(StateIndex.S_PLAY_ATK2);
         useAmmo(player, weapon);
+        player.map.game.sound.play(SoundIndex.sfx_pistol, player);
 
         const slope = shotTracer.zAim(player, scanRange);
         let angle = player.direction.val;
@@ -354,7 +368,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     },
 
     [ActionIndex.A_BFGsound]: (time, player, weapon) => {
-        // SND: sfx_bfg
+        player.map.game.sound.play(SoundIndex.sfx_bfg, player);
     },
     [ActionIndex.A_FireBFG]: (time, player, weapon) => {
         useAmmo(player, weapon);
@@ -640,19 +654,16 @@ type PlayerMissileType = MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | M
 function shootMissile(shooter: MapObject, type: PlayerMissileType) {
     const angle = shooter.direction.val;
     const pos = shooter.position.val;
-    const mobj = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32);
-    mobj.direction.set(angle);
+    const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32);
+    missile.direction.set(angle);
+    missile.map.game.sound.play(missile.info.seesound, missile);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
-    mobj.chaseTarget = shooter;
-
-    if (mobj.info.seesound) {
-        // SOUND: mobj.infoseesound
-    }
+    missile.chaseTarget = shooter;
 
     const slope = shotTracer.zAim(shooter, scanRange);
     _shotEuler.set(0, Math.acos(slope) - HALF_PI, angle);
-    mobj.velocity.set(mobj.info.speed, 0, 0).applyEuler(_shotEuler);
+    missile.velocity.set(missile.info.speed, 0, 0).applyEuler(_shotEuler);
 }
 
 function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {

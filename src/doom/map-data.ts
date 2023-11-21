@@ -30,7 +30,7 @@ export interface LineDef {
     transparentDoorHack: boolean;
     transparentWindowHack: boolean;
     // For game processing
-    buttonTimer: Action;
+    switchAction: Action;
     hitC: number; // don't hit the same line twice during collision detection
 }
 const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
@@ -41,7 +41,7 @@ const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]
     tag: ld.sectorTag,
     special: ld.lineType,
     flags: ld.flags,
-    buttonTimer: null,
+    switchAction: null,
     hitC: 0,
     transparentDoorHack: false,
     transparentWindowHack: false,
@@ -100,14 +100,12 @@ export interface Sector {
     // part of skyhack
     skyHeight?: number;
     // Game processing data
+    center: Vector3;
     specialData: any;
 }
 const toSector = (num: number, sd: any): Sector => {
     const sector = {
         num,
-        // rev is a reactivity hack to allow me to re-assign textures during sector floor/ceiling change
-        // (see Flats.svelte and createFloorAction in Special.ts). We should be able to do better than this
-        rev: store(1),
         tag: sd.tag,
         type: sd.specialType,
         zFloor: store(sd.floorZ),
@@ -115,6 +113,7 @@ const toSector = (num: number, sd: any): Sector => {
         light: store(sd.light),
         floorFlat: store(fixTextureName(sd.floorFlat)),
         ceilFlat: store(fixTextureName(sd.ceilFlat)),
+        center: new Vector3(), // filled in after completeSubSectors
         specialData: null,
     };
     return sector;
@@ -241,14 +240,23 @@ export class MapData {
         this.bspTracer = createBspTracer(rootNode);
         this.subsectorTrace = createSubsectorTrace(rootNode);
 
-        // figure out any sectors that need sky height adjustment
         for (const sector of this.sectors) {
+            // figure out any sectors that need sky height adjustment
             if (sector.ceilFlat.val === 'F_SKY1') {
                 const skyHeight = this.sectorNeighbours(sector)
                     .filter(e => e.ceilFlat.val === 'F_SKY1')
                     .reduce((val, sec) => Math.max(val, sec.zCeil.val), sector.zCeil.val);
                 sector.skyHeight = skyHeight;
             }
+            // compute sector centers which is used for sector sound origin
+            const subs = subsectors.filter(sub => sub.sector === sector)
+            const verts = subs.map(sub => sub.vertexes).flat();
+            const bounds = computeBounds(verts);
+            sector.center.set(
+                (bounds.right + bounds.left) * .5,
+                (bounds.bottom + bounds.top) * .5,
+                (sector.zCeil.val + sector.zFloor.val) * .5,
+            );
         }
 
         // really? linedefs without segs? I've only found this in a few final doom maps (plutonia29, tnt20, tnt21, tnt27)

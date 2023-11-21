@@ -1,6 +1,6 @@
 import { store, type Store } from "./store";
 import { thingSpec, stateChangeAction } from "./things";
-import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex } from "./doom-things-info";
+import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit } from "./map-data";
@@ -528,8 +528,7 @@ export class MapObject {
         this.velocity.set(0, 0, 0);
         this._state.setState(this.info.deathstate, -randInt(0, 2));
         this.info.flags &= ~MFFlags.MF_MISSILE;
-        // if (this.info.deathsound)
-        // SND: this.info.deathsound
+        this.map.game.sound.play(this.info.deathsound, this);
     }
 }
 
@@ -745,6 +744,7 @@ export class PlayerMapObject extends MapObject {
             if (this.velocity.z < -8) {
                 // if we hit the ground hard, drop the screen a bit
                 this.deltaViewHeight = this.velocity.z >> 3;
+                this.map.game.sound.play(SoundIndex.sfx_oof, this);
             }
             this.velocity.z = 0;
 

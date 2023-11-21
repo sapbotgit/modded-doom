@@ -878,20 +878,20 @@ type MissileType =
 // TODO: similar (but also different) from player shootMissile in weapon.ts. Maybe we can combine these?
 function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, angle?: number) {
     const pos = shooter.position.val;
-    const mobj = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset);
+    const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset);
     let an = angle ?? angleBetween(shooter, target);
     if (target.info.flags & MFFlags.MF_SHADOW) {
         // shadow objects (invisibility) should add error to angle
         an += angleNoise(15);
     }
-    mobj.direction.set(an);
+    missile.direction.set(an);
+    missile.map.game.sound.play(missile.info.seesound, missile);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
-    mobj.chaseTarget = shooter;
+    missile.chaseTarget = shooter;
 
-    launchMapObject(mobj, target, shotZOffset, mobj.info.speed);
-    mobj.map.game.sound.play(mobj.info.seesound, mobj);
-    return mobj;
+    launchMapObject(missile, target, shotZOffset, missile.info.speed);
+    return missile;
 }
 
 const _deltaVec = new Vector3;

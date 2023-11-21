@@ -5,6 +5,7 @@ import type { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
+import type { Sector } from "./map-data";
 
 export interface GameTime {
     elapsed: number; // seconds
@@ -56,7 +57,7 @@ export interface IntermissionScreen {
 }
 
 export class SoundSystem {
-    play(snd: SoundIndex, mobj?: MapObject) {
+    play(snd: SoundIndex, location?: MapObject | Sector) {
         if (snd === SoundIndex.sfx_None) {
             return;
         }

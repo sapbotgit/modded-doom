@@ -1,7 +1,7 @@
 // kind of based on p_spec.c
 import { MapObject, PlayerMapObject } from "./map-object";
 import { randInt } from "./math";
-import { MFFlags, MapObjectIndex, StateIndex } from "./doom-things-info";
+import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
 import { zeroVec, type LineDef, type Sector, hittableThing } from "./map-data";
 
@@ -972,10 +972,12 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
         if (sector.tag === linedef.tag) {
             // teleport fog in old and new locations
             const pos = mobj.position.val;
-            map.spawn(MapObjectIndex.MT_TFOG, pos.x, pos.y);
-            map.spawn(MapObjectIndex.MT_TFOG,
+            const oldPlaceFog = map.spawn(MapObjectIndex.MT_TFOG, pos.x, pos.y);
+            map.game.sound.play(SoundIndex.sfx_telept, oldPlaceFog);
+            const newPlaceFog = map.spawn(MapObjectIndex.MT_TFOG,
                 tpos.x + 20 * Math.cos(tp.direction.val),
                 tpos.y + 20 * Math.sin(tp.direction.val));
+            map.game.sound.play(SoundIndex.sfx_telept, newPlaceFog);
 
             mobj.teleport(tp, sector);
             triggered = true;
