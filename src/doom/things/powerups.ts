@@ -1,7 +1,10 @@
 import { type ThingType } from '.';
+import { SoundIndex } from '../doom-things-info';
 import type { AmmoType, PlayerMapObject } from "../map-object";
+import type { MessageId } from '../text';
 import { clipAmmo, giveAmmo } from './ammunitions';
 import { updateInventory } from './items';
+import { itemPickedUp, noPickUp } from './pickup';
 
 export const powerups: ThingType[] = [
     { type: 8, class: 'P', description: 'Backpack',
@@ -15,39 +18,47 @@ export const powerups: ThingType[] = [
                 Object.keys(clipAmmo).forEach((type: AmmoType) => giveAmmo(player, inv, type, 1));
                 return inv;
             });
-            return true;
+            return itemPickedUp(SoundIndex.sfx_itemup, 'GOTBACKPACK');
         }
     },
-    { type: 2011, class: 'P', description: 'Stimpack', onPickup: addhealth(10) },
-    { type: 2012, class: 'P', description: 'Medikit', onPickup: addhealth(25) },
-    { type: 2018, class: 'P', description: 'Armor',
-        onPickup: (player: PlayerMapObject) => {
-            let changed = false;
-            player.inventory.update(inv => {
-                if (inv.armor < 100) {
-                    inv.armor = 100;
-                    changed = true;
-                }
-                return inv;
-            });
-            return changed;
-        },
-    },
-    { type: 2019, class: 'P', description: 'Megaarmor', onPickup: updateInventory(inv => inv.armor = 200) },
-    { type: 2025, class: 'P', description: 'Radiation shielding suit', onPickup: updateInventory(inv => inv.items.radiationSuitTicks = 30 * 35) },
+    { type: 2011, class: 'P', description: 'Stimpack', onPickup: addhealth(10, 'GOTSTIM') },
+    { type: 2012, class: 'P', description: 'Medikit', onPickup: addhealth(25, 'GOTMEDIKIT', 'GOTMEDINEED') },
+    { type: 2018, class: 'P', description: 'Armor', onPickup: giveArmor(100, 1) },
+    { type: 2019, class: 'P', description: 'Megaarmor', onPickup: giveArmor(200, 2) },
+    { type: 2025, class: 'P', description: 'Radiation shielding suit', onPickup: updateInventory('GOTSUIT', inv => inv.items.radiationSuitTicks = 30 * 35) },
 ];
 
-
-function addhealth(amount: number) {
+function giveArmor(amount: number, type: 1 | 2) {
     return (player: PlayerMapObject) => {
-        let added = false;
+        let pickedUp = false;
+        player.inventory.update(inv => {
+            let units = amount * type;
+            if (inv.armor < units) {
+                pickedUp = true;
+                inv.armorType = type;
+                inv.armor = amount;
+            }
+            return inv;
+        });
+        return pickedUp
+            ? itemPickedUp(SoundIndex.sfx_itemup, type === 2 ? 'GOTMEGA' : 'GOTARMOR')
+            : noPickUp();
+    };
+}
+
+function addhealth(amount: number, message: MessageId, lowHealthMessage?: MessageId) {
+    return (player: PlayerMapObject) => {
+        let pickedUp = false;
+        const msg = player.health.val < 25 ? (lowHealthMessage ?? message) : message;
         player.health.update(health => {
             if (health < 100) {
                 health = Math.min(100, health + amount);
-                added = true;
+                pickedUp = true;
             }
             return health;
-        })
-        return added;
+        });
+        return pickedUp
+            ? itemPickedUp(SoundIndex.sfx_itemup, msg)
+            : noPickUp();
     }
 }

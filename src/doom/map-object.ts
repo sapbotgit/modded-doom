@@ -10,6 +10,7 @@ import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
 import { exitLevel } from "./specials";
+import { _T } from "./text";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
@@ -74,6 +75,7 @@ export class MapObject {
     get type() { return this.spec.moType; }
     get description() { return this.spec.description; }
     get class() { return this.spec.class; }
+    get onPickup() { return this.spec.onPickup; }
 
     constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex) {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
@@ -573,6 +575,7 @@ export class PlayerMapObject extends MapObject {
     readonly extraLight = store(0);
     readonly weapon = store<PlayerWeapon>(null);
     nextWeapon: InventoryWeapon = null;
+    hudMessage = store('');
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
         super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
@@ -799,11 +802,16 @@ export class PlayerMapObject extends MapObject {
 
     // kind of P_TouchSpecialThing in p_inter.c
     protected pickup(mobj: MapObject) {
-        const pickedUp = (mobj as any).spec.onPickup?.(this, mobj);
+        const pickedUp = mobj.onPickup?.(this, mobj);
         if (pickedUp) {
+            // TODO: only play sound for local player, not remote players
+            this.map.game.sound.play(pickedUp.sound);
+            this.hudMessage.set(_T(pickedUp.message));
             this.stats.items += mobj.info.flags & MFFlags.MF_COUNTITEM ? 1 : 0;
             this.bonusCount.update(val => val + 6);
-            this.map.destroy(mobj);
+            if (pickedUp.removeMapObject) {
+                this.map.destroy(mobj);
+            }
         }
     }
 }

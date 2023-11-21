@@ -1,5 +1,5 @@
 import { ActionIndex, MapObjectIndex, mapObjectInfo, type MapObjectInfo } from '../doom-things-info';
-import type { MapObject, PlayerMapObject } from '../map-object';
+import type { MapObject} from '../map-object';
 import { weaponItems, weaponActions } from './weapons';
 import { monsters, monsterActions, monsterAiActions, monsterMoveActions } from './monsters';
 import { ammunitions } from './ammunitions';
@@ -10,6 +10,7 @@ import { obstacles, actions as obstacleActions } from './obstacles';
 import { decorations } from './decorations';
 import { other } from './other';
 import type { GameTime } from '../game';
+import type { PickupFunction } from './pickup';
 
 export { inventoryWeapon, weaponTop, PlayerWeapon } from './weapons';
 
@@ -27,7 +28,7 @@ export interface ThingType {
         | 'D' // decoration
         | 'S'; // player (start/teleport)
     description: string;
-    onPickup?: (player: PlayerMapObject, mobj: MapObject) => boolean;
+    onPickup?: PickupFunction;
 }
 
 export interface ThingSpec extends ThingType {

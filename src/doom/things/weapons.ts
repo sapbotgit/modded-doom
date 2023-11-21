@@ -8,6 +8,8 @@ import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond, type GameTime } from "../game";
 import { type HandleTraceHit, type Sector } from "../map-data";
+import { itemPickedUp, noPickUp } from "./pickup";
+import type { MessageId } from "../text";
 
 export const weaponTop = 32;
 const weaponBottom = 32 - 128;
@@ -17,6 +19,7 @@ type WeaponName =
 export interface InventoryWeapon {
     keynum: number;
     name: WeaponName;
+    pickupMessage?: MessageId;
     fn: () => PlayerWeapon;
 }
 
@@ -78,6 +81,7 @@ export const allWeapons: InventoryWeapon[] = [
     {
         name: 'chainsaw',
         keynum: 1,
+        pickupMessage: 'GOTCHAINSAW',
         fn: () => new PlayerWeapon('chainsaw', 'none', 0, StateIndex.S_SAWUP, StateIndex.S_SAWDOWN, StateIndex.S_SAW, StateIndex.S_SAW1, StateIndex.S_NULL),
     },
     {
@@ -93,31 +97,37 @@ export const allWeapons: InventoryWeapon[] = [
     {
         name: 'super shotgun',
         keynum: 3,
+        pickupMessage: 'GOTSHOTGUN2',
         fn: () => new PlayerWeapon('super shotgun', 'shells', 2, StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
     },
     {
         name: 'shotgun',
         keynum: 3,
+        pickupMessage: 'GOTSHOTGUN',
         fn: () => new PlayerWeapon('shotgun', 'shells', 1, StateIndex.S_SGUNUP, StateIndex.S_SGUNDOWN, StateIndex.S_SGUN, StateIndex.S_SGUN1, StateIndex.S_SGUNFLASH1),
     },
     {
         name: 'chaingun',
         keynum: 4,
+        pickupMessage: 'GOTCHAINGUN',
         fn: () => new PlayerWeapon('chaingun', 'bullets', 1, StateIndex.S_CHAINUP, StateIndex.S_CHAINDOWN, StateIndex.S_CHAIN, StateIndex.S_CHAIN1, StateIndex.S_CHAINFLASH1),
     },
     {
         name: 'rocket launcher',
         keynum: 5,
+        pickupMessage: 'GOTROCKET',
         fn: () => new PlayerWeapon('rocket launcher', 'rockets', 1, StateIndex.S_MISSILEUP, StateIndex.S_MISSILEDOWN, StateIndex.S_MISSILE, StateIndex.S_MISSILE1, StateIndex.S_MISSILEFLASH1),
     },
     {
         name: 'plasma rifle',
         keynum: 6,
+        pickupMessage: 'GOTPLASMA',
         fn: () => new PlayerWeapon('plasma rifle', 'cells', 1, StateIndex.S_PLASMAUP, StateIndex.S_PLASMADOWN, StateIndex.S_PLASMA, StateIndex.S_PLASMA1, StateIndex.S_PLASMAFLASH1),
     },
     {
         name: 'bfg',
         keynum: 7,
+        pickupMessage: 'GOTBFG9000',
         fn: () => new PlayerWeapon('bfg', 'cells', 40, StateIndex.S_BFGUP, StateIndex.S_BFGDOWN, StateIndex.S_BFG, StateIndex.S_BFG1, StateIndex.S_BFGFLASH1),
     },
 ];
@@ -137,14 +147,16 @@ function giveWeapon(name: WeaponName) {
     const factory = inventoryWeapon(name);
     const weapon = factory.fn();
     return (player: PlayerMapObject, mobj: MapObject) => {
+        let pickedup = false;
         player.inventory.update(inv => {
             if (weapon.ammoType !== 'none') {
                 // only give 1 clip for droped weapon
                 const clipCount = (mobj.info.flags & MFFlags.MF_DROPPED) ? 1 : 2;
-                giveAmmo(player, inv, weapon.ammoType, clipCount);
+                pickedup = giveAmmo(player, inv, weapon.ammoType, clipCount);
             }
             const wIndex = Object.values(allWeapons).indexOf(factory);
             if (!inv.weapons[wIndex]) {
+                pickedup = true;
                 // keep weapons in the same order as the above weapons list so select works properly
                 // (ie. select chainsaw before fist if we have a chainsaw)
                 inv.weapons[wIndex] = factory;
@@ -152,8 +164,9 @@ function giveWeapon(name: WeaponName) {
             }
             return inv;
         });
-        const removeItem = (player.map.game.mode === 'solo');
-        return removeItem;
+        return pickedup
+            ? itemPickedUp(SoundIndex.sfx_wpnup, factory.pickupMessage, player.map.game.mode === 'solo')
+            : noPickUp();
     }
 }
 
