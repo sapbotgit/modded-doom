@@ -115,7 +115,7 @@ export const allWeapons: InventoryWeapon[] = [
     {
         name: 'rocket launcher',
         keynum: 5,
-        pickupMessage: 'GOTROCKET',
+        pickupMessage: 'GOTLAUNCHER',
         fn: () => new PlayerWeapon('rocket launcher', 'rockets', 1, StateIndex.S_MISSILEUP, StateIndex.S_MISSILEDOWN, StateIndex.S_MISSILE, StateIndex.S_MISSILE1, StateIndex.S_MISSILEFLASH1),
     },
     {

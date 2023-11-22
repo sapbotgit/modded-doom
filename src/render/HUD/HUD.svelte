@@ -6,6 +6,7 @@
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
     import type { Size } from "@threlte/core";
+    import HUDMessages from "./HUDMessages.svelte";
 
     export let player: PlayerMapObject;
     export let size: Size;
@@ -13,6 +14,8 @@
     const { health, weapon, inventory } = player;
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
 </script>
+
+<HUDMessages {player} />
 
 <div class="root" style="top:{size.height}px">
     <Picture name={'STBAR'} />

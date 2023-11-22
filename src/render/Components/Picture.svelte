@@ -1,10 +1,9 @@
 <script lang="ts" context="module">
-    // cache ImageData so we don't always create a new image context when we load a new image
-    const cache = new Map<string, ImageData>();
+    // cache image url so we don't always create a new image context when we load a new image
+    const cache = new Map<string, string>();
     let lastWad: DoomWad;
 </script>
 <script lang="ts">
-    import { afterUpdate } from "svelte";
     import { useDoom } from "../DoomContext";
     import type { DoomWad } from "../../doom";
 
@@ -17,27 +16,42 @@
         cache.clear();
     }
 
-    $: data =
-        type === 'flat' ? wad.flatTextureData(name) :
-        type === 'wall' ? wad.wallTextureData(name) :
-        wad.graphic(name);
-
-    let canvas: HTMLCanvasElement;
-    afterUpdate(() => {
-        const ctx = canvas.getContext('2d');
+    $: dataUrl = imageDataUrl(wad, name, type);
+    function imageDataUrl(wad: DoomWad, name: string, type: 'wall' | 'flat' | 'any') {
         const key = name + type;
-        let imageData = cache.get(key)
-        if (!imageData) {
-            imageData = ctx.createImageData(data.width, data.height);
-            data.toBuffer(imageData.data);
-            cache.set(key, imageData);
+        let dataUrl = cache.get(key);
+        if (dataUrl) {
+            return dataUrl;
         }
-        ctx.putImageData(imageData, 0, 0);
-    });
+
+        const px =
+            type === 'flat' ? wad.flatTextureData(name) :
+            type === 'wall' ? wad.wallTextureData(name) :
+            wad.graphic(name);
+        if (!px) {
+            return '';
+        }
+
+        try {
+            // draw image onto canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = px.width;
+            canvas.height = px.height;
+            const ctx = canvas.getContext('2d');
+            const img = ctx.createImageData(canvas.width, canvas.height);
+            px.toBuffer(img.data);
+            ctx.putImageData(img, 0, 0);
+
+            // convert to data url
+            const dataUrl = canvas.toDataURL('image/png');
+            cache.set(key, dataUrl);
+            return dataUrl;
+        } catch {
+            // interestingly, some wads contain TITLEPIC but not playpal which means we have images but no palette.
+            // We could supply a default palette but for the purpose of the table of wads, it doesn't seem worth it
+            return '';
+        }
+    }
 </script>
 
-<canvas
-    bind:this={canvas}
-    width={data.width}
-    height={data.height}
-/>
+<img src={dataUrl} alt={name} />
