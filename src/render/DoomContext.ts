@@ -1,7 +1,8 @@
 import { getContext } from 'svelte'
 import { MapTextures, type RenderSector } from './RenderData';
-import { Game, MapRuntime, type GameSettings, store } from '../doom';
+import { Game, MapRuntime, type GameSettings, store, type Store } from '../doom';
 import { get, writable } from 'svelte/store';
+import type { Euler, Vector3 } from 'three';
 
 export const createAppContext = () => {
     const url = writable(location.pathname);
@@ -70,5 +71,9 @@ export const useAppContext = (): ReturnType<typeof createAppContext> =>
     getContext('doom-app-context');
 export const useDoom = (): ReturnType<typeof createGameContext> =>
     getContext('doom-game-context');
-export const useDoomMap = (): { map: MapRuntime, renderSectors: RenderSector[] } =>
+export const useDoomMap = (): {
+    map: MapRuntime,
+    renderSectors: RenderSector[],
+    camera: { position: Store<Vector3>, angle: Store<Euler> },
+} =>
     getContext('doom-map');

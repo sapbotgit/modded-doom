@@ -1,17 +1,17 @@
 <script lang="ts">
-    import { Group, Mesh, Pass, PerspectiveCamera } from "@threlte/core";
+    import { Mesh, Pass } from "@threlte/core";
     import Thing from "./Thing.svelte";
     import { CircleGeometry, MeshStandardMaterial } from "three";
-    import Weapon from "./Weapon.svelte";
     import { useDoomMap } from "../DoomContext";
     import { ticksPerSecond } from "../../doom";
     import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
     import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
     import { ScreenColorShader } from "../Shaders/ScreenColorShader";
-    import OrthoCamera from "./OrthoCamera.svelte";
+    import OrthoCam from "./Camera/Orthographic.svelte";
+    import FirstPersonCam from "./Camera/FirstPerson.svelte";
 
     const { map, renderSectors } = useDoomMap();
-    const { mode, position: cameraPosition, rotation: cameraRotation } = map.camera;
+    const { cameraMode } = map.game.settings;
     const player = map.player;
     const { position: playerPosition, damageCount, bonusCount, inventory, sector } = player;
     $: renderSector = $sector && renderSectors.find(e => e.sector === $sector)
@@ -29,7 +29,7 @@
 <Pass pass={new ShaderPass(GammaCorrectionShader)} />
 <Pass pass={cPass} />
 
-{#if $mode !== "1p"}
+{#if $cameraMode !== "1p"}
     <Thing {renderSector} thing={player} />
 
     <Mesh
@@ -44,20 +44,8 @@
     />
 {/if}
 
-{#if $mode === "ortho"}
-    <OrthoCamera {yScale} />
+{#if $cameraMode === "ortho"}
+    <OrthoCam {yScale} />
 {:else}
-    <PerspectiveCamera
-        rotation={$cameraRotation}
-        position={$cameraPosition}
-        far={100000}
-        fov={72}
-        scale={{ y: yScale }}
-    >
-         <Group scale={{ y: 1 / yScale }}>
-            {#if $mode === "1p"}
-                <Weapon {player} />
-            {/if}
-        </Group>
-    </PerspectiveCamera>
+    <FirstPersonCam {yScale} />
 {/if}

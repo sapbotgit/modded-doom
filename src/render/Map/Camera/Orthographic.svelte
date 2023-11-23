@@ -1,17 +1,30 @@
 <script lang="ts">
-    import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, PlaneGeometry, Raycaster, Texture, Vector2, Vector3 } from "three";
-    import { MapObjectIndex } from "../../doom";
+    import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, PlaneGeometry, Raycaster, Texture, Vector2, Vector3, type EulerOrder } from "three";
+    import { HALF_PI, MapObjectIndex } from "../../../doom";
     import { tweened, type Tweened } from "svelte/motion";
     import { Mesh, OrthographicCamera, useFrame, useThrelte } from "@threlte/core";
-    import { useDoom, useDoomMap } from "../DoomContext";
+    import { useDoom, useDoomMap } from "../../DoomContext";
 
     export let yScale: number;
 
+    let zoom = 100; // TODO: is this a reasonable default?
     const ctx = useThrelte();
     const { textures } = useDoom();
     const { map, renderSectors } = useDoomMap();
-    const { position: cameraPosition, rotation: cameraRotation, zoom } = map.camera;
-    $: scale = ($zoom / 1000) + .25;
+    const { position: playerPosition, direction: yaw } = map.player;
+
+    const pitchAngle = HALF_PI * 3 / 4;
+    const position = { x: 0, y: 0, z: 0 };
+    $: position.x = -Math.sin(-$yaw) * 300 + $playerPosition.x
+    $: position.y = -Math.cos(-$yaw) * 300 + $playerPosition.y;
+    $: position.z = Math.cos(pitchAngle) * 400 + $playerPosition.z + 41;
+
+    const rotation = { x: pitchAngle, z: 0, order: 'ZXY' as EulerOrder };
+    $: rotation.z = $yaw;
+
+    const scale = { x: 1, y: 1 };
+    $: scale.x = (zoom / 1000) + .25;
+    $: scale.y = scale.x * yScale;
 
     const weaponMat = new MeshStandardMaterial({ alphaTest: 1 });
     const { weapon } = map.player;
@@ -44,6 +57,9 @@
     const tweens = new Map<Object3D, Tweened<number>>();
     const hits = new Set<Object3D>();
     useFrame(() => {
+        zoom = Math.max(50, Math.min(1000, zoom + map.game.input.aim.z));
+        map.game.input.aim.setZ(0);
+
         hits.clear();
         playerDist = Infinity;
 
@@ -60,7 +76,7 @@
         // surely there is a better way than 8 ray traces :(
         const midX = (bboxMin.x + bboxMax.x) * .5;
         const midY = (bboxMin.y + bboxMax.y) * .5;
-        // only trace top and bottom for x-middle
+        // only trace top and middle for x-middle
         traceHits(vec.set(midX, midY));
         traceHits(vec.set(midX, bboxMax.y));
         // left edge
@@ -134,7 +150,7 @@
                 if (int.object.material.alphaTest === 0) {
                     hits.add(int.object);
                     const t = tweens.get(int.object) ?? tweened(1);
-                    t.set(0.4, { duration: 60 });
+                    t.set(0.3, { duration: 60 });
                     t.subscribe(v => mat.opacity = v);
                     tweens.set(int.object, t);
                 }
@@ -144,9 +160,9 @@
 </script>
 
 <OrthographicCamera
-    rotation={$cameraRotation}
-    position={$cameraPosition}
-    scale={{ x: scale, y: scale * yScale }}
+    {rotation}
+    {position}
+    {scale}
     far={100000}
 >
     {#if tx}

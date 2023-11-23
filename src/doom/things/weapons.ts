@@ -462,8 +462,7 @@ class ShotTracer {
         this._lastTarget = aim.target;
         if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
             // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
-            // TODO: should the player have it's own rotation.x? feels odd to be using camera angle because we assume 1p pov
-            return Math.cos(shooter.map.camera.rotation.val.x);
+            return Math.sin(shooter.pitch.val);
         }
         // TODO: we convert angle to slope (and later undo this), why not just use angles?
         return aim.target ? aim.slope : 0;

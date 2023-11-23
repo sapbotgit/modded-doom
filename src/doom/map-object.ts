@@ -186,7 +186,7 @@ export class MapObject {
         this.applyGravity();
 
         this._state.tick();
-        // TODO: update movecount?
+        // TODO: update movecount (+other nightmare-only handling)
     }
 
     // kind of like P_DamageMobj
@@ -561,6 +561,10 @@ const playerViewHeightDefaultHalf = playerViewHeightDefault * .5;
 export class PlayerMapObject extends MapObject {
     private viewHeight = playerViewHeightDefault;
     private deltaViewHeight = 0;
+
+    // head looking up/down
+    pitch = store(0);
+    // Hmmm... also add roll for fun? or VR? or something?
 
     bob = 0;
     damageCount = store(0); // mostly for screen fading

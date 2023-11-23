@@ -7,10 +7,10 @@
     const geometry = new PlaneGeometry();
 </script>
 <script lang="ts">
-    import { Mesh, TransformControls, type Rotation } from '@threlte/core';
+    import { Mesh, TransformControls, type Rotation, useThrelte } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle, ToDegrees } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';
@@ -18,11 +18,11 @@
     export let thing: MapObject;
     export let renderSector: RenderSector;
 
-    const { map } = useDoomMap();
+    const { map, camera } = useDoomMap();
     const tick = map.game.time.tick;
     const { editor } = useAppContext();
     const { textures, wad } = useDoom();
-    const { position: cameraPosition, rotation: cameraRotation, mode } = map.camera;
+    const cameraMode = map.game.settings.cameraMode;
     const extraLight = map.player.extraLight;
 
     const vis = renderSector.visible;
@@ -30,8 +30,10 @@
     const { sector, position: tpos, sprite, direction, renderShadow } = thing;
     const invertYOffset = (thing.info.flags & MFFlags.InvertSpriteYOffset);
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
+    const camPos = camera.position;
+    const camAngle = camera.angle;
 
-    $: ang = $mode === 'bird' ? $direction : Math.atan2($tpos.y - $cameraPosition.y, $tpos.x - $cameraPosition.x);
+    $: ang = $cameraMode === 'bird' ? $direction : Math.atan2($tpos.y - $camPos.y, $tpos.x - $camPos.x);
     $: rot =  Math.floor((EIGHTH_PI + normalizeAngle(ang - $direction)) / QUARTER_PI) % 8;
     $: frames = wad.spriteFrames($sprite.name);
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
@@ -62,17 +64,17 @@
     $: scale.x = frame.mirror ? -texture.userData.width : texture.userData.width;
 
     const rotation: Rotation = { order: 'ZXY' };
-    $: if ($mode === 'bird') {
+    $: if ($cameraMode === 'bird') {
         rotation.x = Math.PI;
         rotation.y = -Math.PI;
         rotation.z = $direction + HALF_PI;
     } else if (isBillboard) {
-        rotation.x = $cameraRotation.x;
+        rotation.x = $camAngle.x;
         rotation.y = 0;
-        rotation.z = $cameraRotation.z;
+        rotation.z = $camAngle.z;
     } else {
         rotation.x = HALF_PI;
-        rotation.y = $cameraRotation.z;
+        rotation.y = $camAngle.z;
         rotation.z = 0;
     }
 

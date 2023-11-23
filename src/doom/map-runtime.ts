@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { MapData, type LineDef, type Thing, type Action } from "./map-data";
 import { Euler, Object3D, Vector3 } from "three";
-import { HALF_PI, normalizeAngle, ToRadians } from "./math";
+import { HALF_PI, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
@@ -22,7 +22,6 @@ export class MapRuntime {
     private animatedTextures: AnimatedTexture[] = [];
 
     readonly player: PlayerMapObject;
-    readonly camera: Camera;
     readonly input: GameInput;
     readonly stats = {
         totalItems: 0,
@@ -69,7 +68,6 @@ export class MapRuntime {
 
         // must be done before creating GameInput and Camera so movement behaves properly
         Object3D.DEFAULT_UP.set(0, 0, 1);
-        this.camera = new Camera(this.player, this, game);
         this.input = new GameInput(this, game.input);
 
         this.objs.push(this.player);
@@ -159,9 +157,6 @@ export class MapRuntime {
         if (time.isTick) {
             this.tick();
         }
-
-        // update camera after tick so we get correct z position from player
-        this.camera.update();
     }
 
     private tick() {
@@ -294,7 +289,7 @@ const playerSpeeds = { // per-tick
 const vec = new Vector3();
 class GameInput {
     public pointerSpeed = 1.0;
-    // Set to constrain the pitch of the camera
+    // Constrain the pitch of the camera
     public minPolarAngle = -HALF_PI;
     public maxPolarAngle = HALF_PI;
 
@@ -305,8 +300,9 @@ class GameInput {
     private obj = new Object3D();
 
     constructor(private map: MapRuntime, readonly input: ControllerInput) {
-        const euler = this.map.camera.rotation.val;
-        euler.x = HALF_PI;
+        this.obj.rotation.order = 'ZXY';
+        const euler = this.obj.rotation;
+        euler.x = 0;
         this.player.direction.subscribe(dir => {
             euler.z = dir - HALF_PI;
             this.obj.quaternion.setFromEuler(euler);
@@ -367,14 +363,14 @@ class GameInput {
         this.player.attacking = this.input.attack;
 
         // handle rotation movements
-        const euler = this.map.camera.rotation.val;
+        const euler = this.obj.rotation;
         euler.z -= this.input.aim.x * 0.002 * this.pointerSpeed;
         euler.x -= this.input.aim.y * 0.002 * this.pointerSpeed;
-        euler.x = Math.max(HALF_PI - this.maxPolarAngle, Math.min(HALF_PI - this.minPolarAngle, euler.x));
+        euler.x = Math.min(this.maxPolarAngle, Math.max(this.minPolarAngle, euler.x));
         this.player.direction.set(euler.z + HALF_PI);
-        this.map.camera.zoom.update(zoom => zoom += this.input.aim.z);
-        // clear for next eval
-        this.input.aim.set(0, 0, 0);
+        this.player.pitch.set(euler.x);
+        // clear for next eval (only xy, z is used for camera zoom and does not affect gameplay)
+        this.input.aim.setX(0).setY(0);
 
         // handle direction movements
         this.input.move.normalize(); // ensure consistent movements in all directions
@@ -413,7 +409,7 @@ class GameInput {
         if (this.input.use && !this.handledUsePress) {
             this.handledUsePress = false;
 
-            const ang = euler.z + HALF_PI;
+            const ang = this.player.direction.val;
             vec.set(Math.cos(ang) * 64, Math.sin(ang) * 64, 0);
             this.map.data.traceRay(pos, vec, hit => {
                 if ('line' in hit) {
@@ -447,17 +443,11 @@ class GameInput {
     }
 
     private forwardVec() {
-        if (this.compassMove.val) {
-            vec.set(0, 1, 0);
-        } else if (this.freeFly.val) {
-            // freelook https://stackoverflow.com/questions/63405094
-            vec.set(0, 0, -1).applyQuaternion(this.obj.quaternion);
-        } else {
-            // move forward parallel to the xy-plane (camera.up is z-up)
-            vec.setFromMatrixColumn(this.obj.matrix, 0);
-            vec.crossVectors(this.obj.up, vec);
-        }
-        return vec;
+        return (
+            this.compassMove.val ? vec.set(0, 1, 0) :
+            this.freeFly.val ? vec.set(0, 1, 0).applyQuaternion(this.obj.quaternion) :
+            vec.setFromMatrixColumn(this.obj.matrix, 1)
+        );
     }
 }
 
@@ -485,7 +475,7 @@ class Camera {
                     const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
                     this.pos.x = -Math.sin(-this.angle.z) * this.zoom.val + pos.x - shoulderOffset;
                     this.pos.y = -Math.cos(-this.angle.z) * this.zoom.val + pos.y;
-                    this.pos.z = Math.cos(-this.angle.x) * this.zoom.val + pos.z + playerViewHeight;
+                    this.pos.z = Math.cos(this.angle.x) * this.zoom.val + pos.z + playerViewHeight;
                     if (mode === '3p') {
                         this.clipPosition(this.pos, map, player);
                     }
@@ -498,7 +488,7 @@ class Camera {
                     this.angle.x = HALF_PI * 3 / 4;
                     this.pos.x = -Math.sin(-this.angle.z) * 300 + pos.x;
                     this.pos.y = -Math.cos(-this.angle.z) * 300 + pos.y;
-                    this.pos.z = Math.cos(-this.angle.x) * 400 + pos.z + 41;
+                    this.pos.z = Math.cos(this.angle.x) * 400 + pos.z + 41;
                     this.position.set(this.pos);
                     this.rotation.set(this.angle);
                 };
@@ -527,7 +517,7 @@ class Camera {
         const sector = map.data.findSector(this.pos.x, this.pos.y);
         pos.z = Math.max(pos.z, sector.zFloor.val + 3, player.sector.val.zFloor.val + 3);
         pos.z = Math.min(pos.z, sector.zCeil.val - 3, player.sector.val.zCeil.val - 3);
-        _3pDir.copy(pos).sub(player.position.val);
+        _3pDir.copy(pos).sub(player.position.val)
         map.data.traceRay(player.position.val, _3pDir, hit => {
             if ('line' in hit) {
                 if (hit.line.left) {

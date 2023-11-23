@@ -6,16 +6,13 @@
     import { tweened } from "svelte/motion";
     export let player: PlayerMapObject;
     const { position, direction, velocity, sector, inventory } = player;
-    const { position: cameraPosition } = player.map.camera;
-    let vh: number;
-    $: if ($cameraPosition) {
-        vh = player.computeViewHeight(player.map.game.time);
-    }
 
+    let vh: number;
     let subsectors = [];
     $: if ($position) {
         subsectors = []
         player.subsectors(s => subsectors.push(s));
+        vh = player.computeViewHeight(player.map.game.time);
     }
 
     function vec(v: Vector3) {
@@ -83,7 +80,6 @@
     <div>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
     <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
     <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
-    <div>camera: {vec($cameraPosition)}</div>
     <div>viewHeight: {vh.toFixed(2)}</div>
     <button on:click={revive}>Revive</button>
     <button on:click={invincible}>IDDQD</button>
