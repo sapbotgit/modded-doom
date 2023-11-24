@@ -16,6 +16,7 @@ export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
         mobj2.position.val.y - mobj1.position.val.y,
         mobj2.position.val.x - mobj1.position.val.x);
+
 const _distVec = new Vector3();
 export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
     _distVec.copy(mobj2.position.val).sub(mobj1.position.val);

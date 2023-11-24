@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Mesh, useThrelte, type Position } from "@threlte/core";
+    import { Mesh, type Position } from "@threlte/core";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from "three";
     import { type Sector } from "../../doom";

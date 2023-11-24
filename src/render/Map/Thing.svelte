@@ -7,7 +7,7 @@
     const geometry = new PlaneGeometry();
 </script>
 <script lang="ts">
-    import { Mesh, TransformControls, type Rotation, useThrelte } from '@threlte/core';
+    import { Mesh, TransformControls, type Rotation } from '@threlte/core';
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
@@ -33,7 +33,7 @@
     const camPos = camera.position;
     const camAngle = camera.angle;
 
-    $: ang = $cameraMode === 'bird' ? $direction : Math.atan2($tpos.y - $camPos.y, $tpos.x - $camPos.x);
+    $: ang = $cameraMode === 'bird' ? $direction + Math.PI : Math.atan2($tpos.y - $camPos.y, $tpos.x - $camPos.x);
     $: rot =  Math.floor((EIGHTH_PI + normalizeAngle(ang - $direction)) / QUARTER_PI) % 8;
     $: frames = wad.spriteFrames($sprite.name);
     $: frame = frames[$sprite.frame][rot] ?? frames[$sprite.frame][0];
@@ -67,7 +67,7 @@
     $: if ($cameraMode === 'bird') {
         rotation.x = Math.PI;
         rotation.y = -Math.PI;
-        rotation.z = $direction + HALF_PI;
+        rotation.z = $direction - HALF_PI;
     } else if (isBillboard) {
         rotation.x = $camAngle.x;
         rotation.y = 0;

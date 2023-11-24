@@ -8,6 +8,7 @@ import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTi
 import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
+import { derived } from "svelte/store";
 
 interface AnimatedTexture {
     frames: string[];
@@ -319,8 +320,11 @@ class GameInput {
                     this.player.info.flags &= ~MFFlags.MF_NOCLIP;
                 }
             }),
-            this.map.game.settings.freelook.subscribe(val => {
-                if (val) {
+            derived(
+                [this.map.game.settings.freelook, this.map.game.settings.cameraMode],
+                ([freelook, cameraMode]) => freelook && cameraMode !== 'bird' && cameraMode !== 'ortho'
+            ).subscribe(canPitch => {
+                if (canPitch) {
                     this.minPolarAngle = -HALF_PI;
                     this.maxPolarAngle = HALF_PI;
                 } else {
@@ -446,88 +450,7 @@ class GameInput {
         return (
             this.compassMove.val ? vec.set(0, 1, 0) :
             this.freeFly.val ? vec.set(0, 1, 0).applyQuaternion(this.obj.quaternion) :
-            vec.setFromMatrixColumn(this.obj.matrix, 1)
+            vec.setFromMatrixColumn(this.obj.matrix, 0).crossVectors(this.obj.up, vec)
         );
-    }
-}
-
-const _3pDir = new Vector3();
-class Camera {
-    private pos = new Vector3();
-    private angle = new Euler(0, 0, 0, 'ZXY');
-
-    readonly zoom = store(0);
-    readonly rotation = store(this.angle);
-    readonly position = store(this.pos);
-    readonly mode: Game['settings']['cameraMode'];
-    update: () => void;
-
-    constructor(player: PlayerMapObject, map: MapRuntime, game: Game) {
-        // TODO: should this really be in the core game? The more I think about it... the more I'd like to move it into svelte
-        this.mode = game.settings.cameraMode;
-        const pos = player.position.val;
-        const freeFly = game.settings.freeFly;
-        const sub = game.settings.cameraMode.subscribe(mode => {
-            if (mode === '3p' || mode === '3p-noclip') {
-                const shoulderOffset = 15;
-                this.update = () => {
-                    this.zoom.update(zoom => Math.max(50, Math.min(1000, zoom)));
-                    const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
-                    this.pos.x = -Math.sin(-this.angle.z) * this.zoom.val + pos.x - shoulderOffset;
-                    this.pos.y = -Math.cos(-this.angle.z) * this.zoom.val + pos.y;
-                    this.pos.z = Math.cos(this.angle.x) * this.zoom.val + pos.z + playerViewHeight;
-                    if (mode === '3p') {
-                        this.clipPosition(this.pos, map, player);
-                    }
-                    this.position.set(this.pos);
-                    this.rotation.set(this.angle);
-                };
-            } else if (mode === 'ortho') {
-                this.update = () => {
-                    this.zoom.update(zoom => Math.max(50, Math.min(1000, zoom)));
-                    this.angle.x = HALF_PI * 3 / 4;
-                    this.pos.x = -Math.sin(-this.angle.z) * 300 + pos.x;
-                    this.pos.y = -Math.cos(-this.angle.z) * 300 + pos.y;
-                    this.pos.z = Math.cos(this.angle.x) * 400 + pos.z + 41;
-                    this.position.set(this.pos);
-                    this.rotation.set(this.angle);
-                };
-            } else if (mode === 'bird') {
-                this.update = () => {
-                    this.zoom.update(zoom => Math.max(100, Math.min(1500, zoom)));
-                    this.pos.set(pos.x, pos.y, pos.z + this.zoom.val);
-                    this.position.set(this.pos);
-                    this.angle.x = 0;
-                    this.rotation.set(this.angle);
-                }
-            } else {
-                this.update = () => {
-                    const playerViewHeight = freeFly.val ? 41 : player.computeViewHeight(game.time);
-                    this.pos.set(pos.x, pos.y, pos.z + playerViewHeight);
-                    this.position.set(this.pos);
-                    this.rotation.set(this.angle);
-                };
-            }
-        });
-        map.disposables.push(sub);
-    }
-
-    private clipPosition(pos: Vector3, map: MapRuntime, player: PlayerMapObject) {
-        // clip to walls and ceiling/floor
-        const sector = map.data.findSector(this.pos.x, this.pos.y);
-        pos.z = Math.max(pos.z, sector.zFloor.val + 3, player.sector.val.zFloor.val + 3);
-        pos.z = Math.min(pos.z, sector.zCeil.val - 3, player.sector.val.zCeil.val - 3);
-        _3pDir.copy(pos).sub(player.position.val)
-        map.data.traceRay(player.position.val, _3pDir, hit => {
-            if ('line' in hit) {
-                if (hit.line.left) {
-                    return true; // two-sided so continue (we should check zvalues...)
-                }
-                pos.x = hit.point.x;
-                pos.y = hit.point.y;
-                return false;
-            }
-            return true;
-        });
     }
 }

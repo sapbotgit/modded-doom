@@ -6,7 +6,7 @@
 
     const { scene } = useThrelte();
     const { textures } = useDoom();
-    const { map } = useDoomMap();
+    const { map, skyColor } = useDoomMap();
 
     const sky1 = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'].map(e => `MAP${e}`);
     const sky2 = ['12', '13', '14', '15', '16', '17', '18', '19', '20'].map(e => `MAP${e}`);
@@ -32,9 +32,12 @@
     const midY = 128 - 1;
     // use avergae top row to form top and bottom of cubemap
     const topRowAvgColor = new Color(0, 0, 0);
+    // average of whole sky texture (in case we want to highlight outdoor areas?)
+    const skyAvgColor = new Color(0, 0, 0);
 
     let skyWalls: DataTexture[] = [];
     let buff: Uint8ClampedArray;
+    let c = 0;
     const widthRatio = sky.userData.width / width;
     for (let k = 0; k < widthRatio; k++) {
         // for TNT, it feels like we need to rotate 45deg but that's kind of a pain so I'm just living with a little lesls quality
@@ -62,6 +65,12 @@
                     topRowAvgColor.g += pic[pidx * 4 + 1] * pic[pidx * 4 + 1];
                     topRowAvgColor.b += pic[pidx * 4 + 2] * pic[pidx * 4 + 2];
                 }
+                if (j > topOffset && j < topOffset + midY) {
+                    c++
+                    skyAvgColor.r += pic[pidx * 4 + 0] * pic[pidx * 4 + 0];
+                    skyAvgColor.g += pic[pidx * 4 + 1] * pic[pidx * 4 + 1];
+                    skyAvgColor.b += pic[pidx * 4 + 2] * pic[pidx * 4 + 2];
+                }
             }
         }
         skyWalls[k] = new DataTexture(buff, width, height);
@@ -71,6 +80,11 @@
     topRowAvgColor.r = Math.sqrt(topRowAvgColor.r / sky.userData.width);
     topRowAvgColor.g = Math.sqrt(topRowAvgColor.g / sky.userData.width);
     topRowAvgColor.b = Math.sqrt(topRowAvgColor.b / sky.userData.width);
+    // divide by 256 because we want range 0-1
+    skyAvgColor.r = Math.sqrt(skyAvgColor.r / size / 2) / 256;
+    skyAvgColor.g = Math.sqrt(skyAvgColor.g / size / 2) / 256;
+    skyAvgColor.b = Math.sqrt(skyAvgColor.b / size / 2) / 256;
+    skyColor.set(skyAvgColor);
 
     // add fade to make the top and bottom transition more subtle
     for (const wall of skyWalls) {

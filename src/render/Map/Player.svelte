@@ -9,6 +9,8 @@
     import { ScreenColorShader } from "../Shaders/ScreenColorShader";
     import OrthoCam from "./Camera/Orthographic.svelte";
     import FirstPersonCam from "./Camera/FirstPerson.svelte";
+    import OverheadCam from "./Camera/Overhead.svelte";
+    import FollowCam from "./Camera/Follow.svelte";
 
     const { map, renderSectors } = useDoomMap();
     const { cameraMode } = map.game.settings;
@@ -46,6 +48,10 @@
 
 {#if $cameraMode === "ortho"}
     <OrthoCam {yScale} />
+{:else if $cameraMode === "bird"}
+    <OverheadCam {yScale} />
+{:else if $cameraMode === '3p' || $cameraMode === '3p-noclip'}
+    <FollowCam {yScale} />
 {:else}
     <FirstPersonCam {yScale} />
 {/if}

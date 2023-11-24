@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, PlaneGeometry, Raycaster, Texture, Vector2, Vector3, type EulerOrder } from "three";
+    import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, PlaneGeometry, Raycaster, Texture, Vector2, Vector3 } from "three";
     import { HALF_PI, MapObjectIndex } from "../../../doom";
     import { tweened, type Tweened } from "svelte/motion";
     import { Mesh, OrthographicCamera, useFrame, useThrelte } from "@threlte/core";
@@ -8,19 +8,18 @@
     export let yScale: number;
 
     let zoom = 100; // TODO: is this a reasonable default?
-    const ctx = useThrelte();
     const { textures } = useDoom();
-    const { map, renderSectors } = useDoomMap();
+    const { map, renderSectors, camera } = useDoomMap();
     const { position: playerPosition, direction: yaw } = map.player;
 
-    const pitchAngle = HALF_PI * 3 / 4;
-    const position = { x: 0, y: 0, z: 0 };
-    $: position.x = -Math.sin(-$yaw) * 300 + $playerPosition.x
-    $: position.y = -Math.cos(-$yaw) * 300 + $playerPosition.y;
-    $: position.z = Math.cos(pitchAngle) * 400 + $playerPosition.z + 41;
+    const rotation = camera.angle;
+    $: $rotation.x = HALF_PI * 3 / 4;
+    $: $rotation.z = $yaw - HALF_PI;
 
-    const rotation = { x: pitchAngle, z: 0, order: 'ZXY' as EulerOrder };
-    $: rotation.z = $yaw;
+    const position = camera.position;
+    $: $position.x = -Math.sin(-$rotation.z) * 300 + $playerPosition.x;
+    $: $position.y = -Math.cos(-$rotation.z) * 300 + $playerPosition.y;
+    $: $position.z = Math.cos($rotation.x) * 400 + $playerPosition.z + 41;
 
     const scale = { x: 1, y: 1 };
     $: scale.x = (zoom / 1000) + .25;
@@ -35,6 +34,7 @@
         tx = textures.get(frames[0][0].name, 'sprite');
         weaponMat.map = tx;
     }
+    const ctx = useThrelte();
     const screenSize = ctx.size;
     $: weaponPosition = {
         x: (-$screenSize.width + tx.userData.width) * .5,
@@ -160,8 +160,8 @@
 </script>
 
 <OrthographicCamera
-    {rotation}
-    {position}
+    rotation={$rotation}
+    position={$position}
     {scale}
     far={100000}
 >
