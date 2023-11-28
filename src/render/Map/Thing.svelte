@@ -112,6 +112,7 @@
 
 <T.Mesh
     on:click={hit}
+    userData={{ type: 'mobj', moType: thing.type }}
     renderOrder={1}
     {visible}
     {material}

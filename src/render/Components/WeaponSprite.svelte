@@ -2,7 +2,7 @@
     import { T, useThrelte } from "@threlte/core";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from "three";
-    import { HALF_PI, type Sector } from "../../doom";
+    import { type Sector } from "../../doom";
     import { useDoom, useDoomMap } from "../DoomContext";
     import type { Sprite } from "../../doom/sprite";
     import { ShadowsShader } from '../Shaders/ShadowsShader';

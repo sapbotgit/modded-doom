@@ -3,12 +3,11 @@
     import { HALF_PI, MapObjectIndex } from "../../../doom";
     import { tweened, type Tweened } from "svelte/motion";
     import { T, useFrame, useThrelte } from "@threlte/core";
-    import { useDoom, useDoomMap } from "../../DoomContext";
+    import { useDoomMap } from "../../DoomContext";
 
     export let yScale: number;
 
     let zoom = 100; // TODO: is this a reasonable default?
-    const { textures } = useDoom();
     const { map, renderSectors, camera } = useDoomMap();
     const { position: playerPosition, direction: yaw } = map.player;
 
@@ -36,7 +35,7 @@
     const bbox = new Box3(bboxMin, bboxMax);
     const matrix = new Matrix4();
     const cam = ctx.camera;
-    // tweens keeps track of all active transparent objts and hits keeps track of the ones that are blocking the player
+    // tweens keep track of all active transparent objts and hits keeps track of the ones that are blocking the player
     // this frame. If we have a tween that is not blocking the player, start removing it
     const tweens = new Map<Object3D, Tweened<number>>();
     const hits = new Set<Object3D>();

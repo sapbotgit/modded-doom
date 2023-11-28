@@ -5,6 +5,7 @@
 
     export let yScale: number;
 
+    // TODO: most cameras (except ortho) only differ by how they set position and angle. We should consolidate
     const { map, renderSectors, camera } = useDoomMap();
     const player = map.player;
     const { position: playerPosition, direction: yaw, pitch } = player;
