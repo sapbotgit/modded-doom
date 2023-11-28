@@ -28,6 +28,7 @@
 </script>
 
 <T.PerspectiveCamera
+    makeDefault
     rotation.x={$angle.x}
     rotation.y={$angle.y}
     rotation.z={$angle.z}

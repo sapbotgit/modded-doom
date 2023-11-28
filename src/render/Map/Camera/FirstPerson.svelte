@@ -1,6 +1,5 @@
 <script lang="ts">
     import { T } from "@threlte/core";
-    import Weapon from "../Weapon.svelte";
     import { useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
 
@@ -32,8 +31,4 @@
     far={100000}
     fov={72}
     scale.y={yScale}
->
-    <T.Group scale.y={1 / yScale}>
-        <Weapon {player} />
-    </T.Group>
-</T.PerspectiveCamera>
+/>

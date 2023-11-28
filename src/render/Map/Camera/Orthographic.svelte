@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, PlaneGeometry, Raycaster, Texture, Vector2, Vector3 } from "three";
+    import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, Raycaster, Vector2, Vector3 } from "three";
     import { HALF_PI, MapObjectIndex } from "../../../doom";
     import { tweened, type Tweened } from "svelte/motion";
     import { T, useFrame, useThrelte } from "@threlte/core";
@@ -25,23 +25,7 @@
     $: scale.x = (zoom / 1000) + .25;
     $: scale.y = scale.x * yScale;
 
-    const weaponMat = new MeshStandardMaterial({ alphaTest: 1 });
-    const { weapon } = map.player;
-    $: sprite = $weapon.sprite;
-    $: frames = map.game.wad.spriteFrames($sprite.name);
-    let tx: Texture;
-    $: if (frames.length) {
-        tx = textures.get(frames[0][0].name, 'sprite');
-        weaponMat.map = tx;
-    }
     const ctx = useThrelte();
-    const screenSize = ctx.size;
-    $: weaponPosition = {
-        x: (-$screenSize.width + tx.userData.width) * .5,
-        y: (-$screenSize.height + tx.userData.height) * .5,
-        z: -10,
-    }
-
     const rayCaster = new Raycaster();
     const vec = new Vector2(0, 0);
     let playerDist: number;
@@ -171,16 +155,4 @@
     scale.x={scale.x}
     scale.y={scale.y}
     far={100000}
->
-    {#if tx}
-        <T.Mesh
-            position.x={weaponPosition.x}
-            position.y={weaponPosition.y}
-            position.z={weaponPosition.z}
-            scale.x={tx.userData.width}
-            scale.y={tx.userData.height}
-            material={weaponMat}
-            geometry={new PlaneGeometry()}
-        />
-    {/if}
-</T.OrthographicCamera>
+/>

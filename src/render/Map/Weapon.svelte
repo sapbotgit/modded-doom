@@ -1,33 +1,52 @@
 <script lang="ts">
+    import { type Size, T } from "@threlte/core";
     import { weaponTop, type PlayerMapObject } from "../../doom";
     import WeaponSprite from "../Components/WeaponSprite.svelte";
+    import { useDoom } from "../DoomContext";
 
     export let player: PlayerMapObject;
+    export let screenSize: Size;
+    export let yScale: number;
 
     const { sector, weapon } = player;
 
     $: sprite = $weapon.sprite;
     $: flashSprite = $weapon.flashSprite;
-    // base x, y and z values are from a little trial and error.
-    // x: as -160 makes sense because the screen was 320 wide
-    // y: 32 is because weapon top is 32.
-    // z: ... not sure. It looked about right and it needs to be adjusted based on FOV
+
+    const position = { x: 0, y: 0, z: -2 };
     $: wOffset = $weapon.position;
-    const position = { x: 0, y: 0, z: -170 };
     $: position.x = $wOffset.x - 160;
     $: position.y = $wOffset.y + weaponTop;
+
+    const cameraMode = useDoom().game.settings.cameraMode;
+    $: scale = $cameraMode === '1p' ? 2.5 : 1;
+    const screenPosition = { x: 0, y: 0 };
+    $: if ($cameraMode === '1p') {
+        screenPosition.x = 0;
+        screenPosition.y = 0;
+    } else {
+        screenPosition.x = position.x + 320 - screenSize.width * .5;
+        screenPosition.y = position.y - screenSize.height * .5 + weaponTop;
+    }
 </script>
 
-<WeaponSprite
-    sprite={$sprite}
-    sector={$sector}
-    {position}
-/>
-{#if $flashSprite}
+<T.Group
+    scale.x={scale}
+    scale.y={scale / yScale}
+    position.x={screenPosition.x}
+    position.y={screenPosition.y}
+>
     <WeaponSprite
-        flash
-        sprite={$flashSprite}
+        sprite={$sprite}
         sector={$sector}
         {position}
     />
-{/if}
+    {#if $flashSprite}
+        <WeaponSprite
+            flash
+            sprite={$flashSprite}
+            sector={$sector}
+            {position}
+        />
+    {/if}
+</T.Group>

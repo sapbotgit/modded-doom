@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { T, useRender, useThrelte } from "@threlte/core";
+    import { HierarchicalObject, T, useRender, useThrelte } from "@threlte/core";
     import Thing from "./Thing.svelte";
-    import { CircleGeometry, MeshStandardMaterial } from "three";
+    import { CircleGeometry, Mesh, MeshStandardMaterial, OrthographicCamera, PlaneGeometry, Scene } from "three";
     import { useDoomMap } from "../DoomContext";
     import { ticksPerSecond } from "../../doom";
     import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
@@ -14,6 +14,7 @@
     // TODO: does pmndrs/postprocessing offer an advantage here?
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+    import Weapon from "./Weapon.svelte";
 
     const { map, renderSectors } = useDoomMap();
     const { cameraMode } = map.game.settings;
@@ -33,18 +34,26 @@
     $: cPass.uniforms.damageCount.value = $damageCount;
     $: cPass.uniforms.bonusCount.value = $bonusCount;
 
+    let hudScene: Scene;
+    let hudCam: OrthographicCamera;
     // Using a shader pass requires a bit more work now with threlte6
     // https://threlte.xyz/docs/learn/advanced/migration-guide#usethrelteroot-has-been-removed
     const { scene, renderer, camera, size } = useThrelte();
-    const composer = new EffectComposer(renderer)
+    const composer = new EffectComposer(renderer);
 
-    const setupEffectComposer = (camera) => {
+    const setupEffectComposer = (camera,hs) => {
         composer.passes.length = 0;
         composer.addPass(new RenderPass(scene, camera))
+        if (hudScene) {
+            const p = new RenderPass(hudScene, hudCam);
+            p.clear = false;
+            p.clearDepth = true;
+            composer.addPass(p);
+        }
         composer.addPass(new ShaderPass(GammaCorrectionShader));
         composer.addPass(cPass);
     }
-    $: setupEffectComposer($camera);
+    $: setupEffectComposer($camera, hudScene);
     $: composer.setSize($size.width, $size.height);
 
     useRender((ctx, delta) => {
@@ -73,3 +82,17 @@
 {:else}
     <FirstPersonCam {yScale} />
 {/if}
+
+<!--
+    Don't add this scene to the parent scene (the root) because we are only rendering the HUD
+    which is composited by a RenderPass
+-->
+<HierarchicalObject
+    onChildMount={() => {}}
+>
+    <T.OrthographicCamera bind:ref={hudCam} />
+    <T.Scene bind:ref={hudScene}>
+        <T.AmbientLight color={'white'} intensity={4} />
+        <Weapon {player} {yScale} screenSize={$size}/>
+    </T.Scene>
+</HierarchicalObject>
