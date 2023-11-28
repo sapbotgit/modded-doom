@@ -4,7 +4,7 @@ import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } 
 import { type GameTime } from '../game';
 import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
-import { hasLineOfSight } from './obstacles';
+import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec, type LineTraceHit, type TraceHit } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
@@ -44,6 +44,7 @@ const halfMancubusMissileSpread = mancubusMissileSpread * .5;
 type MonsterAction = (time: GameTime, mobj: MapObject) => void;
 type ActionMap = { [key: number]: MonsterAction };
 
+let brainSpitToggle = false;
 let currentBrainTarget = 0;
 let brainTargets: MapObject[] = [];
 const brainExplosionVelocity = 512 / (1 << 16);
@@ -78,9 +79,10 @@ const doom2BossActions: ActionMap = {
         brainTargets = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_BOSSTARGET);
     },
 	[ActionIndex.A_BrainSpit]: (time, mobj) => {
-        // easy ^= 1;
-        // if (gameskill <= sk_easy && (!easy))
-        // return;
+        brainSpitToggle = !brainSpitToggle;
+        if (mobj.map.game.skill < 3 && !brainSpitToggle) {
+            return;
+        }
 
         const target = brainTargets[currentBrainTarget];
         currentBrainTarget = (currentBrainTarget + 1) % brainTargets.length;
@@ -134,13 +136,105 @@ const doom2BossActions: ActionMap = {
 };
 
 const archvileActions: ActionMap = {
-    [ActionIndex.A_VileChase]: (time, mobj) => {},
-	[ActionIndex.A_VileStart]: (time, mobj) => {},
-	[ActionIndex.A_VileTarget]: (time, mobj) => {},
-	[ActionIndex.A_VileAttack]: (time, mobj) => {},
-	[ActionIndex.A_StartFire]: (time, mobj) => {},
-	[ActionIndex.A_Fire]: (time, mobj) => {},
-	[ActionIndex.A_FireCrackle]: (time, mobj) => {},
+    [ActionIndex.A_VileChase]: (time, mobj) => {
+        // find corpse to resurrect
+        if (mobj.movedir !== MoveDirection.None) {
+            let corpseMobj: MapObject;
+            _moveVec.set(
+                Math.cos(mobj.movedir) * mobj.info.speed,
+                Math.sin(mobj.movedir) * mobj.info.speed,
+                0);
+            mobj.map.data.traceMove(mobj.position.val, _moveVec, mobj.info.radius, hit => {
+                const foundCorpse = ('mobj' in hit)
+                    // TODO: Doom also check mobj.state.ticks, should we?
+                    && (hit.mobj.info.flags & MFFlags.MF_CORPSE)
+                    && hit.mobj.info.raisestate !== StateIndex.S_NULL
+                    // don't resurrect something we are already touching otherwise we get stuck
+                    && hit.fraction > 0
+                    // mobj.kill() sets height to 1/4
+                    && (hit.mobj.zCeil - hit.mobj.zFloor) >= (hit.mobj.info.height * 4)
+                if (foundCorpse) {
+                    corpseMobj = hit.mobj;
+                    return false;
+                }
+                return true;
+            });
+
+            if (corpseMobj) {
+                faceTarget(time, mobj, corpseMobj);
+                mobj.setState(StateIndex.S_VILE_HEAL1);
+                mobj.map.game.sound.play(SoundIndex.sfx_slop, corpseMobj);
+
+                corpseMobj.resurrect();
+                corpseMobj.chaseTarget = mobj.chaseTarget;
+            }
+        }
+        allActions[ActionIndex.A_Chase](time, mobj);
+    },
+	[ActionIndex.A_VileStart]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_vilatk, mobj);
+    },
+	[ActionIndex.A_VileTarget]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+            return;
+        }
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
+
+        const tpos = mobj.chaseTarget.position.val;
+        const fire = mobj.map.spawn(MapObjectIndex.MT_FIRE, tpos.x, tpos.y, tpos.z);
+        mobj.tracerTarget = fire;
+        fire.chaseTarget = mobj;
+        fire.tracerTarget = mobj.chaseTarget;
+        allActions[ActionIndex.A_Fire](time, fire);
+    },
+	[ActionIndex.A_VileAttack]: (time, mobj) => {
+        if (!mobj.chaseTarget) {
+            return;
+        }
+        allActions[ActionIndex.A_FaceTarget](time, mobj);
+
+        if (!hasLineOfSight(mobj, mobj.chaseTarget)) {
+            return;
+        }
+        mobj.map.game.sound.play(SoundIndex.sfx_barexp, mobj);
+        mobj.chaseTarget.damage(20, mobj, mobj);
+        mobj.chaseTarget.thrust(0, 0, 1000 / mobj.chaseTarget.info.mass);
+
+        const fire = mobj.tracerTarget;
+        if (!fire) {
+            return;
+        }
+        positionVileFire(fire, mobj.tracerTarget);
+        radiusDamage(70, fire, mobj);
+    },
+	[ActionIndex.A_StartFire]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_flamst, mobj);
+        allActions[ActionIndex.A_Fire](time, mobj);
+    },
+	[ActionIndex.A_FireCrackle]: (time, mobj) => {
+        mobj.map.game.sound.play(SoundIndex.sfx_flame, mobj);
+        allActions[ActionIndex.A_Fire](time, mobj);
+    },
+	[ActionIndex.A_Fire]: (time, mobj) => {
+        if (!mobj.tracerTarget) {
+            return;
+        }
+        // make sure archvile (mobj.chaseTarget) can still see the enemeny (mobj.tracerTarget)
+        if (!hasLineOfSight(mobj.chaseTarget, mobj.tracerTarget)) {
+            return;
+        }
+        positionVileFire(mobj, mobj.tracerTarget);
+    },
+}
+
+function positionVileFire(fire: MapObject, target: MapObject) {
+    const targetPos = target.position.val;
+    const targetDir = target.direction.val;
+    fire.position.update(pos => pos.set(
+        targetPos.x + 24 * Math.cos(targetDir),
+        targetPos.y + 24 * Math.sin(targetDir),
+        targetPos.z
+    ));
 }
 
 // monsters can only open certain kinds of doors
@@ -261,14 +355,17 @@ export const monsterMoveActions: ActionMap = {
         if (!mobj.chaseTarget) {
             return;
         }
-
-        mobj.info.flags &= ~MFFlags.MF_AMBUSH;
-        let angle = angleBetween(mobj, mobj.chaseTarget);
-        if (mobj.chaseTarget.info.flags & MFFlags.MF_SHADOW) {
-            angle += angleNoise(5);
-        }
-        mobj.direction.set(angle);
+        faceTarget(time, mobj, mobj.chaseTarget);
     },
+}
+
+function faceTarget(time: GameTime, mobj: MapObject, target: MapObject) {
+    mobj.info.flags &= ~MFFlags.MF_AMBUSH;
+    let angle = angleBetween(mobj, target);
+    if (target.info.flags & MFFlags.MF_SHADOW) {
+        angle += angleNoise(5);
+    }
+    mobj.direction.set(angle);
 }
 
 export const monsterAttackActions: ActionMap = {

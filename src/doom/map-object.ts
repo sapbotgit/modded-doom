@@ -4,7 +4,7 @@ import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex } f
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit } from "./map-data";
-import { ticksPerSecond, type GameTime } from "./game";
+import { ticksPerSecond, type GameTime, frameTickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
@@ -22,6 +22,8 @@ export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
     _distVec.copy(mobj2.position.val).sub(mobj1.position.val);
     return Math.sqrt(_distVec.x * _distVec.x + _distVec.y * _distVec.y);
 }
+
+const velocityPerSecond = (vel: number) => Math.sign(vel) * vel * vel * frameTickTime;
 
 const vec = new Vector3();
 export const maxFloatSpeed = 4;
@@ -58,6 +60,7 @@ export class MapObject {
     chaseTarget: MapObject;
     tracerTarget: MapObject;
 
+    readonly resurrect: () => void;
     readonly canSectorChange: (sector: Sector, zFloor: number, zCeil: number) => boolean;
     readonly sectorChanged: (sector: Sector) => void;
 
@@ -91,6 +94,14 @@ export class MapObject {
         this._state.setState(this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
         this._state.randomizeTicks();
+
+        this.resurrect = () => {
+            this.velocity.set(0, 0, 0);
+            this.setState(spec.mo.raisestate)
+            this.info.height = spec.mo.height;
+            this.health.set(spec.mo.spawnhealth);
+            this.info.flags = spec.mo.flags;
+        }
 
         // only players, monsters, and missiles are moveable which affects how we choose zFloor and zCeil
         const moveable = spec.class === 'M' || (this.info.flags & MFFlags.MF_MISSILE) || spec.moType === MapObjectIndex.MT_PLAYER;
@@ -218,9 +229,7 @@ export class MapObject {
                 angle += Math.PI;
                 thrust *= 4;
             }
-
-            this.velocity.x += thrust * Math.cos(angle);
-            this.velocity.y += thrust * Math.sin(angle);
+            this.thrust(thrust * Math.cos(angle), thrust * Math.sin(angle), 0);
         }
 
         this.health.update(h => h - amount);
@@ -245,6 +254,12 @@ export class MapObject {
                 this.setState(this.info.seestate);
             }
         }
+    }
+
+    thrust(x: number, y: number, z: number) {
+        this.velocity.x += x;
+        this.velocity.y += y;
+        this.velocity.z += z;
     }
 
     kill(source?: MapObject) {
@@ -709,6 +724,10 @@ export class PlayerMapObject extends MapObject {
 
         this.damageCount.update(val => Math.min(val + amount, 100));
         // TODO: haptic feedback for controllers?
+    }
+
+    thrust(x: number, y: number, z: number) {
+        super.thrust(velocityPerSecond(x), velocityPerSecond(y), velocityPerSecond(z));
     }
 
     kill(source?: MapObject) {

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { HierarchicalObject, T, useRender, useThrelte } from "@threlte/core";
     import Thing from "./Thing.svelte";
-    import { CircleGeometry, Mesh, MeshStandardMaterial, OrthographicCamera, PlaneGeometry, Scene } from "three";
+    import { Camera, CircleGeometry, MeshStandardMaterial, OrthographicCamera, Scene } from "three";
     import { useDoomMap } from "../DoomContext";
     import { ticksPerSecond } from "../../doom";
     import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
@@ -41,7 +41,7 @@
     const { scene, renderer, camera, size } = useThrelte();
     const composer = new EffectComposer(renderer);
 
-    const setupEffectComposer = (camera,hs) => {
+    const setupEffectComposer = (camera: Camera, hudScene: Scene) => {
         composer.passes.length = 0;
         composer.addPass(new RenderPass(scene, camera))
         if (hudScene) {

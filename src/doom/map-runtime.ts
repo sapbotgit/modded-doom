@@ -1,6 +1,6 @@
 import { store, type Store } from "./store";
 import { MapData, type LineDef, type Thing, type Action } from "./map-data";
-import { Euler, Object3D, Vector3 } from "three";
+import { Object3D, Vector3 } from "three";
 import { HALF_PI, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";

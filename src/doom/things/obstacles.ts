@@ -50,44 +50,45 @@ export const obstacles: ThingType[] = [
 
 type StateChangeAction = (time: GameTime, mobj: MapObject) => void
 export const actions: { [key: number]: StateChangeAction } = {
-    [ActionIndex.A_Explode]: (time, mobj: MapObject) => {
-        const damage = 128;
-        // use a map so we don't hit the same object multiple times
-        let hits = new Map<MapObject, number>();
-        mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, hit => {
-            if ('mobj' in hit) {
-                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-                    return true;
-                }
-                if (hits.has(hit.mobj)) {
-                    return true; // already hit this, so continue to next
-                }
-                // Boss spider and cyberdemon take no damage from explosions
-                if (hit.mobj.type === MapObjectIndex.MT_CYBORG || hit.mobj.type === MapObjectIndex.MT_SPIDER) {
-                    return true;
-                }
+    [ActionIndex.A_Explode]: (time, mobj: MapObject) => radiusDamage(128, mobj, mobj.chaseTarget),
+}
 
-                let dist = Math.max(
-                    Math.abs(hit.mobj.position.val.x - mobj.position.val.x),
-                    Math.abs(hit.mobj.position.val.y - mobj.position.val.y)) - hit.mobj.info.radius;
-                if (dist < 0) {
-                    dist = 0;
-                }
-                if (dist >= damage) {
-                    return true; // out of range
-                }
-                hits.set(hit.mobj, dist);
+export function radiusDamage(damage: number, mobj: MapObject, source: MapObject) {
+    // use a map so we don't hit the same object multiple times
+    let hits = new Map<MapObject, number>();
+    mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, hit => {
+        if ('mobj' in hit) {
+            if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
+                return true;
             }
-            return true;
-        });
+            if (hits.has(hit.mobj)) {
+                return true; // already hit this, so continue to next
+            }
+            // Boss spider and cyberdemon take no damage from explosions
+            if (hit.mobj.type === MapObjectIndex.MT_CYBORG || hit.mobj.type === MapObjectIndex.MT_SPIDER) {
+                return true;
+            }
 
-        // don't apply damage in traceMove() because hasLineOfSight() also performs a trace and nested traces don't work
-        for (const [hitMobj, dist] of hits.entries()) {
-            if (hasLineOfSight(mobj, hitMobj)) {
-                hitMobj.damage(damage - dist, mobj, mobj.chaseTarget);
+            let dist = Math.max(
+                Math.abs(hit.mobj.position.val.x - mobj.position.val.x),
+                Math.abs(hit.mobj.position.val.y - mobj.position.val.y)) - hit.mobj.info.radius;
+            if (dist < 0) {
+                dist = 0;
             }
+            if (dist >= damage) {
+                return true; // out of range
+            }
+            hits.set(hit.mobj, dist);
         }
-    },
+        return true;
+    });
+
+    // don't apply damage in traceMove() because hasLineOfSight() also performs a trace and nested traces don't work
+    for (const [hitMobj, dist] of hits.entries()) {
+        if (hasLineOfSight(mobj, hitMobj)) {
+            hitMobj.damage(damage - dist, mobj, source);
+        }
+    }
 }
 
 const _losStart = new Vector3();
