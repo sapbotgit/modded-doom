@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { T, useThrelte } from "@threlte/core";
+    import { T } from "@threlte/core";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from "three";
     import { type Sector } from "../../doom";
@@ -12,7 +12,6 @@
     export let position: { x: number, y: number, z: number };
     export let flash = false;
 
-    const { camera } = useThrelte();
     const { textures, wad } = useDoom();
     const { map } = useDoomMap();
     const tick = map.game.time.tick;

@@ -6,7 +6,7 @@ import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatS
 import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
 import { exitLevel } from '../specials';
 
@@ -237,6 +237,30 @@ function positionVileFire(fire: MapObject, target: MapObject) {
     ));
 }
 
+let soundPropagateCount = 1;
+export function propagateSound(emitter: MapObject) {
+    propagateSoundRecursive(emitter, soundPropagateCount++, emitter.sector.val);
+}
+
+function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sector) {
+    for (const seg of sector.portalSegs) {
+        const sector = (seg.direction ? seg.linedef.right : seg.linedef.left).sector;
+        if (sector.soundC === count) {
+            continue;
+        }
+        sector.soundC = count;
+
+        const gap = Math.min(seg.linedef.left.sector.zCeil.val, seg.linedef.right.sector.zCeil.val)
+            - Math.max(seg.linedef.left.sector.zFloor.val, seg.linedef.right.sector.zFloor.val);
+        if (gap <= 0) {
+            continue;
+        }
+
+        sector.soundTarget = emitter;
+        propagateSoundRecursive(emitter, count, sector);
+    }
+}
+
 // monsters can only open certain kinds of doors
 // As usual, doom wiki is very helpful https://doomwiki.org/wiki/Monster_behavior
 const doorTypes = [1, 32, 33, 34];
@@ -250,9 +274,15 @@ export const monsterMoveActions: ActionMap = {
         }
         mobj.chaseThreshold = 0;
 
-        // TODO: check for sound targets?
-        // TODO: also MF_AMBUSH flag (related to sound)
-        mobj.chaseTarget = findPlayerTarget(mobj);
+        const soundTarget = mobj.sector.val.soundTarget;
+        if (soundTarget && soundTarget.info.flags & MFFlags.MF_SHOOTABLE) {
+            mobj.chaseTarget = soundTarget;
+            if (mobj.info.flags & MFFlags.MF_AMBUSH && !hasLineOfSight(mobj, soundTarget)) {
+                return;
+            }
+        }
+
+        mobj.chaseTarget = mobj.chaseTarget ?? findPlayerTarget(mobj);
         if (!mobj.chaseTarget) {
             return;
         }

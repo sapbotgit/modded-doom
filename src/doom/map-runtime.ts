@@ -126,6 +126,9 @@ export class MapRuntime {
         const mobj = this.spawn(type, thing.x, thing.y);
         mobj.direction.set(thing.angle * ToRadians);
 
+        if (thing.flags & 0x0008) {
+            mobj.info.flags |= MFFlags.MF_AMBUSH;
+        }
         if (mobj.info.flags & MFFlags.MF_COUNTKILL) {
             this.stats.totalKills += 1;
         }

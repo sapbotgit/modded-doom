@@ -102,6 +102,9 @@ export interface Sector {
     // Game processing data
     center: Vector3;
     specialData: any;
+    soundC: number;
+    soundTarget: MapObject;
+    portalSegs: Seg[];
 }
 const toSector = (num: number, sd: any): Sector => {
     const sector = {
@@ -113,8 +116,12 @@ const toSector = (num: number, sd: any): Sector => {
         light: store(sd.light),
         floorFlat: store(fixTextureName(sd.floorFlat)),
         ceilFlat: store(fixTextureName(sd.ceilFlat)),
-        center: new Vector3(), // filled in after completeSubSectors
         specialData: null,
+        soundC: 0,
+        soundTarget: null,
+         // filled in after completeSubSectors
+        center: new Vector3(),
+        portalSegs: [],
     };
     return sector;
 }
@@ -241,6 +248,7 @@ export class MapData {
         this.subsectorTrace = createSubsectorTrace(rootNode);
 
         for (const sector of this.sectors) {
+            sector.portalSegs = segs.filter(seg => seg.linedef.left && (seg.linedef.left.sector === sector || seg.linedef.right.sector === sector));
             // figure out any sectors that need sky height adjustment
             if (sector.ceilFlat.val === 'F_SKY1') {
                 const skyHeight = this.sectorNeighbours(sector)

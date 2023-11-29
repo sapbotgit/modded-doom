@@ -6,7 +6,6 @@
     import FlagList from "./FlagList.svelte";
     import { MapObject } from "../../doom/map-object";
     import NumberChooser from "./NumberChooser.svelte";
-    import { toHalfFloat } from "three/src/extras/DataUtils";
 
     const { editor } = useAppContext();
     const { textures, wad } = useDoom();

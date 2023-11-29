@@ -127,12 +127,12 @@
     position.y={$tpos.y + Math.cos(ang) * hOffset}
     position.z={$tpos.z + vOffset}
 >
-    {#if $editor.selected === thing}
+    <!-- {#if $editor.selected === thing}
         <TransformControls
             mode='translate'
             showZ={false}
             on:object-changed={positionChanged}
         />
-    {/if}
+    {/if} -->
     <Wireframe />
 </T.Mesh>

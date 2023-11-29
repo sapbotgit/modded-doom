@@ -10,6 +10,7 @@ import { ticksPerSecond, type GameTime } from "../game";
 import { type HandleTraceHit, type Sector } from "../map-data";
 import { itemPickedUp, noPickUp } from "./pickup";
 import type { MessageId } from "../text";
+import { propagateSound } from "./monsters";
 
 export const weaponTop = 32;
 const weaponBottom = 32 - 128;
@@ -73,8 +74,10 @@ export class PlayerWeapon {
         if (this.ammoType === 'none' || this.player.inventory.val.ammo[this.ammoType].amount >= this.ammoPerShot) {
             this.player.setState(StateIndex.S_PLAY_ATK1);
             this._sprite.setState(this.attackState);
+            propagateSound(this.player);
         }
     }
+
 }
 
 export const allWeapons: InventoryWeapon[] = [

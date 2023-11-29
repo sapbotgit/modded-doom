@@ -2,7 +2,6 @@ import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter,
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
-    type Seg,
     type SubSector,
     type Sector,
     type Vertex,
@@ -93,7 +92,6 @@ export interface RenderSector {
     visible: Store<boolean>;
     sector: Sector;
     subsectors: SubSector[];
-    portalSegs: Seg[];
     linedefs: LineDef[];
     geometry: BufferGeometry;
     zHackFloor: Readable<number>;
@@ -114,10 +112,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     let selfReferencing: RenderSector[] = [];
     let sectors: RenderSector[] = [];
     const allSubsectors = map.nodes.map(e => [e.childLeft, e.childRight]).flat().filter(e => 'segs' in e) as SubSector[];
-    const allSegs = allSubsectors.map(e => e.segs).flat();
     for (const sector of map.sectors) {
         const subsectors = allSubsectors.filter(subsec => subsec.sector === sector);
-        const portalSegs = allSegs.filter(seg => seg.linedef.left && (seg.linedef.left.sector === sector || seg.linedef.right.sector === sector));
         const geos = subsectors.map(subsec => createShape(subsec.vertexes)).filter(e => e);
         const linedefs = map.linedefs.filter(ld => ld.right.sector === sector);
         // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
@@ -132,7 +128,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         const flatLighting = sector.light;
         const visible = store(true)
         const mobjs = store(new Set<MapObject>());
-        const renderSector: RenderSector = { visible, sector, subsectors, portalSegs, geometry, linedefs, zHackFloor, zHackCeil, flatLighting, mobjs };
+        const renderSector: RenderSector = { visible, sector, subsectors, geometry, linedefs, zHackFloor, zHackCeil, flatLighting, mobjs };
         sectors.push(renderSector);
 
         // fascinating little render hack: self-referencing sector. Basically a sector where all lines are two-sided
