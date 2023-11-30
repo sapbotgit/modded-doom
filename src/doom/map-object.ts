@@ -624,7 +624,8 @@ export class PlayerMapObject extends MapObject {
                     nightVisionTime > 28 ? 255 * Math.sin(HALF_PI * Math.max(0, (30 - nightVisionTime) / 2)) :
                     nightVisionTime > 4.5 ? 255 :
                     255 * (Math.sin(Math.PI * 2 * nightVisionTime - HALF_PI) * .5 + .5)
-                ) : 0;
+                ) :
+                this.extraLight.val;
             this.extraLight.set(lightOverride);
         });
     }

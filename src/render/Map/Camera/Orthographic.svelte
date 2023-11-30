@@ -93,7 +93,7 @@
         //     if (rs.visible.val) {
         //         continue;
         //     }
-        //     const visible = rs.portalSegs.reduce((vis, seg) => {
+        //     const visible = rs.sector.portalSegs.reduce((vis, seg) => {
         //         bboxMin.set(seg.v[0].x, seg.v[0].y, rs.sector.zFloor.val);
         //         bboxMax.set(seg.v[1].x, seg.v[1].y, rs.sector.zCeil.val);
         //         // bboxMin.set(Math.min(seg.v[0].x, seg.v[1].x), Math.min(seg.v[0].y, seg.v[1].y), rs.sector.zFloor.val);
@@ -110,7 +110,7 @@
         //     rs.visible.set(true);
         //     // map.data.sectorNeighbours(rs.sector).forEach(sec => q.push(renderSectors.find(rs => rs.sector === sec)));
         //     // check floor ceiling height for closed doors?
-        //     rs.portalSegs.forEach(seg => {
+        //     rs.sector.portalSegs.forEach(seg => {
         //         q.push(renderSectors.find(rs => rs.sector === seg.linedef.right.sector))
         //         q.push(renderSectors.find(rs => rs.sector === seg.linedef.left?.sector))
         //     });
