@@ -876,14 +876,18 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
         0);
     const blocked = findMoveBlocker(mobj, mobj.position.val, _moveVec, specialLines);
     // if we can float and we're blocked by a two-sided line then float!
-    if (blocked && 'line' in blocked && blocked.line.left?.sector && mobj.info.flags & MFFlags.MF_FLOAT) {
-        const zmove = mobj.position.val.z < blocked.line.left.sector.zFloor.val ? maxFloatSpeed : -maxFloatSpeed;
-        // TODO: moving down without checking for collisions means we may come down on top of someone and get stuck. Probably we need a better z-collision mechanism
-        mobj.position.update(pos => pos.setZ(pos.z + zmove));
-        mobj.info.flags |= MFFlags.MF_INFLOAT;
-        // actually we are blocked but return true so we don't chage direction. the last part of A_Chase will look at
-        // MF_INFLOAT to decide if we should move along xy. Kind of messy :/
-        return true;
+    if (blocked && 'line' in blocked && blocked.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
+        const dz = blocked.line.left.sector.zFloor.val - mobj.position.val.z;
+        // float if the z-delta is reasonably far from the floor we're aiming for
+        if (Math.abs(dz) > 0.0001) {
+            const zmove = dz > 0 ? Math.min(dz, maxFloatSpeed) : Math.max(dz, -maxFloatSpeed);
+            // TODO: moving down without checking for collisions means we may come down on top of someone and get stuck. Probably we need a better z-collision mechanism
+            mobj.position.update(pos => pos.setZ(pos.z + zmove));
+            mobj.info.flags |= MFFlags.MF_INFLOAT;
+            // actually we are blocked but return true so we don't chage direction. the last part of A_Chase will look at
+            // MF_INFLOAT to decide if we should move along xy. Kind of messy :/
+            return true;
+        }
     }
     mobj.info.flags &= ~MFFlags.MF_INFLOAT;
     return !blocked;
