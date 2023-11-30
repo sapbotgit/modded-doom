@@ -245,7 +245,8 @@ export function propagateSound(emitter: MapObject) {
 function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sector) {
     for (const seg of sector.portalSegs) {
         const sector = (seg.direction ? seg.linedef.right : seg.linedef.left).sector;
-        if (sector.soundC === count) {
+        // already visited sector OR linedef blocks sound
+        if (sector.soundC === count || seg.linedef.flags & 0x0040) {
             continue;
         }
         sector.soundC = count;
