@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import type { DoomWad } from "./wad/doomwad";
 import { Vector3 } from "three";
-import { MapObject } from "./map-object";
+import { MapObject, xyDistanceBetween } from "./map-object";
 import { centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
@@ -372,7 +372,7 @@ function aabbAabbOverlap(p1: Vector3, r1: number, p2: Vector3, r2: number) {
 
 function createBspTracer(root: TreeNode) {
     const subsectorTrace = createSubsectorTrace(root);
-    const segNormal = new Vector3();
+    const nVec = new Vector3();
 
     return (start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) => {
         const allowZeroDot = move.x !== 0 || move.y !== 0 || move.z !== 0;
@@ -381,6 +381,14 @@ function createBspTracer(root: TreeNode) {
         subsectorTrace(start, move,radius, subsector => {
             // collide with things
             for (const mobj of subsector.mobjs) {
+                // like wall collisions, we allow the collision if the movement is away from the other mobj
+                nVec.set(start.x - mobj.position.val.x, start.y - mobj.position.val.y, 0);
+                const moveDot = move.dot(nVec);
+                // skip collision detection if we are moving away from the other object
+                if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
+                    continue;
+                }
+
                 const hit = sweepAABBAABB(start, radius, move, mobj.position.val, mobj.info.radius);
                 if (hit) {
                     const point = new Vector3(hit.x, hit.y, start.z + move.z * hit.u);
@@ -396,8 +404,8 @@ function createBspTracer(root: TreeNode) {
                 // line is more complicated but that is handled elsewhere because it impacts movement, not bullets or
                 // other traces.
                 // Doom2's MAP03 starts the player exactly against the wall. Without this, we would be stuck :(
-                segNormal.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
-                const moveDot = move.dot(segNormal);
+                nVec.set(seg.v[1].y - seg.v[0].y, seg.v[0].x - seg.v[1].x, 0);
+                const moveDot = move.dot(nVec);
                 // NOTE: dot === 0 is special. We allow this only when we are moving
                 // (if we aren't moving, dot will always be 0 and we skip everything)
                 if (moveDot > 0 || (moveDot === 0 && allowZeroDot)) {
