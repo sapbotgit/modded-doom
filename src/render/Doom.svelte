@@ -37,7 +37,7 @@
     let pointerLocked = false;
 
     let showPlayerInfo = false;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI } = settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls } = settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -127,6 +127,10 @@
             <option>visible</option>
             <option>all</option>
         </select>
+    </label>
+    <label style="width:6em; display:inline-block">
+        <input style="width:100%" type="range" min={0} max={50} step={5} bind:value={$maxLostSouls} />
+        Max Lost Souls: {$maxLostSouls === 0 ? '∞' : $maxLostSouls}
     </label>
 </div>
 

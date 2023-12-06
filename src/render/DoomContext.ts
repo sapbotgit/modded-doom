@@ -16,6 +16,7 @@ export const createAppContext = () => {
         invicibility: store(false),
         noclip: store(false),
         compassMove: store(false),
+        maxLostSouls: store(20),
         timescale: store(1),
         monsterAI: store('enabled'),
         cameraMode: store('1p'),

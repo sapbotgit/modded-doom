@@ -1038,8 +1038,8 @@ function launchMapObject(mobj: MapObject, target: MapObject, zOffset: number, sp
 
 function spawnLostSoul(time: GameTime, parent: MapObject, angle: number) {
     const lostSoulCount = parent.map.objs.reduce((count, m) => count + (m.type === MapObjectIndex.MT_SKULL ? 1 : 0), 0);
-    // TODO: add a config to override this. It can be fun to see a huge flock of lost souls floating around
-    if (lostSoulCount > 20) {
+    const maxLostSouls = parent.map.game.settings.maxLostSouls.val;
+    if (maxLostSouls > 0 && lostSoulCount > maxLostSouls) {
 	    return;
     }
 
