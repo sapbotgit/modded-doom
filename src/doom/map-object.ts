@@ -543,9 +543,9 @@ export class MapObject {
     }
 
     protected explode() {
+        this.info.flags &= ~MFFlags.MF_MISSILE;
         this.velocity.set(0, 0, 0);
         this._state.setState(this.info.deathstate, -randInt(0, 2));
-        this.info.flags &= ~MFFlags.MF_MISSILE;
         this.map.game.sound.play(this.info.deathsound, this);
     }
 }
