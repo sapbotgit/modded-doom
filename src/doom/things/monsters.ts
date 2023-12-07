@@ -144,7 +144,7 @@ const archvileActions: ActionMap = {
                 Math.cos(mobj.movedir) * mobj.info.speed,
                 Math.sin(mobj.movedir) * mobj.info.speed,
                 0);
-            mobj.map.data.traceMove(mobj.position.val, _moveVec, mobj.info.radius, hit => {
+            mobj.map.data.traceMove(mobj.position.val, _moveVec, mobj.info.radius, mobj.info.height, hit => {
                 const foundCorpse = ('mobj' in hit)
                     // TODO: Doom also check mobj.state.ticks, should we?
                     && (hit.mobj.info.flags & MFFlags.MF_CORPSE)
@@ -874,7 +874,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
         Math.cos(dir) * mobj.info.speed,
         Math.sin(dir) * mobj.info.speed,
         0);
-    const blocked = findMoveBlocker(mobj, mobj.position.val, _moveVec, specialLines);
+    const blocked = findMoveBlocker(mobj, _moveVec, specialLines);
     // if we can float and we're blocked by a two-sided line then float!
     if (blocked && 'line' in blocked && blocked.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
         const dz = blocked.line.left.sector.zFloor.val - mobj.position.val.z;
@@ -894,11 +894,12 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
 }
 
 const _moveEnd = new Vector3();
-function findMoveBlocker(mobj: MapObject, start: Vector3, move: Vector3, specialLines?: LineTraceHit[]) {
+function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
     let blocker: TraceHit = null;
     // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
+    const start = mobj.position.val;
     _moveEnd.copy(start).add(move).addScalar(mobj.info.radius);
-    mobj.map.data.traceMove(start, move, mobj.info.radius, hit => {
+    mobj.map.data.traceMove(start, move, mobj.info.radius, mobj.info.height, hit => {
         if ('mobj' in hit) {
             const skipHit = false
                 || (hit.mobj === mobj) // don't collide with yourself
@@ -1052,7 +1053,7 @@ function spawnLostSoul(time: GameTime, parent: MapObject, angle: number) {
         return pos;
     });
     // if the lost soul can't move, destroy it
-    if (findMoveBlocker(lostSoul, lostSoul.position.val, zeroVec)) {
+    if (findMoveBlocker(lostSoul, zeroVec)) {
         lostSoul.damage(10_000, parent, parent);
         return;
     }

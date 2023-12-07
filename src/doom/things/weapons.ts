@@ -3,11 +3,11 @@ import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
 import { HALF_PI, QUARTER_PI, angleNoise, randInt } from '../math';
-import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween, hitSky } from '../map-object';
+import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
 import { ticksPerSecond, type GameTime } from "../game";
-import { type HandleTraceHit, type Sector } from "../map-data";
+import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall } from "../map-data";
 import { itemPickedUp, noPickUp } from "./pickup";
 import type { MessageId } from "../text";
 import { propagateSound } from "./monsters";
@@ -527,10 +527,7 @@ class ShotTracer {
                     }
                 }
             } else if ('flat' in hit) {
-                const hitSky =
-                        (hit.flat === 'ceil' && hit.subsector.sector.ceilFlat.val === 'F_SKY1') ||
-                        (hit.flat === 'floor' && hit.subsector.sector.floorFlat.val === 'F_SKY1');
-                if (hitSky) {
+                if (hitSkyFlat(hit)) {
                     return false; // hit sky so don't spawn puff and don't keep searching, we're done.
                 }
                 const mobj = spawnPuff(shooter, this.bulletHitLocation(4, range, hit.fraction));
@@ -545,7 +542,7 @@ class ShotTracer {
     }
 
     private hitWallOrSky(shooter: MapObject, front: Sector, back: Sector, spot: Vector3) {
-        if (hitSky(spot.z, front, back)) {
+        if (hitSkyWall(spot.z, front, back)) {
             return false;
         }
         spawnPuff(shooter, spot);

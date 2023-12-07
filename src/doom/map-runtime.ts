@@ -297,7 +297,6 @@ class GameInput {
     public minPolarAngle = -HALF_PI;
     public maxPolarAngle = HALF_PI;
 
-    private freeFly: Store<boolean>;
     private compassMove: Store<boolean>;
     private handledUsePress = false; // only one use per button press
     private get player() { return this.map.player };
@@ -313,7 +312,6 @@ class GameInput {
             this.obj.updateMatrix();
         });
 
-        this.freeFly = this.map.game.settings.freeFly;
         this.compassMove = this.map.game.settings.compassMove;
         this.map.disposables.push(
             this.map.game.settings.noclip.subscribe(noclip => {
@@ -321,6 +319,13 @@ class GameInput {
                     this.player.info.flags |= MFFlags.MF_NOCLIP;
                 } else {
                     this.player.info.flags &= ~MFFlags.MF_NOCLIP;
+                }
+            }),
+            this.map.game.settings.freeFly.subscribe(freefly => {
+                if (freefly) {
+                    this.player.info.flags |= MFFlags.MF_NOGRAVITY;
+                } else {
+                    this.player.info.flags &= ~MFFlags.MF_NOGRAVITY;
                 }
             }),
             derived(
@@ -383,11 +388,12 @@ class GameInput {
         this.input.move.normalize(); // ensure consistent movements in all directions
         // ^^^ this isn't very doom like but I'm not sure I want to change it
 
+        const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;
         const dt = delta * delta / frameTickTime;
         let speed = this.input.slow ? playerSpeeds['crawl?'] :
             this.input.run ? playerSpeeds['run'] : playerSpeeds['walk'];
-        if (this.player.onGround || this.freeFly.val) {
-            if (this.freeFly.val && !this.input.slow) {
+        if (this.player.onGround || freeFly) {
+            if (freeFly && !this.input.slow) {
                 speed *= 2;
             }
             if (this.input.move.y) {
@@ -396,10 +402,10 @@ class GameInput {
             if (this.input.move.x) {
                 this.player.velocity.addScaledVector(this.rightVec(), this.input.move.x * speed * dt);
             }
-            if (this.input.move.z && this.freeFly.val) {
+            if (this.input.move.z && freeFly) {
                 this.player.velocity.addScaledVector(this.upVec(), this.input.move.z * speed * dt);
             }
-            if (this.freeFly.val) {
+            if (freeFly) {
                 // apply separate friction during freefly
                 this.player.velocity.multiplyScalar(0.95);
             }
@@ -452,7 +458,7 @@ class GameInput {
     private forwardVec() {
         return (
             this.compassMove.val ? vec.set(0, 1, 0) :
-            this.freeFly.val ? vec.set(0, 1, 0).applyQuaternion(this.obj.quaternion) :
+            this.player.info.flags & MFFlags.MF_NOGRAVITY ? vec.set(0, 1, 0).applyQuaternion(this.obj.quaternion) :
             vec.setFromMatrixColumn(this.obj.matrix, 0).crossVectors(this.obj.up, vec)
         );
     }

@@ -202,6 +202,16 @@ export type TraceHit = SectorTraceHit | MapObjectTraceHit | LineTraceHit | Speci
 // return true to continue trace, false to stop
 export type HandleTraceHit<T=TraceHit> = (hit: T) => boolean;
 
+export const hitSkyFlat = (hit: SectorTraceHit) =>
+    (hit.flat === 'ceil' && hit.subsector.sector.ceilFlat.val === 'F_SKY1') ||
+    (hit.flat === 'floor' && hit.subsector.sector.floorFlat.val === 'F_SKY1');
+
+export const hitSkyWall = (z: number, front: Sector, back: Sector) =>
+    (front.ceilFlat.val === 'F_SKY1') && (
+        (z > front.zCeil.val) ||
+        (back && z > back.zCeil.val && back.skyHeight !== undefined && back.skyHeight !== back.zCeil.val)
+);
+
 export const zeroVec = new Vector3();
 export const hittableThing = MFFlags.MF_SOLID | MFFlags.MF_SPECIAL | MFFlags.MF_SHOOTABLE;
 export class MapData {
@@ -322,11 +332,11 @@ export class MapData {
     }
 
     traceRay(start: Vector3, move: Vector3, onHit: HandleTraceHit) {
-        this.bspTracer(start, move, 0, onHit);
+        this.bspTracer(start, move, 0, 0, onHit);
     }
 
-    traceMove(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) {
-        this.bspTracer(start, move, radius, onHit);
+    traceMove(start: Vector3, move: Vector3, radius: number, height: number, onHit: HandleTraceHit) {
+        this.bspTracer(start, move, radius, height, onHit);
     }
 
     traceSubsectors(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) {
@@ -374,10 +384,13 @@ function createBspTracer(root: TreeNode) {
     const subsectorTrace = createSubsectorTrace(root);
     const nVec = new Vector3();
 
-    return (start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit) => {
+    return (start: Vector3, move: Vector3, radius: number, height: number, onHit: HandleTraceHit) => {
         const allowZeroDot = move.x !== 0 || move.y !== 0 || move.z !== 0;
         let hits: TraceHit[] = [];
 
+        // TODO: since we have a height parameter, I wonder if we should check for top/bottom collisions with walls
+        // and things and maybe avoid a few redundant checks? Teleportation, for example, does not check z position and
+        // maybe that is desired?
         subsectorTrace(start, move,radius, subsector => {
             // collide with things
             for (const mobj of subsector.mobjs) {
@@ -421,12 +434,12 @@ function createBspTracer(root: TreeNode) {
                 }
             }
 
-            // collide with floor and ceiling (mostly for bullets and projectiles)
-            const floorHit = flatHit('floor', subsector, subsector.sector.zFloor.val);
+            // collide with floor or ceiling
+            const floorHit = move.z < 0 && flatHit('floor', subsector, subsector.sector.zFloor.val);
             if (floorHit) {
                 hits.push(floorHit);
             }
-            const ceilHit = flatHit('ceil', subsector, subsector.sector.zCeil.val);
+            const ceilHit = move.z > 0 && flatHit('ceil', subsector, subsector.sector.zCeil.val - height);
             if (ceilHit) {
                 hits.push(ceilHit);
             }

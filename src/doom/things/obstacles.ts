@@ -56,16 +56,15 @@ export const actions: { [key: number]: StateChangeAction } = {
 export function radiusDamage(damage: number, mobj: MapObject, source: MapObject) {
     // use a map so we don't hit the same object multiple times
     let hits = new Map<MapObject, number>();
-    mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, hit => {
+    const height = Infinity; // explosions don't check z in doom
+    mobj.map.data.traceMove(mobj.position.val, zeroVec, damage + 32, height, hit => {
         if ('mobj' in hit) {
-            if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE)) {
-                return true;
-            }
-            if (hits.has(hit.mobj)) {
-                return true; // already hit this, so continue to next
-            }
-            // Boss spider and cyberdemon take no damage from explosions
-            if (hit.mobj.type === MapObjectIndex.MT_CYBORG || hit.mobj.type === MapObjectIndex.MT_SPIDER) {
+            const skipHit = (false
+                || !(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) // not shootable
+                || hits.has(hit.mobj) // already hit this, so continue to next
+                // spider boss and cyberdemon do not take damage from explosions
+                || (hit.mobj.type === MapObjectIndex.MT_CYBORG || hit.mobj.type === MapObjectIndex.MT_SPIDER));
+            if (skipHit) {
                 return true;
             }
 

@@ -960,7 +960,7 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
         if (mobj.isMonster) {
             // monsters cannot teleport if a hittable mobj is blocking teleport landing
             let blocked = false;
-            map.data.traceMove(tpos, zeroVec, mobj.info.radius, hit => {
+            map.data.traceMove(tpos, zeroVec, mobj.info.radius, mobj.info.height, hit => {
                 blocked = Boolean('mobj' in hit && hit.mobj.info.flags & hittableThing);
                 return !blocked;
             });

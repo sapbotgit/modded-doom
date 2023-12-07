@@ -3,7 +3,7 @@ import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
-import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit } from "./map-data";
+import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall } from "./map-data";
 import { ticksPerSecond, type GameTime, frameTickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
@@ -317,7 +317,7 @@ export class MapObject {
             return; // monsters only telefrag in level 30
         }
         // telefrag anything in our way
-        this.map.data.traceMove(this.position.val, zeroVec, this.info.radius, hit => {
+        this.map.data.traceMove(this.position.val, zeroVec, this.info.radius, this.info.height, hit => {
             if ('mobj' in hit) {
                 // skip non hittable things and (obviously) don't hit ourselves
                 if (!(hit.mobj.info.flags & hittableThing) || hit.mobj === this) {
@@ -361,10 +361,6 @@ export class MapObject {
                 }
             }
         }
-        if (this.position.val.z + this.info.height > this.zCeil) {
-            this.velocity.z = 0;
-            this.position.val.z = this.zCeil - this.info.height;
-        }
         if (this.onGround) {
             this.velocity.z = 0;
             this.position.val.z = this.zFloor;
@@ -400,7 +396,7 @@ export class MapObject {
         while (blocker) {
             blocker = null;
             vec.copy(start).add(this.velocity);
-            this.map.data.traceMove(start, this.velocity, this.info.radius, hit => {
+            this.map.data.traceMove(start, this.velocity, this.info.radius, this.info.height, hit => {
                 const isMissile = this.info.flags & MFFlags.MF_MISSILE;
 
                 if ('mobj' in hit) {
@@ -457,7 +453,7 @@ export class MapObject {
                         if (twoSided) {
                             const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
                             const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
-                            if (hitSky(start.z, front, back)) {
+                            if (hitSkyWall(start.z, front, back)) {
                                 this.map.destroy(this);
                                 return false;
                             }
@@ -514,13 +510,19 @@ export class MapObject {
                     slideMove(this.velocity, hit.line.v[1].x - hit.line.v[0].x, hit.line.v[1].y - hit.line.v[0].y);
                 } else if ('flat' in hit) {
                     // hit a floor or ceiling
-                    if (isMissile || this.info.flags & MFFlags.MF_SKULLFLY) {
-                        // TODO: hmmm.. I wonder if we can cleanup some of the mess in applyGravity() (especially between player and mobj)
-                        // by using this a little more? Maybe even set position based on height and collision with ceiling?
+                    this.hitFlat(hit.point.z);
+
+                    if (this.info.flags & MFFlags.MF_SKULLFLY) {
                         blocker = hit;
                     }
+
                     if (isMissile) {
-                        this.explode();
+                        if (hitSkyFlat(hit)) {
+                            this.map.destroy(this);
+                        } else {
+                            this.explode();
+                        }
+                        return false;
                     }
                 }
                 return !blocker;
@@ -542,6 +544,11 @@ export class MapObject {
         this.position.update(pos => pos.add(this.velocity));
     }
 
+    protected hitFlat(zVal: number) {
+        this.velocity.z = 0;
+        this.position.val.z = zVal;
+    }
+
     protected explode() {
         this.info.flags &= ~MFFlags.MF_MISSILE;
         this.velocity.set(0, 0, 0);
@@ -549,12 +556,6 @@ export class MapObject {
         this.map.game.sound.play(this.info.deathsound, this);
     }
 }
-
-export const hitSky = (z: number, front: Sector, back: Sector) =>
-    (front.ceilFlat.val === 'F_SKY1') && (
-        (z > front.zCeil.val) ||
-        (back && z > back.zCeil.val && back.skyHeight !== undefined && back.skyHeight !== back.zCeil.val)
-);
 
 const slideMove = (vel: Vector3, x: number, y: number) => {
     // slide along wall instead of moving through it
@@ -753,34 +754,32 @@ export class PlayerMapObject extends MapObject {
     }
 
     protected applyGravity(): void {
-        if (this.map.game.settings.freeFly.val) {
+        if (this.info.flags & MFFlags.MF_NOGRAVITY) {
             return;
         }
+        if (this.onGround) {
+            this.hitFlat(this.zFloor);
+            this.position.set(this.position.val);
+        }
+    }
+
+    protected hitFlat(zVal: number): void {
         // smooth step up
-        if (this.position.val.z < this.zFloor) {
-            this.viewHeight -= this.zFloor - this.position.val.z;
-            // this means we change view height by 1, 2, or 3 depending on the step (>> 3 is equivalent to divide by 8 but faster)
+        if (this.position.val.z < zVal) {
+            this.viewHeight -= zVal - this.position.val.z;
+            // this means we change view height by 1, 2, or 3 depending on the step
+            // >> 3 is equivalent to divide by 8 but faster? Doom used a lot of integer math and I haven't tested the performance in JS
             this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
         }
-
-        // TODO: some of this is duplicate of parent class, I wonder if we can separate these better? Maybe we don't even need to override?
-        if (this.position.val.z + this.info.height > this.zCeil) {
-            this.velocity.z = 0;
-            this.position.val.z = this.zCeil - this.info.height;
-        }
-        if (this.onGround) {
+        // hit the ground so lower the screen
+        if (this.position.val.z > zVal) {
+            this.deltaViewHeight = this.velocity.z >> 3;
+            // if we hit the ground hard, play a sound
             if (this.velocity.z < -8) {
-                // if we hit the ground hard, drop the screen a bit
-                this.deltaViewHeight = this.velocity.z >> 3;
                 this.map.game.sound.play(SoundIndex.sfx_oof, this);
             }
-            this.velocity.z = 0;
-
-            if (this.position.val.z !== this.zFloor) {
-                this.position.val.z = this.zFloor;
-                this.position.set(this.position.val);
-            }
         }
+        super.hitFlat(zVal);
     }
 
     // P_CalcHeight in p_user.c
@@ -789,8 +788,8 @@ export class PlayerMapObject extends MapObject {
             return this.computeDeadViewHeight(time);
         }
 
-        const delta = time.delta;
-        this.viewHeight += this.deltaViewHeight * 35 * delta;
+        const delta = ticksPerSecond * time.delta;
+        this.viewHeight += this.deltaViewHeight * delta;
 
         if (this.viewHeight > playerViewHeightDefault) {
             this.viewHeight = playerViewHeightDefault;
@@ -815,7 +814,7 @@ export class PlayerMapObject extends MapObject {
         const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * this.bob * .5;
 
         let viewHeight = this.viewHeight + bob;
-        const maxHeight = this.sector.val.zCeil.val - 4 - this.position.val.z;
+        const maxHeight = this.zCeil - 4 - this.position.val.z;
         return Math.min(maxHeight, viewHeight);
     }
 
