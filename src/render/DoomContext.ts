@@ -59,7 +59,8 @@ export const createAppContext = () => {
     }
     Object.keys(settings).filter(k => typeof settings[k] === 'object').forEach(k => settings[k].subscribe(saveSettings));
 
-    return { url, settings, editor };
+    const audio = new AudioContext();
+    return { url, settings, editor, audio };
 }
 
 export const createGameContext = (game: Game) => {

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MapObjectIndex, type MapObject, type MapRuntime } from "../../doom";
+    import { type MapRuntime } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import BlockMap from "../Debug/BlockMap.svelte";
     import Stats from "../Debug/Stats.svelte";
@@ -7,14 +7,11 @@
     import Player from "./Player.svelte";
     import SkyBox from "./SkyBox.svelte";
     import Sector from "./Sector.svelte";
-    import Wall from "./Wall.svelte";
-    import WallHackTransparentDoor from "./WallHackTransparentDoor.svelte";
     import { interactivity } from "@threlte/extras";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
     const { editor } = useAppContext();
-
 
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);

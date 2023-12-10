@@ -17,6 +17,7 @@
     import { keyboardControls } from "./KeyboardControls";
     import MapNamePic from "./Components/MapNamePic.svelte";
     import Picture from "./Components/Picture.svelte";
+    import MusicPlayer from "./MusicPlayer.svelte";
 
     export let game: Game;
 
@@ -204,6 +205,7 @@
     {/if}
 
     <MapContext map={$map} {renderSectors}>
+        <MusicPlayer map={$map} />
         <EditPanel map={$map} />
         {#if showPlayerInfo}
             <PlayerInfo player={$map.player} />

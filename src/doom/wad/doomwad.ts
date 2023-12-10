@@ -326,7 +326,7 @@ export class DoomWad {
         return new LumpPicture(lump, this.palettes[0]);
     }
 
-    private lumpByName(name: string) {
+    lumpByName(name: string) {
         // go from last wad to first because the last wad lump wins
         for (let i = this.wads.length - 1; i >= 0; i--) {
             const lump = this.wads[i].lumpByName(name);

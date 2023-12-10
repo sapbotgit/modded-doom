@@ -12,7 +12,7 @@
     const wadStore = new WadStore();
     const context = createAppContext();
     setContext('doom-app-context', context);
-    const { url } = context;
+    const { url, audio } = context;
 
     let wad: DoomWad;
     let game: Game;
@@ -51,6 +51,11 @@
     }
     $: parseUrl($url);
 
+    function sound() {
+        // TODO: we really don't need to resume this often
+        audio.resume();
+    }
+
     // // for testing intermisison screen
     // const finishedMap = new MapRuntime(selectedMap, game);
     //     finishedMap.stats.elapsedTime = randInt(20, 200);
@@ -67,7 +72,9 @@
     // });
 </script>
 
-<main>
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<main on:click={sound}>
     <!-- <AABBSweepDebug /> -->
 
     {#if game}
