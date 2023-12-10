@@ -619,6 +619,7 @@ export class PlayerMapObject extends MapObject {
             // invulnTime is partly coordinated with ScreenColorShader.ts
             const lightOverride =
                 invunlTime > 1.0 ? 255 :
+                invunlTime > 0.0 ? 0 :
                 // first 2 seconds we go from 0->255 then stay at 255 until last 5 seconds where we pulse a few times from 0 to 255
                 nightVisionTime ? (
                     nightVisionTime > 30 ? 255 :
