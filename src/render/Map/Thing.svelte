@@ -31,6 +31,7 @@
     const { sector, position: tpos, sprite, direction, renderShadow } = thing;
     const invertYOffset = (thing.info.flags & MFFlags.InvertSpriteYOffset);
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
+    const isMissile = thing.info.flags & MFFlags.MF_MISSILE;
     const camPos = camera.position;
     const camAngle = camera.angle;
 
@@ -43,14 +44,10 @@
     // Sprite offset is much more complicated than this but this is simple and looks okay-ish.
     // https://www.doomworld.com/forum/topic/110008-what-is-this-bs-with-gl-hardware-mode
     // and https://www.doomworld.com/forum/topic/68145-source-port-sprites-through-the-floor
-    // hmm.. is the list below basically thing.info.flags & MFFlags.MF_MISSILE?
-    const hackedSprites = ['MISL', 'PLSE', 'BFE1', 'BFS1', 'MANF', 'BAL1', 'BAL2', 'BAL7', 'FATB'];
     $: vOffset =
         Math.max(texture.userData.yOffset - texture.userData.height, 0) + (texture.userData.height * .5)
-        * (invertYOffset ? -1 : 1);
-    $: if (hackedSprites.includes($sprite.name)) {
-        vOffset += texture.userData.yOffset - texture.userData.height;
-    }
+        * (invertYOffset ? -1 : 1)
+        + (isMissile ? texture.userData.yOffset - texture.userData.height : 0);
     $: hOffset = (texture.userData.xOffset - texture.userData.width) + (texture.userData.width * .5);
 
     const rotation = { x: 0, y: 0, z: 0 };
