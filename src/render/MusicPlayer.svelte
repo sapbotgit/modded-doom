@@ -143,7 +143,7 @@
         39: 'clap', // Hand Clap
         40: 'snare/sd7575', // Electric Snare
         41: 'tom-low', // Low Floor Tom
-        42: 'hihat-closed', // Closed Hi-hat
+        42: 'hihat-close', // Closed Hi-hat
         43: 'tom-hi', // High Floor Tom
         44: 'hihat-open/oh25', // Pedal Hi-hat
         45: 'tom-low', // Low Tom
@@ -188,15 +188,27 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import { Buffer as buff } from 'buffer';
-    import midi from 'midi-player-js';
+    import midiplay from 'midi-player-js';
     import { mus2midi } from 'mus2midi';
     import type { MapRuntime } from "../doom";
     import { MidiSampleStore } from "../MidiSampleStore";
     import { Soundfont, DrumMachine } from "smplr";
     import { useAppContext } from "./DoomContext";
+    import { MIDIParser } from 'lumidi'
+    import { Buffer } from 'buffer'
+    import PicoAudio from 'picoaudio'
+    import JZZ from 'jzz';
+    import { SMF } from 'jzz-midi-smf';
+    import { Tiny } from 'jzz-synth-tiny';
+    import WebAudioTinySynth from 'webaudio-tinysynth';
 
     export let map: MapRuntime;
     const { audio } = useAppContext();
+
+    JZZ.lib.getAudioContext = () => audio;
+    SMF(JZZ);
+    Tiny(JZZ);
+    (JZZ as any).synth.Tiny.register('Web Audio');
 
     const word = (buff: Uint8Array, offset: number) => buff[offset + 1] << 8 | buff[offset];
     // Nifty little hack! https://stackoverflow.com/questions/50179214
@@ -277,7 +289,7 @@
         const sustain = (sustainRelease >> 4) / 15;
         const release = (sustainRelease & 0xF) / 15;
 
-        console.log(type, waveform, [keyScale, output], [attack, decay, sustain, release])
+        // console.log(type, waveform, [keyScale, output], [attack, decay, sustain, release])
         const gain = audio.createGain();
         const osc = audio.createOscillator();
         osc.connect(gain);
@@ -298,26 +310,29 @@
     }
 
     const storage = new MidiSampleStore();
-    let midiPlayer: midi.Player;
+    let stopTheMusic = () => {};
     onMount(async () => {
         const gainNode = audio.createGain();
         gainNode.gain.value = .3;
         gainNode.connect(audio.destination);
 
-        const panners: StereoPannerNode[] = [];
+        const effects: { pan: StereoPannerNode, bq: BiquadFilterNode }[] = [];
         // D_INTRO sets pan on channel 11 (which shouldn't happen but... meh?)
         for (let i = 0; i < 11; i++) {
-            panners[i] = audio.createStereoPanner();
-            panners[i].connect(gainNode);
+            const pan = audio.createStereoPanner();
+            const bq = audio.createBiquadFilter();
+            effects[i] = { pan, bq };
         }
-        const drums = await new DrumMachine(audio, { storage, destination: panners[9] }).load;
+        const drums = await new DrumMachine(audio, { storage, destination: gainNode }).load;
+        // drums.output.addInsert(effects[9].bq);
+        drums.output.addInsert(effects[9].pan);
 
         // doom uses 9 instrument channels (10 is percussion)
         type Instrument = Soundfont;
         // type Instrument = ReturnType<typeof readGMInstrument>;
         let channels: (Instrument | DrumMachine)[] = [null, null, null, null, null, null, null, null, null, drums];
 
-        midiPlayer = new midi.Player(async (ev) => {
+        const midiPlayer = new midiplay.Player(async (ev) => {
             ev.channel -= 1;
             switch(ev.name) {
                 case 'Set Tempo':
@@ -328,7 +343,11 @@
                     if (ev.channel !== 9) {
                         if (!instrumentNames[ev.value]) console.warn('missing-instrument', ev.value)
                         const instrument = instrumentNames[ev.value] ?? instrumentNames[6];
-                        channels[ev.channel] = await new Soundfont(audio, { storage, destination: panners[ev.channel], instrument }).load;
+                        const sf = await new Soundfont(audio, { storage, instrument, destination: gainNode }).load;;
+                        sf.output.addInsert(effects[ev.channel].pan);
+                        // sf.output.addInsert(effects[ev.channel].bq);
+                        channels[ev.channel] = sf;
+                        console.log(ev.channel,ev.value)
                         // if (channels[ev.channel]) {
                         //     (channels[ev.channel] as Instrument).stop();
                         //     (channels[ev.channel] as Instrument).gain.disconnect();
@@ -342,7 +361,7 @@
                         channels[ev.channel]?.output.setVolume(ev.value);
                     }
                     if (ev.number === 10) {
-                        panners[ev.channel].pan.value = (ev.value - 64) / 127;
+                        effects[ev.channel].pan.pan.value = (ev.value - 64) / 127;
                     }
                     break;
 
@@ -355,6 +374,7 @@
                         if (!drumMap[ev.noteNumber]) console.warn('missing drum', ev.noteNumber)
                         channels[ev.channel].start({ note: drumMap[ev.noteNumber], velocity: ev.velocity });
                     } else {
+                        console.log(ev.channel)
                         channels[ev.channel]?.start({ note: ev.noteNumber, velocity: ev.velocity });
                         // channels[ev.channel]?.start(ev);
                     }
@@ -367,14 +387,42 @@
                     console.log('unhandled midi-event',ev);
             }
         });
-        const lump = map.game.wad.lumpByName('D_INTRO');
-        const mid = mus2midi(buff.from(lump.contents));
-        // see https://github.com/grimmdude/MidiPlayerJS/issues/25
-        (midiPlayer as any).sampleRate = 0;
-        midiPlayer.loadArrayBuffer(mid);
-        midiPlayer.play();
+        const lump = map.game.wad.lumpByName('D_E1M2');
+        const midi = mus2midi(buff.from(lump.contents));
+
+        // // see https://github.com/grimmdude/MidiPlayerJS/issues/25
+        // (midiPlayer as any).sampleRate = 0;
+        // midiPlayer.loadArrayBuffer(midi);
+        // midiPlayer.play();
+        // stopTheMusic = () => midiPlayer.stop();
+
+        const synth = new WebAudioTinySynth();
+        synth.setAudioContext(audio, gainNode);
+        synth.setLoop(1);
+        synth.loadMIDI(midi);
+        synth.playMIDI();
+        // actually, it would be really cool to use GENMIDI here to configure the oscillars WebAudioTinySynth creates.
+        // We can inject the OPL3 waveforms too via the synth.wave map by synth.wave['w-opl3-0'] = PeriodicWave(...), etc.
+        stopTheMusic = () => synth.stopMIDI();
+
+        // const midiout = JZZ().openMidiOut();
+        // const smf = new (JZZ.MIDI as any).SMF(midi);
+        // const player = smf.player();
+        // player.connect(midiout);
+        // player.play();
+        // stopTheMusic = () => player.stop();
+
+        // const picoAudio = new PicoAudio();
+        // picoAudio.init();
+        // const smf = picoAudio.parseSMF(midi);
+        // picoAudio.setData(smf);
+        // picoAudio.play();
+        // stopTheMusic = () => picoAudio.stop();
+
+        // window.Buffer = Buffer;
+        // console.log('midi', MIDIParser.parse(midi))
     });
     onDestroy(() => {
-        midiPlayer?.stop();
+        stopTheMusic();
     });
 </script>
