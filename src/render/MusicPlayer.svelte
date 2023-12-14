@@ -252,7 +252,7 @@
             v1.keyDown(ev);
             v2?.keyDown(ev);
         };
-        return { gain, start, stop };
+        return { gain, start, stop, v1, v2 };
     }
 
     function instrumentVoice(root: GainNode, data: Uint8Array, o: number) {
@@ -266,6 +266,8 @@
         modulator.gain.connect(carrier.osc.frequency);
         carrier.gain.connect(root);
         return {
+            modulator,
+            carrier,
             keyDown: ev => {
                 modulator.keyDown(ev.noteNumber + noteOffset);
                 carrier.keyDown(ev.noteNumber + noteOffset);
@@ -282,8 +284,8 @@
         const attackDecay = data[offset + 1];
         const sustainRelease = data[offset + 2];
         const waveform = data[offset + 3];
-        const keyScale = data[offset + 4];
-        const output = data[offset + 5];
+        const keyScale = data[offset + 4] >> 6; // only 2 bits
+        const output = data[offset + 5] / 64;
 
         const attack = (attackDecay >> 4) / 15;
         const decay = (attackDecay & 0xF) / 15;
@@ -307,9 +309,40 @@
             // release (sustain is the time between down and up)
             gain.gain.linearRampToValueAtTime(0.0, now() + release);
         }
-        return { waveform, gain, osc, keyDown, keyUp };
+        return { gain, osc, keyDown, keyUp, props: { attack, decay, sustain, release, keyScale, output, waveform } };
     }
 
+    // OPL2 wave forms (https://doomwiki.org/wiki/OPL_emulation) based on A4
+    // (because webaudio-tinysynth adjusts based on A4)
+    // NOTE: it would be _way_ cooler to generate these with PeriodicWave but even with wikipedia's help
+    // (https://en.wikipedia.org/wiki/Fourier_series#Table_of_common_Fourier_series) I'm not sure how to
+    // express wave3
+    // wave0: normal sine wave
+    const wave0 = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    let buffer = wave0.getChannelData(0);
+    for (let i = 0; i < buffer.length; i++) {
+        buffer[i] = Math.sin(i / buffer.length * A4 * Math.PI * 2);
+    }
+    // wave1: half sine wave (half-wave rectified sine)
+    const wave1 = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    buffer = wave1.getChannelData(0);
+    for (let i = 0; i < buffer.length; i++) {
+        buffer[i] = Math.max(0, wave0.getChannelData(0)[i]);
+    }
+    // wave2: absolute sine wave (full-wave rectified sine)
+    const wave2 = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    buffer = wave2.getChannelData(0);
+    for (let i = 0; i < buffer.length; i++) {
+        buffer[i] = Math.abs(wave0.getChannelData(0)[i]);
+    }
+    // wave3: quarter sine wave (halved-half sine wave)
+    const wave3 = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    buffer = wave3.getChannelData(0);
+    const quarter = buffer.length / 4;
+    const mid = buffer.length / 2;
+    for (let i = 0; i < quarter; i++) {
+        buffer[i] = buffer[i + mid] = wave0.getChannelData(0)[i];
+    }
 
     const storage = new MidiSampleStore();
     let stopTheMusic = () => {};
@@ -399,10 +432,57 @@
 
         const synth = new WebAudioTinySynth();
         synth.setAudioContext(audio, gainNode);
-        synth.setLoop(1);
+        synth.noiseBuf['nOpl2.0'] = wave0;
+        synth.noiseBuf['nOpl2.1'] = wave1;
+        synth.noiseBuf['nOpl2.2'] = wave2;
+        synth.noiseBuf['nOpl2.3'] = wave3;
         synth.loadMIDI(midi);
+        synth.setLoop(1);
         // actually, it would be really cool to use GENMIDI here to configure the oscillars WebAudioTinySynth creates.
         // We can inject the OPL3 waveforms too via the synth.wave map by synth.wave['w-opl3-0'] = PeriodicWave(...), etc.
+
+        const ii = [48, 51, 37, 6, 81]
+        for (const inst of ii) {
+        const ins = readGMInstrument(genmidi, inst)
+        const tr = [
+            {
+                w: 'nOpl2.' + ins.v1.carrier.props.waveform,
+                a: ins.v1.carrier.props.attack,
+                d: ins.v1.carrier.props.decay,
+                h:1,
+                s: ins.v1.carrier.props.sustain,
+                r: ins.v1.carrier.props.release,
+                k: ins.v1.carrier.props.keyScale,
+                // v: ins.v1.carrier.props.output, // <-- probably not right
+            },
+            {
+                g: 1,
+                w: 'nOpl2.' + ins.v1.modulator.props.waveform,
+                a: ins.v1.modulator.props.attack,
+                d: ins.v1.modulator.props.decay,
+                h:1,
+                s: ins.v1.modulator.props.sustain,
+                r: ins.v1.modulator.props.release,
+                k: ins.v1.modulator.props.keyScale,
+                // v: ins.v1.modulator.props.output, // <-- probably not right
+            },
+        ]
+        // console.log(synth.program)
+        // let tr2 = synth.program[inst].p;
+        // console.log('instrument',inst,ins, tr,tr2)
+        // tr2[1].w =  'nOpl2.' + ins.v1.carrier.props.waveform;
+        // tr2[0].w =  'nOpl2.' + ins.v1.modulator.props.waveform;
+        // synth.setTimbre(0, inst, tr);
+        }
+        // readGMInstrument(genmidi, 48)
+        // readGMInstrument(genmidi, 37)
+        // readGMInstrument(genmidi, 6)
+        // readGMInstrument(genmidi, 81)
+        // synth.setTimbre(0, 48, [{w:"nOpl2.1",v:0.6,h:0.03,d:0.3,r:0.3,t:0.5,},{w:"nOpl2.1",v:8,t:1.5,d:0.08,r:0.08,g:1,}]);
+        // synth.setTimbre(0, 51, [{w:"nOpl2.1",v:0.2,a:0.02,s:1,},{w:"nOpl2.0",v:0.2,t:2,f:2,a:1,d:1,s:1,}]);
+        // // synth.setTimbre(0, 37, [{w:"nOpl2.0",v:0.3,t:2,d:1,},{w:"nOpl2.0",v:2,t:2.5,d:0.04,s:0.1,g:1,}]);
+        // synth.setTimbre(0, 6, [{w:"nOpl2.1",v:0.35,d:0.7,},{w:"nOpl2.2",v:8,t:7,f:1,d:0.5,s:1,g:1,k:-0.7,}]);
+        // synth.setTimbre(0, 81, [{w:"nOpl2.1",v:0.3,d:1,s:0.5,},{w:"nOpl2.1",v:1,f:0.2,d:1,s:0.5,g:1,}]);
         synth.playMIDI();
         stopTheMusic = () => synth.stopMIDI();
 
