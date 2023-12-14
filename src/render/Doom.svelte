@@ -38,7 +38,7 @@
     let pointerLocked = false;
 
     let showPlayerInfo = false;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls } = settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls, musicPlayback, musicVolume } = settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -133,6 +133,18 @@
         <input style="width:100%" type="range" min={0} max={50} step={5} bind:value={$maxLostSouls} />
         Max Lost Souls: {$maxLostSouls === 0 ? '∞' : $maxLostSouls}
     </label>
+    <label>
+        Music
+        <select bind:value={$musicPlayback}>
+            <option>synth</option>
+            <option>soundfont</option>
+            <option>off</option>
+        </select>
+    </label>
+    <label style="width:6em; display:inline-block">
+        <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$musicVolume} />
+        Music Volume {$musicVolume}
+    </label>
 </div>
 
 <div>
@@ -205,7 +217,7 @@
     {/if}
 
     <MapContext map={$map} {renderSectors}>
-        <MusicPlayer map={$map} />
+        <MusicPlayer musicBuffer={$map.musicBuffer} />
         <EditPanel map={$map} />
         {#if showPlayerInfo}
             <PlayerInfo player={$map.player} />

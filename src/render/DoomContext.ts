@@ -27,6 +27,8 @@ export const createAppContext = () => {
         useTextures: store(true),
         wireframe: writable<'none' | 'visible' | 'all'>('none'),
         showBlockMap: writable(false),
+        musicPlayback: writable<'synth' | 'soundfont' | 'off'>('synth'),
+        musicVolume: writable(.8),
     };
     const editor = writable({
         active: false,

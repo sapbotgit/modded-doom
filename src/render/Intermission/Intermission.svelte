@@ -7,6 +7,7 @@
     import Time from "./Time.svelte";
     import { writable } from "svelte/store";
     import MapNamePic from "../Components/MapNamePic.svelte";
+    import MusicPlayer from "../MusicPlayer.svelte";
 
     export let details: IntermissionScreen;
     export let size: Size;
@@ -15,6 +16,7 @@
     const sum = (playerStats: IntermissionScreen['playerStats'], key: keyof IntermissionScreen['playerStats'][0]) =>
         playerStats.map(e => e[key]).reduce((total, val) => total + val, 0)
     const mapNum = (mapName: string) => parseInt(mapName.substring(3, 5)) - 1;
+    const music = game.wad.lumpByName(game.episodic ? 'D_INTER' : 'D_DM2INT').contents;
 
     let scale = Math.min(size.width / 320, size.height / 200);
     let tick = game.time.tick;
@@ -138,6 +140,7 @@
     }
 </script>
 
+<MusicPlayer musicBuffer={music} />
 <div style="width:{size.width}px;height:{size.height}px;">
     <div class="root" style="transform: scale({scale});">
         {#if episodeMaps && episode < 4}
