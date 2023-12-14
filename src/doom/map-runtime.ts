@@ -10,6 +10,52 @@ import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
 import { derived } from "svelte/store";
 
+const episode4MusicMap = [
+    'D_E3M4',
+    'D_E3M2',
+    'D_E3M3',
+    'D_E1M5',
+    'D_E2M7',
+    'D_E2M4',
+    'D_E2M6',
+    'D_E2M5',
+    'D_E1M9',
+];
+const doom2MusicMap = [
+    "D_RUNNIN",
+    "D_STALKS",
+    "D_COUNTD",
+    "D_BETWEE",
+    "D_DOOM",
+    "D_THE_DA",
+    "D_SHAWN",
+    "D_DDTBLU",
+    "D_IN_CIT",
+    "D_DEAD",
+    "D_STLKS2",
+    "D_THEDA2",
+    "D_DOOM2",
+    "D_DDTBL2",
+    "D_RUNNI2",
+    "D_DEAD2",
+    "D_STLKS3",
+    "D_ROMERO",
+    "D_SHAWN2",
+    "D_MESSAG",
+    "D_COUNT2",
+    "D_DDTBL3",
+    "D_AMPIE",
+    "D_THEDA3",
+    "D_ADRIAN",
+    "D_MESSG2",
+    "D_ROMER2",
+    "D_TENSE",
+    "D_SHAWN3",
+    "D_OPENIN",
+    "D_EVIL",
+    "D_ULTIMA",
+];
+
 interface AnimatedTexture {
     frames: string[];
     current: number;
@@ -36,12 +82,19 @@ export class MapRuntime {
     readonly rev = store(1);
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
+    readonly musicBuffer: Uint8Array;
 
     constructor(
         readonly name: string,
         readonly game: Game,
     ) {
         this.data = game.wad.readMap(name);
+
+        const mapNum = parseInt(name.substring(3, 5)) - 1;
+        const musicTrack = name.startsWith('E4') ? episode4MusicMap[mapNum] :
+            game.episodic ? 'D_' + name :
+            doom2MusicMap[mapNum];
+        this.musicBuffer = game.wad.lumpByName(musicTrack).contents;
 
         // some maps (plutonia MAP28) have multiple player 1 starts (I guess for coop?) so make sure to findLast()
         const playerThing = this.data.things.findLast(e => e.type === 1);

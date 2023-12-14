@@ -236,6 +236,7 @@
         const unknown = Boolean(flags & 2);
         const doubleVoice = Boolean(flags & 4);
 
+        // console.log('GM',num)
         const gain = audio.createGain();
         gain.gain.setValueAtTime(0.0, now());
         const v1 = instrumentVoice(gain, data, o + 4);
@@ -308,6 +309,7 @@
         }
         return { waveform, gain, osc, keyDown, keyUp };
     }
+
 
     const storage = new MidiSampleStore();
     let stopTheMusic = () => {};
@@ -387,8 +389,7 @@
                     console.log('unhandled midi-event',ev);
             }
         });
-        const lump = map.game.wad.lumpByName('D_E1M2');
-        const midi = mus2midi(buff.from(lump.contents));
+        const midi = mus2midi(buff.from(map.musicBuffer));
 
         // // see https://github.com/grimmdude/MidiPlayerJS/issues/25
         // (midiPlayer as any).sampleRate = 0;
@@ -400,9 +401,9 @@
         synth.setAudioContext(audio, gainNode);
         synth.setLoop(1);
         synth.loadMIDI(midi);
-        synth.playMIDI();
         // actually, it would be really cool to use GENMIDI here to configure the oscillars WebAudioTinySynth creates.
         // We can inject the OPL3 waveforms too via the synth.wave map by synth.wave['w-opl3-0'] = PeriodicWave(...), etc.
+        synth.playMIDI();
         stopTheMusic = () => synth.stopMIDI();
 
         // const midiout = JZZ().openMidiOut();
