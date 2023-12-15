@@ -211,7 +211,9 @@
         noMusic();
     onDestroy(stopTheMusic);
     async function stopTheMusic() {
-        (await musicStopper)();
+        if (musicStopper) {
+            (await musicStopper)();
+        }
     }
 
     async function noMusic() {

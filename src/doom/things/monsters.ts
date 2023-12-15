@@ -874,10 +874,10 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
         Math.cos(dir) * mobj.info.speed,
         Math.sin(dir) * mobj.info.speed,
         0);
-    const blocked = findMoveBlocker(mobj, _moveVec, specialLines);
+    const blocker = findMoveBlocker(mobj, _moveVec, specialLines);
     // if we can float and we're blocked by a two-sided line then float!
-    if (blocked && 'line' in blocked && blocked.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
-        const dz = blocked.line.left.sector.zFloor.val - mobj.position.val.z;
+    if (blocker && 'line' in blocker && blocker.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
+        const dz = blocker.line.left.sector.zFloor.val - mobj.position.val.z;
         // float if the z-delta is reasonably far from the floor we're aiming for
         if (Math.abs(dz) > 0.0001) {
             const zmove = dz > 0 ? Math.min(dz, maxFloatSpeed) : Math.max(dz, -maxFloatSpeed);
@@ -890,7 +890,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
         }
     }
     mobj.info.flags &= ~MFFlags.MF_INFLOAT;
-    return !blocked;
+    return !blocker;
 }
 
 const _moveEnd = new Vector3();
@@ -915,14 +915,18 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
             const twoSided = Boolean(hit.line.left);
             const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
             if (twoSided && !blocking) {
+                const startSect = hit.side < 0 ? hit.line.right.sector : hit.line.left.sector;
                 const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
 
-                const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
+                const stepUpOK = (endSect.zFloor.val - start.z <= maxStepSize);
                 const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
                 const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
                 const dropOffOk =
                     (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
-                    (start.z - endSect.zFloor.val <= maxStepSize);
+                    (start.z - endSect.zFloor.val <= maxStepSize) ||
+                    // NOTE: also check startSect.zFloor because if the steps are narrow, we may step down multiple
+                    // steps and consider it a dropoff. See the Barrons in E1M8 or pinkies at the start.
+                    (startSect.zFloor.val - endSect.zFloor.val <= maxStepSize);
 
                 if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
                     // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
@@ -930,7 +934,8 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                     specialLines?.push(hit);
                 }
 
-                if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
+                // console.log('[sz,ssz,ez], [f,t,cf,do]',[start.z, startSect.zFloor.val, endSect.zFloor.val], [stepUpOK,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
+                if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && dropOffOk) {
                     if (specialLines && hit.line.special) {
                         const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
                         const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1;
