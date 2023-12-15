@@ -334,6 +334,7 @@ export class DoomWad {
                 return lump;
             }
         }
+        console.warn('unknown lump', name);
     }
 }
 

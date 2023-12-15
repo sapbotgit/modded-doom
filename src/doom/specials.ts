@@ -122,7 +122,6 @@ function crunchMapObject(mobj: MapObject) {
         mobj.setState(StateIndex.S_GIBS);
         mobj.info.flags &= ~MFFlags.MF_SOLID;
         mobj.info.height = 0;
-        mobj.info.radius = 0;
     }
 }
 

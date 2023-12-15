@@ -62,7 +62,6 @@
         tw.set(100, { duration: 2000 });
         const mInfo = mapObjectInfo[MapObjectIndex.MT_PLAYER];
         player.setState(mInfo.spawnstate);
-        player.info.radius = mInfo.radius;
         player.info.height = mInfo.height;
         player.info.flags = mInfo.flags;
         player.weapon.val.activate(player);

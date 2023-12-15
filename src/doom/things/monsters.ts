@@ -3,7 +3,7 @@ import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
 import { type GameTime } from '../game';
 import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
-import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
+import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToDegrees, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector } from '../map-data';
@@ -899,7 +899,10 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
     // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
     const start = mobj.position.val;
     _moveEnd.copy(start).add(move).addScalar(mobj.info.radius);
-    mobj.map.data.traceMove(start, move, mobj.info.radius, mobj.info.height, hit => {
+    // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
+    // FIXME: even with this, the imps/pistol guys at the start of E1M7 are stuck. Can we do better and avoid this radius hack? (similar hack in MapObject)
+    const moveRadius = mobj.info.radius - 1;
+    mobj.map.data.traceMove(start, move, moveRadius, mobj.info.height, hit => {
         if ('mobj' in hit) {
             const skipHit = false
                 || (hit.mobj === mobj) // don't collide with yourself
@@ -915,18 +918,13 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
             const twoSided = Boolean(hit.line.left);
             const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
             if (twoSided && !blocking) {
-                const startSect = hit.side < 0 ? hit.line.right.sector : hit.line.left.sector;
-                const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
-
-                const stepUpOK = (endSect.zFloor.val - start.z <= maxStepSize);
-                const transitionGapOk = (endSect.zCeil.val - start.z >= mobj.info.height);
-                const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= mobj.info.height);
-                const dropOffOk =
-                    (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
-                    (start.z - endSect.zFloor.val <= maxStepSize) ||
-                    // NOTE: also check startSect.zFloor because if the steps are narrow, we may step down multiple
-                    // steps and consider it a dropoff. See the Barrons in E1M8 or pinkies at the start.
-                    (startSect.zFloor.val - endSect.zFloor.val <= maxStepSize);
+                const back = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
+                const stepUpOK = (back.zFloor.val - start.z <= maxStepSize);
+                const transitionGapOk = (back.zCeil.val - start.z >= mobj.info.height);
+                const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= mobj.info.height);
+                const stepDownOK =
+                    (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
+                    || (start.z - back.zFloor.val <= maxStepSize);
 
                 if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
                     // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
@@ -934,8 +932,8 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                     specialLines?.push(hit);
                 }
 
-                // console.log('[sz,ssz,ez], [f,t,cf,do]',[start.z, startSect.zFloor.val, endSect.zFloor.val], [stepUpOK,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
-                if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && dropOffOk) {
+                // console.log('[sz,ez], [up,do,t,cf]', [start.z, back.zFloor.val], [stepUpOK,stepDownOK,transitionGapOk,newCeilingFloorGapOk])
+                if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
                     if (specialLines && hit.line.special) {
                         const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
                         const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1;

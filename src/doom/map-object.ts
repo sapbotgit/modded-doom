@@ -155,10 +155,13 @@ export class MapObject {
 
         this.direction = store(0);
         this.position = store(new Vector3(pos.x, pos.y, 0));
+        // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
+        // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
+        const radius = this.class === 'M' ? this.info.radius - 1 : this.info.radius;
         this.position.subscribe(p => {
             this.subsecRev += 1;
             // add any subsectors we are currently touching
-            map.data.traceSubsectors(p, zeroVec, this.info.radius,
+            map.data.traceSubsectors(p, zeroVec, radius,
                 subsector => Boolean(this.subsectorMap.set(subsector, this.subsecRev)));
             // add mobj to touched sectors or remove from untouched sectors
             this.subsectorMap.forEach((rev, subsector) => {
@@ -474,16 +477,16 @@ export class MapObject {
 
                     const blocking = (hit.line.flags & 0x0001) !== 0;
                     if (twoSided && !blocking) {
-                        const endSect = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
+                        const back = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
 
-                        const floorChangeOk = (endSect.zFloor.val - start.z <= maxStepSize);
-                        const transitionGapOk = (endSect.zCeil.val - start.z >= this.info.height);
-                        const newCeilingFloorGapOk = (endSect.zCeil.val - endSect.zFloor.val >= this.info.height);
+                        const floorChangeOk = (back.zFloor.val - start.z <= maxStepSize);
+                        const transitionGapOk = (back.zCeil.val - start.z >= this.info.height);
+                        const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= this.info.height);
                         const dropOffOk =
                             (this.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT)) ||
-                            (start.z - endSect.zFloor.val <= maxStepSize);
+                            (start.z - back.zFloor.val <= maxStepSize);
 
-                        // console.log('[sz,ez], [f,t,cf,do]',[start.z, endSect.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
+                        // console.log('[sz,ez], [f,t,cf,do]',[start.z, back.zFloor.val], [floorChangeOk,transitionGapOk,newCeilingFloorGapOk,dropOffOk])
                         if (newCeilingFloorGapOk && transitionGapOk && floorChangeOk && dropOffOk) {
                             if (hit.line.special) {
                                 const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
