@@ -900,7 +900,6 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
     const start = mobj.position.val;
     _moveEnd.copy(start).add(move).addScalar(mobj.info.radius);
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
-    // FIXME: even with this, the imps/pistol guys at the start of E1M7 are stuck. Can we do better and avoid this radius hack? (similar hack in MapObject)
     const moveRadius = mobj.info.radius - 1;
     mobj.map.data.traceMove(start, move, moveRadius, mobj.info.height, hit => {
         if ('mobj' in hit) {
@@ -916,32 +915,43 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
             blocker = hit;
         } else if ('line' in hit) {
             const twoSided = Boolean(hit.line.left);
-            const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
-            if (twoSided && !blocking) {
+            if (twoSided) {
+                const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
                 const back = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
-                const stepUpOK = (back.zFloor.val - start.z <= maxStepSize);
-                const transitionGapOk = (back.zCeil.val - start.z >= mobj.info.height);
-                const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= mobj.info.height);
-                const stepDownOK =
-                    (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
-                    || (start.z - back.zFloor.val <= maxStepSize);
-
-                if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
-                    // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
-                    mobj.movedir = MoveDirection.None;
-                    specialLines?.push(hit);
-                }
-
-                // console.log('[sz,ez], [up,do,t,cf]', [start.z, back.zFloor.val], [stepUpOK,stepDownOK,transitionGapOk,newCeilingFloorGapOk])
-                if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
-                    if (specialLines && hit.line.special) {
-                        const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
-                        const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1;
-                        if (startSide !== endSide) {
-                            specialLines.push(hit);
-                        }
+                if (blocking) {
+                    // if it's a blocking wall but the back sector is the same as the start sector, we allow the move
+                    // because it means we are moving away from the start. For example, many imps in E1M7 are stuck in
+                    // blocking walls/window ledges so this lets them move.
+                    if (mobj.sector.val === back) {
+                        return true;
                     }
-                    return true; // step/ceiling/drop-off collision is okay so try next line
+                } else {
+                    // FIXME: monsters still step up steps that are too narrow. Perhaps we should just look at zFloor/zCeil
+                    // for the ending position and decide if we allow the move?
+                    const stepUpOK = (back.zFloor.val - start.z <= maxStepSize);
+                    const transitionGapOk = (back.zCeil.val - start.z >= mobj.info.height);
+                    const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= mobj.info.height);
+                    const stepDownOK =
+                        (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
+                        || (start.z - back.zFloor.val <= maxStepSize);
+
+                    if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
+                        // stop moving and trigger the door and (hopefully) the door is open next time so we don't get here
+                        mobj.movedir = MoveDirection.None;
+                        specialLines?.push(hit);
+                    }
+
+                    // console.log('[sz,ez], [up,do,t,cf]', [start.z, back.zFloor.val], [stepUpOK,stepDownOK,transitionGapOk,newCeilingFloorGapOk])
+                    if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
+                        if (specialLines && hit.line.special) {
+                            const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
+                            const endSide = signedLineDistance(hit.line.v, _moveEnd) < 0 ? -1 : 1;
+                            if (startSide !== endSide) {
+                                specialLines.push(hit);
+                            }
+                        }
+                        return true; // step/ceiling/drop-off collision is okay so try next line
+                    }
                 }
             }
             blocker = hit;
