@@ -21,7 +21,7 @@ export const items: ThingType[] = [
     },
     { type: 2013, class: 'I', description: 'Supercharge', onPickup: addhealth(100, SoundIndex.sfx_getpow, 'GOTSUPER') },
     { type: 2014, class: 'I', description: 'Health bonus', onPickup: addhealth(1, SoundIndex.sfx_itemup, 'GOTHTHBONUS') },
-    { type: 2015, class: 'I', description: 'Armor bonus', onPickup: updateInventory('GOTARMBONUS', inv => inv.armor = Math.min(200, inv.armor + 1)) },
+    { type: 2015, class: 'I', description: 'Armor bonus', onPickup: updateInventory('GOTARMBONUS', inv => inv.armor = Math.min(200, inv.armor + 1), SoundIndex.sfx_itemup) },
     { type: 2022, class: 'I', description: 'Invulnerability', onPickup: updateInventory('GOTINVUL', inv => inv.items.invincibilityTicks = 30 * ticksPerSecond) },
     { type: 2023, class: 'I', description: 'Berserk',
         onPickup: (player: PlayerMapObject) => {
@@ -50,12 +50,12 @@ function addhealth(amount: number, sound: SoundIndex, message: MessageId) {
     }
 }
 
-export function updateInventory(message: MessageId, fn: (inv: PlayerInventory) => void) {
+export function updateInventory(message: MessageId, fn: (inv: PlayerInventory) => void, sound = SoundIndex.sfx_getpow) {
     return (player: PlayerMapObject) => {
         player.inventory.update(inv => {
             fn(inv);
             return inv;
         });
-        return itemPickedUp(SoundIndex.sfx_getpow, message);
+        return itemPickedUp(sound, message);
     }
 }

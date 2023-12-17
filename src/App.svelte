@@ -51,8 +51,7 @@
     }
     $: parseUrl($url);
 
-    function sound() {
-        // TODO: we really don't need to resume this often
+    function enableSoundOnce() {
         audio.resume();
     }
 
@@ -74,7 +73,7 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-<main on:click|once={sound}>
+<main on:click|once={enableSoundOnce}>
     <!-- <AABBSweepDebug /> -->
 
     {#if game}
@@ -84,6 +83,7 @@
     {:else if !wad}
         <WadScreen {wadStore} />
     {:else if wad}
+        <!-- <AudioVisualizer context={audio} {wad} /> -->
         <div class="vstack">
             <button on:click={() => $url = '/'}><Picture {wad} name="TITLEPIC" /></button>
             {#if mapNames.includes('E1M1') && !mapName}

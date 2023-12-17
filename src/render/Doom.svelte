@@ -18,6 +18,7 @@
     import MapNamePic from "./Components/MapNamePic.svelte";
     import Picture from "./Components/Picture.svelte";
     import MusicPlayer from "./MusicPlayer.svelte";
+    import SoundPlayer from "./SoundPlayer.svelte";
 
     export let game: Game;
 
@@ -218,6 +219,7 @@
 
     <MapContext map={$map} {renderSectors}>
         <MusicPlayer musicBuffer={$map.musicBuffer} />
+        <SoundPlayer />
         <EditPanel map={$map} />
         {#if showPlayerInfo}
             <PlayerInfo player={$map.player} />

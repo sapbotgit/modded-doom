@@ -57,7 +57,7 @@ export interface IntermissionScreen {
     playerStats: PlayerMapObject['stats'][];
 }
 
-type SoundHandler = (snd: SoundIndex, location: Vector3, volumeOverride?: number) => void;
+type SoundHandler = (snd: SoundIndex, location: Store<Vector3>, volumeOverride?: number) => void;
 
 export class Game {
     private nextTickTime = 0; // seconds
@@ -137,9 +137,12 @@ export class Game {
         if (snd === SoundIndex.sfx_None) {
             return;
         }
-        const position = ('soundTarget' in location)
-            ? location.center
-            : location.position.val;
+        const position =
+            !location ? this.map.val.player.position :
+            // !location || location === this.map.val.player ? null :
+            // ^^^ not ideal, can we just play the sound without position?
+            ('soundTarget' in location) ? store(location.center)
+            : location.position;
         this.soundHandler?.(snd, position);
     }
 }
