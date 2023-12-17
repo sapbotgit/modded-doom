@@ -312,7 +312,7 @@ export class MapRuntime {
         // play a different sound on level exit
         const sound = (linedef.special === 11 || linedef.special === 51)
             ? SoundIndex.sfx_swtchx : SoundIndex.sfx_swtchn;
-        this.game.sound.play(sound, linedef.right.sector);
+        this.game.playSound(sound, linedef.right.sector);
         tex.set(toggle);
         if (!special.repeatable) {
             return true;
@@ -325,7 +325,7 @@ export class MapRuntime {
                 return;
             }
             // restore original state
-            this.game.sound.play(SoundIndex.sfx_swtchn, linedef.right.sector);
+            this.game.playSound(SoundIndex.sfx_swtchn, linedef.right.sector);
             tex.set(name);
             linedef.switchAction = null;
             this.removeAction(action);
@@ -488,7 +488,7 @@ class GameInput {
                         if (gap > 0) {
                             return true; // allow trace to continue
                         }
-                        this.map.game.sound.play(SoundIndex.sfx_noway, this.player);
+                        this.map.game.playSound(SoundIndex.sfx_noway, this.player);
                     }
                     return false; // always stop on the first line (unless above says we can continue)
                 }

@@ -57,14 +57,7 @@ export interface IntermissionScreen {
     playerStats: PlayerMapObject['stats'][];
 }
 
-export class SoundSystem {
-    play(snd: SoundIndex, location?: MapObject | Sector) {
-        if (snd === SoundIndex.sfx_None) {
-            return;
-        }
-        // TODO: actually play the sound
-    }
-}
+type SoundHandler = (snd: SoundIndex, location: Vector3, volumeOverride?: number) => void;
 
 export class Game {
     private nextTickTime = 0; // seconds
@@ -102,7 +95,6 @@ export class Game {
     };
     readonly map = store<MapRuntime>(null);
     readonly intermission = store<IntermissionScreen>(null);
-    readonly sound = new SoundSystem();
     get episodic() { return !this.wad.mapNames.includes('MAP01'); }
 
     constructor(
@@ -135,5 +127,19 @@ export class Game {
             }
             this.map.val?.timeStep(this.time);
         }
+    }
+
+    private soundHandler: SoundHandler;
+    onSound(handler: SoundHandler) {
+        this.soundHandler = handler;
+    }
+    playSound(snd: SoundIndex, location?: MapObject | Sector) {
+        if (snd === SoundIndex.sfx_None) {
+            return;
+        }
+        const position = ('soundTarget' in location)
+            ? location.center
+            : location.position.val;
+        this.soundHandler?.(snd, position);
     }
 }

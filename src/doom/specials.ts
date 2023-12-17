@@ -972,11 +972,11 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
             // teleport fog in old and new locations
             const pos = mobj.position.val;
             const oldPlaceFog = map.spawn(MapObjectIndex.MT_TFOG, pos.x, pos.y);
-            map.game.sound.play(SoundIndex.sfx_telept, oldPlaceFog);
+            map.game.playSound(SoundIndex.sfx_telept, oldPlaceFog);
             const newPlaceFog = map.spawn(MapObjectIndex.MT_TFOG,
                 tpos.x + 20 * Math.cos(tp.direction.val),
                 tpos.y + 20 * Math.sin(tp.direction.val));
-            map.game.sound.play(SoundIndex.sfx_telept, newPlaceFog);
+            map.game.playSound(SoundIndex.sfx_telept, newPlaceFog);
 
             mobj.teleport(tp, sector);
             triggered = true;

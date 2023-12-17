@@ -556,7 +556,7 @@ export class MapObject {
         this.info.flags &= ~MFFlags.MF_MISSILE;
         this.velocity.set(0, 0, 0);
         this._state.setState(this.info.deathstate, -randInt(0, 2));
-        this.map.game.sound.play(this.info.deathsound, this);
+        this.map.game.playSound(this.info.deathsound, this);
     }
 }
 
@@ -780,7 +780,7 @@ export class PlayerMapObject extends MapObject {
             this.deltaViewHeight = this.velocity.z >> 3;
             // if we hit the ground hard, play a sound
             if (this.velocity.z < -8) {
-                this.map.game.sound.play(SoundIndex.sfx_oof, this);
+                this.map.game.playSound(SoundIndex.sfx_oof, this);
             }
         }
         super.hitFlat(zVal);
@@ -833,7 +833,7 @@ export class PlayerMapObject extends MapObject {
         const pickedUp = mobj.onPickup?.(this, mobj);
         if (pickedUp) {
             // TODO: only play sound for local player, not remote players
-            this.map.game.sound.play(pickedUp.sound);
+            this.map.game.playSound(pickedUp.sound);
             this.hudMessage.set(_T(pickedUp.message));
             this.stats.items += mobj.info.flags & MFFlags.MF_COUNTITEM ? 1 : 0;
             this.bonusCount.update(val => val + 6);
