@@ -1,23 +1,37 @@
 <script lang="ts">
     import { useAppContext } from "./DoomContext";
-    import { Game, PlayerMapObject, SoundIndex, store } from "../doom";
+    import { Game, MapObject, PlayerMapObject, SoundIndex, store } from "../doom";
     import { Vector3 } from "three";
 
     export let game: Game;
     export let gain: GainNode;
     export let player: PlayerMapObject = null;
 
-    const { audio } = useAppContext();
+    const { audio, settings } = useAppContext();
+    const { experimentalSoundHacks } = settings;
 
+    const speedOfSound = 343; // m/s
+    // https://web.archive.org/web/20211127055143/http://www.trilobite.org/doom/doom_metrics.html
+    const verticalMeters = 0.03048;
     const maxSounds = 8;
     const soundGain = (1 / maxSounds) - .1;
-    // we want these as small as possible so long as the audio doesn't pop or click on start and stop
-    const gainOffsetStart = 0.03;
-    const gainOffsetEnd = 0.03;
 
-    // TODO: does the compressor actually matter?
-    const comp = audio.createDynamicsCompressor();
-    comp.connect(gain);
+    // we want these as small as possible so long as the audio doesn't pop or click on start and stop
+    const gainOffsetStart = 0.025;
+    const gainOffsetEnd = 0.025;
+    function gainNode(t: number, gain: number, buffer: AudioBuffer) {
+        // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
+        const node = audio.createGain();
+        node.gain.setValueAtTime(0.000001, t);
+        node.gain.exponentialRampToValueAtTime(gain, t + gainOffsetStart);
+        node.gain.setValueAtTime(gain, t + buffer.duration - gainOffsetEnd);
+        node.gain.exponentialRampToValueAtTime(0.000001, t + buffer.duration);
+        return node;
+    }
+
+    // TODO: does the compressor actually matter? I think it almost mutes explosions
+    const root = audio.createDynamicsCompressor();
+    root.connect(gain);
 
     // Camera position or player position? I think camera is probably more useful (especially for orthogonal/follow cam)
     // even though it's less accurate.
@@ -80,11 +94,12 @@
     let activeSoundDistances: number[] = [];
     game.onSound((snd, location) => {
         const isPositional = player && location && location !== player;
+        const isSectorLocation = location && 'soundTarget' in location;
         const position = !isPositional ? defaultPosition :
             ('soundTarget' in location) ? store(location.center)
             : location.position;
         // hacky way to prioritze playing closer sounds
-        const dist = xyDistSqr(position.val, $playerPosition ?? $defaultPosition);
+        const dist = xyDistSqr(position?.val ?? $defaultPosition, $playerPosition ?? $defaultPosition);
         const index = activeSoundDistances.findIndex(e => e > dist);
         if (index > maxSounds || activeSoundDistances.length >= maxSounds) {
             return;
@@ -94,45 +109,72 @@
 
         const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
         const buffer = soundBuffer(name);
-
         const now = audio.currentTime;
-        const gain = audio.createGain();
-        // why set the gain this way? Without it, we get a bunch of popping when sounds start and stop
-        gain.gain.setValueAtTime(0.000001, now);
-        gain.gain.exponentialRampToValueAtTime(soundGain, now + gainOffsetStart);
-        gain.gain.setValueAtTime(soundGain, now + buffer.duration - gainOffsetEnd);
-        gain.gain.exponentialRampToValueAtTime(0.000001, now + buffer.duration);
-        gain.connect(comp);
-
-        let pan: PannerNode;
-        if (isPositional) {
-            pan = audio.createPanner();
-            pan.refDistance = 20;
-            pan.rolloffFactor = 2;
-            pan.connect(gain);
-        }
-
-        // Wouldn't it be cool to add convolver for reverb based on room size or flat/ceil/wall textures? We could
-        // add more reverb on metal rooms or tall rooms or something.
-        // Or a biquad filter to filter high sounds if the source is not visible?
 
         const sound = audio.createBufferSource();
         sound.addEventListener('ended', () => {
             activeSoundDistances = activeSoundDistances.filter(e => e !== dist);
         });
+        sound.playbackRate.value = game.settings.timescale.val;
         sound.buffer = buffer;
         sound.start(now);
-        sound.connect(pan ?? gain);
 
-        if (pan) {
-            // TODO: is subscribe/unsubscribe actually worth the effort? We could just set the position and forget it.
-            const unsub = position.subscribe(pos => {
-                const t = audio.currentTime + .1; // if we do this immediately, we get crackling as the sound position changes
-                pan.positionX.linearRampToValueAtTime(pos.x, t);
-                pan.positionY.linearRampToValueAtTime(pos.y, t);
-                pan.positionZ.linearRampToValueAtTime(pos.z, t);
-            });
-            sound.addEventListener('ended', unsub);
+        const gain = gainNode(now, soundGain, buffer);
+        gain.connect(root);
+
+        if (!isPositional) {
+            sound.connect(gain);
+        }
+
+        const pan = audio.createPanner();
+        pan.refDistance = 20;
+        pan.rolloffFactor = 2;
+        pan.connect(gain);
+        // TODO: is subscribe/unsubscribe actually worth the effort? We could just set the position and forget it.
+        const unsub = position.subscribe(pos => {
+            const t = audio.currentTime + .1; // if we do this immediately, we get crackling as the sound position changes
+            pan.positionX.linearRampToValueAtTime(pos.x, t);
+            pan.positionY.linearRampToValueAtTime(pos.y, t);
+            // use player position for sector sound sources otherwise we use the middle-z and that may be above or below the player
+            pan.positionZ.linearRampToValueAtTime(isSectorLocation ? $playerPosition.z + 41 : pos.z, t);
+        });
+        sound.addEventListener('ended', unsub);
+        sound.connect(pan);
+
+        if (!$experimentalSoundHacks) {
+            return;
+        }
+
+        // Some half baked experiments with echo/filter to for room acoustics. I'll probably not keep
+        // this but it's fun to play with. Ideally we have some reverb based on sound location and room size and maybe
+        // textures (wood vs marble vs metal vs stone). Maybe use filters high sounds for hidden objects? (because bass
+        // sounds pass through walls)
+        if (location instanceof MapObject) {
+            // add a filter to play low freqency when outside but delay it based on xy distance
+            if (location.sector.val.ceilFlat.val === 'F_SKY1') {
+                // can't be 0 otherwise gainNode will error because we use exponential ramps
+                const gain = soundGain * .4 * (1 - Math.min(.99999999, dist / 1_000_000));
+                const fGain = gainNode(now, gain, buffer);
+                fGain.connect(root);
+                const filter = audio.createBiquadFilter();
+                sound.connect(filter);
+                filter.type = 'lowpass';
+                filter.frequency.value = 200;
+                filter.Q.value = 1;
+                filter.connect(fGain);
+            }
+            // don't add echo if we are outside
+            if (location.sector.val.ceilFlat.val !== 'F_SKY1') {
+                // calculate echo based on height of the room. It's not accurate but interesting to play with.
+                const heightM = (location.sector.val.zCeil.val - location.sector.val.zFloor.val) * verticalMeters;
+                const delay = heightM * 2 / speedOfSound;
+                const eGain = gainNode(now + delay, soundGain * .4, buffer);
+                eGain.connect(root);
+                const echo = audio.createDelay();
+                echo.delayTime.value = delay;
+                echo.connect(eGain);
+                pan.connect(echo);
+            }
         }
     });
 </script>

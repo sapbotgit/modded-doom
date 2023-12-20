@@ -31,6 +31,7 @@ export const createAppContext = () => {
         musicVolume: writable(.4),
         soundVolume: writable(.8),
         mainVolume: writable(.8),
+        experimentalSoundHacks: writable(false),
     };
     const editor = writable({
         active: false,

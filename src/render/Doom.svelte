@@ -51,7 +51,7 @@
     let pointerLocked = false;
 
     let showPlayerInfo = false;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls, musicPlayback, musicVolume, soundVolume, mainVolume } = settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls, musicPlayback, musicVolume, soundVolume, mainVolume, experimentalSoundHacks } = settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -165,6 +165,10 @@
     <label style="width:6em; display:inline-block">
         <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$mainVolume} />
         Volume {$mainVolume}
+    </label>
+    <label>
+        <input type="checkbox" bind:checked={$experimentalSoundHacks} />
+        Experimental Room Acoustics
     </label>
 </div>
 
