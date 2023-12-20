@@ -243,7 +243,7 @@
 
     <MapContext map={$map} {renderSectors}>
         <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
-        <SoundPlayer gain={soundGain} />
+        <SoundPlayer {game} {player} gain={soundGain} />
         <EditPanel map={$map} />
         {#if showPlayerInfo}
             <PlayerInfo player={$map.player} />

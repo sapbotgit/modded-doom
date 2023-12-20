@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { Size } from "@threlte/core";
-    import { ticksPerSecond, type IntermissionScreen, MapRuntime } from "../../doom";
+    import { ticksPerSecond, type IntermissionScreen, MapRuntime, SoundIndex } from "../../doom";
     import Picture from "../Components/Picture.svelte";
     import AnimatedBackground from "./AnimatedBackground.svelte";
     import Percent from "./Percent.svelte";
@@ -8,6 +8,7 @@
     import { writable } from "svelte/store";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import MusicPlayer from "../MusicPlayer.svelte";
+    import SoundPlayer from "../SoundPlayer.svelte";
 
     export let details: IntermissionScreen;
     export let size: Size;
@@ -57,10 +58,13 @@
             },
             tick: () => {
                 if (n === count) {
-                    // SND sfx_barexp
+                    game.playSound(SoundIndex.sfx_barexp);
                     return;
                 }
-                // SND sfx_pistol every 4 ticks
+                if (!(game.time.tick.val & 3)) {
+                    // only every 4th tick
+                    game.playSound(SoundIndex.sfx_pistol);
+                }
                 n = Math.min(count, n + tickRate);
                 update();
             },
@@ -94,7 +98,6 @@
                 game.input.use = false;
                 tickers = [killPercent, itemPercent, secretPercent, parTime, mapTime, gameTime];
                 tickers.forEach(e => e.complete());
-                // SND: sfx_sgcock
             } else {
                 pauseTime = 0;
             }
@@ -108,6 +111,7 @@
         if (state === 'wait') {
             state = 'next-map';
             pauseTime = 4 * ticksPerSecond;
+            game.playSound(SoundIndex.sfx_sgcock);
             return;
         } else if (state === 'next-map') {
             // we've finished our wait for entering state so go to next map
@@ -135,14 +139,16 @@
         }
 
         tickers.forEach(e => e.tick());
-        // if we just finished our tickets, add pause time
+        // if we just finished our tickers, add pause time
         if (tickers.every(e => e.isComplete())) {
             pauseTime = ticksPerSecond;
         }
     }
 </script>
 
+<SoundPlayer {game} gain={soundGain} />
 <MusicPlayer gain={musicGain} musicBuffer={music} />
+
 <div style="width:{size.width}px;height:{size.height}px;">
     <div class="root" style="transform: scale({scale});">
         {#if episodeMaps && episode < 4}
