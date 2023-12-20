@@ -11,6 +11,8 @@
 
     export let details: IntermissionScreen;
     export let size: Size;
+    export let musicGain: GainNode;
+    export let soundGain: GainNode;
 
     const game = details.finishedMap.game;
     const sum = (playerStats: IntermissionScreen['playerStats'], key: keyof IntermissionScreen['playerStats'][0]) =>
@@ -140,7 +142,7 @@
     }
 </script>
 
-<MusicPlayer musicBuffer={music} />
+<MusicPlayer gain={musicGain} musicBuffer={music} />
 <div style="width:{size.width}px;height:{size.height}px;">
     <div class="root" style="transform: scale({scale});">
         {#if episodeMaps && episode < 4}

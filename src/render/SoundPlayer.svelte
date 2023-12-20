@@ -1,7 +1,9 @@
 <script lang="ts">
     import { useAppContext, useDoomMap } from "./DoomContext";
-    import { SoundIndex, store, zeroVec } from "../doom";
+    import { SoundIndex, store } from "../doom";
     import { Vector3 } from "three";
+
+    export let gain: GainNode;
 
     const { map, renderSectors, camera } = useDoomMap();
     const player = map.player;
@@ -10,12 +12,8 @@
     const maxSounds = 8;
     const soundGain = (1 / maxSounds) - .1;
 
-    const og = audio.createGain();
-    og.gain.value = 0.4;
-    og.connect(audio.destination);
-
     const comp = audio.createDynamicsCompressor();
-    comp.connect(og);
+    comp.connect(gain);
 
     // Camera position or player position? I think camera is probably more useful (especially for orthogonal/follow cam)
     // even though it's less accurate.

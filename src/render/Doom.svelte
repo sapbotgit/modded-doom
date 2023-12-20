@@ -24,11 +24,23 @@
 
     const doomContext = createGameContext(game);
     setContext('doom-game-context', doomContext);
-    const { url, settings, editor } = useAppContext();
+    const { url, settings, editor, audio } = useAppContext();
     const { map, intermission } = game;
     $: player = $map?.player;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
-    $: game.settings.compassMove.set($cameraMode === 'svg');
+    $: settings.compassMove.set($cameraMode === 'svg');
+
+    const mainGain = audio.createGain();
+    mainGain.connect(audio.destination);
+    $: mainGain.gain.value = $mainVolume;
+
+    const soundGain = audio.createGain();
+    soundGain.connect(mainGain);
+    $: soundGain.gain.value = $soundVolume;
+
+    const musicGain = audio.createGain();
+    musicGain.connect(mainGain);
+    $: musicGain.gain.value = $musicVolume;
 
     $: if ($map) {
         // keep url in sync with game
@@ -39,7 +51,7 @@
     let pointerLocked = false;
 
     let showPlayerInfo = false;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls, musicPlayback, musicVolume } = settings;
+    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls, musicPlayback, musicVolume, soundVolume, mainVolume } = settings;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -146,6 +158,14 @@
         <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$musicVolume} />
         Music Volume {$musicVolume}
     </label>
+    <label style="width:6em; display:inline-block">
+        <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$soundVolume} />
+        Sound Volume {$soundVolume}
+    </label>
+    <label style="width:6em; display:inline-block">
+        <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$mainVolume} />
+        Volume {$mainVolume}
+    </label>
 </div>
 
 <div>
@@ -157,7 +177,9 @@
             </MapContext>
             {#if $intermission}
                 {#key $intermission}
-                    <Intermission size={viewSize} details={$intermission} />
+                    <Intermission
+                        {musicGain} {soundGain}
+                        size={viewSize} details={$intermission} />
                 {/key}
             {/if}
         </div>
@@ -180,7 +202,9 @@
             </MapContext>
             {#if $intermission}
                 {#key $intermission}
-                    <Intermission size={viewSize} details={$intermission} />
+                    <Intermission
+                        {musicGain} {soundGain}
+                        size={viewSize} details={$intermission} />
                 {/key}
             {/if}
 
@@ -218,8 +242,8 @@
     {/if}
 
     <MapContext map={$map} {renderSectors}>
-        <MusicPlayer musicBuffer={$map.musicBuffer} />
-        <SoundPlayer />
+        <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
+        <SoundPlayer gain={soundGain} />
         <EditPanel map={$map} />
         {#if showPlayerInfo}
             <PlayerInfo player={$map.player} />

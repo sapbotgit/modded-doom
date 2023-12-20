@@ -195,15 +195,12 @@
     import { useAppContext } from "./DoomContext";
     import WebAudioTinySynth from 'webaudio-tinysynth';
 
+    export let gain: GainNode;
     export let musicBuffer: Uint8Array;
     const { audio, settings } = useAppContext();
-    const { musicPlayback, musicVolume } = settings;
+    const musicPlayback = settings.musicPlayback;
 
     const midi = mus2midi(buff.from(musicBuffer));
-
-    const gainNode = audio.createGain();
-    gainNode.connect(audio.destination);
-    $: gainNode.gain.value = $musicVolume;
 
     $: musicStopper =
         $musicPlayback === 'soundfont' ? soundFontPlayer() :
@@ -232,7 +229,7 @@
             const bq = audio.createBiquadFilter();
             effects[i] = { pan, bq };
         }
-        const drums = await new DrumMachine(audio, { storage, destination: gainNode }).load;
+        const drums = await new DrumMachine(audio, { storage, destination: gain }).load;
         // drums.output.addInsert(effects[9].bq);
         drums.output.addInsert(effects[9].pan);
 
@@ -251,7 +248,7 @@
                     if (ev.channel !== 9) {
                         if (!instrumentNames[ev.value]) console.warn('missing-instrument', ev.value)
                         const instrument = instrumentNames[ev.value] ?? instrumentNames[6];
-                        const sf = await new Soundfont(audio, { storage, instrument, destination: gainNode }).load;;
+                        const sf = await new Soundfont(audio, { storage, instrument, destination: gain }).load;;
                         sf.output.addInsert(effects[ev.channel].pan);
                         // sf.output.addInsert(effects[ev.channel].bq);
                         channels[ev.channel] = sf;
@@ -298,7 +295,7 @@
         stopTheMusic();
 
         const synth = new WebAudioTinySynth();
-        synth.setAudioContext(audio, gainNode);
+        synth.setAudioContext(audio, gain);
         synth.loadMIDI(midi);
         synth.setLoop(1);
         // actually, it would be really cool to use GENMIDI here to configure the oscillars WebAudioTinySynth creates.
