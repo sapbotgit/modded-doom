@@ -119,7 +119,7 @@
         sound.buffer = buffer;
         sound.start(now);
 
-        const gain = gainNode(now, soundGain, buffer);
+        const gain = gainNode(now, isPositional ? soundGain : soundGain * .1, buffer);
         gain.connect(root);
 
         if (!isPositional) {

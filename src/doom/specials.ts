@@ -228,6 +228,9 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
         linedef.special = 0; // one time action so clear special
     }
 
+    const doorSound = (sector: Sector) =>
+        sector.specialData && mobj.map.game.playSound(sector.specialData > 0 ? SoundIndex.sfx_doropn : SoundIndex.sfx_dorcls, sector);
+
     // TODO: interpolate (actually, this needs to be solved in a general way for all moving things)
 
     let triggered = false;
@@ -245,11 +248,13 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                 if (def.function === 'openWaitClose') {
                     sector.specialData = (sector.specialData === 0) ? -1 : -sector.specialData;
                 }
+                doorSound(sector);
             }
             continue;
         }
         triggered = true;
         sector.specialData = def.function === 'openAndStay' || def.function === 'openWaitClose' ? 1 : -1;
+        doorSound(sector);
 
         const topHeight = def.type === 16 || def.type === 76
             ? sector.zCeil.val : (findLowestCeiling(map, sector) - 4);
@@ -263,6 +268,7 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                 if (def.function === 'closeWaitOpen' || def.function === 'openWaitClose') {
                     sector.specialData = def.function === 'openWaitClose' ? -1 : 1;
                 }
+                doorSound(sector);
                 return;
             }
 
