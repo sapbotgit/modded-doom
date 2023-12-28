@@ -9,7 +9,6 @@
 
     export let sprite: Sprite;
     export let sector: Sector;
-    export let position: { x: number, y: number, z: number };
     export let flash = false;
 
     const { textures, wad } = useDoom();
@@ -56,9 +55,9 @@
         geometry={new PlaneGeometry()}
         scale.x={frame.mirror ? -texture.userData.width : texture.userData.width}
         scale.y={texture.userData.height}
-        position.x={position.x - texture.userData.xOffset + (texture.userData.width * .5)}
-        position.y={position.y + texture.userData.yOffset - (texture.userData.height * .5)}
-        position.z={position.z + (flash ? 1 : 0)}
+        position.x={-texture.userData.xOffset + (texture.userData.width * .5)}
+        position.y={texture.userData.yOffset - (texture.userData.height * .5)}
+        position.z={flash ? -1 : -2}
     >
         <Wireframe />
     </T.Mesh>

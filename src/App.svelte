@@ -4,7 +4,7 @@
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
     import Picture from './render/Components/Picture.svelte';
     import { createAppContext } from './render/DoomContext';
-    import { setContext, tick } from 'svelte';
+    import { setContext } from 'svelte';
     import { fly } from 'svelte/transition';
     import WadScreen from './WadScreen.svelte';
     import { WadStore } from './WadStore';

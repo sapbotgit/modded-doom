@@ -3,8 +3,8 @@
     import { onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
-    import { pointerLockControls } from "./PointerLockControls";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
+    import { pointerLockControls } from "./PointerLockControls";
     import { buildRenderSectors } from "./RenderData";
     import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
@@ -19,12 +19,14 @@
     import Picture from "./Components/Picture.svelte";
     import MusicPlayer from "./MusicPlayer.svelte";
     import SoundPlayer from "./SoundPlayer.svelte";
+    import Menu from "./Menu.svelte";
 
     export let game: Game;
 
     const doomContext = createGameContext(game);
     setContext('doom-game-context', doomContext);
     const { url, settings, editor, audio } = useAppContext();
+    const { cameraMode, musicVolume, soundVolume, mainVolume } = settings;
     const { map, intermission } = game;
     $: player = $map?.player;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
@@ -48,17 +50,14 @@
     }
 
     let messageNode: HTMLElement;
-    let pointerLocked = false;
-
-    let showPlayerInfo = false;
-    const { freelook, noclip, zAimAssist, freeFly, cameraMode, timescale, wireframe, showBlockMap, useTextures, monsterAI, maxLostSouls, musicPlayback, musicVolume, soundVolume, mainVolume, experimentalSoundHacks } = settings;
+    let showMenu = true;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
     onMount(() => {
         const clock = new Clock();
         const interval = 1 / settings.targetFPS;
-        let lastFrameTime = 0;
+        let lastTickTime = 0;
         let frameDelta = 0;
         let frameReq: number;
         function update() {
@@ -68,115 +67,36 @@
                 threlteCtx?.advance();
                 frameDelta = frameDelta % interval;
 
-                game.tick(clock.elapsedTime - lastFrameTime);
-                lastFrameTime = clock.elapsedTime;
+                game.tick(clock.elapsedTime - lastTickTime);
+                lastTickTime = clock.elapsedTime;
             }
         }
         update();
+
         return () => cancelAnimationFrame(frameReq);
     });
 </script>
 
-<div class="settings">
-    <label>
-        Camera
-        <select bind:value={$cameraMode}>
-            <option>bird</option>
-            <option>ortho</option>
-            <option>1p</option>
-            <option>3p</option>
-            <option>3p-noclip</option>
-            <option>svg</option>
-        </select>
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$zAimAssist} />
-        Auto Z-Aim
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$noclip} />
-        noclip
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$freelook} />
-        Free look
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$freeFly} />
-        Free fly
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$editor.active} on:change={() => $editor.selected = null} />
-        Inspector
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={showPlayerInfo} />
-        Player debug
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$showBlockMap} />
-        Show blockmap
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$useTextures} />
-        Show textures
-    </label>
-    <label style="width:6em; display:inline-block">
-        <input style="width:100%" type="range" min={0.05} max={2} step={0.05} bind:value={$timescale} />
-        Time ({$timescale})x
-    </label>
-    <label>
-        AI Mode
-        <select bind:value={$monsterAI}>
-            <option>enabled</option>
-            <option>disabled</option>
-            <option>move-only</option>
-            <option>fast</option>
-        </select>
-    </label>
-    <label>
-        Show geometry
-        <select bind:value={$wireframe}>
-            <option>none</option>
-            <option>visible</option>
-            <option>all</option>
-        </select>
-    </label>
-    <label style="width:6em; display:inline-block">
-        <input style="width:100%" type="range" min={0} max={50} step={5} bind:value={$maxLostSouls} />
-        Max Lost Souls: {$maxLostSouls === 0 ? '∞' : $maxLostSouls}
-    </label>
-    <label>
-        Music
-        <select bind:value={$musicPlayback}>
-            <option>synth</option>
-            <option>soundfont</option>
-            <option>off</option>
-        </select>
-    </label>
-    <label style="width:6em; display:inline-block">
-        <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$musicVolume} />
-        Music Volume {$musicVolume}
-    </label>
-    <label style="width:6em; display:inline-block">
-        <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$soundVolume} />
-        Sound Volume {$soundVolume}
-    </label>
-    <label style="width:6em; display:inline-block">
-        <input style="width:100%" type="range" min={0} max={1} step={.1} bind:value={$mainVolume} />
-        Volume {$mainVolume}
-    </label>
-    <label>
-        <input type="checkbox" bind:checked={$experimentalSoundHacks} />
-        Experimental Room Acoustics
-    </label>
-</div>
+<MapContext map={$map} {renderSectors}>
+    <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
+    <SoundPlayer {game} {player} gain={soundGain} />
+</MapContext>
 
-<div>
+<!--
+    TODO: we want the screen wipe!!
+    interesting: https://www.shadertoy.com/view/XtlyDn
+-->
+<div
+    bind:clientHeight={viewSize.height}
+    bind:clientWidth={viewSize.width}
+>
     {#if $cameraMode === 'svg'}
-        <div use:keyboardControls={game}>
+        <div class="game" use:keyboardControls={game}>
             <MapContext map={$map} {renderSectors}>
-                <SvgMapRoot size={viewSize} map={$map} />
+                <SvgMapRoot size={viewSize} map={$map}
+                    on:activate={() => showMenu = false}
+                    on:deactivate={() => showMenu = true}
+                />
                 <HUD size={viewSize} player={$map.player} />
             </MapContext>
             {#if $intermission}
@@ -190,16 +110,12 @@
     {:else}
         <div class="game"
             class:small-lock-message={$editor.active}
-            use:pointerLockControls={{ ...game, messageNode }}
-            on:pointer-lock={() => pointerLocked = true}
-            on:pointer-unlock={() => pointerLocked = false}
+            use:pointerLockControls={{ messageNode, input: game.input }}
+            on:pointer-lock={() => showMenu = false}
+            on:pointer-unlock={() => showMenu = true}
         >
-            <!--
-                TODO: we want the screen wipe!!
-                interesting: https://www.shadertoy.com/view/XtlyDn
-            -->
             <MapContext map={$map} {renderSectors}>
-                <Canvas size={viewSize} frameloop='never' bind:ctx={threlteCtx}>
+                <Canvas frameloop='never' bind:ctx={threlteCtx}>
                     <MapRoot map={$map} />
                 </Canvas>
                 <HUD size={viewSize} player={$map.player} />
@@ -212,8 +128,9 @@
                 {/key}
             {/if}
 
-            {#if !pointerLocked}
+            {#if showMenu}
                 <div class="lock-message" transition:fly={{ y: -40 }}>
+                    <!-- <Picture name="M_PAUSE" /> -->
                     <div class="map-status">
                         {#if $map}
                             <div class="map-stats">
@@ -245,13 +162,12 @@
         </div>
     {/if}
 
+    {#if showMenu}
+        <Menu />
+    {/if}
     <MapContext map={$map} {renderSectors}>
-        <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
-        <SoundPlayer {game} {player} gain={soundGain} />
+        <PlayerInfo player={$map.player} interactive={showMenu} />
         <EditPanel map={$map} />
-        {#if showPlayerInfo}
-            <PlayerInfo player={$map.player} />
-        {/if}
     </MapContext>
 </div>
 
@@ -266,13 +182,11 @@
         align-content: center;
     }
 
-    .settings {
-        font-size: .9m;
-        gap: .5em;
-    }
-
     .game {
         flex-direction: column;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
     }
 
     .controls {

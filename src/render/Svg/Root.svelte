@@ -4,12 +4,15 @@
     import Wall from "./Wall.svelte";
     import { type MapRuntime, type MapObject as MObj, type SubSector } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
-    import { Color } from "three";
+    import { AlwaysStencilFunc, Color } from "three";
     import type { RenderSector } from "../RenderData";
+    import { createEventDispatcher } from "svelte";
 
+    const dispatch = createEventDispatcher();
     export let size: Size;
     export let map: MapRuntime;
 
+    let active = false;
     const rev = map.rev;
     const { position, direction } = map.player;
     const showBlockmap = useAppContext().settings.showBlockMap;
@@ -19,7 +22,19 @@
     $: top = $position.y - zoom * .5;
     let bounds = map.data.blockMapBounds;
 
+    function keypress(ev: KeyboardEvent) {
+        if (ev.code === 'Escape') {
+            active = false;
+            dispatch('deactivate');
+        }
+    }
+
     function mousedown(ev: MouseEvent) {
+        if (!active) {
+            active = true;
+            dispatch('activate');
+            return;
+        }
         if (ev.buttons & 1) {
             map.game.input.attack = true;
         }
@@ -62,6 +77,8 @@
     const namedColor = (n: number) =>
         '#' + Object.values(Color.NAMES)[n % Object.keys(Color.NAMES).length].toString(16).padStart(6, '0');
 </script>
+
+<svelte:document on:keyup={keypress} />
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->

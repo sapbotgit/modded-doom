@@ -32,7 +32,13 @@
 
 <style>
     div {
-        height: 40em;
+        position: absolute;
+        right: 0;
+        top: 0;
+        padding-inline-start: 1em;
+        padding-inline-end: 1em;
+
+        height: 100vh;
         overflow-y: scroll;
         width: 25em;
         padding: 1em .5em;

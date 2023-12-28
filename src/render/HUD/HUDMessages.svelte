@@ -7,6 +7,9 @@
     export let player: PlayerMapObject;
     const hudMessage = player.hudMessage;
 
+    const visibleMessages = 3;
+    const messageTimeMS = 4000;
+
     // A neat little hack (IMO). We don't need a list of messages but instead put each message into the DOM and let the
     // animation api remove them when they expire. We need separate two DOM nodes to separate in/out transition though
     // and we use a scroll bar in the messageView to control how many messages are displayed at a time.
@@ -25,9 +28,13 @@
     }
 </script>
 
-<div bind:this={messageView} class="messages">
+<div
+    bind:this={messageView}
+    class="messages"
+    style="--visible-messages:{visibleMessages}"
+>
     {#key messageNumber}
-        <div out:fly|local={{ y: -8, delay: 4000 }}>
+        <div out:fly|local={{ y: -8, delay: messageTimeMS }}>
             <div in:fly={{ y: -8 }} class="message">
                 {#each message as char, i}
                     {#if char === ' '}
@@ -51,8 +58,8 @@
         display: flex;
         flex-direction: column;
         gap: 1px;
-        /* Only show 3 messages: 7px + 3x1px gap (+1px top) */
-        max-height: calc(3 * (7px + 1px) + 1px);
+        /* Only show n messages: n * (7px + gap) (2x1px gap because each message is a message + blank message) */
+        max-height: calc(var(--visible-messages) * (7px + 2px));
         overflow-y: scroll;
         scrollbar-width: none;
     }

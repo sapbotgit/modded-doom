@@ -12,22 +12,19 @@
 
     $: sprite = $weapon.sprite;
     $: flashSprite = $weapon.flashSprite;
-
-    const position = { x: 0, y: 0, z: -2 };
-    $: wOffset = $weapon.position;
-    $: position.x = $wOffset.x - 160;
-    $: position.y = $wOffset.y + weaponTop;
+    $: pos = $weapon.position;
 
     const cameraMode = useDoom().game.settings.cameraMode;
     $: scale = $cameraMode === '1p' ? 2.5 : 1;
     const screenPosition = { x: 0, y: 0 };
-    $: if ($cameraMode === '1p') {
-        screenPosition.x = 0;
-        screenPosition.y = 0;
-    } else {
-        screenPosition.x = position.x + 320 - screenSize.width * .5;
-        screenPosition.y = position.y - screenSize.height * .5 + weaponTop;
-    }
+    $: screenPosition.x = $cameraMode === '1p'
+        ? $pos.x - (160 * scale) // center screen
+        : $pos.x - screenSize.width * .5; // right side
+    $: screenPosition.y = scale * ($pos.y + weaponTop) +
+        ($cameraMode === '1p'
+            // Why 135 and 160?? *shrug* it looks about right
+            ? -screenSize.height * .5 + (135 * scale)
+            : -screenSize.height * .5 + (160 * yScale / scale));
 </script>
 
 <T.Group
@@ -39,14 +36,12 @@
     <WeaponSprite
         sprite={$sprite}
         sector={$sector}
-        {position}
     />
     {#if $flashSprite}
         <WeaponSprite
             flash
             sprite={$flashSprite}
             sector={$sector}
-            {position}
         />
     {/if}
 </T.Group>

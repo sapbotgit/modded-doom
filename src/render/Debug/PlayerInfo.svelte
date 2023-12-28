@@ -4,9 +4,13 @@
     import { MapObjectIndex, ToDegrees, mapObjectInfo, ticksPerSecond } from "../../doom";
     import { allWeapons } from "../../doom/things/weapons";
     import { tweened } from "svelte/motion";
+    import { fly } from "svelte/transition";
+
     export let player: PlayerMapObject;
+    export let interactive = true;
     const { position, direction, velocity, sector, inventory } = player;
 
+    let visible = false;
     let vh: number;
     let subsectors = [];
     $: if ($position) {
@@ -73,37 +77,74 @@
 </script>
 
 <div class="root">
-    <div>pos: {vec($position)}</div>
-    <div>vel: {vec(velocity)}</div>
-    <div>dir: [{($direction * ToDegrees).toFixed(3)}]</div>
-    <div>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
-    <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
-    <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
-    <div>viewHeight: {vh.toFixed(2)}</div>
-    <button on:click={revive}>Revive</button>
-    <button on:click={invincible}>IDDQD</button>
-    <button on:click={fa()}>FA</button>
-    <button on:click={kfa()}>KFA</button>
-    <div class="bonus">
-        <button on:click={() => player.bonusCount.update(val => val + 6)}>bouns flash</button>
-        <button on:click={() => player.damageCount.update(val => val + 10)}>hurt flash</button>
-        <button on:click={updateInv(inv => inv.items.invincibilityTicks += 4 * ticksPerSecond)}>
-            +4s invuln {tickTime($inventory.items.invincibilityTicks)}</button>
-        <button on:click={updateInv(inv => inv.items.radiationSuitTicks += 4 * ticksPerSecond)}>
-            +4s rad suit {tickTime($inventory.items.radiationSuitTicks)}</button>
-        <button on:click={updateInv(inv => inv.items.berserkTicks += 4 * ticksPerSecond)}>
-            +4s berserk {tickTime($inventory.items.berserkTicks)}</button>
-        <button on:click={updateInv(inv => inv.items.nightVisionTicks += 4 * ticksPerSecond)}>
-            +4s lightamp {tickTime($inventory.items.nightVisionTicks)}</button>
-        <button on:click={updateInv(inv => inv.items.invisibilityTicks += 4 * ticksPerSecond)}>
-            +4s invis {tickTime($inventory.items.invisibilityTicks)}</button>
-    </div>
+    {#if visible}
+        <div
+            class="settings"
+            class:sloped={!interactive}
+            transition:fly={{ y: 200}}
+        >
+            <div>pos: {vec($position)}</div>
+            <div>vel: {vec(velocity)}</div>
+            <div>dir: [{($direction * ToDegrees).toFixed(3)}]</div>
+            <div>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
+            <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
+            <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
+            <div>viewHeight: {vh.toFixed(2)}</div>
+            {#if interactive}
+                <button on:click={revive}>Revive</button>
+                <button on:click={invincible}>IDDQD</button>
+                <button on:click={fa()}>FA</button>
+                <button on:click={kfa()}>KFA</button>
+                <div class="bonus">
+                    <button on:click={() => player.bonusCount.update(val => val + 6)}>bouns flash</button>
+                    <button on:click={() => player.damageCount.update(val => val + 10)}>hurt flash</button>
+                    <button on:click={updateInv(inv => inv.items.invincibilityTicks += 4 * ticksPerSecond)}>
+                        +4s invuln {tickTime($inventory.items.invincibilityTicks)}</button>
+                    <button on:click={updateInv(inv => inv.items.radiationSuitTicks += 4 * ticksPerSecond)}>
+                        +4s rad suit {tickTime($inventory.items.radiationSuitTicks)}</button>
+                    <button on:click={updateInv(inv => inv.items.berserkTicks += 4 * ticksPerSecond)}>
+                        +4s berserk {tickTime($inventory.items.berserkTicks)}</button>
+                    <button on:click={updateInv(inv => inv.items.nightVisionTicks += 4 * ticksPerSecond)}>
+                        +4s lightamp {tickTime($inventory.items.nightVisionTicks)}</button>
+                    <button on:click={updateInv(inv => inv.items.invisibilityTicks += 4 * ticksPerSecond)}>
+                        +4s invis {tickTime($inventory.items.invisibilityTicks)}</button>
+                </div>
+                <button on:click={() => visible = false}>Hide</button>
+            {/if}
+        </div>
+    {:else if interactive}
+        <button on:click={() => visible = true}>Player Debug</button>
+    {/if}
 </div>
 
 <style>
     .root {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        perspective: 200px;
+    }
+
+    .settings {
+        transform: scale(1);
+        transform-origin: right;
+        transition: transform .5s;
+    }
+    .sloped {
+        transform: rotateY(-4deg) scale(0.9);
+    }
+
+    .root button {
+        height: 3em;
+        justify-self: end;
+    }
+
+    .settings {
         text-align: left;
         background: black;
+        padding-inline-start: 1em;
+        padding-inline-end: 1em;
         min-width: 24em;
     }
 

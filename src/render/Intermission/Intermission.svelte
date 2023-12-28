@@ -21,11 +21,12 @@
     const mapNum = (mapName: string) => parseInt(mapName.substring(3, 5)) - 1;
     const music = game.wad.lumpByName(game.episodic ? 'D_INTER' : 'D_DM2INT').contents;
 
-    let scale = Math.min(size.width / 320, size.height / 200);
+    $: scale = Math.min(size.width / 320, size.height / 200);
     let tick = game.time.tick;
     let stats = details.finishedMap.stats;
     let episodeMaps = !details.nextMapName.startsWith('MAP');
     let episode = parseInt(details.nextMapName[1]);
+    $:console.log('view size',size,scale)
 
     // Doom1 (copied from g_game.c)
     const parTimes1 = [
@@ -149,8 +150,8 @@
 <SoundPlayer {game} gain={soundGain} />
 <MusicPlayer gain={musicGain} musicBuffer={music} />
 
-<div style="width:{size.width}px;height:{size.height}px;">
-    <div class="root" style="transform: scale({scale});">
+<div class="root" style="width:{size.width}px;height:{size.height}px;">
+    <div class="intermission" style="transform: scale({scale});">
         {#if episodeMaps && episode < 4}
             <AnimatedBackground episode={episode - 1} {details} showLocation={state === 'next-map'} />
         {:else}
@@ -207,10 +208,15 @@
 <style>
     .root {
         display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .intermission {
+        display: flex;
         position: relative;
         width: 320px;
         height: 200px;
-        transform-origin: top left;
     }
 
     .transparent {

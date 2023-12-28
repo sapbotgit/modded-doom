@@ -12,12 +12,13 @@
     export let size: Size;
 
     const { health, weapon, inventory } = player;
+    const hudHeight = player.map.game.wad.graphic('STBAR').height * 2; // why *2? Because we are scaling by 2 in a css transform below
     $: weaponLights = $inventory.weapons.map(e => e?.keynum);
 </script>
 
 <HUDMessages {player} />
 
-<div class="root" style="top:{size.height}px">
+<div class="root" style="top:{size.height - hudHeight}px">
     <Picture name={'STBAR'} />
     <div class="ammo">
         {#if $inventory.ammo[$weapon.ammoType]}
