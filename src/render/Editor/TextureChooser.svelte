@@ -25,7 +25,7 @@
     const options = type == 'flat' ? wad.flatsNames() : wad.texturesNames();
 </script>
 
-<button on:click={toggleSelector}>
+<button class="btn" on:click={toggleSelector}>
     {#if value}
         <TextureChoice name={value} {type} />
     {:else}
@@ -39,7 +39,7 @@
             <div class="options">
                 {#each options as o}
                     {#if !selectorFilter.length || o.toLowerCase().includes(selectorFilter)}
-                        <button on:click={() => change(o)}>
+                        <button class="btn" on:click={() => change(o)}>
                             <TextureChoice name={o} {type} />
                         </button>
                     {/if}

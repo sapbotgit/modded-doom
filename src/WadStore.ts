@@ -79,6 +79,7 @@ export class WadStore {
         tr.objectStore('wad-info').put(info);
         // TODO: tr.onerror = () => ...
         tr.oncomplete = () => this.updateWadList();
+        return info;
     }
 
     removeWad(name: string) {

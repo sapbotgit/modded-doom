@@ -84,31 +84,38 @@
         <WadScreen {wadStore} />
     {:else if wad}
         <!-- <AudioVisualizer context={audio} {wad} /> -->
-        <div class="vstack">
-            <button on:click={() => $url = '/'}><Picture {wad} name="TITLEPIC" /></button>
+        <div class="container mx-auto flex flex-col gap-2">
+            <button class="btn btn-secondary w-64" on:click={() => $url = '/'}>❮ Select IWAD</button>
+            <div
+                class="h-64 grid justify-items-center items-center bg-base-300 rounded-box"
+                class:grid-cols-[1fr_auto_1fr]={mapName?.startsWith('E')}
+            >
+                <span class="scale-[2]"><Picture {wad} name="M_DOOM" /></span>
+                {#if mapName?.startsWith('E')}
+                    <div class="divider divider-horizontal"></div>
+                    {@const ep = parseInt(mapName[1])}
+                    <button class="btn h-full relative" on:click={() => mapName = null}>
+                        <span><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                        <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
+                    </button>
+                {/if}
+            </div>
             {#if mapNames.includes('E1M1') && !mapName}
-                <span><Picture {wad} name="M_EPISOD" /></span>
-                <div class="option-grid">
+                <span class="divider"><Picture {wad} name="M_EPISOD" /></span>
+                <div class="grid grid-cols-2 gap-4">
                     {#each [1, 2, 3, 4] as ep}
                         {#if mapNames.includes(`E${ep}M1`)}
-                            <button class="episode-display" on:click={() => mapName = `E${ep}M1`}>
+                            <button class="btn h-full relative" on:click={() => mapName = `E${ep}M1`}>
                                 <span><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
-                                <span><Picture {wad} name="M_EPI{ep}" /></span>
+                                <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
                             </button>
                         {/if}
                     {/each}
                 </div>
             {:else}
-                {#if mapName?.startsWith('E')}
-                    {@const ep = parseInt(mapName[1])}
-                    <button class="episode-display" on:click={() => mapName = null}>
-                        <span><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
-                        <span><Picture {wad} name="M_EPI{ep}" /></span>
-                    </button>
-                {/if}
-                <Picture {wad} name="M_SKILL" />
+                <span class="divider"><Picture {wad} name="M_SKILL" /></span>
                 {#each data.skills as skill, i}
-                    <button in:fly={{ y: -60, delay: i * 50 }}
+                    <button class="btn no-animation pulse-on-hover" in:fly={{ y: -60, delay: i * 50 }}
                         on:click={() => $url = `/${wad.name}/skill${skill.num}/${mapName}`}
                         class:skill-selected={difficulty === skill.num}
                     >
@@ -123,35 +130,12 @@
 </main>
 
 <style>
-    .skill-selected {
-        filter: saturate(2);
+    .pulse-on-hover:hover {
         animation: pulse-saturate .5s infinite alternate-reverse;
     }
 
     @keyframes pulse-saturate {
         0% { filter: saturate(1); }
-        100% { filter: saturate(2); }
-    }
-
-    .option-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: 1fr 1fr;
-        gap: .5em;
-    }
-
-    .episode-display {
-        display: grid;
-    }
-
-    .episode-display span {
-        grid-row: 1;
-        grid-column: 1;
-    }
-
-    .vstack {
-        display: flex;
-        flex-direction: column;
-        gap: .25em;
+        100% { filter: saturate(1.5); }
     }
 </style>

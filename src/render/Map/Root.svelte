@@ -20,7 +20,7 @@
     // based on the bsp tree https://cs.gmu.edu/~jchen/cs662/lecture5-2007.pdf
 </script>
 
-<!-- <Stats /> -->
+<Stats />
 
 <SkyBox />
 

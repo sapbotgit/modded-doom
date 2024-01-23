@@ -56,14 +56,14 @@
 
 <h3>Sector <NumberChooser num={sector.num} on:select={changeSector} /></h3>
 <div>
-    <button on:click={tagLinedef}>Tag: {sector.tag}</button>
+    <button class="btn" on:click={tagLinedef}>Tag: {sector.tag}</button>
 </div>
 <div>
-    <button on:click={toggleSelector}>{types[sector.type]}</button>
+    <button class="btn" on:click={toggleSelector}>{types[sector.type]}</button>
     {#if showSelector}
         <div class="selector">
             {#each Object.keys(types) as t, i}
-                <button on:click={() => changeType(i)}>{types[t]}</button>
+                <button class="btn" on:click={() => changeType(i)}>{types[t]}</button>
             {/each}
         </div>
     {/if}

@@ -87,14 +87,14 @@
 
 <h3>Thing <NumberChooser num={thing.id} on:select={changeThing} /></h3>
 <div>
-    <button on:click={toggleSelector}>{thing.description}</button>
+    <button class="btn" on:click={toggleSelector}>{thing.description}</button>
     {#if showSelector}
         <div class="selector">
             <!-- svelte-ignore a11y-autofocus -->
             <input autofocus type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
             {#each types as t}
                 {#if !selectorFilter.length || t.text.toLowerCase().includes(selectorFilter)}
-                    <button on:click={() => changeType(t.value)}>
+                    <button class="btn" on:click={() => changeType(t.value)}>
                         <ThingSprite frames={t.frames} state={t.state} text={t.text} />
                     </button>
                 {/if}
@@ -115,15 +115,15 @@
 </div>
 <!-- position is edited in Thing.svelte -->
 <div class="direction">
-    <button class:selected={directionButton === 7} on:click={setDirection(315)}>NW</button>
-    <button class:selected={directionButton === 6} on:click={setDirection(270)}>North</button>
-    <button class:selected={directionButton === 5} on:click={setDirection(225)}>NE</button>
-    <button class:selected={directionButton === 0} on:click={setDirection(0)}>West</button>
+    <button class="btn" class:selected={directionButton === 7} on:click={setDirection(315)}>NW</button>
+    <button class="btn" class:selected={directionButton === 6} on:click={setDirection(270)}>North</button>
+    <button class="btn" class:selected={directionButton === 5} on:click={setDirection(225)}>NE</button>
+    <button class="btn" class:selected={directionButton === 0} on:click={setDirection(0)}>West</button>
     <span>{Math.floor($direction * ToDegrees)} degrees</span>
-    <button class:selected={directionButton === 4} on:click={setDirection(180)}>East</button>
-    <button class:selected={directionButton === 1} on:click={setDirection(45)}>SW</button>
-    <button class:selected={directionButton === 2} on:click={setDirection(90)}>South</button>
-    <button class:selected={directionButton === 3} on:click={setDirection(135)}>SE</button>
+    <button class="btn" class:selected={directionButton === 4} on:click={setDirection(180)}>East</button>
+    <button class="btn" class:selected={directionButton === 1} on:click={setDirection(45)}>SW</button>
+    <button class="btn" class:selected={directionButton === 2} on:click={setDirection(90)}>South</button>
+    <button class="btn" class:selected={directionButton === 3} on:click={setDirection(135)}>SE</button>
 </div>
 <div>
     <span>Sprite Info</span>

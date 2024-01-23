@@ -13,7 +13,7 @@
     import MapContext from "./Map/Context.svelte";
     import { Clock } from "three";
     import Intermission from "./Intermission/Intermission.svelte";
-    import { fly } from "svelte/transition";
+    import { fade, fly } from "svelte/transition";
     import { keyboardControls } from "./KeyboardControls";
     import MapNamePic from "./Components/MapNamePic.svelte";
     import Picture from "./Components/Picture.svelte";
@@ -87,6 +87,7 @@
     interesting: https://www.shadertoy.com/view/XtlyDn
 -->
 <div
+    class="select-none overflow-hidden"
     bind:clientHeight={viewSize.height}
     bind:clientWidth={viewSize.width}
 >
@@ -109,7 +110,6 @@
         </div>
     {:else}
         <div class="game"
-            class:small-lock-message={$editor.active}
             use:pointerLockControls={{ messageNode, input: game.input }}
             on:pointer-lock={() => showMenu = false}
             on:pointer-unlock={() => showMenu = true}
@@ -129,17 +129,20 @@
             {/if}
 
             {#if showMenu}
-                <div class="lock-message" transition:fly={{ y: -40 }}>
+                <div
+                    transition:fade
+                    class="opacity-50 absolute inset-x-0 inset-y-0 bg-gradient-to-b from-primary to-neutral inset"
+                    class:hidden={$editor.active}
+                />
+                <div
+                    class="bg-base-100 absolute flex justify-center items-center gap-4 p-6 flex-col border-t-2 border-b-2 border-accent honeycomb"
+                    class:w-screen={!$editor.active}
+                    class:bottom-0={$editor.active}
+                    transition:fly={{ y: 40 }}
+                >
                     <!-- <Picture name="M_PAUSE" /> -->
-                    <div class="map-status">
-                        {#if $map}
-                            <div class="map-stats">
-                                <span>Kills</span><span>{player.stats.kills}</span><span>{$map.stats.totalKills}</span>
-                                <span>Items</span><span>{player.stats.items}</span><span>{$map.stats.totalItems}</span>
-                                <span>Secrets</span><span>{player.stats.secrets}</span><span>{$map.stats.totalSecrets}</span>
-                            </div>
-                        {/if}
-                        <button>
+                    <div class="flex gap-4 items-center" class:hidden={$editor.active}>
+                        <button class="btn">
                             {#if $intermission}
                                 Intermission
                             {:else}
@@ -148,14 +151,36 @@
                         </button>
                         <span><Picture name={data.skills.find(sk => sk.num === game.skill).pic} /></span>
                     </div>
-                    <button class="ctp" bind:this={messageNode}>Click to play</button>
-                    <span class="controls">
-                        Move: WASD,
-                        Use: E,
-                        Shoot: Left-click,
-                        <br>
-                        Run: Shift,
-                        Weapons: 1-7
+                    {#if $map}
+                    <div class="flex gap-4 items-center" class:hidden={$editor.active}>
+                        <span class:text-primary={player.stats.kills >= $map.stats.totalKills}>Kills</span>
+                        <div
+                            class="radial-progress"
+                            class:text-primary={player.stats.kills >= $map.stats.totalKills}
+                            style="--value:{player.stats.kills/$map.stats.totalKills * 100};"
+                            role="progressbar">{player.stats.kills} / {$map.stats.totalKills}</div>
+
+                        <span class:text-primary={player.stats.items >= $map.stats.totalItems}>Items</span>
+                        <div
+                            class="radial-progress"
+                            class:text-primary={player.stats.items >= $map.stats.totalItems}
+                            style="--value:{player.stats.items/$map.stats.totalItems * 100};"
+                            role="progressbar">{player.stats.items} / {$map.stats.totalItems}</div>
+
+                            <span class:text-primary={player.stats.secrets >= $map.stats.totalSecrets}>Secrets</span>
+                        <div
+                            class="radial-progress"
+                            class:text-primary={player.stats.secrets >= $map.stats.totalSecrets}
+                            style="--value:{player.stats.secrets/$map.stats.totalSecrets * 100};"
+                            role="progressbar">{player.stats.secrets} / {$map.stats.totalSecrets}</div>
+                    </div>
+                    {/if}
+                    <button class="btn btn-wide btn-lg" bind:this={messageNode}>Click to play</button>
+                    <span class="text-xs" class:hidden={$editor.active}>
+                        Move: <kbd class="kbd">W</kbd><kbd class="kbd">A</kbd><kbd class="kbd">S</kbd><kbd class="kbd">D</kbd><br>
+                        Use: <kbd class="kbd">E</kbd>; Weapons: <kbd class="kbd">1</kbd>-<kbd class="kbd">7</kbd><br>
+                        Shoot: Left-click<br>
+                        Run: <kbd class="kbd">Shift</kbd>
                     </span>
                 </div>
             {/if}
@@ -172,68 +197,14 @@
 </div>
 
 <style>
-    div {
-        user-select: none;
-
-        display: flex;
-        flex-direction: row;
-        position: relative;
-        justify-content: center;
-        align-content: center;
-    }
-
     .game {
+        display: flex;
+        justify-content: center;
+        align-items: center;
         flex-direction: column;
         width: 100vw;
         height: 100vh;
         overflow: hidden;
-    }
-
-    .controls {
-        font-size: .7em;
-    }
-
-    .lock-message {
-        background: rgba(.5,.5,.5,.5);
-        padding: 1em 0;
-        gap: 1em;
-        position: absolute;
-        left: 0;
-        right: 0;
-        font-size: 2em;
-        border-top: 2px solid grey;
-        border-bottom: 2px solid grey;
-        flex-direction: column;
-        align-items: center;
-    }
-    .lock-message button {
-        font-size: .5em;
-    }
-    .lock-message .ctp {
-        font-size: 1em;
-        max-width: 15em;
-    }
-
-    .small-lock-message {
-        justify-content: flex-end;
-    }
-    .small-lock-message .lock-message {
-        padding: 2em;
-        right: unset;
-        font-size: 1em;
-    }
-
-    .small-lock-message .map-status {
-        display: none;
-    }
-    .map-status {
-        flex-direction: row;
-        gap: 1em;
-    }
-
-    .map-stats {
-        display: grid;
-        font-size: .5em;
-        grid-template-columns: 1fr 1fr 1fr;
+        background: #242424;
     }
 </style>

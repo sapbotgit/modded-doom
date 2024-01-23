@@ -42,7 +42,7 @@
 <div>
     Special {linedef.special}
     {#if linedef.special}
-        <button on:click={tagSector}>Tag: {linedef.tag}</button>
+        <button class="btn" on:click={tagSector}>Tag: {linedef.tag}</button>
     {/if}
 </div>
 <div>

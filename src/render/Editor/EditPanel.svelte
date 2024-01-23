@@ -16,8 +16,8 @@
 </script>
 
 {#if $editor.selected}
-    <div transition:fly|local={{ x: -10 }}>
-        <button on:click={close}>X</button>
+    <div class="bg-base-100" transition:fly|local={{ x: -10 }}>
+        <button class="btn" on:click={close}>X</button>
         {#key $editor.selected}
             {#if 'special' in $editor.selected}
                 <LinedefEditor {map} linedef={$editor.selected} />
@@ -42,7 +42,6 @@
         overflow-y: scroll;
         width: 25em;
         padding: 1em .5em;
-        background: black;
         border-top-right-radius: .5em;
         border-bottom-right-radius: .5em;
         display: flex;

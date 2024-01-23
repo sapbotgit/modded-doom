@@ -159,17 +159,17 @@
         {/if}
         <div class="content">
             {#if state === 'next-map'}
-                <div class="title">
+                <div class="dtitle">
                     <span><Picture name="WIENTER" /></span>
                     <span><MapNamePic name={details.nextMapName} /></span>
                 </div>
             {:else}
-                <div class="title">
+                <div class="dtitle">
                     <span><MapNamePic name={details.finishedMap.name} /></span>
                     <span><Picture name="WIF" /></span>
                 </div>
 
-                <div class="stats">
+                <div class="dstats">
                     <div>
                         <span><Picture name="WIOSTK" /></span>
                         <span class:transparent={tickers.length < 1}><Percent value={$killPercent} /></span>
@@ -239,10 +239,14 @@
         display: flex;
     }
 
-    .title, .stats {
+    .dtitle {
+        align-self: center;
+        align-items: center;
+    }
+    .dtitle, .dstats {
         flex-direction: column;
     }
-    .stats div {
+    .dstats div {
         margin: 0em 4em;
         justify-content: space-between;
     }
