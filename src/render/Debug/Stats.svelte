@@ -24,6 +24,8 @@
 
     if (import.meta.env.DEV) {
         const stats = new Stats();
+        stats.dom.style.left = null;
+        stats.dom.style.right = '0px';
 
         onMount(() => document.body.appendChild(stats.dom));
         onDestroy(() => document.body.removeChild(stats.dom));

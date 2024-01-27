@@ -42,7 +42,7 @@
         {#if selectedIWad}
             <div class="flex flex-col sm:flex-row w-full">
                 <div class="grid flex-grow bg-base-300 rounded-box place-items-center">
-                    <img src={selectedIWad.image} alt={selectedIWad.name} stretch/>
+                    <img src={selectedIWad.image} alt={selectedIWad.name} />
                 </div>
                 {#if selectedPWads.length}
                     <div class="divider sm:divider-horizontal">+</div>
@@ -58,7 +58,7 @@
                 on:click={() => $url = `/${[selectedIWad.name, ...selectedPWads.map(p => p.name)].join('+')}`}
             >Launch</button>
         {:else}
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid sm:grid-cols-2 mx-auto gap-4">
                 {#each iWads as wadInfo (wadInfo.name)}
                     <div class="flex flex-col relative">
                         <button class="btn h-auto" on:click={() => selectedIWad = wadInfo}>
@@ -67,7 +67,7 @@
                         <label class="swap swap-flip absolute bottom-0 right-0">
                             <input type="checkbox" />
                             <div class="btn btn-square swap-off justify-self-end self-end">{'🗑️'}</div>
-                            <div role="alert" class="swap-on alert alert-warning">
+                            <div role="alert" class="swap-on alert alert-warning grid-flow-col">
                                 <WarningIcon />
                                 <span>Remove: Are you sure?</span>
                                 <div>
@@ -128,6 +128,8 @@
             </div>
         </div>
     {:else}
-        <WadDropbox {wadStore} />
+        <div class="px-8">
+            <WadDropbox {wadStore} />
+        </div>
     {/if}
 </div>

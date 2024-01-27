@@ -1,8 +1,35 @@
 import { getContext } from 'svelte'
 import { MapTextures, type RenderSector } from './RenderData';
 import { Game, MapRuntime, type GameSettings, store, type Store } from '../doom';
-import { get, writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
+
+interface RangeSetting extends BaseSetting<number> {
+    type: 'range';
+    min: number;
+    max: number;
+    step: number;
+}
+const range = (cat: MenuSettingCategory, val: Writable<number>, text: string, min: number, max: number, step: number): RangeSetting => ({ type: 'range', cat, min, max, step, val, text });
+
+interface OptionSetting extends BaseSetting<string> {
+    type: 'option';
+    options: string[];
+}
+const option = (cat: MenuSettingCategory, val: Writable<string>, text: string, options: string[]): OptionSetting => ({ type: 'option', cat, options, val, text });
+
+interface ToggleSetting extends BaseSetting<boolean> {
+    type: 'toggle';
+}
+const toggle = (cat: MenuSettingCategory, val: Writable<boolean>, text: string): ToggleSetting => ({ type: 'toggle', cat, val, text });
+
+type MenuSettingCategory = 'normal' | 'advanced' | 'debug' | 'experimental';
+interface BaseSetting<T> {
+    text: string;
+    cat: MenuSettingCategory;
+    val: Writable<T>;
+}
+export type MenuSetting = RangeSetting | OptionSetting | ToggleSetting;
 
 export const createAppContext = () => {
     const url = writable(location.pathname);
@@ -64,8 +91,29 @@ export const createAppContext = () => {
     }
     Object.keys(settings).filter(k => typeof settings[k] === 'object').forEach(k => settings[k].subscribe(saveSettings));
 
+    const settingsMenu = [
+        range('normal', settings.mainVolume, 'Main volume', 0, 1, .1),
+        range('normal', settings.soundVolume, 'Sound volume', 0, 1, .1),
+        range('normal', settings.musicVolume, 'Music volume', 0, 1, .1),
+        option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'off']),
+        option('advanced', settings.cameraMode, 'Camera', ['bird', 'ortho', '1p', '3p', '3p-noclip', 'svg']),
+        toggle('advanced', settings.zAimAssist, 'Auto Z-Aim'),
+        toggle('advanced', settings.noclip, 'noclip'),
+        toggle('advanced', settings.freelook, 'Free look'),
+        toggle('advanced', settings.freeFly, 'Free fly'),
+        range('advanced', settings.maxLostSouls, 'Max Lost Souls', 0, 50, 5),
+        range('advanced', settings.timescale, 'Timescale', 0.1, 2, .1),
+        // toggle($editor.active, 'Inspector'),
+        toggle('debug', settings.showBlockMap, 'Show blockmap'),
+        toggle('debug', settings.useTextures, 'Show textures'),
+        option('debug', settings.monsterAI, 'AI Mode', ['enabled', 'disabled', 'move-only', 'fast']),
+        option('debug', settings.wireframe, 'Show geometry', ['none', 'visible', 'all']),
+        // experimental
+        toggle('experimental', settings.experimentalSoundHacks, 'Room accoustics (experimental)'),
+    ];
+
     const audio = new AudioContext();
-    return { url, settings, editor, audio };
+    return { url, settings, settingsMenu, editor, audio };
 }
 
 export const createGameContext = (game: Game) => {

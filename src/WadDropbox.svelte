@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
+    import type { WadStore } from "./WadStore";
 
     export let wadStore: WadStore;
 

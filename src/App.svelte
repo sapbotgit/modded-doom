@@ -84,7 +84,7 @@
         <WadScreen {wadStore} />
     {:else if wad}
         <!-- <AudioVisualizer context={audio} {wad} /> -->
-        <div class="container mx-auto flex flex-col gap-2">
+        <div class="container mx-auto flex flex-col gap-2 pb-8">
             <button class="btn btn-secondary w-64" on:click={() => $url = '/'}>❮ Select IWAD</button>
             <div
                 class="h-64 grid justify-items-center items-center bg-base-300 rounded-box"
@@ -102,11 +102,11 @@
             </div>
             {#if mapNames.includes('E1M1') && !mapName}
                 <span class="divider"><Picture {wad} name="M_EPISOD" /></span>
-                <div class="grid grid-cols-2 gap-4">
-                    {#each [1, 2, 3, 4] as ep}
+                <div class="grid sm:grid-cols-2 gap-4 mx-auto">
+                    {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
                         {#if mapNames.includes(`E${ep}M1`)}
                             <button class="btn h-full relative" on:click={() => mapName = `E${ep}M1`}>
-                                <span><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                                <span><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
                                 <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
                             </button>
                         {/if}
@@ -137,5 +137,30 @@
     @keyframes pulse-saturate {
         0% { filter: saturate(1); }
         100% { filter: saturate(1.5); }
+    }
+
+    :root {
+        --line-width: 12px;
+        background-image:
+                radial-gradient(#0c4a6e, #000),
+                repeating-linear-gradient(transparent 0, rgba(0,0,0,0.1) calc(var(--line-width)/2), transparent var(--line-width));
+        /* animation: scan-lines 1s infinite alternate-reverse; */
+        background-size: cover;
+        background-position: 0px 0px;
+        background-blend-mode: overlay;
+        width: 100vw;
+        height: 100vh;
+    }
+
+    @keyframes scan-lines {
+        0% { background-position: 0px 0px; }
+        12% { background-position: 0px 1px; }
+        28% { background-position: 0px 4px; }
+        42% { background-position: 0px 7px; }
+        61% { background-position: 0px 12px; }
+        65% { background-position: 0px 9px; }
+        84% { background-position: 0px 8px; }
+        92% { background-position: 0px 3px; }
+        100% { background-position: 0px 1px; }
     }
 </style>

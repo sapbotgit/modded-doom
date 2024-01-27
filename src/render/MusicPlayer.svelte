@@ -200,7 +200,13 @@
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
-    const midi = mus2midi(buff.from(musicBuffer));
+    let midi: buff;
+    try {
+        midi = mus2midi(buff.from(musicBuffer));
+    } catch {
+        console.warn('unabled to play midi :(')
+        midi = buff.from([]);
+    }
 
     $: musicStopper =
         $musicPlayback === 'soundfont' ? soundFontPlayer() :
