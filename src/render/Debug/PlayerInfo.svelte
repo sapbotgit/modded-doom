@@ -51,7 +51,15 @@
             let w = [...allWeapons];
             if (!player.map.game.wad.spriteTextureData('SHT2A0')) {
                 // no super shotgun in this wad so remove it from the weapon list
-                w.splice(3, 1);
+                w.splice(w.findIndex(e => e.name === 'super shotgun'), 1);
+            }
+            if (!player.map.game.wad.spriteTextureData('PLSGA0')) {
+                // no plasma rifle (shareware doom?)
+                w.splice(w.findIndex(e => e.name === 'plasma rifle'), 1);
+            }
+            if (!player.map.game.wad.spriteTextureData('BFGGA0')) {
+                // no BFG (shareware doom?)
+                w.splice(w.findIndex(e => e.name === 'bfg'), 1);
             }
             inv.weapons = w;
             inv.armorType = 2;
