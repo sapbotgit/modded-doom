@@ -44,14 +44,14 @@
         <BigNum value={$inventory.armor} percent />
     </div>
     <div class="keys">
-        {#if $inventory.keys.length > 0}
-            <span><KeyCard key={$inventory.keys[0]} /></span>
+        {#if $inventory.keys.includes('B') || $inventory.keys.includes('b')}
+            <span><KeyCard keys={$inventory.keys} key={'B'} /></span>
         {/if}
-        {#if $inventory.keys.length > 1}
-            <span><KeyCard key={$inventory.keys[1]} /></span>
+        {#if  $inventory.keys.includes('Y') || $inventory.keys.includes('y')}
+            <span><KeyCard keys={$inventory.keys} key={'Y'} /></span>
         {/if}
-        {#if $inventory.keys.length > 2}
-            <span><KeyCard key={$inventory.keys[2]} /></span>
+        {#if  $inventory.keys.includes('R') || $inventory.keys.includes('r')}
+            <span><KeyCard keys={$inventory.keys} key={'R'} /></span>
         {/if}
     </div>
     <div class="backpack">
@@ -144,11 +144,10 @@
     }
 
     .keys {
-        position: absolute;
-        top: 0px;
-        left: 239px;
+        left: 238.5px;
     }
     .keys span {
+        width: 7px;
         position: absolute;
     }
     .keys span:nth-child(1) {

@@ -96,7 +96,7 @@
         rounded-box
         clip-trapezoid bg-base-100 mx-auto honeycomb
         absolute left-1/2 -translate-x-1/2
-        px-36 p-4 top-0
+        px-36 p-4 bottom-[72px]
         flex flex-col justify-center items-center gap-4
         border-2 border-accent
         "
@@ -113,7 +113,7 @@
     </div>
     {#if $map}
     <div class="grid grid-cols-2 items-center text-sm" class:hidden={$editor.active}>
-        <span class:text-primary={player.stats.kills >= $map.stats.totalKills}>Kills [{player.stats.kills} / {$map.stats.totalKills}]</span>
+        <span class:text-primary={player.stats.kills >= $map.stats.totalKills}>Monsters [{player.stats.kills} / {$map.stats.totalKills}]</span>
         <progress class="progress" max="1" value={player.stats.kills / $map.stats.totalKills}
             class:progress-primary={player.stats.kills >= $map.stats.totalKills} />
 
@@ -153,7 +153,7 @@
         display: none;
     }
 
-    .clip-trapezoid {
-        /* clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%); */
-    }
+    /* .clip-trapezoid {
+        clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+    } */
 </style>
