@@ -16,7 +16,7 @@ export const ammunitions: ThingType[] = [
     { type: 2007, class: 'A', onPickup: addAmmo('bullets', 1, 'GOTCLIP'), description: 'Clip' },
     { type: 2008, class: 'A', onPickup: addAmmo('shells', 1, 'GOTSHELLS'), description: '4 shotgun shells' },
     { type: 2010, class: 'A', onPickup: addAmmo('rockets', 1, 'GOTROCKET'), description: 'Rocket' },
-    { type: 2046, class: 'A', onPickup: addAmmo('rockets', 5, 'GOTCELLBOX'), description: 'Box of rockets' },
+    { type: 2046, class: 'A', onPickup: addAmmo('rockets', 5, 'GOTROCKBOX'), description: 'Box of rockets' },
     { type: 2047, class: 'A', onPickup: addAmmo('cells', 1, 'GOTCELL'), description: 'Energy cell' },
     { type: 2048, class: 'A', onPickup: addAmmo('bullets', 5, 'GOTCLIPBOX'), description: 'Box of bullets' },
     { type: 2049, class: 'A', onPickup: addAmmo('shells', 5, 'GOTSHELLBOX'), description: 'Box of shotgun shells' },

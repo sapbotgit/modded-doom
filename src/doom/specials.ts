@@ -4,6 +4,7 @@ import { randInt } from "./math";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
 import { zeroVec, type LineDef, type Sector, hittableThing } from "./map-data";
+import { _T } from "./text";
 
 // TODO: this whole thing could be a fun candidate for refactoring. I honestly think we could write
 // all this stuff in a much cleaner way but first step would be to add some unit tests and then get to it!
@@ -222,6 +223,18 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
     }
     const missingKey = def.key && mobj instanceof PlayerMapObject && !mobj.inventory.val.keys.toUpperCase().includes(def.key);
     if (missingKey) {
+        const msg = trigger === 'S'
+            ? (
+                def.key === 'B' ? 'PD_BLUEK' :
+                def.key === 'R' ? 'PD_REDK' :
+                'PD_YELLOWK')
+            : (
+                def.key === 'B' ? 'PD_BLUEO' :
+                def.key === 'R' ? 'PD_REDO' :
+                'PD_YELLOWO'
+            )
+        mobj.hudMessage.set(_T(msg));
+        mobj.map.game.playSound(SoundIndex.sfx_oof);
         return;
     }
     if (!def.repeatable) {
