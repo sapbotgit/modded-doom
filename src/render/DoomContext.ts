@@ -4,6 +4,8 @@ import { Game, MapRuntime, type GameSettings, store, type Store } from '../doom'
 import { get, writable, type Writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 
+// TODO: so many "contexts". We should simplify
+
 interface RangeSetting extends BaseSetting<number> {
     type: 'range';
     min: number;
