@@ -12,7 +12,7 @@
     const wadStore = new WadStore();
     const context = createAppContext();
     setContext('doom-app-context', context);
-    const { url, audio } = context;
+    const { urlHash, audio } = context;
 
     let wad: DoomWad;
     let game: Game;
@@ -20,15 +20,14 @@
     $: mapNames = wad?.mapNames ?? [];
     $: mapName = mapNames.includes('E1M1') ? null : 'MAP01';
 
-    async function parseUrl(url: string) {
+    async function parseUrlHash(url: string) {
         // TODO: this function needs more validation (like upper/lower case, bounds checks, etc)
-        const parts = url.split('/').filter(e => e);
+        const params = new URLSearchParams(url.substring(1));
 
-        const urlWads = parts[0];
+        const wadNames = params.getAll('wad');
+        const urlWads = wadNames.map(wad => `wad=${wad}`).join('&');
         if (urlWads !== wad?.name) {
             if (urlWads) {
-                // Does your wad have a + in the name? too bad, you'll find a bug :)
-                const wadNames = urlWads.split('+');
                 const wadResolvers = wadNames.map(name => wadStore.fetchWad(name).then(buff => new WadFile(name, buff)));
                 const wads = await Promise.all(wadResolvers);
                 wad = new DoomWad(urlWads, wads);
@@ -37,19 +36,19 @@
             }
         }
 
-        const urlSkill = parseInt(parts[1]?.slice(-1));
+        const urlSkill = parseInt(params.get('skill'));
         if (difficulty !== urlSkill) {
             difficulty = Math.min(5, Math.max(1, isFinite(urlSkill) ? urlSkill : difficulty)) as Skill;
             game = null;
         }
 
-        const urlMapName = parts[2];
+        const urlMapName = params.get('map');
         if (urlMapName && (!game || game.map.val?.name !== urlMapName)) {
             game = new Game(wad, difficulty, context.settings);
             game.map.set(new MapRuntime(urlMapName, game));
         }
     }
-    $: parseUrl($url);
+    $: parseUrlHash($urlHash);
 
     function enableSoundOnce() {
         audio.resume();
@@ -85,7 +84,7 @@
     {:else if wad}
         <!-- <AudioVisualizer context={audio} {wad} /> -->
         <div class="container mx-auto flex flex-col gap-2 pb-8">
-            <button class="btn btn-secondary w-64" on:click={() => $url = '/'}>❮ Select IWAD</button>
+            <button class="btn btn-secondary w-64" on:click={() => $urlHash = '#'}>❮ Select IWAD</button>
             <div
                 class="h-64 grid justify-items-center items-center bg-base-300 rounded-box"
                 class:grid-cols-[1fr_auto_1fr]={mapName?.startsWith('E')}
@@ -116,7 +115,7 @@
                 <span class="divider"><Picture {wad} name="M_SKILL" /></span>
                 {#each data.skills as skill, i}
                     <button class="btn no-animation pulse-on-hover" in:fly={{ y: -60, delay: i * 50 }}
-                        on:click={() => $url = `/${wad.name}/skill${skill.num}/${mapName}`}
+                        on:click={() => $urlHash = `#${wad.name}&skill=${skill.num}&map=${mapName}`}
                         class:skill-selected={difficulty === skill.num}
                     >
                         <Picture {wad} name={skill.pic} />

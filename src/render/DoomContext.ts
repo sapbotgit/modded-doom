@@ -34,9 +34,9 @@ interface BaseSetting<T> {
 export type MenuSetting = RangeSetting | OptionSetting | ToggleSetting;
 
 export const createAppContext = () => {
-    const url = writable(location.pathname);
-    url.subscribe(url => history.pushState(null, null, url));
-    addEventListener('popstate', () => url.set(location.pathname));
+    const urlHash = writable(location.hash);
+    urlHash.subscribe(hash => history.pushState(null, null, hash));
+    addEventListener('popstate', () => urlHash.set(location.hash));
 
     const gameSettings: GameSettings = {
         freeFly: store(false),
@@ -115,7 +115,7 @@ export const createAppContext = () => {
     ];
 
     const audio = new AudioContext();
-    return { url, settings, settingsMenu, editor, audio };
+    return { urlHash, settings, settingsMenu, editor, audio };
 }
 
 export const createGameContext = (game: Game) => {

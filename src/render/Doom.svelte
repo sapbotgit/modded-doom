@@ -22,12 +22,17 @@
 
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
-    const { url, settings, audio } = useAppContext();
+    const { urlHash, settings, audio } = useAppContext();
     const { cameraMode, musicVolume, soundVolume, mainVolume } = settings;
     const { map, intermission } = game;
+
     $: player = $map?.player;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
     $: settings.compassMove.set($cameraMode === "svg");
+    // keep url in sync with game
+    $: if ($map) {
+        $urlHash = `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`;
+    }
 
     const mainGain = audio.createGain();
     mainGain.connect(audio.destination);
@@ -40,11 +45,6 @@
     const musicGain = audio.createGain();
     musicGain.connect(mainGain);
     $: musicGain.gain.value = $musicVolume;
-
-    $: if ($map) {
-        // keep url in sync with game
-        $url = `/${game.wad.name}/skill${game.skill}/${$map.name}`;
-    }
 
     const { pointerLockControls, requestLock, pointerLockState } =
         createPointerLockControls();

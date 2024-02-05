@@ -4,7 +4,7 @@
     import WarningIcon from './render/Icons/WarningIcon.svelte'
     import WadDropbox from "./WadDropbox.svelte";
 
-    const { url } = useAppContext();
+    const { urlHash } = useAppContext();
 
     export let wadStore: WadStore;
     const wads = wadStore.wads;
@@ -55,7 +55,7 @@
             </div>
             <button
                 class="btn btn-primary w-full"
-                on:click={() => $url = `/${[selectedIWad.name, ...selectedPWads.map(p => p.name)].join('+')}`}
+                on:click={() => $urlHash = `#${[selectedIWad, ...selectedPWads].map(p => `wad=${p.name}`).join('&')}`}
             >Launch</button>
         {:else}
             <div class="grid sm:grid-cols-2 mx-auto gap-4">
