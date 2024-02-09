@@ -1,0 +1,34 @@
+<svg width="32" height="32" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg">
+   <defs>
+      <linearGradient xlink:href="#prefix__a" id="prefix__e" gradientUnits="userSpaceOnUse" x1="98.747" y1="-40.689"
+         x2="98.747" y2="-11.631" gradientTransform="matrix(.82374 0 0 .82374 -45.91 35.115)" />
+      <linearGradient id="prefix__a">
+         <stop offset="0" stop-color="#004192" />
+         <stop offset=".997" stop-color="#d1f7ff" />
+      </linearGradient>
+      <linearGradient xlink:href="#prefix__b" id="prefix__f" gradientUnits="userSpaceOnUse" x1="82.696" y1="-40.716"
+         x2="82.696" y2="-8.865" gradientTransform="matrix(.82374 0 0 .82374 -45.91 35.115)" />
+      <linearGradient id="prefix__b">
+         <stop offset=".396" stop-color="#b89336" />
+         <stop offset="1" stop-color="#4d3c14" />
+      </linearGradient>
+      <linearGradient xlink:href="#prefix__c" id="prefix__g" gradientUnits="userSpaceOnUse" x1="97.446" y1="-4.845"
+         x2="97.49" y2="-30.771" gradientTransform="matrix(.82374 0 0 .82374 -45.91 35.115)" />
+      <linearGradient id="prefix__c">
+         <stop offset="0" stop-color="#dfb100" />
+         <stop offset="1" stop-color="#3e1e00" />
+      </linearGradient>
+      <linearGradient xlink:href="#prefix__d" id="prefix__h" gradientUnits="userSpaceOnUse" x1="108.619" y1="-31.444"
+         x2="108.619" y2="-7.74" gradientTransform="matrix(.82374 0 0 .82374 -45.91 35.115)" />
+      <linearGradient id="prefix__d">
+         <stop offset="0" stop-color="#d5b64d" />
+         <stop offset="1" stop-color="#765e17" />
+      </linearGradient>
+   </defs>
+   <path
+      d="M9.308 1.987l1.411 1.36.206 25.828c-.311.692-.365.747-.769 1.441l12.157-9.255-.532-.5.182-17.21-2.006-1.579zm5.715 4.243l2.342.068.013 10.948-2.415 1.72z"
+      fill="url(#prefix__e)" fill-rule="evenodd" stroke="url(#prefix__f)" stroke-width=".659" />
+   <path
+      d="M21.854 10.425l-4.479 4.32.003 2.501-2.415 1.718.01-1.977-4.115 3.84.066 8.348c-.31.692-.363.746-.768 1.441l12.157-9.255-.317-.608z"
+      fill="url(#prefix__g)" stroke="url(#prefix__h)" stroke-width=".659" />
+</svg>

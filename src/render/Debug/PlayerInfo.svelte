@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { MapObjectIndex, ToDegrees, mapObjectInfo, ticksPerSecond } from "../../doom";
+    import { MapObjectIndex, SoundIndex, ToDegrees, mapObjectInfo, ticksPerSecond } from "../../doom";
     import { allWeapons } from "../../doom/things/weapons";
     import { tweened } from "svelte/motion";
     import { fly } from "svelte/transition";
@@ -10,6 +10,7 @@
     export let interactive = true;
     const { position, direction, velocity, sector, inventory } = player;
 
+    const debugBuild = import.meta.env.DEV;
     let visible = false;
     let vh: number;
     let subsectors = [];
@@ -68,6 +69,9 @@
     }
 
     function revive() {
+        // spawn a dead player where we revived (DSDA Doom at least has this behaviour and it's cool)
+        player.map.spawn(MapObjectIndex.MT_MISC62, player.position.val.x, player.position.val.y);
+        player.map.game.playSound(SoundIndex.sfx_slop, player);
         // undo effects of MapObject.kill()
         const tw = tweened(player.health.val);
         tw.subscribe(v => player.health.set(v));
@@ -94,16 +98,19 @@
             <div>pos: {vec($position)}</div>
             <div>vel: {vec(velocity)}</div>
             <div>dir: [{($direction * ToDegrees).toFixed(3)}]</div>
-            <div>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
-            <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
-            <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
-            <div>viewHeight: {vh.toFixed(2)}</div>
+            <div class:hidden={debugBuild}>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
+            <div class:hidden={debugBuild}>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
+            <div class:hidden={debugBuild}>Subsectors: [{subsectors.map(e => e.num)}]</div>
+            <div class:hidden={debugBuild}>viewHeight: {vh.toFixed(2)}</div>
             {#if interactive}
                 <button class="btn" on:click={revive}>Revive</button>
                 <button class="btn" on:click={invincible}>IDDQD</button>
                 <button class="btn" on:click={fa()}>FA</button>
                 <button class="btn" on:click={kfa()}>KFA</button>
-                <div class="bonus">
+                <div
+                    class="bonus"
+                    class:hidden={debugBuild}
+                >
                     <button class="btn" on:click={() => player.bonusCount.update(val => val + 6)}>bouns flash</button>
                     <button class="btn" on:click={() => player.damageCount.update(val => val + 10)}>hurt flash</button>
                     <button class="btn" on:click={updateInv(inv => inv.items.invincibilityTicks += 4 * ticksPerSecond)}>
@@ -121,7 +128,7 @@
             {/if}
         </div>
     {:else if interactive}
-        <button class="btn" on:click={() => visible = true}>Player Debug</button>
+        <button class="btn" on:click={() => visible = true}>Player Cheats</button>
     {/if}
 </div>
 

@@ -18,6 +18,7 @@ export interface GameSettings {
     freelook: Store<boolean>;
     zAimAssist: Store<boolean>;
     noclip: Store<boolean>;
+    alwaysRun: Store<boolean>;
     freeFly: Store<boolean>;
     maxLostSouls: Store<number>;
     monsterAI: Store<'enabled' | 'disabled' | 'move-only' | 'fast'>;

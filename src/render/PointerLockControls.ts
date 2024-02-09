@@ -11,6 +11,7 @@ export function createPointerLockControls() {
     let pointerLockState = store(false);
     let element: HTMLElement;
 
+    // FIXME: requestPointerLock() does not exist on iOS so this needs to be different. Mobile controls, in general, need to be different
     const requestLock = () => element.requestPointerLock();
     const releaseLock = () => document.exitPointerLock();
     const pointerLockControls: Action<HTMLElement, Params, Attributes> = (node, params) => {

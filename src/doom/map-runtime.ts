@@ -350,6 +350,7 @@ class GameInput {
     public minPolarAngle = -HALF_PI;
     public maxPolarAngle = HALF_PI;
 
+    private alwaysRun: Store<boolean>;
     private compassMove: Store<boolean>;
     private handledUsePress = false; // only one use per button press
     private get player() { return this.map.player };
@@ -365,6 +366,7 @@ class GameInput {
             this.obj.updateMatrix();
         });
 
+        this.alwaysRun = this.map.game.settings.alwaysRun;
         this.compassMove = this.map.game.settings.compassMove;
         this.map.disposables.push(
             this.map.game.settings.noclip.subscribe(noclip => {
@@ -444,7 +446,7 @@ class GameInput {
         const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;
         const dt = delta * delta / frameTickTime;
         let speed = this.input.slow ? playerSpeeds['crawl?'] :
-            this.input.run ? playerSpeeds['run'] : playerSpeeds['walk'];
+            this.alwaysRun.val !== this.input.run ? playerSpeeds['run'] : playerSpeeds['walk'];
         if (this.player.onGround || freeFly) {
             if (freeFly && !this.input.slow) {
                 speed *= 2;

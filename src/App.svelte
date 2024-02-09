@@ -101,15 +101,18 @@
             </div>
             {#if mapNames.includes('E1M1') && !mapName}
                 <span class="divider"><Picture {wad} name="M_EPISOD" /></span>
-                <div class="grid sm:grid-cols-2 gap-4 mx-auto">
-                    {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
-                        {#if mapNames.includes(`E${ep}M1`)}
-                            <button class="btn h-full relative" on:click={() => mapName = `E${ep}M1`}>
-                                <span><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
-                                <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
-                            </button>
-                        {/if}
-                    {/each}
+                <!-- Why an extra div? Safari https://stackoverflow.com/questions/44770074 -->
+                <div>
+                    <div class="grid sm:grid-cols-2 gap-4 mx-auto">
+                        {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
+                            {#if mapNames.includes(`E${ep}M1`)}
+                                <button class="btn h-full relative" on:click={() => mapName = `E${ep}M1`}>
+                                    <span><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                                    <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
+                                </button>
+                            {/if}
+                        {/each}
+                    </div>
                 </div>
             {:else}
                 <span class="divider"><Picture {wad} name="M_SKILL" /></span>

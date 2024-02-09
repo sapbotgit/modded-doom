@@ -16,7 +16,10 @@
     $: if (wadFiles) {
         // store files in wad store
         for (const file of wadFiles) {
-            file.arrayBuffer().then(buff => wadStore.saveWad(file.name, buff));
+            file.arrayBuffer().then(buff => {
+                const info  = wadStore.saveWad(file.name, buff);
+                toastMessage(`${info.name} added (${info.iwad ? 'IWAD' : 'PWAD'})`, messageTime);
+            });
         }
     }
 
@@ -27,7 +30,6 @@
         if (ev.dataTransfer.items) {
             // Use DataTransferItemList interface to access the file(s)
             Promise.all([...ev.dataTransfer.items].map(async item => {
-                // If dropped items aren't files, reject them
                 if (item.kind === "file") {
                     const file = item.getAsFile();
                     const info = wadStore.saveWad(file.name, await file.arrayBuffer());
@@ -63,8 +65,8 @@
         <input class="file-input hidden" type="file" id="wad-file-drop" name="wad-file-drop" multiple bind:files={wadFiles}>
     </label>
     <span class="text-xs">
-        WAD files ARE NOT uploaded to any servers. WADs are stored in your browser
-        (<a href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" target="_black" rel="noreferrer">IndexedDB</a>)
+        WAD files ARE NOT uploaded to a server. WADs are stored in your browser
+        (in <a href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" target="_black" rel="noreferrer">IndexedDB</a>)
         and only used while playing DOOM.
     </span>
 </div>
