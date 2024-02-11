@@ -19,6 +19,10 @@
         Debug: settingsMenu.filter((e) => e.cat === "debug"),
         Experimental: settingsMenu.filter((e) => e.cat === "experimental"),
     };
+
+    // $: killProgress = player.stats.kills / $map.stats.totalKills
+    // $: killProgress = player.stats.items / $map.stats.totalItems;
+    // $: killProgress = player.stats.items / $map.stats.totalItems;
 </script>
 
 <div
@@ -83,6 +87,10 @@
             </span>
         </div>
     </details>
+    <div class="absolute bottom-0">
+        v{APP_VERSION}
+        <a class="link" href="https://github.com/lloydmarkle/iso-doom" target="_black" rel="noreferrer">github</a>
+    </div>
 </div>
 
 <div
@@ -108,15 +116,15 @@
     {#if $map}
     <div class="grid grid-cols-2 items-center text-sm" class:hidden={$editor.active}>
         <span class:text-primary={player.stats.kills >= $map.stats.totalKills}>Monsters [{player.stats.kills} / {$map.stats.totalKills}]</span>
-        <progress class="progress" max="1" value={player.stats.kills / $map.stats.totalKills}
+        <progress class="progress" max="1" value={$map.stats.totalKills === 0 ? 0 : player.stats.kills / $map.stats.totalKills}
             class:progress-primary={player.stats.kills >= $map.stats.totalKills} />
 
         <span class:text-primary={player.stats.items >= $map.stats.totalItems}>Items [{player.stats.items} / {$map.stats.totalItems}]</span>
-        <progress class="progress" max="1" value={player.stats.items / $map.stats.totalItems}
+        <progress class="progress" max="1" value={$map.stats.totalItems === 0 ? 0 : player.stats.items / $map.stats.totalItems}
             class:progress-primary={player.stats.items >= $map.stats.totalItems} />
 
         <span class:text-primary={player.stats.secrets >= $map.stats.totalSecrets}>Secrets [{player.stats.secrets} / {$map.stats.totalSecrets}]</span>
-        <progress class="progress" max="1" value={player.stats.secrets / $map.stats.totalSecrets}
+        <progress class="progress" max="1" value={$map.stats.totalSecrets === 0 ? 0 : player.stats.secrets / $map.stats.totalSecrets}
             class:progress-primary={player.stats.secrets >= $map.stats.totalSecrets} />
     </div>
     {/if}

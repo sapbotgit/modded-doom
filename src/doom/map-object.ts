@@ -24,6 +24,7 @@ export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
 }
 
 const velocityPerSecond = (vel: number) => Math.sign(vel) * vel * vel * frameTickTime;
+const velocityPerTick = (vel: number) => Math.sign(vel) * Math.sqrt(Math.abs(vel) / frameTickTime);
 
 const vec = new Vector3();
 export const maxFloatSpeed = 4;
@@ -643,7 +644,7 @@ export class PlayerMapObject extends MapObject {
         this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();
         if (this.isDead) {
-            if (this.attacker) {
+            if (this.attacker && this.attacker !== this) {
                 const ang = angleBetween(this, this.attacker);
                 this.direction.set(ang);
             }
@@ -738,6 +739,9 @@ export class PlayerMapObject extends MapObject {
 
     kill(source?: MapObject) {
         super.kill(source);
+        // when we die, we start processing moving at tick intervals so convert current velocity (in seconds) to ticks
+        // I don't really love how we evaluate player movement
+        this.velocity.set(velocityPerTick(this.velocity.x), velocityPerTick(this.velocity.y), velocityPerTick(this.velocity.z));
 
         // TODO: some map stats
         this.weapon.val.deactivate();
@@ -753,11 +757,17 @@ export class PlayerMapObject extends MapObject {
     }
 
     protected updatePosition(): void {
-        // do nothing here because we already update the position in game input and
-        // we don't want to double add velocity
+        // when we are alive, game input calls .xyMove() so only update position from this function (called from tick())
+        // when the player is dead. confusing.
+        if (this.isDead) {
+            return super.updatePosition();
+        }
     }
 
     protected applyGravity(): void {
+        if (this.isDead) {
+            return super.applyGravity();
+        }
         if (this.info.flags & MFFlags.MF_NOGRAVITY) {
             return;
         }
@@ -772,7 +782,7 @@ export class PlayerMapObject extends MapObject {
         if (this.position.val.z < zVal) {
             this.viewHeight -= zVal - this.position.val.z;
             // this means we change view height by 1, 2, or 3 depending on the step
-            // >> 3 is equivalent to divide by 8 but faster? Doom used a lot of integer math and I haven't tested the performance in JS
+            // >> 3 is equivalent to divide by 8 but faster? Doom cleverly used integer math and I haven't tested the performance in JS
             this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
         }
         // hit the ground so lower the screen

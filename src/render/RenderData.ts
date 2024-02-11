@@ -110,7 +110,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
 
     const map = mapRuntime.data;
     let selfReferencing: RenderSector[] = [];
-    let sectors: RenderSector[] = [];
+    let secMap = new Map<Sector, RenderSector>();
+    let rSectors: RenderSector[] = [];
     const allSubsectors = map.nodes.map(e => [e.childLeft, e.childRight]).flat().filter(e => 'segs' in e) as SubSector[];
     for (const sector of map.sectors) {
         const subsectors = allSubsectors.filter(subsec => subsec.sector === sector);
@@ -129,7 +130,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         const visible = store(true)
         const mobjs = store(new Set<MapObject>());
         const renderSector: RenderSector = { visible, sector, subsectors, geometry, linedefs, zHackFloor, zHackCeil, flatLighting, mobjs };
-        sectors.push(renderSector);
+        rSectors.push(renderSector);
+        secMap.set(renderSector.sector, renderSector);
 
         // fascinating little render hack: self-referencing sector. Basically a sector where all lines are two-sided
         // and both sides refer to the same sector. For doom, that sector would be invisible but the renderer fills in the
@@ -162,7 +164,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     for (const rs of selfReferencing) {
         // find the sector with the smallest bounds that completely contains this sector. It's a little hack but seems to
         // be good enough(tm) as far as I can tell
-        let outerRS = smallestSectorContaining(rs, sectors);
+        let outerRS = smallestSectorContaining(rs, rSectors);
         if (!outerRS) {
             console.warn('no outer sector for self-referencing sector', rs.sector.num);
             continue;
@@ -171,14 +173,14 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         rs.sector = outerRS.sector;
     }
 
-    // transparent door hack (https://www.doomworld.com/tutorials/fx5.php)
+    // transparent door and window hack (https://www.doomworld.com/tutorials/fx5.php)
     for (const linedef of map.linedefs) {
         if (linedef.left) {
             const midL = wad.wallTextureData(linedef.left.middle.val);
             const midR = wad.wallTextureData(linedef.right.middle.val);
             // I'm not sure these conditions are exactly right but it works for TNT MAP02 and MAP09
-            // and I've tested a bunch of other maps (in Doom and Doom2) and these hacks don't activate
-            // the "window hack" is particularly sensitive (which is why we have the ===1 condition) but it could
+            // and I've tested a bunch of other maps (in Doom and Doom2) and these hacks don't activate.
+            // The "window hack" is particularly sensitive (which is why we have the ===1 condition) but it could
             // also be fixed by adding missing textures on various walls (like https://github.com/ZDoom/gzdoom/blob/master/wadsrc/static/zscript/level_compatibility.zs)
             // but even that list isn't complete
             const zeroHeightWithoutUpperAndLower = (
@@ -198,7 +200,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
                 continue;
             }
 
-            const rs = sectors.find(sec => sec.sector === linedef.left.sector);
+            const rs = rSectors.find(sec => sec.sector === linedef.left.sector);
             rs.zHackFloor = derived(
                 [linedef.left.sector.zFloor, linedef.right.sector.zFloor],
                 ([left, right]) => right - left);
@@ -209,7 +211,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
                 // overwrite some properties (flats and lighting) to hide the z-fighting. It's definitely a hack.
                 map.linedefs
                     .filter(ld => pointOnLine(linedef.v[0], ld.v) && linedef.left.sector.light.val !== ld.right.sector.light.val)
-                    .map(ld => sectors.find(sec => sec.sector === ld.right.sector))
+                    .map(ld => rSectors.find(sec => sec.sector === ld.right.sector))
                     .filter(rsec => rsec)
                     .forEach(rsec => {
                         rsec.flatLighting = rs.flatLighting;
@@ -230,12 +232,11 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
 
     // keep render sector mobjs lists in sync with mobjs. The assumption here is that most objects won't change sectors
     // very often therefore it is cheaper to maintain the list this way rather than filtering the mobj list when
-    // draaing the sector. On the other hand, we are updating lists when many sectors won't be drawn.
+    // rendering the sector. On the other hand, we are updating lists when most sectors aren't even visible so...
     // TODO: Need some profiler input here,
     let visitNum = 0;
     let visited = new Map<MapObject, number>();
     let mobjMap = new Map<MapObject, RenderSector>();
-    let secMap = new Map(sectors.map(rs => [rs.sector, rs]));
     const monitor = (mobj: MapObject) => {
         visited.set(mobj, visitNum);
         if (mobjMap.has(mobj) || mobj.info.flags & MFFlags.MF_NOSECTOR) {
@@ -261,7 +262,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         });
     });
 
-    return sectors;
+    return rSectors;
 }
 
 function smallestSectorContaining(rs: RenderSector, renderSectors: RenderSector[]) {

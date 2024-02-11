@@ -399,7 +399,6 @@ class GameInput {
     evaluate(delta: number) {
         if (this.player.isDead) {
             // TODO: we should handle use/click to restart the level
-            this.player.xyMove();
             return;
         }
 
@@ -439,9 +438,11 @@ class GameInput {
         // clear for next eval (only xy, z is used for camera zoom and does not affect gameplay)
         this.input.aim.setX(0).setY(0);
 
-        // handle direction movements
         this.input.move.normalize(); // ensure consistent movements in all directions
         // ^^^ this isn't very doom like but I'm not sure I want to change it
+        // The above isn't the only problem. I think the movement code needs to be refined a bit. After playing with DSDA
+        // doom for a bit, this version doesn't feel quite right.
+        // Some good info on: https://www.doomworld.com/forum/topic/87199-the-doom-movement-bible/
 
         const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;
         const dt = delta * delta / frameTickTime;

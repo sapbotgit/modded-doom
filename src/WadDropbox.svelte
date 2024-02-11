@@ -66,7 +66,7 @@
     </label>
     <span class="text-xs">
         WAD files ARE NOT uploaded to a server. WADs are stored in your browser
-        (in <a href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" target="_black" rel="noreferrer">IndexedDB</a>)
+        (in <a class="link" href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" target="_black" rel="noreferrer">IndexedDB</a>)
         and only used while playing DOOM.
     </span>
 </div>

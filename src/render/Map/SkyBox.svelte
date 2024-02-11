@@ -40,7 +40,7 @@
     let c = 0;
     const widthRatio = sky.userData.width / width;
     for (let k = 0; k < widthRatio; k++) {
-        // for TNT, it feels like we need to rotate 45deg but that's kind of a pain so I'm just living with a little lesls quality
+        // for TNT, it feels like we need to rotate 45deg but that's kind of a pain so I'm just living with a little less quality
         const kOffset = width * k;
         buff = new Uint8ClampedArray(4 * size);
 
