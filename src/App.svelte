@@ -50,6 +50,11 @@
     }
     $: parseUrlHash($urlHash);
 
+    async function startGame(skill: number) {
+        await context.pointerLock.requestLock();
+        $urlHash = `#${wad.name}&skill=${skill}&map=${mapName}`;
+    }
+
     function enableSoundOnce() {
         audio.resume();
     }
@@ -72,7 +77,10 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-<main on:click|once={enableSoundOnce}>
+<main
+    on:click|once={enableSoundOnce}
+    use:context.pointerLock.pointerLockControls
+>
     <!-- <AABBSweepDebug /> -->
 
     {#if game}
@@ -82,7 +90,6 @@
     {:else if !wad}
         <WadScreen {wadStore} />
     {:else if wad}
-        <!-- <AudioVisualizer context={audio} {wad} /> -->
         <div class="container mx-auto flex flex-col gap-2 pb-8">
             <button class="btn btn-secondary w-64" on:click={() => $urlHash = '#'}>❮ Select IWAD</button>
             <div
@@ -118,7 +125,7 @@
                 <span class="divider"><Picture {wad} name="M_SKILL" /></span>
                 {#each data.skills as skill, i}
                     <button class="btn no-animation pulse-on-hover" in:fly={{ y: -60, delay: i * 50 }}
-                        on:click={() => $urlHash = `#${wad.name}&skill=${skill.num}&map=${mapName}`}
+                        on:click={() => startGame(skill.num)}
                         class:skill-selected={difficulty === skill.num}
                     >
                         <Picture {wad} name={skill.pic} />

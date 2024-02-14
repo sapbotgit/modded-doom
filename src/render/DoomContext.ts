@@ -3,6 +3,7 @@ import { MapTextures, type RenderSector } from './RenderData';
 import { Game, MapRuntime, type GameSettings, store, type Store } from '../doom';
 import { get, writable, type Writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
+import { createPointerLockControls } from './Controls/PointerLockControls';
 
 // TODO: so many "contexts". We should simplify
 
@@ -116,8 +117,10 @@ export const createAppContext = () => {
         toggle('experimental', settings.experimentalSoundHacks, 'Room accoustics (experimental)'),
     ];
 
+    const pointerLock = createPointerLockControls();
+
     const audio = new AudioContext();
-    return { urlHash, settings, settingsMenu, editor, audio };
+    return { urlHash, settings, settingsMenu, editor, audio, pointerLock };
 }
 
 export const createGameContext = (game: Game) => {

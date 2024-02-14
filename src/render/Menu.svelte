@@ -38,7 +38,7 @@
     "
     transition:fly={{ x: '-24em' }}
 >
-    <div class="self-center"><Picture name="M_DOOM" /></div>
+    <div class="self-center"><a href="#{game.wad.name}"><Picture name="M_DOOM" /></a></div>
     <div class="divider"/>
     <!-- TODO: someday... get save/load working-->
     <button class="btn" disabled>Load</button>

@@ -4,7 +4,6 @@
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
-    import { createPointerLockControls } from "./PointerLockControls";
     import { buildRenderSectors } from "./RenderData";
     import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
@@ -13,7 +12,8 @@
     import MapContext from "./Map/Context.svelte";
     import { Clock } from "three";
     import Intermission from "./Intermission/Intermission.svelte";
-    import { keyboardControls } from "./KeyboardControls";
+    import { keyboardControls } from "./Controls/KeyboardControls";
+    import { mouseControls } from "./Controls/MouseControls";
     import MusicPlayer from "./MusicPlayer.svelte";
     import SoundPlayer from "./SoundPlayer.svelte";
     import Menu from "./Menu.svelte";
@@ -22,7 +22,7 @@
 
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
-    const { urlHash, settings, audio } = useAppContext();
+    const { urlHash, settings, audio, pointerLock } = useAppContext();
     const { cameraMode, musicVolume, soundVolume, mainVolume } = settings;
     const { map, intermission } = game;
 
@@ -46,9 +46,8 @@
     musicGain.connect(mainGain);
     $: musicGain.gain.value = $musicVolume;
 
-    const { pointerLockControls, requestLock, pointerLockState } =
-        createPointerLockControls();
-    $: showMenu = !$pointerLockState;
+    const { isPointerLocked, requestLock } = pointerLock;
+    $: showMenu = !$isPointerLocked;
 
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -93,8 +92,8 @@
         {#if !showMenu || $cameraMode === 'svg'}
         <div use:keyboardControls={game} />
         {/if}
-        {#if $cameraMode !== 'svg'}
-        <div use:pointerLockControls={game} />
+        {#if $isPointerLocked}
+        <div use:mouseControls={game} />
         {/if}
 
         <MapContext map={$map} {renderSectors}>

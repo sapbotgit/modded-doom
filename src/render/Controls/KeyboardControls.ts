@@ -1,5 +1,5 @@
 import type { Action, ActionReturn } from 'svelte/action';
-import type { ControllerInput } from '../doom';
+import type { ControllerInput } from '../../doom';
 
 interface Params {
     input: ControllerInput;
