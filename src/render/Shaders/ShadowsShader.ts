@@ -32,8 +32,15 @@ export const ShadowsShader = () => ({
         return fract( sin( dot( st.xy, v2 ) ) * 43758.5453123);
     }
 
+    // https://gamedev.stackexchange.com/questions/138384/how-do-i-avoid-using-the-wrong-texture2d-function-in-glsl
+    #if __VERSION__ < 130
+    #define TEXTURE2D texture2D
+    #else
+    #define TEXTURE2D texture
+    #endif
+
     void main() {
-        vec4 texel = texture( map, vUv );
+        vec4 texel = TEXTURE2D( map, vUv );
         if (texel.a < 1.0) {
             discard;
         }
