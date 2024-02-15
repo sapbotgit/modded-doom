@@ -75,9 +75,10 @@ export class PlayerWeapon {
             this.player.setState(StateIndex.S_PLAY_ATK1);
             this._sprite.setState(this.attackState);
             propagateSound(this.player);
+        } else {
+            chooseNewWeapon(this.player)
         }
     }
-
 }
 
 export const allWeapons: InventoryWeapon[] = [
@@ -171,6 +172,21 @@ function giveWeapon(name: WeaponName) {
             ? itemPickedUp(SoundIndex.sfx_wpnup, factory.pickupMessage, player.map.game.mode === 'solo')
             : noPickUp();
     }
+}
+
+function chooseNewWeapon(player: PlayerMapObject) {
+    const ammo = player.inventory.val.ammo;
+    const [ chainsaw, fist, pistol, superShotgun, shotgun, chaingun, rocketLauncher, plasma, bfg ] = player.inventory.val.weapons;
+    player.nextWeapon =
+        (plasma && ammo.cells.amount) ? plasma :
+        (superShotgun && ammo.shells.amount >= superShotgun.fn().ammoPerShot) ? superShotgun :
+        (chaingun && ammo.bullets.amount) ? chaingun :
+        (shotgun && ammo.shells.amount) ? shotgun :
+        (pistol && ammo.bullets.amount) ? pistol :
+        (chainsaw) ? chainsaw :
+        (rocketLauncher && ammo.rockets.amount) ? rocketLauncher :
+        (bfg && ammo.cells.amount >= bfg.fn().ammoPerShot) ? bfg :
+        fist; // good ol' rock, nothing beats that!
 }
 
 export const meleeRange = 1 * 64;

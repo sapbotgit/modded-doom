@@ -113,7 +113,7 @@ export const createAppContext = () => {
         range('advanced', settings.timescale, 'Timescale', 0.1, 2, .1),
         option('advanced', settings.fakeContrast, 'Fake contrast', ['classic', 'gradual', 'off']),
         range('advanced', settings.fpsLimit, 'Target FPS', 5, 200, 5),
-        range('advanced', settings.pixelScale, 'Pixel scale', .1, 1, .1),
+        range('advanced', settings.pixelScale, 'Pixel scale', .1, window.devicePixelRatio, .1),
         // toggle($editor.active, 'Inspector'),
         toggle('debug', settings.showStats, 'Show render stats'),
         toggle('debug', settings.showBlockMap, 'Show blockmap'),

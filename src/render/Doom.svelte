@@ -5,7 +5,7 @@
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
     import { buildRenderSectors } from "./RenderData";
-    import { Canvas, useTask, type ThrelteContext } from "@threlte/core";
+    import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
     import MapRoot from "./Map/Root.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";

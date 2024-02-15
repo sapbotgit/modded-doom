@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { HierarchicalObject, T, useRender, useThrelte } from "@threlte/core";
+    import { HierarchicalObject, T, useTask, useThrelte } from "@threlte/core";
     import Thing from "./Thing.svelte";
     import { Camera, CircleGeometry, MeshStandardMaterial, OrthographicCamera, Scene } from "three";
     import { useDoomMap } from "../DoomContext";
@@ -38,7 +38,7 @@
     let hudCam: OrthographicCamera;
     // Using a shader pass requires a bit more work now with threlte6
     // https://threlte.xyz/docs/learn/advanced/migration-guide#usethrelteroot-has-been-removed
-    const { scene, renderer, camera, size } = useThrelte();
+    const { scene, renderer, camera, size, renderStage } = useThrelte();
     const composer = new EffectComposer(renderer);
 
     const setupEffectComposer = (camera: Camera, hudScene: Scene) => {
@@ -56,9 +56,9 @@
     $: setupEffectComposer($camera, hudScene);
     $: composer.setSize($size.width, $size.height);
 
-    useRender((ctx, delta) => {
+    useTask(delta => {
         composer.render(delta);
-    });
+    }, { stage: renderStage, autoInvalidate: false });
 </script>
 
 {#if $cameraMode !== "1p"}
