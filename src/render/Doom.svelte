@@ -23,7 +23,7 @@
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
     const { urlHash, settings, audio, pointerLock } = useAppContext();
-    const { cameraMode, musicVolume, soundVolume, mainVolume } = settings;
+    const { cameraMode, musicVolume, soundVolume, mainVolume, fpsLimit, pixelScale } = settings;
     const { map, intermission } = game;
 
     $: player = $map?.player;
@@ -49,20 +49,20 @@
     const { isPointerLocked, requestLock } = pointerLock;
     $: showMenu = !$isPointerLocked;
 
+    $: fpsInterval = 1 / $fpsLimit;
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
     onMount(() => {
         const clock = new Clock();
-        const interval = 1 / settings.targetFPS;
         let lastTickTime = 0;
         let frameDelta = 0;
         let frameReq: number;
         function update() {
             frameReq = requestAnimationFrame(update);
             frameDelta += clock.getDelta();
-            if (frameDelta > interval) {
+            if (frameDelta > fpsInterval) {
                 threlteCtx?.advance();
-                frameDelta = frameDelta % interval;
+                frameDelta = frameDelta % fpsInterval;
 
                 game.tick(clock.elapsedTime - lastTickTime);
                 lastTickTime = clock.elapsedTime;
@@ -105,7 +105,7 @@
                 on:deactivate={() => (showMenu = true)}
             />
             {:else}
-            <Canvas frameloop="never" bind:ctx={threlteCtx}>
+            <Canvas frameloop="never" bind:ctx={threlteCtx} dpr={$pixelScale}>
                 <MapRoot map={$map} />
             </Canvas>
             {/if}

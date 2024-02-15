@@ -54,9 +54,11 @@ export const createAppContext = () => {
     };
     const settings = {
         ...gameSettings,
-        targetFPS: 120,
+        showStats: writable(false),
+        fpsLimit: writable(120),
+        pixelScale: writable(1),
         useTextures: store(true),
-        wireframe: writable<'off' | 'none' | 'visible' | 'all'>('off'),
+        wireframe: writable<'off' | 'visible' | 'all'>('off'),
         showBlockMap: writable(false),
         musicPlayback: writable<'synth' | 'soundfont' | 'off'>('synth'),
         musicVolume: writable(.4),
@@ -110,10 +112,13 @@ export const createAppContext = () => {
         range('advanced', settings.maxLostSouls, 'Max Lost Souls', 0, 50, 5),
         range('advanced', settings.timescale, 'Timescale', 0.1, 2, .1),
         option('advanced', settings.fakeContrast, 'Fake contrast', ['classic', 'gradual', 'off']),
+        range('advanced', settings.fpsLimit, 'Target FPS', 5, 200, 5),
+        range('advanced', settings.pixelScale, 'Pixel scale', .1, 1, .1),
         // toggle($editor.active, 'Inspector'),
+        toggle('debug', settings.showStats, 'Show render stats'),
         toggle('debug', settings.showBlockMap, 'Show blockmap'),
         toggle('debug', settings.useTextures, 'Show textures'),
-        option('debug', settings.monsterAI, 'AI Mode', ['enabled', 'disabled', 'move-only', 'fast']),
+        option('debug', settings.monsterAI, 'AI mode', ['enabled', 'disabled', 'move-only', 'fast']),
         option('debug', settings.wireframe, 'Show geometry', ['off', 'visible', 'all']),
         // experimental
         toggle('experimental', settings.experimentalSoundHacks, 'Room accoustics (experimental)'),
