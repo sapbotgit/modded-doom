@@ -5,7 +5,7 @@
 <script lang="ts">
     import { MeshStandardMaterial, PlaneGeometry, Color } from "three";
     import { T } from "@threlte/core";
-    import { HALF_PI, type LineDef, type Vertex } from "../../doom";
+    import { HALF_PI, ToDegrees, type LineDef, type Vertex, normalizeAngle } from "../../doom";
     import Wireframe from "../Debug/Wireframe.svelte";
     import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import { namedColor } from "../RenderData";
@@ -37,10 +37,18 @@
     const { xOffset: animOffset, flags } = linedef;
 
     const { settings, editor } = useAppContext();
-    const { useTextures, cameraMode } = settings;
+    const { useTextures, cameraMode, fakeContrast } = settings;
     const { wad, textures } = useDoom();
     const { map } = useDoomMap();
 
+    $: fakeContrastValue =
+        $fakeContrast === 'classic' ? (
+            linedef.v[1].x === linedef.v[0].x ? 16 :
+            linedef.v[1].y === linedef.v[0].y ? -16 :
+            0
+        ) :
+        $fakeContrast === 'gradual' ? Math.cos(angle * 2 + Math.PI) * 16 :
+        0;
     const extraLight = map.player.extraLight;
     const { light } = sidedef.sector;
     const { zFloor : zFloorL } = linedef.left?.sector ?? {};
@@ -95,7 +103,7 @@
         material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
     }
     $: if ($light !== undefined) {
-        const col = textures.lightColor($light + $extraLight);
+        const col = textures.lightColor(fakeContrastValue + $light + $extraLight);
         material.color = $useTextures ? col : new Color(namedColor(linedef.num)).lerp(col, .5);
     }
 

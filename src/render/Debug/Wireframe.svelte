@@ -7,7 +7,7 @@
     const { wireframe } = useAppContext().settings;
 </script>
 
-{#if $wireframe !== 'none'}
+{#if $wireframe !== 'off' || $wireframe === 'none'}
     <Edges thresholdAngle={0} renderOrder={1000}>
         <!-- color doesn't work here... I wonder why? -->
         <T.LineBasicMaterial

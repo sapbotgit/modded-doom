@@ -56,13 +56,14 @@ export const createAppContext = () => {
         ...gameSettings,
         targetFPS: 120,
         useTextures: store(true),
-        wireframe: writable<'none' | 'visible' | 'all'>('none'),
+        wireframe: writable<'off' | 'none' | 'visible' | 'all'>('off'),
         showBlockMap: writable(false),
         musicPlayback: writable<'synth' | 'soundfont' | 'off'>('synth'),
         musicVolume: writable(.4),
         soundVolume: writable(.8),
         mainVolume: writable(.8),
         experimentalSoundHacks: writable(false),
+        fakeContrast: writable<'classic' | 'gradual' | 'off'>('classic'),
     };
     const editor = writable({
         active: false,
@@ -108,11 +109,12 @@ export const createAppContext = () => {
         toggle('advanced', settings.freeFly, 'Free fly'),
         range('advanced', settings.maxLostSouls, 'Max Lost Souls', 0, 50, 5),
         range('advanced', settings.timescale, 'Timescale', 0.1, 2, .1),
+        option('advanced', settings.fakeContrast, 'Fake contrast', ['classic', 'gradual', 'off']),
         // toggle($editor.active, 'Inspector'),
         toggle('debug', settings.showBlockMap, 'Show blockmap'),
         toggle('debug', settings.useTextures, 'Show textures'),
         option('debug', settings.monsterAI, 'AI Mode', ['enabled', 'disabled', 'move-only', 'fast']),
-        option('debug', settings.wireframe, 'Show geometry', ['none', 'visible', 'all']),
+        option('debug', settings.wireframe, 'Show geometry', ['off', 'visible', 'all']),
         // experimental
         toggle('experimental', settings.experimentalSoundHacks, 'Room accoustics (experimental)'),
     ];

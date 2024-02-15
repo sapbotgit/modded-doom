@@ -36,7 +36,7 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * Holes in floor/ceiling geometry (eg. Doom2 MAP25, Plutonia MAP25 and MAP29)
 * Load/Save games
 * Play demos
-* Lighting effects (like [fake contrast](https://doomwiki.org/wiki/Fake_contrast) and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
+* Lighting effects (like ~~[fake contrast](https://doomwiki.org/wiki/Fake_contrast)~~ and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
 
 Nice to haves:
 
