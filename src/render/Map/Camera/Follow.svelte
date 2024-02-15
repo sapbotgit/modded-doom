@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { T, useFrame } from "@threlte/core";
+    import { T, useTask } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { Vector3 } from "three";
@@ -22,7 +22,7 @@
     let zoom = 50;
     let tz = tweened(0, { easing: quadOut });
     $: $tz = $playerPosition.z;
-    useFrame(() => {
+    useTask(() => {
         zoom = Math.max(10, Math.min(100, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
 
@@ -33,7 +33,7 @@
         if ($cameraMode === '3p') {
             clipPosition($position);
         }
-    });
+    }, { autoInvalidate: false });
 
     const _ppos = new Vector3();
     const _3pDir = new Vector3();

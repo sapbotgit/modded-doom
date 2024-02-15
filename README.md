@@ -37,6 +37,7 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * Load/Save games
 * Play demos
 * Lighting effects (like ~~[fake contrast](https://doomwiki.org/wiki/Fake_contrast)~~ and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
+* Automap
 
 Nice to haves:
 

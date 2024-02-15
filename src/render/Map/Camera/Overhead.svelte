@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { T, useFrame } from "@threlte/core";
+    import { T, useTask } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { tweened } from "svelte/motion";
@@ -13,11 +13,11 @@
     let zoom = 200;
     let tz = tweened(0, { easing: quadOut });
     $: $tz = $playerPosition.z;
-    useFrame(() => {
+    useTask(() => {
         zoom = Math.max(50, Math.min(1500, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
         $position.z = $tz + zoom;
-    });
+    }, { autoInvalidate: false });
 
     const { position, angle } = camera;
     $: $position.x = $playerPosition.x;

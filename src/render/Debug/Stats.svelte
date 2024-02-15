@@ -1,12 +1,12 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
-    import { useFrame, useThrelte } from '@threlte/core';
+    import { useTask, useThrelte } from '@threlte/core';
     import Stats from 'three/examples/jsm/libs/stats.module';
     import type { WebGLRenderer } from 'three';
     import { useAppContext } from '../DoomContext';
 
     const { renderer } = useThrelte();
-    const { showStats } = useAppContext().settings;
+    const { showStats, fpsLimit } = useAppContext().settings;
     renderer.info.autoReset = false;
 
     class RenderInfoPanel {
@@ -36,15 +36,20 @@
     ];
     panels.forEach(p => stats.addPanel(p.panel));
 
-    // FIXME: although the framerate can be limited, these useFrame() callbacks seem to happen more frequently so
-    // the stats don't look right when the framerate limit != refresh rate. Not sure how to resolve that at the moment.
-    useFrame(stats.begin, { order: -100 });
-    useFrame(() => {
-        // add stats.end at the very end of the executing frameloophandlers
-        stats.end();
-        panels.forEach(p => p.updateInfo());
-        renderer.info.reset();
-    }, { order: 100 });
+    let time = 0;
+    $: frameTime = 1 / $fpsLimit;
+    useTask(delta => {
+        // this is called more often than I expect so we keep track of our own elapsed time to keep the stats correct
+        time += delta;
+        if (time > frameTime) {
+            time %= frameTime;
+            stats.end();
+            panels.forEach(p => p.updateInfo());
+
+            renderer.info.reset();
+            stats.begin();
+        }
+    }, { autoInvalidate: false });
 
     $: stats.dom.style.display = $showStats ? null : 'none';
 </script>

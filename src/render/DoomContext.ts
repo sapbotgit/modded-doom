@@ -55,7 +55,7 @@ export const createAppContext = () => {
     const settings = {
         ...gameSettings,
         showStats: writable(false),
-        fpsLimit: writable(120),
+        fpsLimit: writable(60),
         pixelScale: writable(1),
         useTextures: store(true),
         wireframe: writable<'off' | 'visible' | 'all'>('off'),

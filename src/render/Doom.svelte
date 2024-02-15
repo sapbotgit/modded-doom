@@ -5,7 +5,7 @@
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
     import { buildRenderSectors } from "./RenderData";
-    import { Canvas, type ThrelteContext } from "@threlte/core";
+    import { Canvas, useTask, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
     import MapRoot from "./Map/Root.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";
@@ -49,7 +49,8 @@
     const { isPointerLocked, requestLock } = pointerLock;
     $: showMenu = !$isPointerLocked;
 
-    $: fpsInterval = 1 / $fpsLimit;
+    // TODO: re-arrange Canvas component so we can use threlte's useTask() instead of svelte's onMount()
+    $: frameTime = 1 / $fpsLimit;
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
     onMount(() => {
@@ -60,9 +61,9 @@
         function update() {
             frameReq = requestAnimationFrame(update);
             frameDelta += clock.getDelta();
-            if (frameDelta > fpsInterval) {
-                threlteCtx?.advance();
-                frameDelta = frameDelta % fpsInterval;
+            if (frameDelta > frameTime) {
+                threlteCtx.invalidate();
+                frameDelta = frameDelta % frameTime;
 
                 game.tick(clock.elapsedTime - lastTickTime);
                 lastTickTime = clock.elapsedTime;
@@ -105,7 +106,7 @@
                 on:deactivate={() => (showMenu = true)}
             />
             {:else}
-            <Canvas frameloop="never" bind:ctx={threlteCtx} dpr={$pixelScale}>
+            <Canvas bind:ctx={threlteCtx} autoRender={false} dpr={$pixelScale}>
                 <MapRoot map={$map} />
             </Canvas>
             {/if}

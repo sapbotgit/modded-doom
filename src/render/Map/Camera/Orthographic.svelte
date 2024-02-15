@@ -2,7 +2,7 @@
     import { Box3, Frustum, Matrix4, MeshStandardMaterial, Object3D, Raycaster, Vector2, Vector3 } from "three";
     import { HALF_PI, MapObjectIndex } from "../../../doom";
     import { tweened, type Tweened } from "svelte/motion";
-    import { T, useFrame, useThrelte } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import { useDoomMap } from "../../DoomContext";
 
     export let yScale: number;
@@ -39,7 +39,7 @@
     // this frame. If we have a tween that is not blocking the player, start removing it
     const tweens = new Map<Object3D, Tweened<number>>();
     const hits = new Set<Object3D>();
-    useFrame(() => {
+    useTask(() => {
         zoom = Math.max(50, Math.min(1000, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
 
@@ -116,7 +116,7 @@
         //     });
         // }
         // // console.log('vis',vc)
-    });
+    }, { autoInvalidate: false });
 
     function traceHits(screenPosition: Vector2) {
         rayCaster.setFromCamera(screenPosition, $cam);
