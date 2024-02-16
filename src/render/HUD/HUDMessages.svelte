@@ -3,6 +3,7 @@
     import { tick } from "svelte";
     import type { PlayerMapObject } from "../../doom";
     import Picture from "../Components/Picture.svelte";
+    import STText from "../Components/STText.svelte";
 
     export let player: PlayerMapObject;
     const hudMessage = player.hudMessage;
@@ -36,13 +37,7 @@
     {#key messageNumber}
         <div out:fly|local={{ y: -8, delay: messageTimeMS }}>
             <div in:fly={{ y: -8 }} class="message">
-                {#each message as char, i}
-                    {#if char === ' '}
-                        <span class="space" />
-                    {:else}
-                        <Picture name={`STCFN${message.charCodeAt(i).toString().padStart(3, '0')}`} />
-                    {/if}
-                {/each}
+                <STText text={message} />
             </div>
         </div>
     {/key}
@@ -65,15 +60,5 @@
     }
     .messages::-webkit-scrollbar {
         display: none;
-    }
-
-    .message {
-        position: relative;
-        display: flex;
-        align-items: end;
-    }
-    .space {
-        width: 5px;
-        display: inline-block;
     }
 </style>

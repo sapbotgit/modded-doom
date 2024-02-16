@@ -58,21 +58,6 @@
     function enableSoundOnce() {
         audio.resume();
     }
-
-    // // for testing intermisison screen
-    // const finishedMap = new MapRuntime(selectedMap, game);
-    //     finishedMap.stats.elapsedTime = randInt(20, 200);
-    //     game.intermission.set({
-    //     finishedMap,
-    //     playerStats: [
-    //         {
-    //             items: randInt(0, finishedMap.stats.totalItems),
-    //             kills: randInt(0, finishedMap.stats.totalKills),
-    //             secrets: randInt(0, finishedMap.stats.totalSecrets),
-    //         },
-    //     ],
-    //     nextMapName: `${selectedMap.substring(0, 3)}${parseInt(selectedMap.substring(3, 5)) + 1}`,
-    // });
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->

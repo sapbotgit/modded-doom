@@ -2,22 +2,9 @@
     // cache image url so we don't always create a new image context when we load a new image
     const cache = new Map<string, string>();
     let lastWad: DoomWad;
-</script>
-<script lang="ts">
-    import { useDoom } from "../DoomContext";
-    import type { DoomWad } from "../../doom";
 
-    export let name: string;
-    export let type: 'wall' | 'flat' | 'any' = 'any';
-    export let wad: DoomWad = null;
-
-    wad = wad ?? useDoom().wad;
-    if (wad !== lastWad) {
-        cache.clear();
-    }
-
-    $: dataUrl = imageDataUrl(wad, name, type);
-    function imageDataUrl(wad: DoomWad, name: string, type: 'wall' | 'flat' | 'any') {
+    type ImageType = 'wall' | 'flat' | 'sprite' | 'any';
+    export function imageDataUrl(wad: DoomWad, name: string, type: ImageType) {
         const key = name + type;
         let dataUrl = cache.get(key);
         if (dataUrl) {
@@ -53,5 +40,22 @@
         }
     }
 </script>
+<script lang="ts">
+    import { useDoom } from "../DoomContext";
+    import type { DoomWad } from "../../doom";
 
-<img src={dataUrl} alt={name} />
+    export let name: string;
+    export let type: ImageType = 'any';
+    export let wad: DoomWad = null;
+
+    wad = wad ?? useDoom().wad;
+    if (wad !== lastWad) {
+        cache.clear();
+    }
+
+    $: gfx = wad.graphic(name);
+    $: dataUrl = imageDataUrl(wad, name, type);
+    $: style = type !== 'sprite' ? '' : `transform: translate(0px, ${-gfx.yOffset + .5 * gfx.height}px)`;
+</script>
+
+<img {style} src={dataUrl} alt={name} />

@@ -33,9 +33,10 @@
     const root = audio.createDynamicsCompressor();
     root.connect(gain);
 
+    const defaultPosition = store(new Vector3());
     // Camera position or player position? I think camera is probably more useful (especially for orthogonal/follow cam)
     // even though it's less accurate.
-    const { position: playerPosition, direction: yaw, pitch } = player ?? {};
+    const { position: playerPosition, direction: yaw, pitch } = player ?? { position: defaultPosition };
     $: updateListener($playerPosition, $yaw, $pitch);
     function updateListener(position: Vector3, yaw: number, pitch: number) {
         if (!player) {
@@ -90,7 +91,6 @@
         return soundCache.get(name);
     }
 
-    const defaultPosition = store(new Vector3());
     let activeSoundDistances: number[] = [];
     game.onSound((snd, location) => {
         const isPositional = player && location && location !== player;

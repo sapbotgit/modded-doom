@@ -186,7 +186,7 @@
     };
 </script>
 <script lang="ts">
-    import { onDestroy } from "svelte";
+    import { afterUpdate, beforeUpdate, onDestroy } from "svelte";
     import { Buffer as buff } from 'buffer';
     import midiplay from 'midi-player-js';
     import { mus2midi } from 'mus2midi';
@@ -200,17 +200,19 @@
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
-    let midi: buff;
-    try {
-        midi = mus2midi(buff.from(musicBuffer));
-    } catch {
-        console.warn('unabled to play midi :(')
-        midi = buff.from([]);
+    $: midi = loadMusic(musicBuffer);
+    function loadMusic(musicBuffer: Uint8Array) {
+        try {
+            return mus2midi(buff.from(musicBuffer));
+        } catch {
+            console.warn('unabled to play midi :(')
+            return buff.from([]);
+        }
     }
 
     $: musicStopper =
-        $musicPlayback === 'soundfont' ? soundFontPlayer() :
-        $musicPlayback === 'synth' ? synthPlayer() :
+        $musicPlayback === 'soundfont' ? soundFontPlayer(midi) :
+        $musicPlayback === 'synth' ? synthPlayer(midi) :
         noMusic();
     onDestroy(stopTheMusic);
     async function stopTheMusic() {
@@ -225,7 +227,7 @@
     }
 
     const storage = new MidiSampleStore();
-    async function soundFontPlayer() {
+    async function soundFontPlayer(midi: Buffer) {
         stopTheMusic();
 
         const effects: { pan: StereoPannerNode, bq: BiquadFilterNode }[] = [];
@@ -297,7 +299,7 @@
         return () => midiPlayer.stop();
     }
 
-    async function synthPlayer() {
+    async function synthPlayer(midi: Buffer) {
         stopTheMusic();
 
         const synth = new WebAudioTinySynth();

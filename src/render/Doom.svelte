@@ -26,12 +26,14 @@
     const { cameraMode, musicVolume, soundVolume, mainVolume, fpsLimit, pixelScale } = settings;
     const { map, intermission } = game;
 
-    $: player = $map?.player;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
     $: settings.compassMove.set($cameraMode === "svg");
     // keep url in sync with game
     $: if ($map) {
         $urlHash = `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`;
+
+        // Test intermission screens
+        // $map.triggerSpecial({ special: 52 } as any, $map.player, 'W')
     }
 
     const mainGain = audio.createGain();
@@ -62,7 +64,7 @@
             frameReq = requestAnimationFrame(update);
             frameDelta += clock.getDelta();
             if (frameDelta > frameTime) {
-                threlteCtx.invalidate();
+                threlteCtx?.invalidate();
                 frameDelta = frameDelta % frameTime;
 
                 game.tick(clock.elapsedTime - lastTickTime);
@@ -74,11 +76,6 @@
         return () => cancelAnimationFrame(frameReq);
     });
 </script>
-
-<MapContext map={$map} {renderSectors}>
-    <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
-    <SoundPlayer {game} {player} gain={soundGain} />
-</MapContext>
 
 <!--
     TODO: we want the screen wipe!!
@@ -97,6 +94,17 @@
         <div use:mouseControls={game} />
         {/if}
 
+        {#if $intermission}
+            {#key $intermission}
+                <Intermission
+                    {musicGain}
+                    {soundGain}
+                    size={viewSize}
+                    details={$intermission}
+                />
+            {/key}
+        {/if}
+
         <MapContext map={$map} {renderSectors}>
             {#if $cameraMode === 'svg'}
             <SvgMapRoot
@@ -111,22 +119,15 @@
             </Canvas>
             {/if}
             <HUD size={viewSize} player={$map.player} />
-        </MapContext>
 
-        {#if $intermission}
-            {#key $intermission}
-                <Intermission
-                    {musicGain}
-                    {soundGain}
-                    size={viewSize}
-                    details={$intermission}
-                />
-            {/key}
-        {/if}
+
+            <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
+            <SoundPlayer {game} player={$map.player} gain={soundGain} />
+        </MapContext>
     </div>
 
     {#if showMenu}
-        <Menu {player} {requestLock} />
+        <Menu player={$map?.player} {requestLock} />
     {/if}
     <MapContext map={$map} {renderSectors}>
         <PlayerInfo player={$map.player} interactive={showMenu} />
