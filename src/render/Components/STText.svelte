@@ -2,14 +2,15 @@
     import Picture from "./Picture.svelte";
 
     export let text: string;
+    $: utext = text.toUpperCase()
 </script>
 
 <div class="flex flex-wrap items-center">
-    {#each text as char, i}
+    {#each utext as char, i}
         {#if char === ' '}
             <span class="space" />
         {:else}
-            <Picture name={`STCFN${text.charCodeAt(i).toString().padStart(3, '0')}`} type='sprite' />
+            <Picture name={`STCFN${utext.charCodeAt(i).toString().padStart(3, '0')}`} type='sprite' />
         {/if}
     {/each}
 </div>

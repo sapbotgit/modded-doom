@@ -52,6 +52,7 @@
     $: showMenu = !$isPointerLocked;
 
     // TODO: re-arrange Canvas component so we can use threlte's useTask() instead of svelte's onMount()
+    // Also so we can use shaders to perform transitions?
     $: frameTime = 1 / $fpsLimit;
     let viewSize = { width: 1024, height: 600 };
     let threlteCtx: ThrelteContext;
@@ -136,10 +137,8 @@
 
 <style>
     .game {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
+        position: relative;
+        display: grid;
         width: 100vw;
         height: 100vh;
         background: #242424;

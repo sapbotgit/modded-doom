@@ -83,7 +83,7 @@
     }
 
     .root {
-        align-self: center;
+        place-self: center;
         width: 320px;
         transform: scale(2);
         transform-origin: top center;

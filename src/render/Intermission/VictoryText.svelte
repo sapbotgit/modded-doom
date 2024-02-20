@@ -41,7 +41,7 @@
 
     const victoryFlat = data[mapName]?.flat;
 
-    const victoryText = _T(data[mapName]?.text ?? 'CC_ARACH').toUpperCase();
+    const victoryText = _T(data[mapName]?.text ?? 'CC_ARACH');
     const width = 8 * victoryText.split('\n').reduce((max, line) => Math.max(max, line.length), 0);
     const height = 8 * victoryText.split('\n').length;
 

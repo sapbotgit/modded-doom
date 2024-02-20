@@ -2,7 +2,6 @@
     import { fly } from "svelte/transition";
     import { tick } from "svelte";
     import type { PlayerMapObject } from "../../doom";
-    import Picture from "../Components/Picture.svelte";
     import STText from "../Components/STText.svelte";
 
     export let player: PlayerMapObject;
@@ -35,8 +34,8 @@
     style="--visible-messages:{visibleMessages}"
 >
     {#key messageNumber}
-        <div out:fly|local={{ y: -8, delay: messageTimeMS }}>
-            <div in:fly={{ y: -8 }} class="message">
+        <div out:fly={{ y: -8, delay: messageTimeMS }}>
+            <div in:fly={{ y: -8 }}>
                 <STText text={message} />
             </div>
         </div>
@@ -46,14 +45,15 @@
 <style>
     .messages {
         position: absolute;
-        top: 0;
+        padding-bottom: 3.5px;
+        top: -3px;
         left: 0;
         transform: scale(2);
         transform-origin: top left;
         display: flex;
         flex-direction: column;
         gap: 1px;
-        /* Only show n messages: n * (7px + gap) (2x1px gap because each message is a message + blank message) */
+        /* Only show n messages: n * (7px + gap) (2px gap because each message is a message + blank message) */
         max-height: calc(var(--visible-messages) * (7px + 2px));
         overflow-y: scroll;
         scrollbar-width: none;
