@@ -8,7 +8,6 @@
     import VictoryText from "./VictoryText.svelte";
     import Summary from "./Summary.svelte";
     import { MapRuntime, type IntermissionScreen } from "../../doom";
-    import { fly } from "svelte/transition";
 
     export let details: IntermissionScreen;
     export let musicGain: GainNode;
@@ -36,7 +35,6 @@
         mapName === 'MAP30' && textComplete ? 'D_EVIL' :
         mapName[0] === 'E' ? 'D_VICTOR' : 'D_READ_M';
     $: music = wad.lumpByName(musicName).contents;
-    const duration = 4000;
 </script>
 
 <MusicPlayer gain={musicGain} musicBuffer={music} />

@@ -120,7 +120,6 @@
             {/if}
             <HUD size={viewSize} player={$map.player} />
 
-
             <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
             <SoundPlayer {game} player={$map.player} gain={soundGain} />
         </MapContext>
