@@ -438,10 +438,10 @@ class GameInput {
         // clear for next eval (only xy, z is used for camera zoom and does not affect gameplay)
         this.input.aim.setX(0).setY(0);
 
-        this.input.move.normalize(); // ensure consistent movements in all directions
-        // ^^^ this isn't very doom like but I'm not sure I want to change it
-        // The above isn't the only problem. I think the movement code needs to be refined a bit. After playing with DSDA
-        // doom for a bit, this version doesn't feel quite right.
+        this.input.move.x = Math.max(-1, Math.min(1, this.input.move.x));
+        this.input.move.y = Math.max(-1, Math.min(1, this.input.move.y));
+        this.input.move.z = Math.max(-1, Math.min(1, this.input.move.z));
+        // After playing with DSDA doom for a bit, the movement doesn't feel quite right so need some tweaks
         // Some good info on: https://www.doomworld.com/forum/topic/87199-the-doom-movement-bible/
 
         const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;

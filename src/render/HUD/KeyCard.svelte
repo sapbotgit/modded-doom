@@ -14,7 +14,6 @@
         key === 'Y' && keys.includes('y') ? 4 :
         key === 'R' && keys.includes('r') ? 5 :
         null;
-    $: console.log('keys',key, keys, card1, card2)
 </script>
 
 {#if card1 !== null && card2 !== null}

@@ -157,4 +157,16 @@
         92% { background-position: 0px 3px; }
         100% { background-position: 0px 1px; }
     }
+
+    /*
+        safari hack to make sure we can scroll to hide the address bar...
+        See also the note in Doom.svelte
+    */
+    @supports (-webkit-touch-callout: none) {
+        @media only screen and (orientation: landscape) {
+            main {
+                padding-top: 60px;
+            }
+        }
+    }
 </style>

@@ -37,7 +37,7 @@ export const mouseControls: Action<HTMLElement, Params> =
     }
 
     function mouseup(ev: MouseEvent) {
-        if ((ev.buttons & 1) === 0) {
+        if (!(ev.buttons & 1)) {
             input.attack = false;
         }
     }

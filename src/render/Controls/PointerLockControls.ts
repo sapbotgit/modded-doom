@@ -7,6 +7,7 @@ interface Attributes { }
 export function createPointerLockControls() {
     let element: HTMLElement;
 
+    const hasTouchControls = matchMedia('(hover: none)').matches;
     let lockResolve: () => void;
     let isPointerLocked = writable(false);
     let setLockState = (val: boolean) => {
@@ -16,10 +17,13 @@ export function createPointerLockControls() {
     }
 
     const releaseLock = () => document.exitPointerLock();
-    // FIXME: requestPointerLock() does not exist on iOS so this needs to be different. Mobile controls, in general, need to be different
     const requestLock = () => new Promise<void>(resolve => {
         lockResolve = resolve;
-        element.requestPointerLock();
+        if (hasTouchControls) {
+            setLockState(true);
+        } else {
+            element.requestPointerLock();
+        }
     });
     const pointerLockControls: Action<HTMLElement, Params, Attributes> = (node, params) => {
         const doc = node.ownerDocument;
