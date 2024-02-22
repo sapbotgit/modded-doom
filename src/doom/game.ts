@@ -92,7 +92,7 @@ export class Game {
         },
         lastWeapon: inventoryWeapon('pistol'),
         // null reserves a slot for the chainsaw to keep weapons in order
-        weapons: [null, 'fist', 'pistol'].map(inventoryWeapon),
+        weapons: ['fist', null, 'pistol'].map(inventoryWeapon),
     };
     readonly map = store<MapRuntime>(null);
     readonly intermission = store<IntermissionScreen>(null);

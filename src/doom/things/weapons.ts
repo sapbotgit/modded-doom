@@ -83,15 +83,15 @@ export class PlayerWeapon {
 
 export const allWeapons: InventoryWeapon[] = [
     {
+        name: 'fist',
+        keynum: 1,
+        fn: () => new PlayerWeapon('fist', 'none', 0, StateIndex.S_PUNCHUP, StateIndex.S_PUNCHDOWN, StateIndex.S_PUNCH, StateIndex.S_PUNCH1, StateIndex.S_NULL),
+    },
+    {
         name: 'chainsaw',
         keynum: 1,
         pickupMessage: 'GOTCHAINSAW',
         fn: () => new PlayerWeapon('chainsaw', 'none', 0, StateIndex.S_SAWUP, StateIndex.S_SAWDOWN, StateIndex.S_SAW, StateIndex.S_SAW1, StateIndex.S_NULL),
-    },
-    {
-        name: 'fist',
-        keynum: 1,
-        fn: () => new PlayerWeapon('fist', 'none', 0, StateIndex.S_PUNCHUP, StateIndex.S_PUNCHDOWN, StateIndex.S_PUNCH, StateIndex.S_PUNCH1, StateIndex.S_NULL),
     },
     {
         name: 'pistol',
@@ -99,16 +99,16 @@ export const allWeapons: InventoryWeapon[] = [
         fn: () => new PlayerWeapon('pistol', 'bullets', 1, StateIndex.S_PISTOLUP, StateIndex.S_PISTOLDOWN, StateIndex.S_PISTOL, StateIndex.S_PISTOL1, StateIndex.S_PISTOLFLASH),
     },
     {
-        name: 'super shotgun',
-        keynum: 3,
-        pickupMessage: 'GOTSHOTGUN2',
-        fn: () => new PlayerWeapon('super shotgun', 'shells', 2, StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
-    },
-    {
         name: 'shotgun',
         keynum: 3,
         pickupMessage: 'GOTSHOTGUN',
         fn: () => new PlayerWeapon('shotgun', 'shells', 1, StateIndex.S_SGUNUP, StateIndex.S_SGUNDOWN, StateIndex.S_SGUN, StateIndex.S_SGUN1, StateIndex.S_SGUNFLASH1),
+    },
+    {
+        name: 'super shotgun',
+        keynum: 3,
+        pickupMessage: 'GOTSHOTGUN2',
+        fn: () => new PlayerWeapon('super shotgun', 'shells', 2, StateIndex.S_DSGUNUP, StateIndex.S_DSGUNDOWN, StateIndex.S_DSGUN, StateIndex.S_DSGUN1, StateIndex.S_DSGUNFLASH1),
     },
     {
         name: 'chaingun',

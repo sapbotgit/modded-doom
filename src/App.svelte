@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { DoomWad, Game, MapRuntime, type Skill, randInt, data, WadFile } from './doom';
+    import { DoomWad, Game, MapRuntime, type Skill, data, WadFile } from './doom';
     import Doom from './render/Doom.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
     import Picture from './render/Components/Picture.svelte';

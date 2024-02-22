@@ -416,7 +416,7 @@ class GameInput {
                 // normal case where the key press is for a weapon we have
                 candidates.length === 1 ? candidates[0] :
                 // some weapons (chainsaw and shotgun) use the same number slot so toggle
-                (weapon.name === candidates[0].name) ? candidates[1] : candidates[0];
+                (weapon.name === candidates[1].name) ? candidates[0] : candidates[1];
         }
         if (selectedWeapon && selectedWeapon.name !== weapon.name) {
             this.player.nextWeapon = selectedWeapon;
