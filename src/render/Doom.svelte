@@ -16,7 +16,7 @@
     import { mouseControls } from "./Controls/MouseControls";
     import MusicPlayer from "./MusicPlayer.svelte";
     import SoundPlayer from "./SoundPlayer.svelte";
-    import Menu from "./Menu.svelte";
+    import Menu from "./Menu/Menu.svelte";
     import TouchControls from "./Components/TouchControls.svelte";
 
     export let game: Game;
@@ -137,13 +137,17 @@
         </MapContext>
 
         {#if touchDevice && !showMenu}
-            <button class="absolute top-0 left-4 text-4xl" on:click={() => $isPointerLocked = false}>⛭</button>
+            <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                </svg>
+            </button>
             <TouchControls {viewSize} {game} player={$map?.player} />
         {/if}
     </div>
 
     {#if showMenu}
-        <Menu player={$map?.player} {requestLock} />
+        <Menu {requestLock} />
     {/if}
     <MapContext map={$map} {renderSectors}>
         <PlayerInfo player={$map.player} interactive={showMenu} />

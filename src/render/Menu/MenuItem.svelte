@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { MenuSetting } from "./DoomContext";
+    import type { MenuSetting } from "../DoomContext";
 
     export let item: MenuSetting;
     let val: any = item.val;
