@@ -4,8 +4,11 @@
     import RoundMenu from "./RoundMenu.svelte";
     import type { Vector3 } from "three";
     import type { Action, ActionReturn } from "svelte/action";
+    import Picture from "./Picture.svelte";
+    import type { Size } from "@threlte/core";
 
     export let map: MapRuntime;
+    export let viewSize: Size;
     $: game = map.game;
     $: player = map.player;
 
@@ -28,9 +31,8 @@
         return tl[0];
     }
 
-    interface Params {
-        input: ControllerInput;
-    }
+    $: touchParams = { input: game.input, viewSize };
+    type Params = typeof touchParams;
     interface Attributes {
         'on:touch-active': EventHandler<CustomEvent<Vector3>>;
     }
@@ -42,21 +44,18 @@
         let bounds: DOMRect;
         let box = { midX: 0, midY: 0, halfWidth: 0, halfHeight: 0 };
         resize();
-        // we should use viewSize (somehow) and subscribe instead of window size in case we want to embed the view in a page and
-        // the size may be independent of the window size
-        window.addEventListener('resize', resize);
 
         node.addEventListener('touchstart', touchstart);
         node.addEventListener('touchmove', touchmove);
         node.addEventListener('touchend', touchend);
         const update = (params: Params) => {
             input = params.input;
+            resize();
         };
         const destroy = () => {
             node.removeEventListener('touchstart', touchstart);
             node.removeEventListener('touchmove', touchmove);
             node.removeEventListener('touchend', touchend);
-            window.removeEventListener('resize', resize);
         }
         return { update, destroy };
 
@@ -99,21 +98,18 @@
         let box = { midX: 0, midY: 0, halfWidth: 0, halfHeight: 0 };
         let aim = { x: 0, y: 0 };
         resize();
-        // we should use viewSize (somehow) and subscribe instead of window size in case we want to embed the view in a page and
-        // the size may be independent of the window size
-        window.addEventListener('resize', resize);
 
         node.addEventListener('touchstart', touchstart);
         node.addEventListener('touchmove', touchmove);
         node.addEventListener('touchend', touchend);
         const update = (params: Params) => {
             input = params.input;
+            resize();
         };
         const destroy = () => {
             node.removeEventListener('touchstart', touchstart);
             node.removeEventListener('touchmove', touchmove);
             node.removeEventListener('touchend', touchend);
-            window.removeEventListener('resize', resize);
         }
         return { update, destroy };
 
@@ -158,6 +154,21 @@
         }
     }
 
+    const weaponSprites: [string, number, number][] = [
+        ['PUNGB0', 26, -5],
+        ['SAWGC0', 23, -10],
+        ['PISGA0', 25, 0],
+        ['SHTGA0', 29, 0],
+        ['SHT2A0', 27, 8],
+        ['CHGGA0', 14, 0],
+        ['MISGB0', 13, -5],
+        ['PLSGA0', 17, -7],
+        ['BFGGA0', 9, -11],
+    ];
+    if (!map.game.wad.spriteTextureData('SHT2A0')) {
+        weaponSprites.splice(4, 1);
+    }
+
     let showWeaponMenu = false;
     function weaponWheelTouchMove(ev: TouchEvent) {
         const btn = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY)
@@ -192,7 +203,7 @@
 
 <div class="absolute bottom-16 px-4 w-full flex justify-between">
     <div
-        use:touchMoveControls={game}
+        use:touchMoveControls={touchParams}
         on:touch-active={ev => movePoint = touchPoint(movePoint, ev)}
         style="--px:{movePoint.x}%; --py:{100 - movePoint.y}%"
         class="touchGradient border-2 border-primary-content w-40 h-40 rounded-full"
@@ -206,23 +217,31 @@
         on:touchcancel={() => showWeaponMenu = false}
     />
     <div
-        use:touchLookControls={game}
+        use:touchLookControls={touchParams}
         on:touch-active={ev => lookPoint = touchPoint(lookPoint, ev)}
         style="--px:{lookPoint.x}%; --py:{lookPoint.y}%"
         class="touchGradient border-2 border-primary-content w-40 h-40 rounded-full"
     />
 </div>
+
 {#if showWeaponMenu}
     <div class="absolute flex justify-center items-center w-full bottom-0">
         <div class="absolute w-[30%] translate-y-[-75%] top-0 overflow-hidden">
-            <RoundMenu spanAngle={360} let:num let:rotation>
+            <RoundMenu slices={weaponSprites.length} spanAngle={360} let:num let:rotation>
                 <button
                     disabled={!player.inventory.val.weapons[num]}
-                    class="wbutton btn w-full h-full opacity-80"
+                    class="wbutton btn no-animation w-full h-full opacity-80"
                     style="--btn-focus-scale:.9; --rotation:{-rotation}deg;"
                     on:click={selectWeapon(num)}
+                    on:touchend={() => showWeaponMenu = false}
                 >
-                    <span class="roundMenuItem top-[40%] right-[5%]">weapon-{num}</span>
+                    <span
+                        class="roundMenuItem"
+                        class:hidden={!player.inventory.val.weapons[num]}
+                        style="--top-offset:{weaponSprites[num][1]}%; --right-offset:{weaponSprites[num][2]}%;"
+                    >
+                        <Picture name={weaponSprites[num][0]} />
+                    </span>
                 </button>
             </RoundMenu>
         </div>
@@ -244,7 +263,9 @@
 
     .roundMenuItem {
         position: absolute;
-        transform: rotate(calc(var(--rotation)));
+        top: var(--top-offset);
+        right: var(--right-offset);
+        transform: rotate(calc(var(--rotation))) scale(.7);
         pointer-events: none;
     }
 </style>

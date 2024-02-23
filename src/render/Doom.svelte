@@ -138,7 +138,7 @@
 
         {#if touchDevice && !showMenu}
             <button class="absolute top-0 left-4 text-4xl" on:click={() => $isPointerLocked = false}>⛭</button>
-            <TouchControls map={$map} />
+            <TouchControls {viewSize} map={$map} />
         {/if}
     </div>
 
