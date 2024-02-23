@@ -81,10 +81,10 @@
             </div>
         {/if}
     {:else}
-        <div class="flex place-items-center justify-center min-h-48">
-            <span>
-                No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.
-            </span>
+        <div class="flex flex-col place-items-center justify-center min-h-48">
+            <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>
+            <p>To start playing DOOM, drag and drop DOOM WAD files into the drop box below.</p>
+            <p>Don't have any DOOM WADs? Download and use the <a class="link link-primary" href="https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad">DOOM shareware WAD</a>.</p>
         </div>
     {/if}
 

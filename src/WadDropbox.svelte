@@ -59,14 +59,14 @@
     >
     <label class="label gap-1" for="wad-file-drop">
         <span>
-        Load a <a class="link link-primary" class:disable-pointer={fileDropActive} target="_blank" rel="noreferrer" href="https://zdoom.org/wiki/IWAD">Doom WAD</a>
-        file by dropping it here or <span class="btn btn-primary">Browse...</span>
+        Load a <a class="link link-primary" class:disable-pointer={fileDropActive} target="_blank" rel="noreferrer" href="https://zdoom.org/wiki/IWAD">DOOM WAD</a>
+        file by dropping it here or <span class="btn btn-primary">Browse...</span> for files.
         </span>
         <input class="file-input hidden" type="file" id="wad-file-drop" name="wad-file-drop" multiple bind:files={wadFiles}>
     </label>
     <span class="text-xs">
         WAD files ARE NOT uploaded to a server. WADs are stored in your browser
-        (in <a class="link" href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" target="_black" rel="noreferrer">IndexedDB</a>)
+        (in <a class="link link-primary" href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" target="_black" rel="noreferrer">IndexedDB</a>)
         and only used while playing DOOM.
     </span>
 </div>

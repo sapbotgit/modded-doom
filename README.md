@@ -38,6 +38,7 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * Play demos
 * Lighting effects (like ~~[fake contrast](https://doomwiki.org/wiki/Fake_contrast)~~ and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
 * Automap
+* Fullscreen mode
 
 Nice to haves:
 

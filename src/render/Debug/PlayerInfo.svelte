@@ -9,6 +9,7 @@
     export let player: PlayerMapObject;
     export let interactive = true;
     const { position, direction, velocity, sector, inventory } = player;
+    const { invicibility, noclip, freeFly } = player.map.game.settings;
 
     const debugBuild = import.meta.env.DEV;
     let visible = false;
@@ -82,10 +83,6 @@
         player.info.flags = mInfo.flags;
         player.weapon.val.activate(player);
     }
-
-    function invincible() {
-        player.map.game.settings.invicibility.update(v => !v);
-    }
 </script>
 
 <div class="root">
@@ -103,13 +100,28 @@
             <div class:hidden={debugBuild}>Subsectors: [{subsectors.map(e => e.num)}]</div>
             <div class:hidden={debugBuild}>viewHeight: {vh.toFixed(2)}</div>
             {#if interactive}
-                <button class="btn" on:click={revive}>Revive</button>
-                <button class="btn" on:click={invincible}>IDDQD</button>
-                <button class="btn" on:click={fa()}>FA</button>
-                <button class="btn" on:click={kfa()}>KFA</button>
+                <div class="flex gap-2">
+                    <label class="label cursor-pointer inline-flex">
+                        <div class="label-text pe-1">IDDQD</div>
+                        <input type="checkbox" class="toggle toggle-xs toggle-primary" bind:checked={$invicibility} />
+                    </label>
+                    <label class="label cursor-pointer inline-flex">
+                        <div class="label-text pe-1">noclip</div>
+                        <input type="checkbox" class="toggle toggle-xs toggle-primary" bind:checked={$noclip} />
+                    </label>
+                    <label class="label cursor-pointer inline-flex">
+                        <div class="label-text pe-1">free fly</div>
+                        <input type="checkbox" class="toggle toggle-xs toggle-primary" bind:checked={$freeFly} />
+                    </label>
+                </div>
+                <div class="flex gap-1">
+                    <button class="btn" on:click={fa()}>FA</button>
+                    <button class="btn" on:click={kfa()}>KFA</button>
+                    <button class="btn" on:click={revive}>Revive</button>
+                </div>
                 <div
-                    class="bonus"
-                    class:hidden={debugBuild}
+                    class="flex flex-col gap-1 pt-1"
+                    class:hidden={!debugBuild}
                 >
                     <button class="btn" on:click={() => player.bonusCount.update(val => val + 6)}>bouns flash</button>
                     <button class="btn" on:click={() => player.damageCount.update(val => val + 10)}>hurt flash</button>
@@ -160,12 +172,5 @@
         padding-inline-start: 1em;
         padding-inline-end: 1em;
         min-width: 24em;
-    }
-
-    .bonus {
-        padding-top: .2em;
-        gap: 0.2em;
-        display: flex;
-        flex-direction: column;
     }
 </style>

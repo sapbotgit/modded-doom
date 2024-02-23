@@ -66,6 +66,13 @@ export const createAppContext = () => {
         mainVolume: writable(.8),
         experimentalSoundHacks: writable(false),
         fakeContrast: writable<'classic' | 'gradual' | 'off'>('classic'),
+        touchLookSpeed: writable(32),
+        touchDeadZone: writable(0.2),
+        tapTriggerTime: writable(0.2),
+        analogMovement: writable(false),
+        touchTargetSize: writable(10),
+        touchTargetHzPadding: writable(1),
+        touchTargetVPadding: writable(4),
     };
     const editor = writable({
         active: false,
@@ -103,7 +110,17 @@ export const createAppContext = () => {
         range('normal', settings.soundVolume, 'Sound volume', 0, 1, .1),
         range('normal', settings.musicVolume, 'Music volume', 0, 1, .1),
         option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'off']),
+        option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'off']),
+        // TODO: we probably need a whole screen to help tweak touch controls.
+        // Honestly, the whole menu is really unfriendly on mobile
+        range('normal', settings.touchDeadZone, 'Touch control dead zone', .1, 1, 0.05),
+        range('normal', settings.touchLookSpeed, 'Touch control look speed', 4, 64, 4),
+        range('normal', settings.tapTriggerTime, 'Touch tap time', 0.1, 1, 0.05),
+        toggle('normal', settings.analogMovement, 'Analog movement control'),
         option('advanced', settings.cameraMode, 'Camera', ['bird', 'ortho', '1p', '3p', '3p-noclip', 'svg']),
+        range('advanced', settings.touchTargetSize, 'Touch control size', 1, 20, 1),
+        range('advanced', settings.touchTargetHzPadding, 'Touch horizontal padding', 0, 4, .5),
+        range('advanced', settings.touchTargetVPadding, 'Touch vertical padding', 0, 8, .5),
         toggle('advanced', settings.zAimAssist, 'Auto Z-Aim'),
         toggle('advanced', settings.noclip, 'noclip'),
         toggle('advanced', settings.alwaysRun, 'Always run'),
