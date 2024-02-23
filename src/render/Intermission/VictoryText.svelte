@@ -68,7 +68,7 @@
     }
     $: text = textComplete ? victoryText : victoryText.substring(0, ($tick - startTick) / 3);
     $: textLines = text.split('\n');
-    $: complete = !victoryFlat || (textComplete && readyPressed);
+    $: complete = mapName !== 'E1M8' && (!victoryFlat || (textComplete && readyPressed));
 
     const url = victoryFlat && imageDataUrl(wad, victoryFlat, 'flat');
 </script>
