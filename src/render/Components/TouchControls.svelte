@@ -1,19 +1,39 @@
 <script lang="ts">
     import type { EventHandler } from "svelte/elements";
-    import type { ControllerInput, MapRuntime } from "../../doom";
+    import type { Game, PlayerMapObject } from "../../doom";
     import RoundMenu from "./RoundMenu.svelte";
     import type { Vector3 } from "three";
     import type { Action, ActionReturn } from "svelte/action";
     import Picture from "./Picture.svelte";
     import type { Size } from "@threlte/core";
 
-    export let map: MapRuntime;
+    export let game: Game;
     export let viewSize: Size;
-    $: game = map.game;
-    $: player = map.player;
+    export let player: PlayerMapObject = null;
+    $: tick = game.time.tick;
+
+    const nowTime = () => new Date().getTime() * 0.001;
+
+    let useButton = false;
+    let useLock = false;
+    let attackButton = false;
+    let attackLock = false;
+    $: if ($tick) {
+        game.input.attack = false;
+        game.input.use = false;
+        if (attackButton || attackLock) {
+            game.input.attack = true;
+            attackButton = false;
+        }
+        if (useButton || useLock) {
+            game.input.use = true;
+            useButton = false;
+        }
+    }
 
     const aimSpeed = 32;
     const deadZone = 0.2;
+    const tapTime = 0.2;
     function clipMove(val: number) {
         if (Math.abs(val) < deadZone) {
             return 0;
@@ -37,9 +57,12 @@
         'on:touch-active': EventHandler<CustomEvent<Vector3>>;
     }
 
+    // TODO: combine similar parts of move controls and look controls
+    // TODO: alternatively, maybe we can make this simpler by not using an action and instead having on:touchstart, on:touchmove, etc. on the DOM node?
     const touchMoveControls: Action<HTMLElement, Params, Attributes> = (node, params): ActionReturn<Params, Attributes> => {
         let { input } = params;
 
+        let touchTime = 0;
         let touchNum: number;
         let bounds: DOMRect;
         let box = { midX: 0, midY: 0, halfWidth: 0, halfHeight: 0 };
@@ -48,6 +71,7 @@
         node.addEventListener('touchstart', touchstart);
         node.addEventListener('touchmove', touchmove);
         node.addEventListener('touchend', touchend);
+        node.addEventListener('touchcancel', touchend);
         const update = (params: Params) => {
             input = params.input;
             resize();
@@ -56,6 +80,7 @@
             node.removeEventListener('touchstart', touchstart);
             node.removeEventListener('touchmove', touchmove);
             node.removeEventListener('touchend', touchend);
+            node.removeEventListener('touchcancel', touchend);
         }
         return { update, destroy };
 
@@ -74,6 +99,14 @@
         }
 
         function touchstart(ev: TouchEvent) {
+            const now = nowTime();
+            const elapsed = (now - touchTime);
+            // Is this even useful? It's symmetric with attack but I can't imagine someone doing this
+            if (elapsed < 2 * tapTime) {
+                useLock = true;
+            }
+            touchTime = now;
+
             touchNum = ev.changedTouches[0].identifier;
             updateTouch(findTouch(ev.touches, touchNum));
         }
@@ -84,6 +117,11 @@
         }
 
         function touchend(ev: TouchEvent) {
+            if (nowTime() - touchTime < tapTime) {
+                useButton = true;
+            }
+            useLock = false;
+
             input.move.set(0, 0, 0);
             node.dispatchEvent(new CustomEvent<{ x: number, y: number }>('touch-active', { detail: input.move }));
         }
@@ -92,6 +130,7 @@
     const touchLookControls: Action<HTMLElement, Params, Attributes> = (node, params): ActionReturn<Params, Attributes> => {
         let { input } = params;
 
+        let touchTime = 0;
         let touchNum: number;
         let touchActive = false;
         let bounds: DOMRect;
@@ -102,6 +141,7 @@
         node.addEventListener('touchstart', touchstart);
         node.addEventListener('touchmove', touchmove);
         node.addEventListener('touchend', touchend);
+        node.addEventListener('touchcancel', touchend);
         const update = (params: Params) => {
             input = params.input;
             resize();
@@ -110,6 +150,7 @@
             node.removeEventListener('touchstart', touchstart);
             node.removeEventListener('touchmove', touchmove);
             node.removeEventListener('touchend', touchend);
+            node.removeEventListener('touchcancel', touchend);
         }
         return { update, destroy };
 
@@ -122,6 +163,13 @@
         }
 
         function touchstart(ev: TouchEvent) {
+            const now = nowTime();
+            const elapsed = (now - touchTime);
+            if (elapsed < 2 * tapTime) {
+                attackLock = true;
+            }
+            touchTime = now;
+
             touchNum = ev.changedTouches[0].identifier;
             touchActive = true;
             requestAnimationFrame(onTick);
@@ -134,6 +182,11 @@
         }
 
         function touchend(ev: TouchEvent) {
+            if (nowTime() - touchTime < tapTime) {
+                attackButton = true;
+            }
+            attackLock = false;
+
             touchActive = false;
             aim.x = aim.y = 0;
             node.dispatchEvent(new CustomEvent('touch-active', { detail: aim }));
@@ -165,7 +218,7 @@
         ['PLSGA0', 17, -7],
         ['BFGGA0', 9, -11],
     ];
-    if (!map.game.wad.spriteTextureData('SHT2A0')) {
+    if (!game.wad.spriteTextureData('SHT2A0')) {
         weaponSprites.splice(4, 1);
     }
 
@@ -201,15 +254,16 @@
     };
 </script>
 
-<div class="absolute bottom-16 px-4 w-full flex justify-between">
+<div class="absolute bottom-16 px-4 w-full flex justify-between opacity-30">
     <div
         use:touchMoveControls={touchParams}
         on:touch-active={ev => movePoint = touchPoint(movePoint, ev)}
         style="--px:{movePoint.x}%; --py:{100 - movePoint.y}%"
         class="touchGradient border-2 border-primary-content w-40 h-40 rounded-full"
+        class:extra-active={useButton || useLock}
     />
     <div
-        class="touchGradient w-32 h-32 rounded-full relative top-16"
+        class="touchGradient w-32 h-32 rounded-full relative top-8"
         style="--px:50%; --py:50%;"
         on:touchstart|preventDefault={() => showWeaponMenu = true}
         on:touchmove|preventDefault={weaponWheelTouchMove}
@@ -221,12 +275,13 @@
         on:touch-active={ev => lookPoint = touchPoint(lookPoint, ev)}
         style="--px:{lookPoint.x}%; --py:{lookPoint.y}%"
         class="touchGradient border-2 border-primary-content w-40 h-40 rounded-full"
+        class:extra-active={attackButton || attackLock}
     />
 </div>
 
-{#if showWeaponMenu}
-    <div class="absolute flex justify-center items-center w-full bottom-0">
-        <div class="absolute w-[30%] translate-y-[-75%] top-0 overflow-hidden">
+{#if showWeaponMenu && player}
+    <div class="absolute flex justify-center items-center w-full bottom-8">
+        <div class="absolute w-[30%] translate-y-[-75%] top-0">
             <RoundMenu slices={weaponSprites.length} spanAngle={360} let:num let:rotation>
                 <button
                     disabled={!player.inventory.val.weapons[num]}
@@ -249,12 +304,21 @@
 {/if}
 
 <style>
+    /* https://stackoverflow.com/questions/4472891 */
+    :root {
+        touch-action: pan-x pan-y;
+    }
+
     .touchGradient {
+        --g-bg: transparent;
         background-image: radial-gradient(
             circle at var(--px, '50%') var(--py, '50%'),
-            oklch(var(--a)), oklch(var(--a)) 25%, transparent 30%);
-        opacity: .4;
-        transition: opacity .5s;
+            oklch(var(--a)), oklch(var(--a)) 25%, var(--g-bg) 30%);
+    }
+
+    .extra-active {
+        --a: var(--s);
+        --g-bg: oklch(var(--b3));
     }
 
     .wbutton:focus {

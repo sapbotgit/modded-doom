@@ -41,7 +41,7 @@ Nonexhaustive list of bugs and missing/incomplete features:
 
 Nice to haves:
 
-* Mobile (touch) controls
+* ~~Mobile (touch) controls~~
 * Nightmare monster respawn (and other nightmare monster behaviours)
 * More HUD options
 * Spin off src/doom into it's own project to make it easier to re-use (or rewrite)
