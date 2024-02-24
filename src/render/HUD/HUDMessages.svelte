@@ -24,7 +24,7 @@
         messageNumber += 1;
         await tick();
         $hudMessage = '';
-        messageView.scroll({ top: messageView.scrollHeight, behavior: 'smooth' });
+        messageView?.scroll({ top: messageView.scrollHeight, behavior: 'smooth' });
     }
 </script>
 

@@ -55,6 +55,13 @@ const doom2MusicMap = [
     "D_EVIL",
     "D_ULTIMA",
 ];
+export function mapMusicTrack(game: Game, mapName: string) {
+    const mapNum = parseInt(mapName.substring(3, 5)) - 1;
+    const trackName = mapName.startsWith('E4') ? episode4MusicMap[mapNum] :
+        game.episodic ? 'D_' + mapName :
+        doom2MusicMap[mapNum];
+    return trackName;
+}
 
 interface AnimatedTexture {
     frames: string[];
@@ -82,7 +89,7 @@ export class MapRuntime {
     readonly rev = store(1);
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
-    readonly musicBuffer: Uint8Array;
+    readonly musicTrack: Store<string>;
 
     constructor(
         readonly name: string,
@@ -90,11 +97,7 @@ export class MapRuntime {
     ) {
         this.data = game.wad.readMap(name);
 
-        const mapNum = parseInt(name.substring(3, 5)) - 1;
-        const musicTrack = name.startsWith('E4') ? episode4MusicMap[mapNum] :
-            game.episodic ? 'D_' + name :
-            doom2MusicMap[mapNum];
-        this.musicBuffer = game.wad.lumpByName(musicTrack).contents;
+        this.musicTrack = store(mapMusicTrack(game, name));
 
         // some maps (plutonia MAP28) have multiple player 1 starts (I guess for coop?) so make sure to findLast()
         const playerThing = this.data.things.findLast(e => e.type === 1);

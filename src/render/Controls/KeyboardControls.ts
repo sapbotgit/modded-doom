@@ -37,6 +37,8 @@ export const keyboardControls: Action<HTMLElement, Params> =
     }
     return { update, destroy };
 
+    // FIXME: actually, we should probably switch to ev.key instead of code
+    // (see https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code about keyboard layouts)
     function keydown(ev: KeyboardEvent) {
         switch (ev.code) {
             case "Digit1":

@@ -115,7 +115,7 @@
             <div class="
                 dropdown-content z-10 p-2 shadow bg-base-100 w-96 rounded-box
                 flex flex-col gap-1
-                top-[3em] md:top-[29em] md:left-96
+                top-[3em] md:top-[29em] md:left-96 pb-40
             ">
                 <CheatsMenu player={$map.player} />
             </div>

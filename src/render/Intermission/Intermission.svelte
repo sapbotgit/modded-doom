@@ -29,15 +29,14 @@
         game.intermission.set(null);
     }
 
-    $: musicName =
+    $: musicTrack =
         !summaryComplete ? (game.episodic ? 'D_INTER' : 'D_DM2INT') :
         mapName === 'E3M8' && textComplete ? 'D_BUNNY' :
         mapName === 'MAP30' && textComplete ? 'D_EVIL' :
         mapName[0] === 'E' ? 'D_VICTOR' : 'D_READ_M';
-    $: music = wad.lumpByName(musicName).contents;
 </script>
 
-<MusicPlayer gain={musicGain} musicBuffer={music} />
+<MusicPlayer {game} gain={musicGain} trackName={musicTrack} />
 <SoundPlayer {game} gain={soundGain} />
 
 <div

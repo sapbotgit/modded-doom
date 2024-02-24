@@ -17,7 +17,7 @@
 </script>
 
 {#if map}
-    {#key map.name}
+    {#key map}
         <slot />
     {/key}
 {/if}

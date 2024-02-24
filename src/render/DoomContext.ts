@@ -110,7 +110,6 @@ export const createAppContext = () => {
         range('normal', settings.soundVolume, 'Sound volume', 0, 1, .1),
         range('normal', settings.musicVolume, 'Music volume', 0, 1, .1),
         option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'off']),
-        option('normal', settings.musicPlayback, 'Music voice', ['synth', 'soundfont', 'off']),
         // TODO: we probably need a whole screen to help tweak touch controls.
         // Honestly, the whole menu is really unfriendly on mobile
         range('normal', settings.touchDeadZone, 'Touch control dead zone', .1, 1, 0.05),

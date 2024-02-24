@@ -60,6 +60,21 @@ export interface IntermissionScreen {
 
 type SoundHandler = (snd: SoundIndex, position?: MapObject | Sector) => void;
 
+export const defaultInventory = (): PlayerInfo => ({
+    health: 100,
+    armor: 0,
+    armorType: 0,
+    ammo: {
+        bullets: { amount: 50, max: 200 },
+        shells: { amount: 0, max: 50 },
+        rockets: { amount: 0, max: 50 },
+        cells: { amount: 0, max: 300 },
+    },
+    lastWeapon: inventoryWeapon('pistol'),
+    // null reserves a slot for the chainsaw to keep weapons in order
+    weapons: ['fist', null, 'pistol'].map(inventoryWeapon),
+});
+
 export class Game {
     private nextTickTime = 0; // seconds
     time = {
@@ -80,20 +95,7 @@ export class Game {
         weaponKeyNum: 0,
         weaponIndex: -1,
     };
-    readonly inventory: PlayerInfo = {
-        health: 100,
-        armor: 0,
-        armorType: 0,
-        ammo: {
-            bullets: { amount: 50, max: 200 },
-            shells: { amount: 0, max: 50 },
-            rockets: { amount: 0, max: 50 },
-            cells: { amount: 0, max: 300 },
-        },
-        lastWeapon: inventoryWeapon('pistol'),
-        // null reserves a slot for the chainsaw to keep weapons in order
-        weapons: ['fist', null, 'pistol'].map(inventoryWeapon),
-    };
+    readonly inventory = defaultInventory();
     readonly map = store<MapRuntime>(null);
     readonly intermission = store<IntermissionScreen>(null);
     get episodic() { return !this.wad.mapNames.includes('MAP01'); }

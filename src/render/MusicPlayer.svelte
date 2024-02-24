@@ -186,7 +186,7 @@
     };
 </script>
 <script lang="ts">
-    import { afterUpdate, beforeUpdate, onDestroy } from "svelte";
+    import { onDestroy } from "svelte";
     import { Buffer as buff } from 'buffer';
     import midiplay from 'midi-player-js';
     import { mus2midi } from 'mus2midi';
@@ -194,18 +194,21 @@
     import { Soundfont, DrumMachine } from "smplr";
     import { useAppContext } from "./DoomContext";
     import WebAudioTinySynth from 'webaudio-tinysynth';
+    import type { Game } from "../doom";
 
     export let gain: GainNode;
-    export let musicBuffer: Uint8Array;
+    export let game: Game;
+    export let trackName: string;
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
+    $: musicBuffer = game.wad.lumpByName(trackName)?.contents;
     $: midi = loadMusic(musicBuffer);
     function loadMusic(musicBuffer: Uint8Array) {
         try {
             return mus2midi(buff.from(musicBuffer));
         } catch {
-            console.warn('unabled to play midi :(')
+            console.warn('unabled to play midi :(', trackName)
             return buff.from([]);
         }
     }

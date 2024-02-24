@@ -18,6 +18,7 @@
     import SoundPlayer from "./SoundPlayer.svelte";
     import Menu from "./Menu/Menu.svelte";
     import TouchControls from "./Components/TouchControls.svelte";
+    import { keyboardCheatControls } from "./Controls/KeyboardCheatControls";
 
     export let game: Game;
 
@@ -37,6 +38,7 @@
         // Test intermission screens
         // $map.triggerSpecial({ special: 52 } as any, $map.player, 'W')
     }
+    $: mapMusicTrack = $map?.musicTrack;
 
     const mainGain = audio.createGain();
     mainGain.connect(audio.destination);
@@ -101,6 +103,7 @@
     <div class="game">
         {#if !showMenu || $cameraMode === 'svg'}
         <div use:keyboardControls={game} />
+        <div use:keyboardCheatControls />
         {/if}
         {#if $isPointerLocked && !touchDevice}
         <div use:mouseControls={game} />
@@ -132,7 +135,7 @@
             {/if}
             <HUD size={viewSize} player={$map.player} />
 
-            <MusicPlayer gain={musicGain} musicBuffer={$map.musicBuffer} />
+            <MusicPlayer {game} gain={musicGain} trackName={$mapMusicTrack} />
             <SoundPlayer {game} player={$map.player} gain={soundGain} />
         </MapContext>
 
