@@ -42,7 +42,7 @@
 {#if $visible}
 <div class="root">
     <div
-        class="settings bg-base-100 honeycomb shadow-xl"
+        class="settings bg-base-100 bg-honeycomb shadow-xl"
         class:sloped={!interactive}
         transition:fly={{ y: 200}}
     >

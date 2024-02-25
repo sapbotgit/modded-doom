@@ -96,7 +96,7 @@
     interesting: https://www.shadertoy.com/view/XtlyDn
 -->
 <div
-    class="select-none overflow-hidden"
+    class="select-none overflow-hidden relative"
     bind:clientHeight={viewSize.height}
     bind:clientWidth={viewSize.width}
 >
@@ -152,6 +152,7 @@
     {#if showMenu}
         <Menu {requestLock} />
     {/if}
+
     <MapContext map={$map} {renderSectors}>
         <PlayerInfo player={$map.player} interactive={showMenu} />
         <EditPanel map={$map} />
