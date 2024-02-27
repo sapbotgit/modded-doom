@@ -7,12 +7,12 @@
     }
 </script>
 
-<div class="flag-stack">
+<div class="flag-stack text-sm pe-2">
     <span>Flags {flags}</span>
     {#each info as [flag, description]}
-        <label>
-            <input type="checkbox" checked={Boolean(flags & flag)} on:change={() => toggle(flag)} />
-            {description}
+        <label class="label p-0">
+            <span class="label-text">{description}</span>
+            <input class="checkbox" type="checkbox" checked={Boolean(flags & flag)} on:change={() => toggle(flag)} />
         </label>
     {/each}
 </div>

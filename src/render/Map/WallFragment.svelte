@@ -71,6 +71,8 @@
     } else if (linedef.transparentWindowHack) {
         material.transparent = true;
         material.opacity = 0.1;
+    } else {
+        material.map = null;
     }
 
     $: if (material.map && (flags || $xOffset || $yOffset || ($animOffset ?? 0))) {
@@ -133,7 +135,7 @@
     }
 </script>
 
-{#if !$useTextures || texture2 || skyHack || linedef.transparentWindowHack}
+{#if !$useTextures || texture2 || skyHack || linedef.transparentWindowHack || $editor.active}
     <T.Mesh
         userData={{ type: 'wall' }}
         visible={visible}

@@ -35,7 +35,7 @@
     }
 </script>
 
-<h3>Linedef <NumberChooser num={linedef.num} on:select={changeLinedef} /></h3>
+<h3 class="text-2xl">Linedef <NumberChooser num={linedef.num} on:select={changeLinedef} /></h3>
 <div>
     <FlagList info={flagInfo} bind:flags={linedef.flags} />
 </div>

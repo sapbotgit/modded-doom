@@ -920,8 +920,9 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                 const back = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
                 if (blocking) {
                     // if it's a blocking wall but the back sector is the same as the start sector, we allow the move
-                    // because it means we are moving away from the start. For example, many imps in E1M7 are stuck in
-                    // blocking walls/window ledges so this lets them move.
+                    // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
+                    // blocking wall/window ledges so this lets them move.
+                    // FIXME: this allows monsters to walk through the grate walls after the zigzag in E1M1. Hmmm.
                     if (mobj.sector.val === back) {
                         return true;
                     }

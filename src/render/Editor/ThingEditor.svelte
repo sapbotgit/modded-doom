@@ -87,14 +87,16 @@
 
 <h3>Thing <NumberChooser num={thing.id} on:select={changeThing} /></h3>
 <div>
-    <button class="btn" on:click={toggleSelector}>{thing.description}</button>
+    <button class="btn flex flex-col" on:click={toggleSelector}>
+        <ThingSprite frames={frames} state={states[thing.info.spawnstate]} text={thing.description} />
+    </button>
     {#if showSelector}
-        <div class="selector">
+        <div class="z-10 overflow-y-scroll max-h-96 absolute flex gap-5 flex-wrap">
             <!-- svelte-ignore a11y-autofocus -->
-            <input autofocus type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
+            <input autofocus class="input w-full" type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
             {#each types as t}
                 {#if !selectorFilter.length || t.text.toLowerCase().includes(selectorFilter)}
-                    <button class="btn" on:click={() => changeType(t.value)}>
+                    <button class="btn h-full flex flex-col" on:click={() => changeType(t.value)}>
                         <ThingSprite frames={t.frames} state={t.state} text={t.text} />
                     </button>
                 {/if}
@@ -114,18 +116,18 @@
     <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
 </div>
 <!-- position is edited in Thing.svelte -->
-<div class="direction">
-    <button class="btn" class:selected={directionButton === 7} on:click={setDirection(315)}>NW</button>
-    <button class="btn" class:selected={directionButton === 6} on:click={setDirection(270)}>North</button>
-    <button class="btn" class:selected={directionButton === 5} on:click={setDirection(225)}>NE</button>
-    <button class="btn" class:selected={directionButton === 0} on:click={setDirection(0)}>West</button>
-    <span>{Math.floor($direction * ToDegrees)} degrees</span>
-    <button class="btn" class:selected={directionButton === 4} on:click={setDirection(180)}>East</button>
-    <button class="btn" class:selected={directionButton === 1} on:click={setDirection(45)}>SW</button>
-    <button class="btn" class:selected={directionButton === 2} on:click={setDirection(90)}>South</button>
-    <button class="btn" class:selected={directionButton === 3} on:click={setDirection(135)}>SE</button>
+<div class="self-center p-4 w-48 grid grid-cols-3 gap-1 rounded-box bg-neutral">
+    <button class="btn" class:btn-primary={directionButton === 7} on:click={setDirection(315)}>NW</button>
+    <button class="btn" class:btn-primary={directionButton === 6} on:click={setDirection(270)}>North</button>
+    <button class="btn" class:btn-primary={directionButton === 5} on:click={setDirection(225)}>NE</button>
+    <button class="btn" class:btn-primary={directionButton === 0} on:click={setDirection(0)}>West</button>
+    <span class="w-8 text-center self-center text-xs">{Math.floor($direction * ToDegrees)} degrees</span>
+    <button class="btn" class:btn-primary={directionButton === 4} on:click={setDirection(180)}>East</button>
+    <button class="btn" class:btn-primary={directionButton === 1} on:click={setDirection(45)}>SW</button>
+    <button class="btn" class:btn-primary={directionButton === 2} on:click={setDirection(90)}>South</button>
+    <button class="btn" class:btn-primary={directionButton === 3} on:click={setDirection(135)}>SE</button>
 </div>
-<div>
+<div class="bg-base-100 pt-2 rounded-box">
     <span>Sprite Info</span>
     <div>name: {frame.name}</div>
     <div>[width, height]: [{texture.userData.width}, {texture.userData.height}]</div>
@@ -141,30 +143,5 @@
     input[type="text"] {
         padding: .25em .5em;
         font-size: 1.2em;
-    }
-
-    .direction {
-        align-self: center;
-        padding: 2em 0em;
-        width: 12em;
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-    }
-    .direction button.selected {
-        background: green;
-    }
-    .direction span {
-        width: 2em;
-        text-align: center;
-        align-self: center;
-    }
-
-    .selector {
-        z-index: 1;
-        overflow-y: scroll;
-        max-height: 30em;
-        position: absolute;
-        display: flex;
-        flex-direction: column;
     }
 </style>

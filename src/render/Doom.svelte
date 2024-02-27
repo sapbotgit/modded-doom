@@ -103,7 +103,7 @@
     <div class="game">
         {#if !showMenu || $cameraMode === 'svg'}
         <div use:keyboardControls={game} />
-        <div use:keyboardCheatControls />
+        <div use:keyboardCheatControls={game} />
         {/if}
         {#if $isPointerLocked && !touchDevice}
         <div use:mouseControls={game} />

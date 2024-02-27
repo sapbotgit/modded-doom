@@ -1,12 +1,12 @@
 import type { Action, ActionReturn } from 'svelte/action';
-import { useAppContext, useDoom } from '../DoomContext';
+import { useAppContext } from '../DoomContext';
 import { defaultInventory, MapRuntime, type Game, type Store, mapMusicTrack } from '../../doom';
 import { allWeapons } from '../../doom/things/weapons';
 
-export const keyboardCheatControls: Action<HTMLElement> = (node): ActionReturn => {
+export const keyboardCheatControls: Action<HTMLElement, Game> = (node, param): ActionReturn => {
     const doc = node.ownerDocument;
     let { noclip, invicibility } = useAppContext().settings;
-    let { game } = useDoom();
+    let game = param;
 
     class CheatCode {
         private index = 0;
@@ -58,7 +58,10 @@ export const keyboardCheatControls: Action<HTMLElement> = (node): ActionReturn =
     const destroy = () => {
         doc.removeEventListener('keyup', keyup);
     }
-    return { destroy };
+    const update = (param: Game) => {
+        game = param;
+    };
+    return { destroy, update };
 };
 
 const toggleFn = (e: Store<boolean>, message: string) => (game: Game) => {

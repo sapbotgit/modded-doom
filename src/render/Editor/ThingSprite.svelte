@@ -10,5 +10,5 @@
     const frame = frames[frameNum][8] ?? frames[frameNum][0];
 </script>
 
-<div>{text}</div>
+<div class="text-xs">{text}</div>
 <Picture name={frame.name} />

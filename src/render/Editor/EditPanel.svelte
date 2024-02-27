@@ -16,8 +16,8 @@
 </script>
 
 {#if $editor.selected}
-    <div class="bg-base-100" transition:fly|local={{ x: -10 }}>
-        <button class="btn" on:click={close}>X</button>
+    <div class="bg-honeycomb" transition:fly|global={{ x: `100%` }}>
+        <button class="btn rounded-full w-20 block self-end" on:click={close}>X</button>
         {#key $editor.selected}
             {#if 'special' in $editor.selected}
                 <LinedefEditor {map} linedef={$editor.selected} />
@@ -45,12 +45,9 @@
         border-top-right-radius: .5em;
         border-bottom-right-radius: .5em;
         display: flex;
+        gap: 1em;
         flex-direction: column;
         justify-content: baseline;
         text-align: start;
-    }
-
-    button {
-        align-self: flex-end;
     }
 </style>
