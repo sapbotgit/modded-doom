@@ -16,6 +16,7 @@ export interface GameTime {
 export interface GameSettings {
     timescale: Store<number>;
     freelook: Store<boolean>;
+    xyAimAssist: Store<boolean>;
     zAimAssist: Store<boolean>;
     noclip: Store<boolean>;
     alwaysRun: Store<boolean>;
@@ -30,7 +31,7 @@ export interface GameSettings {
 export type Skill = 1 | 2 | 3 | 4 | 5;
 
 export const ticksPerSecond = 35;
-export const frameTickTime = 1 / ticksPerSecond;
+export const tickTime = 1 / ticksPerSecond;
 
 // player info persisted between levels
 interface PlayerInfo extends Omit<PlayerInventory, 'keys' | 'items'> {
@@ -115,7 +116,7 @@ export class Game {
         }
         // we need to process in 1/35s ticks (or less)
         delta *= this.settings.timescale.val;
-        const step = Math.min(frameTickTime, delta);
+        const step = Math.min(tickTime, delta);
 
         while (delta > 0) {
             const dt = Math.min(step, delta);
@@ -124,7 +125,7 @@ export class Game {
             this.time.elapsed += dt;
             this.time.isTick = false;
             if (this.time.elapsed > this.nextTickTime) {
-                this.nextTickTime += frameTickTime;
+                this.nextTickTime += tickTime;
                 this.time.tick.update(tick => tick += 1);
                 this.time.isTick = true;
             }

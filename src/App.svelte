@@ -78,15 +78,15 @@
         <div class="container mx-auto flex flex-col gap-2 pb-8">
             <button class="btn btn-secondary w-64" on:click={() => $urlHash = '#'}>❮ Select IWAD</button>
             <div
-                class="h-64 grid justify-items-center items-center bg-base-300 rounded-box"
+                class="h-32 grid justify-items-center items-center bg-base-300 rounded-box"
                 class:grid-cols-[1fr_auto_1fr]={mapName?.startsWith('E')}
             >
                 <span class="scale-[2]"><Picture {wad} name="M_DOOM" /></span>
                 {#if mapName?.startsWith('E')}
                     <div class="divider divider-horizontal"></div>
                     {@const ep = parseInt(mapName[1])}
-                    <button class="btn h-full relative" on:click={() => mapName = null}>
-                        <span><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                    <button class="btn h-full relative overflow-hidden" on:click={() => mapName = null}>
+                        <span class="scale-[2]"><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
                         <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
                     </button>
                 {/if}
@@ -98,8 +98,8 @@
                     <div class="grid sm:grid-cols-2 gap-4 mx-auto">
                         {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
                             {#if mapNames.includes(`E${ep}M1`)}
-                                <button class="btn h-full relative" on:click={() => mapName = `E${ep}M1`}>
-                                    <span><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                                <button class="btn h-full relative overflow-hidden" on:click={() => mapName = `E${ep}M1`}>
+                                    <span class="scale-[2]"><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
                                     <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
                                 </button>
                             {/if}

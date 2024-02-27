@@ -42,7 +42,7 @@
 <div class="absolute top-0 left-0 bottom-0 grid">
     <div transition:fly={{ x: "-100%" }} class="
         bg-honeycomb
-        w-screen max-w-96 overflow-scroll
+        w-screen max-w-96 overflow-y-scroll overflow-x-hidden
         flex flex-col pb-80 gap-2
     ">
         <div class="self-center pt-2"><a href="#{game.wad.name}"><Picture name="M_DOOM" /></a></div>
@@ -120,7 +120,7 @@
         </div>
         {/if}
 
-        <div class="flex items-center gap-4 text-xs px-2">
+        <div class="flex items-center gap-4 text-xs px-2 absolute bottom-4">
             <!-- svelte-ignore missing-declaration -->
             <span>v{APP_VERSION}</span>
             <a class="link" href="https://github.com/lloydmarkle/iso-doom" target="_black" rel="noreferrer">github</a>

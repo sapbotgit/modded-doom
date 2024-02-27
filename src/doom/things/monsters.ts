@@ -268,11 +268,6 @@ const doorTypes = [1, 32, 33, 34];
 const moveSpecials: LineTraceHit[] = [];
 export const monsterMoveActions: ActionMap = {
     [ActionIndex.A_Look]: (time, mobj) => {
-        if (!mobj.position) {
-            // TODO: this only happens during MapObject constructor because we call A_Look before we set position. Can we avoid this check?
-            // (see also A_Tracer)
-            return;
-        }
         mobj.chaseThreshold = 0;
 
         const soundTarget = mobj.sector.val.soundTarget;
@@ -369,18 +364,18 @@ export const monsterMoveActions: ActionMap = {
 
         // continue chase or find new chase direction
         mobj.movecount -= 1;
-        if (mobj.movecount < 0 || !canMove(mobj, mobj.movedir)) {
+        moveSpecials.length = 0;
+        if (mobj.movecount < 0 || !canMove(mobj, mobj.movedir, moveSpecials)) {
             newChaseDir(mobj, mobj.chaseTarget);
         }
 
-        moveSpecials.length = 0;
-        if (!(mobj.info.flags & MFFlags.MF_INFLOAT) && canMove(mobj, mobj.movedir, moveSpecials)) {
+        if (!(mobj.info.flags & MFFlags.MF_INFLOAT) && canMove(mobj, mobj.movedir)) {
             // NOTE: _moveVec is already set correctly by canMove()
             mobj.position.update(pos => pos.add(_moveVec));
-            // only trigger specials once per move otherwise we may open/close doors rapidly which looks silly
-            moveSpecials.forEach(hit =>
-                mobj.map.triggerSpecial(hit.line, mobj, doorTypes.includes(hit.line.special) ? 'S' : 'W', hit.side));
         }
+        // only trigger specials once per move otherwise we may open/close doors rapidly which looks silly
+        moveSpecials.forEach(hit =>
+            mobj.map.triggerSpecial(hit.line, mobj, doorTypes.includes(hit.line.special) ? 'S' : 'W', hit.side));
     },
     [ActionIndex.A_FaceTarget]: (time, mobj) => {
         if (!mobj.chaseTarget) {
@@ -451,9 +446,6 @@ export const monsterAttackActions: ActionMap = {
         }
     },
 	[ActionIndex.A_SkelMissile]: (time, mobj) => {
-        if (!mobj.chaseTarget) {
-	        return;
-        }
         allActions[ActionIndex.A_FaceTarget](time, mobj);
         const tracer = shootMissile(mobj, mobj.chaseTarget, MapObjectIndex.MT_TRACER);
         tracer.tracerTarget = mobj.chaseTarget;
@@ -917,13 +909,14 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
             const twoSided = Boolean(hit.line.left);
             if (twoSided) {
                 const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
+                const front = hit.side < 0 ? hit.line.right.sector : hit.line.left.sector;
                 const back = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
                 if (blocking) {
                     // if it's a blocking wall but the back sector is the same as the start sector, we allow the move
                     // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
                     // blocking wall/window ledges so this lets them move.
-                    // FIXME: this allows monsters to walk through the grate walls after the zigzag in E1M1. Hmmm.
-                    if (mobj.sector.val === back) {
+                    // Make sure front and back sectors are not the same (see grate walls after the zigzag in E1M1)
+                    if (mobj.sector.val === back && front !== back) {
                         return true;
                     }
                 } else {

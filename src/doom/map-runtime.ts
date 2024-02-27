@@ -4,7 +4,7 @@ import { Object3D, Vector3 } from "three";
 import { HALF_PI, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
-import { ticksPerSecond, type Game, type GameTime, type ControllerInput, frameTickTime } from "./game";
+import { ticksPerSecond, type Game, type GameTime, type ControllerInput, tickTime } from "./game";
 import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-things-info";
 import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
@@ -441,14 +441,14 @@ class GameInput {
         // clear for next eval (only xy, z is used for camera zoom and does not affect gameplay)
         this.input.aim.setX(0).setY(0);
 
+        // After playing with DSDA doom for a bit, the movement doesn't feel quite right so need some tweaks
+        // Some good info on: https://www.doomworld.com/forum/topic/87199-the-doom-movement-bible/
         this.input.move.x = Math.max(-1, Math.min(1, this.input.move.x));
         this.input.move.y = Math.max(-1, Math.min(1, this.input.move.y));
         this.input.move.z = Math.max(-1, Math.min(1, this.input.move.z));
-        // After playing with DSDA doom for a bit, the movement doesn't feel quite right so need some tweaks
-        // Some good info on: https://www.doomworld.com/forum/topic/87199-the-doom-movement-bible/
 
         const freeFly = this.player.info.flags & MFFlags.MF_NOGRAVITY;
-        const dt = delta * delta / frameTickTime;
+        const dt = delta * delta / tickTime;
         let speed = this.input.slow ? playerSpeeds['crawl?'] :
             this.alwaysRun.val !== this.input.run ? playerSpeeds['run'] : playerSpeeds['walk'];
         if (this.player.onGround || freeFly) {

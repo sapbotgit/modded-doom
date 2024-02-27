@@ -193,6 +193,8 @@ export const meleeRange = 1 * 64;
 export const scanRange = 16 * 64;
 export const attackRange = 32 * 64;
 const bulletDamage = () => 5 * randInt(1, 3);
+const bulletAngle = (player: MapObject, trace: ShotTracer) =>
+    player.map.game.settings.xyAimAssist.val ? trace.lastAngle : player.direction.val;
 
 const weaponBobTime = 128 / ticksPerSecond;
 // TODO: I'd actually like to remove these from ActionIndex and instead make them completely local to weapon.ts
@@ -280,8 +282,8 @@ export const weaponActions: { [key: number]: WeaponAction } = {
             damage *= 10;
         }
 
-        let angle = player.direction.val + angleNoise(20);
         const slope = shotTracer.zAim(player, meleeRange);
+        const angle = bulletAngle(player, shotTracer) + angleNoise(20);
         shotTracer.fire(player, damage, angle, slope, meleeRange);
 
         // turn to face target
@@ -292,10 +294,10 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     },
     [ActionIndex.A_Saw]: (time, player, weapon) => {
         let damage = randInt(1, 10) * 2;
-        let angle = player.direction.val + angleNoise(20);
 
         // use meleerange + 1 so the puff doesn't skip the flash
         const slope = shotTracer.zAim(player, meleeRange + 1);
+        const angle = bulletAngle(player, shotTracer) + angleNoise(20);
         shotTracer.fire(player, damage, angle, slope, meleeRange + 1);
 
         if (!shotTracer.lastTarget) {
@@ -328,7 +330,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         player.map.game.playSound(SoundIndex.sfx_pistol, player);
 
         const slope = shotTracer.zAim(player, scanRange);
-        let angle = player.direction.val;
+        let angle = bulletAngle(player, shotTracer);
         if (player.refire) {
             // mess up angle slightly for refire
             angle += angleNoise(20);
@@ -341,7 +343,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         player.map.game.playSound(SoundIndex.sfx_shotgn, player);
 
         const slope = shotTracer.zAim(player, scanRange);
-        const angle = player.direction.val;
+        const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 7; i++) {
             shotTracer.fire(player, bulletDamage(), angle + angleNoise(20), slope, attackRange);
         }
@@ -356,7 +358,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         player.map.game.playSound(SoundIndex.sfx_dshtgn, player);
 
         const slope = shotTracer.zAim(player, scanRange);
-        let angle = player.direction.val;
+        const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 20; i++) {
             shotTracer.fire(player, bulletDamage(), angle + angleNoise(15), slope + angleNoise(30), attackRange);
         }
@@ -379,7 +381,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         player.map.game.playSound(SoundIndex.sfx_pistol, player);
 
         const slope = shotTracer.zAim(player, scanRange);
-        let angle = player.direction.val;
+        let angle = bulletAngle(player, shotTracer);
         if (player.refire) {
             // mess up angle slightly for refire
             angle += angleNoise(20);
@@ -445,14 +447,16 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 const _shotEuler = new Euler(0, 0, 0, 'ZXY');
 class ShotTracer {
     private _lastTarget: MapObject;
-    get lastTarget() { return this._lastTarget; };
+    get lastTarget() { return this._lastTarget; }
+    private _lastAngle: number;
+    get lastAngle() { return this._lastAngle; }
 
     private start = new Vector3();
     private direction = new Vector3();
     zAim(shooter: MapObject | PlayerMapObject, range: number) {
         this.start.copy(shooter.position.val);
         this.start.z += shooter.info.height * .5 + 8;
-        const dir = shooter.direction.val;
+        let dir = shooter.direction.val;
         this.direction.set(
             Math.cos(dir) * range,
             Math.sin(dir) * range,
@@ -462,21 +466,22 @@ class ShotTracer {
         shooter.map.data.traceRay(this.start, this.direction, aim.fn);
         if (!aim.target) {
             // try aiming slightly left to see if we hit a target
-            let dir2 = dir + Math.PI / 40;
-            this.direction.x = Math.cos(dir2) * range;
-            this.direction.y = Math.sin(dir2) * range;
+            dir = shooter.direction.val + Math.PI / 40;
+            this.direction.x = Math.cos(dir) * range;
+            this.direction.y = Math.sin(dir) * range;
             aimTrace(shooter, this.start.z, range);
             shooter.map.data.traceRay(this.start, this.direction, aim.fn);
         }
         if (!aim.target) {
             // try aiming slightly right to see if we hit a target
-            let dir2 = dir - Math.PI / 40;
-            this.direction.x = Math.cos(dir2) * range;
-            this.direction.y = Math.sin(dir2) * range;
+            dir = shooter.direction.val - Math.PI / 40;
+            this.direction.x = Math.cos(dir) * range;
+            this.direction.y = Math.sin(dir) * range;
             aimTrace(shooter, this.start.z, range);
             shooter.map.data.traceRay(this.start, this.direction, aim.fn);
         }
 
+        this._lastAngle = dir;
         this._lastTarget = aim.target;
         if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
             // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
@@ -662,18 +667,17 @@ function aimTrace(shooter: MapObject, shootZ: number, range: number): AimTrace {
 
 type PlayerMissileType = MapObjectIndex.MT_PLASMA | MapObjectIndex.MT_ROCKET | MapObjectIndex.MT_BFG;
 function shootMissile(shooter: MapObject, type: PlayerMissileType) {
-    const angle = shooter.direction.val;
     const pos = shooter.position.val;
+    const slope = shotTracer.zAim(shooter, scanRange);
+    _shotEuler.set(0, Math.acos(slope) - HALF_PI, shotTracer.lastAngle);
+
     const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32);
-    missile.direction.set(angle);
+    missile.velocity.set(missile.info.speed, 0, 0).applyEuler(_shotEuler);
+    missile.direction.set(shotTracer.lastAngle);
     missile.map.game.playSound(missile.info.seesound, missile);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.
     missile.chaseTarget = shooter;
-
-    const slope = shotTracer.zAim(shooter, scanRange);
-    _shotEuler.set(0, Math.acos(slope) - HALF_PI, angle);
-    missile.velocity.set(missile.info.speed, 0, 0).applyEuler(_shotEuler);
 }
 
 function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {

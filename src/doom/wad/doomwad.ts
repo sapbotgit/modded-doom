@@ -61,7 +61,9 @@ export class DoomWad {
             const sStartIndex = wad.raw.findIndex(e => e.name === 'S_START' || e.name === 'SS_START');
             const sEndIndex = wad.raw.findIndex(e => e.name === 'S_END' || e.name === 'SS_END');
             for (let i = sStartIndex; i < sEndIndex; i++) {
-                sprites.set(wad.raw[i].name, wad.raw[i]);
+                if (!wad.raw[i].name.endsWith('_START') && !wad.raw[i].name.endsWith('_END')) {
+                    sprites.set(wad.raw[i].name, wad.raw[i]);
+                }
             }
 
             const fStartIndex = wad.raw.findIndex(e => e.name === 'F_START' || e.name === 'FF_START');

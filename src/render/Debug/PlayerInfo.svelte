@@ -4,13 +4,14 @@
 <script lang="ts">
     import { Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { ToDegrees, ticksPerSecond } from "../../doom";
+    import { ToDegrees, tickTime, ticksPerSecond } from "../../doom";
     import { fly } from "svelte/transition";
     import { writable } from "svelte/store";
 
     export let player: PlayerMapObject;
     export let interactive = true;
-    const { position, direction, velocity, sector, inventory } = player;
+    const { position, direction, sector, inventory } = player;
+    const tick = player.map.game.time.tick;
 
     const debugBuild = import.meta.env.DEV;
     let vh: number;
@@ -19,6 +20,12 @@
         subsectors = []
         player.subsectors(s => subsectors.push(s));
         vh = player.computeViewHeight(player.map.game.time);
+    }
+
+    let velocity = player.velocity;
+    $: if ($tick & 10) {
+        // rx hack because velocity is not a store
+        velocity = player.velocity;
     }
 
     function vec(v: Vector3) {
@@ -34,9 +41,10 @@
         }
     }
 
-    function tickTime(ticks: number) {
+    function timeFromTicks(ticks: number) {
         return (ticks / ticksPerSecond).toFixed(2);
     }
+    const velocityPerTick = (vel: number) => Math.sign(vel) * Math.sqrt(Math.abs(vel) / tickTime);
 </script>
 
 {#if $visible}
@@ -47,7 +55,7 @@
         transition:fly={{ y: 200}}
     >
         <div>pos: {vec($position)}</div>
-        <div>vel: {vec(velocity)}</div>
+        <div>vel: {vec(velocity)} {velocityPerTick(velocity.length()).toFixed(2)}</div>
         <div>dir: [{($direction * ToDegrees).toFixed(3)}]</div>
         <div class:hidden={!debugBuild}>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
         <div class:hidden={!debugBuild}>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
@@ -60,15 +68,15 @@
             <button class="btn" on:click={() => player.bonusCount.update(val => val + 6)}>bouns flash</button>
             <button class="btn" on:click={() => player.damageCount.update(val => val + 10)}>hurt flash</button>
             <button class="btn" on:click={updateInv(inv => inv.items.invincibilityTicks += 4 * ticksPerSecond)}>
-                +4s invuln {tickTime($inventory.items.invincibilityTicks)}</button>
+                +4s invuln {timeFromTicks($inventory.items.invincibilityTicks)}</button>
             <button class="btn" on:click={updateInv(inv => inv.items.radiationSuitTicks += 4 * ticksPerSecond)}>
-                +4s rad suit {tickTime($inventory.items.radiationSuitTicks)}</button>
+                +4s rad suit {timeFromTicks($inventory.items.radiationSuitTicks)}</button>
             <button class="btn" on:click={updateInv(inv => inv.items.berserkTicks += 4 * ticksPerSecond)}>
-                +4s berserk {tickTime($inventory.items.berserkTicks)}</button>
+                +4s berserk {timeFromTicks($inventory.items.berserkTicks)}</button>
             <button class="btn" on:click={updateInv(inv => inv.items.nightVisionTicks += 4 * ticksPerSecond)}>
-                +4s lightamp {tickTime($inventory.items.nightVisionTicks)}</button>
+                +4s lightamp {timeFromTicks($inventory.items.nightVisionTicks)}</button>
             <button class="btn" on:click={updateInv(inv => inv.items.invisibilityTicks += 4 * ticksPerSecond)}>
-                +4s invis {tickTime($inventory.items.invisibilityTicks)}</button>
+                +4s invis {timeFromTicks($inventory.items.invisibilityTicks)}</button>
         </div>
     </div>
 </div>

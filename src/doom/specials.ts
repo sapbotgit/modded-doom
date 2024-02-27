@@ -14,6 +14,7 @@ export function triggerSpecial(mobj: MapObject, linedef: LineDef, trigger: Trigg
     if (linedef.special === 9) {
         return donut(mobj, linedef, trigger, side);
     }
+    // TODO: soooo many warnings from doing it this way. It would be better to have a single array rather than one per action type
     return (
         createDoorAction(mobj, linedef, trigger, side) ??
         createLiftAction(mobj, linedef, trigger) ??
@@ -115,20 +116,24 @@ function crunchMapObject(mobj: MapObject) {
     if (mobj.info.flags & MFFlags.MF_DROPPED) {
         // dropped items get destroyed
         mobj.map.destroy(mobj);
-        return;
+        return false;
     }
 
-    if (mobj.health.val <= 0) {
+    if (mobj.isDead) {
         // crunch any bodies into blood pools
         mobj.setState(StateIndex.S_GIBS);
         mobj.info.flags &= ~MFFlags.MF_SOLID;
         mobj.info.height = 0;
+        return false;
     }
+    // we must have hit something solid
+    return true;
 }
 
 function crunchAndDamageMapObject(mobj: MapObject) {
-    crunchMapObject(mobj);
+    let hitSolid = crunchMapObject(mobj);
     if ((mobj.info.flags & MFFlags.MF_SHOOTABLE) && (mobj.map.game.time.tick.val & 3) === 0) {
+        hitSolid = true;
         mobj.damage(10, null, null);
         // spray blood
         const pos = mobj.position.val;
@@ -138,6 +143,7 @@ function crunchAndDamageMapObject(mobj: MapObject) {
             randInt(-255, 255) * 0.0625,
             0);
     }
+    return hitSolid;
 }
 
 // Doors
@@ -310,11 +316,12 @@ export const createDoorAction = (mobj: MapObject, linedef: LineDef, trigger: Tri
                 if (sector.specialData === -1) {
                     const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
                     if (crushing.length) {
-                        // TODO: if all objects are crushed (dropped items or pools of blood), then we probably don't want to reverse direction
-                        crushing.forEach(crunchMapObject);
-                        // force door to open
-                        sector.specialData = 1;
-                        return original;
+                        let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
+                        if (hitSolid) {
+                            // force door to open
+                            sector.specialData = 1;
+                            return original;
+                        }
                     }
                 }
 
@@ -444,10 +451,13 @@ export const createLiftAction = ( mobj: MapObject, linedef: LineDef, trigger: Tr
                 if (direction === 1) {
                     const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, val, sector.zCeil.val));
                     if (crushing.length) {
-                        // switch direction
-                        direction = -1;
-                        ticks = 0;
-                        return original;
+                        let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
+                        if (hitSolid) {
+                            // switch direction
+                            direction = -1;
+                            ticks = 0;
+                            return original;
+                        }
                     }
                 }
 
@@ -573,8 +583,10 @@ export const createFloorAction = (mobj: MapObject, linedef: LineDef,  trigger: T
                     const crunch = def.crush ? crunchAndDamageMapObject : crunchMapObject;
                     const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, val, sector.zCeil.val));
                     if (crushing.length) {
-                        crushing.forEach(crunch);
-                        return original;
+                        let hitSolid = crushing.reduce((res, mo) => crunch(mo) || res, false);
+                        if (hitSolid) {
+                            return original;
+                        }
                     }
                 }
 
@@ -659,8 +671,10 @@ export const createCeilingAction = (mobj: MapObject, linedef: LineDef, trigger: 
                 if (def.direction === -1) {
                     const crushing = mobjs.filter(mobj => !mobj.canSectorChange(sector, sector.zFloor.val, val));
                     if (crushing.length) {
-                        crushing.forEach(crunchMapObject);
-                        return original;
+                        let hitSolid = crushing.reduce((res, mo) => crunchMapObject(mo) || res, false);
+                        if (hitSolid) {
+                            return original;
+                        }
                     }
                 }
 

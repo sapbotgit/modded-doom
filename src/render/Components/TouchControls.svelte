@@ -34,7 +34,7 @@
         }
     }
 
-    function clipMove(val: number) {
+    function analogClip(val: number) {
         if (Math.abs(val) < $touchDeadZone) {
             return 0;
         }
@@ -42,7 +42,7 @@
         return Math.max(-1, Math.min(1, scaled));
     }
 
-    function analogClip(val: number) {
+    function dpadClip(val: number) {
         if (Math.abs(val) < $touchDeadZone) {
             return 0;
         }
@@ -104,8 +104,8 @@
                 input.move.x = analogClip((t.clientX - box.midX) / box.halfWidth);
                 input.move.y = analogClip(-(t.clientY - box.midY) / box.halfHeight);
             } else {
-                input.move.x = clipMove((t.clientX - box.midX) / box.halfWidth);
-                input.move.y = clipMove(-(t.clientY - box.midY) / box.halfHeight);
+                input.move.x = dpadClip((t.clientX - box.midX) / box.halfWidth);
+                input.move.y = dpadClip(-(t.clientY - box.midY) / box.halfHeight);
             }
             node.dispatchEvent(new CustomEvent<{ x: number, y: number }>('touch-point', { detail: input.move }));
         }
@@ -205,8 +205,8 @@
         }
 
         function updateTouch(t: Touch) {
-            aim.x = clipMove((t.clientX - box.midX) / box.halfWidth);
-            aim.y = clipMove((t.clientY - box.midY) / box.halfHeight);
+            aim.x = analogClip((t.clientX - box.midX) / box.halfWidth);
+            aim.y = analogClip((t.clientY - box.midY) / box.halfHeight);
             node.dispatchEvent(new CustomEvent('touch-point', { detail: aim }));
         }
 
@@ -276,7 +276,7 @@
         style="--px:{movePoint.x}%; --py:{100 - movePoint.y}%; --size:{$touchTargetSize}em;"
         class="touchGradient border-2 border-primary-content rounded-full"
         class:extra-active={useButton || useLock}
-        class:analog-move={$analogMovement}
+        class:dpad-move={!$analogMovement}
     />
     <div
         class="touchGradient rounded-full relative"
@@ -335,7 +335,7 @@
         height: var(--size);
     }
 
-    .analog-move {
+    .dpad-move {
         --grad-size: 40%;
         clip-path: polygon(35% 0%,65% 0%,65% 35%,100% 35%,100% 60%,65% 60%,65% 100%,35% 100%,35% 60%,0% 60%,0% 35%,35% 35%);
         background-color: oklch(var(--b1));
