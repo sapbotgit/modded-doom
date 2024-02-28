@@ -24,22 +24,32 @@
     }
 </script>
 
-<label class="label cursor-pointer flex gap-2">
-    <div class="label-text">iddqd (invicibility)</div>
-    <input type="checkbox" class="checkbox" bind:checked={$invicibility} />
-</label>
-<label class="label cursor-pointer flex gap-2">
-    <div class="label-text">idclip (walk through walls)</div>
-    <input type="checkbox" class="checkbox" bind:checked={$noclip} />
-</label>
-<label class="label cursor-pointer flex gap-2">
-    <div class="label-text">free fly</div>
-    <input type="checkbox" class="checkbox" bind:checked={$freeFly} />
-</label>
-<button class="btn" on:click={() => idfa(player.map.game)}>idfa (full ammo and weapons)</button>
-<button class="btn" on:click={() => idkfa(player.map.game)}>idkfa (keys, ammo, and weapons)</button>
-<button class="btn" on:click={revive}>Revive</button>
-<label class="label cursor-pointer flex gap-2">
-    <div class="label-text">Debug player info</div>
-    <input type="checkbox" class="checkbox" bind:checked={$visible} />
-</label>
+<ul class="menu">
+    <li>
+        <label class="label cursor-pointer flex gap-2">
+            <div class="label-text">iddqd (invicibility)</div>
+            <input type="checkbox" class="checkbox" bind:checked={$invicibility} />
+        </label>
+    </li>
+    <li>
+        <label class="label cursor-pointer flex gap-2">
+            <div class="label-text">idclip (walk through walls)</div>
+            <input type="checkbox" class="checkbox" bind:checked={$noclip} />
+        </label>
+    </li>
+    <li>
+        <label class="label cursor-pointer flex gap-2">
+            <div class="label-text">free fly</div>
+            <input type="checkbox" class="checkbox" bind:checked={$freeFly} />
+        </label>
+    </li>
+    <li><button class="btn" on:click={() => idfa(player.map.game)}>idfa (full ammo and weapons)</button></li>
+    <li><button class="btn" on:click={() => idkfa(player.map.game)}>idkfa (keys, ammo, and weapons)</button></li>
+    <li><button class="btn" on:click={revive}>Revive</button></li>
+    <li>
+        <label class="label cursor-pointer flex gap-2">
+            <div class="label-text">Debug player info</div>
+            <input type="checkbox" class="checkbox" bind:checked={$visible} />
+        </label>
+    </li>
+</ul>

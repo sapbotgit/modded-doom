@@ -17,7 +17,7 @@
     import MusicPlayer from "./MusicPlayer.svelte";
     import SoundPlayer from "./SoundPlayer.svelte";
     import Menu from "./Menu/Menu.svelte";
-    import TouchControls from "./Components/TouchControls.svelte";
+    import TouchControls from "./Controls/TouchControls.svelte";
     import { keyboardCheatControls } from "./Controls/KeyboardCheatControls";
 
     export let game: Game;
@@ -101,14 +101,6 @@
     bind:clientWidth={viewSize.width}
 >
     <div class="game">
-        {#if !showMenu || $cameraMode === 'svg'}
-        <div use:keyboardControls={game} />
-        <div use:keyboardCheatControls={game} />
-        {/if}
-        {#if $isPointerLocked && !touchDevice}
-        <div use:mouseControls={game} />
-        {/if}
-
         {#if $intermission}
             {#key $intermission}
                 <Intermission
@@ -139,6 +131,13 @@
             <SoundPlayer {game} player={$map.player} gain={soundGain} />
         </MapContext>
 
+        {#if !showMenu || $cameraMode === 'svg'}
+        <div use:keyboardControls={game} />
+        <div use:keyboardCheatControls={game} />
+        {/if}
+        {#if $isPointerLocked && !touchDevice}
+        <div use:mouseControls={game} />
+        {/if}
         {#if touchDevice && !showMenu}
             <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -150,7 +149,7 @@
     </div>
 
     {#if showMenu}
-        <Menu {requestLock} />
+        <Menu {viewSize} {requestLock} />
     {/if}
 
     <MapContext map={$map} {renderSectors}>

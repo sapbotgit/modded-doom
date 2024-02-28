@@ -1,16 +1,16 @@
 <script lang="ts">
     import type { EventHandler } from "svelte/elements";
-    import type { Game, PlayerMapObject } from "../../doom";
-    import RoundMenu from "./RoundMenu.svelte";
-    import type { Vector3 } from "three";
+    import { Game, type PlayerMapObject } from "../../doom";
+    import RoundMenu from "../Components/RoundMenu.svelte";
     import type { Action, ActionReturn } from "svelte/action";
-    import Picture from "./Picture.svelte";
+    import Picture from "../Components/Picture.svelte";
     import type { Size } from "@threlte/core";
     import { useAppContext } from "../DoomContext";
 
     export let game: Game;
     export let viewSize: Size;
     export let player: PlayerMapObject = null;
+    export let showDeadZone = false;
     $: tick = game.time.tick;
 
     const { settings } = useAppContext();
@@ -58,96 +58,25 @@
         return tl[0];
     }
 
-    $: touchParams = { input: game.input, viewSize };
-    type Params = typeof touchParams;
+    type Params = { viewSize: Size, clipFn: (x: number) => number };
+    type Point = { x: number, y: number };
     interface Attributes {
-        'on:touch-point': EventHandler<CustomEvent<Vector3>>;
+        'on:tzone-point': EventHandler<CustomEvent<Point>>;
+        'on:tzone-tap': EventHandler;
+        'on:tzone-lock': EventHandler;
+        'on:tzone-unlock': EventHandler;
     }
 
-    // TODO: combine similar parts of move controls and look controls
-    // TODO: alternatively, maybe we can make this simpler by not using an action and instead having on:touchstart, on:touchmove, etc. on the DOM node?
-    const touchMoveControls: Action<HTMLElement, Params, Attributes> = (node, params): ActionReturn<Params, Attributes> => {
-        let { input } = params;
+    const touchZoneControls: Action<HTMLElement, Params, Attributes> = (node, params): ActionReturn<Params, Attributes> => {
+        let { clipFn } = params;
 
-        let touchTime = 0;
-        let touchNum: number;
-        let bounds: DOMRect;
-        let box = { midX: 0, midY: 0, halfWidth: 0, halfHeight: 0 };
-        resize();
-
-        node.addEventListener('touchstart', touchstart);
-        node.addEventListener('touchmove', touchmove);
-        node.addEventListener('touchend', touchend);
-        node.addEventListener('touchcancel', touchend);
-        const update = (params: Params) => {
-            input = params.input;
-            resize();
-        };
-        const destroy = () => {
-            node.removeEventListener('touchstart', touchstart);
-            node.removeEventListener('touchmove', touchmove);
-            node.removeEventListener('touchend', touchend);
-            node.removeEventListener('touchcancel', touchend);
-        }
-        return { update, destroy };
-
-        function resize() {
-            bounds = node.getBoundingClientRect();
-            box.midX = (bounds.left + bounds.right) * .5;
-            box.midY = (bounds.top + bounds.bottom) * .5;
-            box.halfWidth = bounds.width * .5;
-            box.halfHeight = bounds.height * .5;
-        }
-
-        function updateTouch(t: Touch) {
-            if ($analogMovement) {
-                input.move.x = analogClip((t.clientX - box.midX) / box.halfWidth);
-                input.move.y = analogClip(-(t.clientY - box.midY) / box.halfHeight);
-            } else {
-                input.move.x = dpadClip((t.clientX - box.midX) / box.halfWidth);
-                input.move.y = dpadClip(-(t.clientY - box.midY) / box.halfHeight);
-            }
-            node.dispatchEvent(new CustomEvent<{ x: number, y: number }>('touch-point', { detail: input.move }));
-        }
-
-        function touchstart(ev: TouchEvent) {
-            const now = nowTime();
-            const elapsed = (now - touchTime);
-            // Is this even useful? It's symmetric with attack but I can't imagine someone doing this
-            if (elapsed < 2 * $tapTriggerTime) {
-                useLock = true;
-            }
-            touchTime = now;
-
-            touchNum = ev.changedTouches[0].identifier;
-            updateTouch(findTouch(ev.touches, touchNum));
-        }
-
-        function touchmove(ev: TouchEvent) {
-            updateTouch(findTouch(ev.touches, touchNum));
-            ev.preventDefault();
-        }
-
-        function touchend(ev: TouchEvent) {
-            if (nowTime() - touchTime < $tapTriggerTime) {
-                useButton = true;
-            }
-            useLock = false;
-
-            input.move.set(0, 0, 0);
-            node.dispatchEvent(new CustomEvent<{ x: number, y: number }>('touch-point', { detail: input.move }));
-        }
-    };
-
-    const touchLookControls: Action<HTMLElement, Params, Attributes> = (node, params): ActionReturn<Params, Attributes> => {
-        let { input } = params;
-
+        let tapLock = false;
         let touchTime = 0;
         let touchNum: number;
         let touchActive = false;
         let bounds: DOMRect;
         let box = { midX: 0, midY: 0, halfWidth: 0, halfHeight: 0 };
-        let aim = { x: 0, y: 0 };
+        let point = { x: 0, y: 0 };
         resize();
 
         node.addEventListener('touchstart', touchstart);
@@ -155,7 +84,7 @@
         node.addEventListener('touchend', touchend);
         node.addEventListener('touchcancel', touchend);
         const update = (params: Params) => {
-            input = params.input;
+            clipFn = params.clipFn;
             resize();
         };
         const destroy = () => {
@@ -175,49 +104,52 @@
         }
 
         function touchstart(ev: TouchEvent) {
+            ev.preventDefault();
             const now = nowTime();
             const elapsed = (now - touchTime);
             if (elapsed < 2 * $tapTriggerTime) {
-                attackLock = true;
+                tapLock = true;
+                node.dispatchEvent(new Event('tzone-lock'));
             }
             touchTime = now;
 
             touchNum = ev.changedTouches[0].identifier;
+            // don't start a second tick function if one is already active
+            if (!touchActive) {
+                requestAnimationFrame(onTick);
+            }
             touchActive = true;
-            requestAnimationFrame(onTick);
             updateTouch(findTouch(ev.touches, touchNum));
         }
 
         function touchmove(ev: TouchEvent) {
-            updateTouch(findTouch(ev.touches, touchNum));
             ev.preventDefault();
+            updateTouch(findTouch(ev.touches, touchNum));
         }
 
         function touchend(ev: TouchEvent) {
+            ev.preventDefault();
             if (nowTime() - touchTime < $tapTriggerTime) {
-                attackButton = true;
+                node.dispatchEvent(new Event('tzone-tap'));
             }
-            attackLock = false;
-
+            tapLock = false;
+            node.dispatchEvent(new Event('tzone-unlock'));
             touchActive = false;
-            aim.x = aim.y = 0;
-            node.dispatchEvent(new CustomEvent('touch-point', { detail: aim }));
+            point.x = point.y = 0;
         }
 
         function updateTouch(t: Touch) {
-            aim.x = analogClip((t.clientX - box.midX) / box.halfWidth);
-            aim.y = analogClip((t.clientY - box.midY) / box.halfHeight);
-            node.dispatchEvent(new CustomEvent('touch-point', { detail: aim }));
+            point.x = clipFn((t.clientX - box.midX) / box.halfWidth);
+            point.y = clipFn((t.clientY - box.midY) / box.halfHeight);
         }
 
         function onTick() {
-            input.aim.x = $touchLookSpeed * aim.x;
-            input.aim.y = $touchLookSpeed * aim.y;
+            node.dispatchEvent(new CustomEvent('tzone-point', { detail: point }));
             if (touchActive) {
                 requestAnimationFrame(onTick);
             }
         }
-    }
+    };
 
     const weaponSprites: [string, number, number][] = [
         ['PUNGB0', 26, -5],
@@ -256,41 +188,59 @@
         }
     }
 
-    type Point = { x: number, y: number };
     let movePoint = { x: 50, y: 50 };
+    function touchMove(ev: CustomEvent<Point>) {
+        movePoint.x = (ev.detail.x + 1) * 50;
+        movePoint.y = (ev.detail.y + 1) * 50;
+        game.input.move.x = ev.detail.x;
+        game.input.move.y = -ev.detail.y;
+    }
+
     let lookPoint = { x: 50, y: 50 };
-    const touchPoint = (point: Point, ev: CustomEvent<Vector3>) => {
-        point.x = (ev.detail.x + 1) * 50;
-        point.y = (ev.detail.y + 1) * 50;
-        return point;
-    };
+    function touchLook(ev: CustomEvent<Point>) {
+        lookPoint.x = (ev.detail.x + 1) * 50;
+        lookPoint.y = (ev.detail.y + 1) * 50;
+        game.input.aim.x = $touchLookSpeed * ev.detail.x;
+        game.input.aim.y = $touchLookSpeed * ev.detail.y;
+    }
 </script>
 
 <div
     class="absolute w-full flex justify-between opacity-30"
-    style="padding-inline:{$touchTargetHzPadding}em; bottom:{$touchTargetVPadding}em;"
->
+    style="
+        --deadZone:{$touchDeadZone * 100}%;
+        padding-inline:{$touchTargetHzPadding}rem;
+        bottom:{$touchTargetVPadding}rem;
+">
     <div
-        use:touchMoveControls={touchParams}
-        on:touch-point={ev => movePoint = touchPoint(movePoint, ev)}
-        style="--px:{movePoint.x}%; --py:{100 - movePoint.y}%; --size:{$touchTargetSize}em;"
-        class="touchGradient border-2 border-primary-content rounded-full"
+        use:touchZoneControls={{ viewSize, clipFn: $analogMovement ? analogClip : dpadClip }}
+        on:tzone-tap={() => useButton = true}
+        on:tzone-lock={() => useLock = true}
+        on:tzone-unlock={() => useLock = false}
+        on:tzone-point={touchMove}
+        style="--px:{movePoint.x}%; --py:{movePoint.y}%; --size:{$touchTargetSize}rem;"
+        class="touchGradient border-2 border-accent border-opacity-40 rounded-full"
+        class:show-dead-zone={showDeadZone}
         class:extra-active={useButton || useLock}
         class:dpad-move={!$analogMovement}
     />
     <div
         class="touchGradient rounded-full relative"
-        style="--px:50%; --py:50%; --size:{$touchTargetSize * .8}em; top:{$touchTargetVPadding * .5}em;"
+        style="--px:50%; --py:50%; --size:{$touchTargetSize * .8}em; top:{$touchTargetVPadding * .5}rem;"
         on:touchstart|preventDefault={() => showWeaponMenu = true}
         on:touchmove|preventDefault={weaponWheelTouchMove}
         on:touchend={weaponWheelTouchEnd}
         on:touchcancel={() => showWeaponMenu = false}
     />
     <div
-        use:touchLookControls={touchParams}
-        on:touch-point={ev => lookPoint = touchPoint(lookPoint, ev)}
-        style="--px:{lookPoint.x}%; --py:{lookPoint.y}%; --size:{$touchTargetSize}em;"
-        class="touchGradient border-2 border-primary-content rounded-full"
+        use:touchZoneControls={{ viewSize, clipFn: analogClip }}
+        on:tzone-tap={() => attackButton = true}
+        on:tzone-lock={() => attackLock = true}
+        on:tzone-unlock={() => attackLock = false}
+        on:tzone-point={touchLook}
+        style="--px:{lookPoint.x}%; --py:{lookPoint.y}%; --size:{$touchTargetSize}rem;"
+        class="touchGradient border-2 border-accent border-opacity-40 rounded-full"
+        class:show-dead-zone={showDeadZone}
         class:extra-active={attackButton || attackLock}
     />
 </div>
@@ -338,14 +288,21 @@
     .dpad-move {
         --grad-size: 40%;
         clip-path: polygon(35% 0%,65% 0%,65% 35%,100% 35%,100% 60%,65% 60%,65% 100%,35% 100%,35% 60%,0% 60%,0% 35%,35% 35%);
-        background-color: oklch(var(--b1));
+        /* background-color: oklch(var(--b1)); */
         border: none;
         border-radius: 0;
+        transform: scale(.8)
     }
 
     .extra-active {
         --a: var(--s);
         --grad-bg: oklch(var(--b3));
+    }
+
+    .show-dead-zone {
+        --a: var(--b1);
+        --grad-bg: oklch(var(--p));
+        --grad-size: var(--deadZone);
     }
 
     .wbutton:focus {
