@@ -109,18 +109,22 @@
         }
     };
 
+    const clipDragPoint = (n: number, dimension: number, fontSize: number) =>
+        Math.min(dimension / fontSize * .5, Math.max(0, n / fontSize));
     function dragPad(ev: CustomEvent<Point>) {
         // Adjust hzPadding (distance from side of screen) and vPadding (distance from bottom)
-        // TODO: font-size is 16 so... how do we go from px to em?
-        $touchTargetHzPadding = Math.min(viewSize.width / 16 * .5, Math.max(0, ev.detail.x / 16));
-        $touchTargetVPadding = Math.min(viewSize.height / 16 * .5, Math.max(0, (viewSize.height - ev.detail.y) / 16));
+        const fs = window.getComputedStyle(ev.target as HTMLElement).fontSize;
+        const fontSize = fs.endsWith('px') ? parseFloat(fs) : 16;
+        $touchTargetHzPadding = clipDragPoint(ev.detail.x, viewSize.width, fontSize);
+        $touchTargetVPadding = clipDragPoint(viewSize.height - ev.detail.y, viewSize.height, fontSize);
     }
 
     function dragPad2(ev: CustomEvent<Point>) {
         // Adjust hzPadding (distance from side of screen) and vPadding (distance from bottom)
-        // TODO: font-size is 16 so... how do we go from px to em?
-        $touchTargetHzPadding = Math.min(viewSize.width / 16 * .5, Math.max(0, (viewSize.width - ev.detail.x) / 16));
-        $touchTargetVPadding = Math.min(viewSize.height / 16 * .5, Math.max(0, (viewSize.height - ev.detail.y) / 16));
+        const fs = window.getComputedStyle(ev.target as HTMLElement).fontSize;
+        const fontSize = fs.endsWith('px') ? parseFloat(fs) : 16;
+        $touchTargetHzPadding = clipDragPoint(viewSize.width - ev.detail.x, viewSize.width, fontSize);
+        $touchTargetVPadding = clipDragPoint(viewSize.height - ev.detail.y, viewSize.height, fontSize);
     }
 
     let showDeadZone = false;

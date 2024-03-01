@@ -3,10 +3,10 @@ import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
 import { type GameTime } from '../game';
 import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
-import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToDegrees, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
+import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
-import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector } from '../map-data';
+import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
 import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
 import { exitLevel } from '../specials';
 
@@ -242,11 +242,11 @@ export function propagateSound(emitter: MapObject) {
     propagateSoundRecursive(emitter, soundPropagateCount++, emitter.sector.val);
 }
 
-function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sector) {
+function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sector, depth = 0) {
     for (const seg of sector.portalSegs) {
         const sector = (seg.direction ? seg.linedef.right : seg.linedef.left).sector;
-        // already visited sector OR linedef blocks sound
-        if (sector.soundC === count || seg.linedef.flags & 0x0040) {
+        // already visited sector
+        if (sector.soundC === count) {
             continue;
         }
         sector.soundC = count;
@@ -256,9 +256,14 @@ function propagateSoundRecursive(emitter: MapObject, count: number, sector: Sect
         if (gap <= 0) {
             continue;
         }
-
         sector.soundTarget = emitter;
-        propagateSoundRecursive(emitter, count, sector);
+
+        // Sound block doesn't work as I'd expect. See Doom2 MAP01:
+        // https://doomwiki.org/wiki/Sound_propagation and https://www.doomworld.com/forum/topic/109773-block-sound-not-working/
+        if (seg.linedef.flags & 0x0040 && depth > 0) {
+            continue;
+        }
+        propagateSoundRecursive(emitter, count, sector, depth + 1);
     }
 }
 
@@ -887,12 +892,20 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
 
 const _moveEnd = new Vector3();
 function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTraceHit[]) {
-    let blocker: TraceHit = null;
     // a simplified (and subtly different) version of the move trace from MapObject.updatePosition()
+    let blocker: TraceHit = null;
     const start = mobj.position.val;
-    _moveEnd.copy(start).add(move).addScalar(mobj.info.radius);
+    vecFromMovement(_moveEnd, start, move, mobj.info.radius);
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
     const moveRadius = mobj.info.radius - 1;
+    // compute highest and lowest floor we are touching because monsters cannot climb narrow steps (players can thoug)
+    let highestZFloor = -Infinity;
+    let lowestZFloor = Infinity;
+    mobj.map.data.traceSubsectors(start, move, moveRadius, h2 => {
+        highestZFloor = Math.max(highestZFloor, h2.sector.zFloor.val);
+        lowestZFloor = Math.min(lowestZFloor, h2.sector.zFloor.val);
+        return true;
+    });
     mobj.map.data.traceMove(start, move, moveRadius, mobj.info.height, hit => {
         if ('mobj' in hit) {
             const skipHit = false
@@ -909,8 +922,8 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
             const twoSided = Boolean(hit.line.left);
             if (twoSided) {
                 const blocking = Boolean(hit.line.flags & (0x0002 | 0x0001)); // blocks monsters or players and monsters
-                const front = hit.side < 0 ? hit.line.right.sector : hit.line.left.sector;
-                const back = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
+                const front = hit.side <= 0 ? hit.line.right.sector : hit.line.left.sector;
+                const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
                 if (blocking) {
                     // if it's a blocking wall but the back sector is the same as the start sector, we allow the move
                     // because it means we are moving away from the wall. For example, many imps in E1M7 are stuck in
@@ -920,13 +933,14 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                         return true;
                     }
                 } else {
-                    // FIXME: monsters still step up steps that are too narrow. Perhaps we should just look at zFloor/zCeil
-                    // for the ending position and decide if we allow the move?
-                    const stepUpOK = (back.zFloor.val - start.z <= maxStepSize);
+                    const stepUpOK =
+                        (back.zFloor.val < front.zFloor.val) // not a step up
+                        || (back.zFloor.val - start.z <= maxStepSize && highestZFloor - lowestZFloor <= maxStepSize);
                     const transitionGapOk = (back.zCeil.val - start.z >= mobj.info.height);
                     const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= mobj.info.height);
                     const stepDownOK =
-                        (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
+                        (back.zFloor.val > front.zFloor.val) // not a step down
+                        || (mobj.info.flags & (MFFlags.MF_DROPOFF | MFFlags.MF_FLOAT))
                         || (start.z - back.zFloor.val <= maxStepSize);
 
                     if (!newCeilingFloorGapOk && doorTypes.includes(hit.line.special)) {
@@ -935,7 +949,6 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                         specialLines?.push(hit);
                     }
 
-                    // console.log('[sz,ez], [up,do,t,cf]', [start.z, back.zFloor.val], [stepUpOK,stepDownOK,transitionGapOk,newCeilingFloorGapOk])
                     if (newCeilingFloorGapOk && transitionGapOk && stepUpOK && stepDownOK) {
                         if (specialLines && hit.line.special) {
                             const startSide = signedLineDistance(hit.line.v, start) < 0 ? -1 : 1;
@@ -1017,14 +1030,13 @@ type MissileType =
     MapObjectIndex.MT_ARACHPLAZ | MapObjectIndex.MT_FATSHOT | MapObjectIndex.MT_TRACER | MapObjectIndex.MT_SPAWNSHOT;
 // TODO: similar (but also different) from player shootMissile in weapon.ts. Maybe we can combine these?
 function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, angle?: number) {
-    const pos = shooter.position.val;
-    const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset);
-    let an = angle ?? angleBetween(shooter, target);
+    let direction = angle ?? angleBetween(shooter, target);
     if (target.info.flags & MFFlags.MF_SHADOW) {
         // shadow objects (invisibility) should add error to angle
-        an += angleNoise(15);
+        direction += angleNoise(15);
     }
-    missile.direction.set(an);
+    const pos = shooter.position.val;
+    const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset, direction);
     missile.map.game.playSound(missile.info.seesound, missile);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.

@@ -478,7 +478,7 @@ function createSubsectorTrace(root: TreeNode) {
     const moveBounds = { left: 0, right: 0, top: 0, bottom: 0 };
 
     return (start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) => {
-        end.copy(move).add(start).addScalar(radius);
+        vecFromMovement(end, start, move, radius);
         moveBounds.left = Math.min(start.x, start.x + move.x) - radius;
         moveBounds.right = Math.max(start.x, start.x + move.x) + radius;
         moveBounds.top = Math.min(start.y, start.y + move.y) - radius;
@@ -523,6 +523,13 @@ function createSubsectorTrace(root: TreeNode) {
     };
 }
 
+export function vecFromMovement(vec: Vector3, start: Vector3, move: Vector3, radius: number) {
+    vec.copy(start).add(move);
+    vec.x += Math.sign(move.x) * radius;
+    vec.y += Math.sign(move.y) * radius;
+    return vec;
+}
+
 const _findVec = new Vector3();
 function findSubSector(root: TreeNode, x: number, y: number) {
     _findVec.set(x, y, 0);
@@ -532,7 +539,7 @@ function findSubSector(root: TreeNode, x: number, y: number) {
             return node;
         }
         const side = signedLineDistance(node.v, _findVec);
-        node = side < 0 ? node.childLeft : node.childRight;
+        node = side <= 0 ? node.childLeft : node.childRight;
     }
 }
 

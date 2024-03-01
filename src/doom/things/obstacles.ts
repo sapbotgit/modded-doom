@@ -120,11 +120,16 @@ export function hasLineOfSight(mobj1: MapObject, mobj2: MapObject): boolean {
                 return false;
             }
 
-            if (front.sector.zCeil.val !== back.sector.zCeil.val) {
-                zTop = Math.min(zTop, (openTop - _losStart.z) / hit.fraction);
-            }
-            if (front.sector.zFloor.val !== back.sector.zFloor.val) {
-                zBottom = Math.max(zBottom, (openBottom - _losStart.z) / hit.fraction);
+            // Doom2 MAP01: the zombie on the left is sitting on line 29 which means hit-fraction is zero
+            // but that does not impact his view. If a monster is sitting on a 2-sided line, we should just ignore that
+            // line and assume they see both sides
+            if (hit.fraction > 0) {
+                if (front.sector.zCeil.val !== back.sector.zCeil.val) {
+                    zTop = Math.min(zTop, (openTop - _losStart.z) / hit.fraction);
+                }
+                if (front.sector.zFloor.val !== back.sector.zFloor.val) {
+                    zBottom = Math.max(zBottom, (openBottom - _losStart.z) / hit.fraction);
+                }
             }
 
             if (zTop <= zBottom) {

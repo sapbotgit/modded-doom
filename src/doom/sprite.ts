@@ -20,8 +20,8 @@ export class SpriteStateMachine {
 
     constructor(
         private stateAction: (action: ActionIndex) => void,
-        // TODO: it would be nice not to need an action where state is null but there are at least two behaviours when
-        // state is null and I'm not sure how to express them
+        // TODO: it would be nice not to need an action where state is null but weapons have one behaviour and monsters
+        // have another and I'm not sure how to express them
         private onNull: (self: SpriteStateMachine) => void,
     ) {}
 

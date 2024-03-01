@@ -179,8 +179,7 @@ export class MapRuntime {
         }
 
         const type = mapObjectInfo.findIndex(e => e.doomednum === thing.type);
-        const mobj = this.spawn(type, thing.x, thing.y);
-        mobj.direction.set(thing.angle * ToRadians);
+        const mobj = this.spawn(type, thing.x, thing.y, undefined, thing.angle * ToRadians);
 
         if (thing.flags & 0x0008) {
             mobj.info.flags |= MFFlags.MF_AMBUSH;
@@ -193,8 +192,8 @@ export class MapRuntime {
         }
     }
 
-    spawn(moType: MapObjectIndex, x: number, y: number, z?: number) {
-        const mobj = new MapObject(this, thingSpec(moType), { x, y });
+    spawn(moType: MapObjectIndex, x: number, y: number, z?: number, direction?: number) {
+        const mobj = new MapObject(this, thingSpec(moType), { x, y }, direction);
         if (z !== undefined) {
             mobj.position.val.z = z;
         }

@@ -671,9 +671,8 @@ function shootMissile(shooter: MapObject, type: PlayerMissileType) {
     const slope = shotTracer.zAim(shooter, scanRange);
     _shotEuler.set(0, Math.acos(slope) - HALF_PI, shotTracer.lastAngle);
 
-    const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32);
+    const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + 32, shotTracer.lastAngle);
     missile.velocity.set(missile.info.speed, 0, 0).applyEuler(_shotEuler);
-    missile.direction.set(shotTracer.lastAngle);
     missile.map.game.playSound(missile.info.seesound, missile);
     // this is kind of an abuse of "chaseTarget" but missles won't ever chase anyone anyway. It's used when a missile
     // hits a target to know who fired it.

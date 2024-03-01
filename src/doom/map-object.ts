@@ -83,7 +83,7 @@ export class MapObject {
     get class() { return this.spec.class; }
     get onPickup() { return this.spec.onPickup; }
 
-    constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex) {
+    constructor(readonly map: MapRuntime, protected spec: ThingSpec, pos: Vertex, direction: number) {
         // create a copy because we modify stuff (especially flags but also radius, height, maybe mass?)
         this.info = { ...spec.mo };
         this.health = store(this.info.spawnhealth);
@@ -151,7 +151,7 @@ export class MapObject {
             }
         };
 
-        this.direction = store(0);
+        this.direction = store(direction);
         this.position = store(new Vector3(pos.x, pos.y, 0));
         // Use a slightly smaller radius for monsters (see reasoning as note in monsters.ts findMoveBlocker())
         // TODO: I'd like to find a more elegant solution to this but nothing is coming to mind
@@ -480,7 +480,7 @@ export class MapObject {
 
                     const blocking = (hit.line.flags & 0x0001) !== 0;
                     if (twoSided && !blocking) {
-                        const back = hit.side < 0 ? hit.line.left.sector : hit.line.right.sector;
+                        const back = hit.side <= 0 ? hit.line.left.sector : hit.line.right.sector;
 
                         const floorChangeOk = (back.zFloor.val - start.z <= maxStepSize);
                         const transitionGapOk = (back.zCeil.val - start.z >= this.info.height);
@@ -605,7 +605,7 @@ export class PlayerMapObject extends MapObject {
     hudMessage = store('');
 
     constructor(readonly inventory: Store<PlayerInventory>, map: MapRuntime, source: Thing) {
-        super(map, thingSpec(MapObjectIndex.MT_PLAYER), source);
+        super(map, thingSpec(MapObjectIndex.MT_PLAYER), source, 0);
         this.direction.set(source.angle * ToRadians);
 
         this.renderShadow.subscribe(shadow => {
