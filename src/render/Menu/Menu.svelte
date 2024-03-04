@@ -51,7 +51,8 @@
         w-screen max-w-96 overflow-y-scroll overflow-x-hidden
         flex flex-col pb-80 gap-2
     "
-    class:hidden={showTouchControls}>
+    class:hidden={showTouchControls}
+    >
         <div class="self-center pt-2"><a href="#{game.wad.name}"><Picture name="M_DOOM" /></a></div>
         <div class="px-2">
             <div class="flex gap-4 items-center pb-2">
@@ -96,10 +97,12 @@
                 </ul>
             </div>
         </div>
-        <div class="dropdown" on:focusin={() => showTouchControls = touchDevice}>
+        <div class="dropdown md:static" on:focusin={() => showTouchControls = touchDevice}>
             <div tabindex="0" role="button" class="btn w-full">Controls</div>
             <div tabindex="-1" class="
                 dropdown-content z-10 shadow bg-base-100 w-screen max-w-96 rounded-box
+                overflow-y-scroll top-12 bottom-0
+                pb-80 md:top-0 md:pb-10 md:left-96
             ">
                 {#if !showTouchControls}
                 <KeyboardControlsMenu />

@@ -347,7 +347,6 @@ const playerSpeeds = { // per-tick
 
 const vec = new Vector3();
 class GameInput {
-    public pointerSpeed = 1.0;
     // Constrain the pitch of the camera
     public minPolarAngle = -HALF_PI;
     public maxPolarAngle = HALF_PI;
@@ -432,8 +431,8 @@ class GameInput {
 
         // handle rotation movements
         const euler = this.obj.rotation;
-        euler.z -= this.input.aim.x * 0.002 * this.pointerSpeed;
-        euler.x -= this.input.aim.y * 0.002 * this.pointerSpeed;
+        euler.z -= this.input.aim.x * 0.001;
+        euler.x -= this.input.aim.y * 0.001;
         euler.x = Math.min(this.maxPolarAngle, Math.max(this.minPolarAngle, euler.x));
         this.player.direction.set(euler.z + HALF_PI);
         this.player.pitch.set(euler.x);

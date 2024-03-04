@@ -37,7 +37,7 @@ export type MenuSetting = RangeSetting | OptionSetting | ToggleSetting;
 export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {
         freeFly: store(false),
-        freelook: store(true),
+        freelook: store(false),
         zAimAssist: store(true),
         xyAimAssist: store(false),
         invicibility: store(false),
@@ -48,6 +48,30 @@ export const createDefaultSettings = () => {
         timescale: store(1),
         monsterAI: store('enabled'),
         cameraMode: store('1p'),
+    };
+    const controllerConfig = {
+        mouseSensitivity: writable(2),
+        mouseInvertY: writable(false),
+        mouseSwitchLeftRightButtons: writable(false),
+        keymap: store({
+            'mf': ['KeyW', 'ArrowUp'],
+            'mb': ['KeyS', 'ArrowDown'],
+            'ml': ['KeyA', 'ArrowLeft'],
+            'mr': ['KeyD', 'ArrowRight'],
+            'mu': ['KeyR'],
+            'md': ['KeyT'],
+            'u': ['KeyE', 'Space'],
+            'a': ['KeyQ'],
+            'r': ['ShiftLeft', 'ShiftRight'],
+            's': ['AltLeft', 'AltRight'],
+            'w1': ['Digit1', 'Numpad1'],
+            'w2': ['Digit2', 'Numpad2'],
+            'w3': ['Digit3', 'Numpad3'],
+            'w4': ['Digit4', 'Numpad4'],
+            'w5': ['Digit5', 'Numpad5'],
+            'w6': ['Digit6', 'Numpad6'],
+            'w7': ['Digit7', 'Numpad7'],
+        }),
     };
     const touchControlSettings = {
         touchLookSpeed: writable(32),
@@ -69,6 +93,7 @@ export const createDefaultSettings = () => {
         ...gameSettings,
         ...soundSettings,
         ...touchControlSettings,
+        ...controllerConfig,
         showStats: writable(false),
         fpsLimit: writable(60),
         pixelScale: writable(1),
@@ -78,6 +103,7 @@ export const createDefaultSettings = () => {
         fakeContrast: writable<'classic' | 'gradual' | 'off'>('classic'),
     };
 }
+export type KeyMap = Pick<ReturnType<typeof createDefaultSettings>, 'keymap'>['keymap']['initial'];
 
 export const createAppContext = () => {
     const urlHash = writable(location.hash);

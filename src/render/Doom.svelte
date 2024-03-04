@@ -25,7 +25,7 @@
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
     const { urlHash, settings, audio, pointerLock } = useAppContext();
-    const { cameraMode, musicVolume, soundVolume, mainVolume, fpsLimit, pixelScale } = settings;
+    const { cameraMode, musicVolume, soundVolume, mainVolume, fpsLimit, pixelScale, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
     const { map, intermission } = game;
 
     const touchDevice = matchMedia('(hover: none)').matches;
@@ -132,11 +132,11 @@
         </MapContext>
 
         {#if !showMenu || $cameraMode === 'svg'}
-        <div use:keyboardControls={game} />
+        <div use:keyboardControls={{ input: game.input, keymap: $keymap }} />
         <div use:keyboardCheatControls={game} />
         {/if}
         {#if $isPointerLocked && !touchDevice}
-        <div use:mouseControls={game} />
+        <div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }} />
         {/if}
         {#if touchDevice && !showMenu}
             <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
