@@ -91,6 +91,7 @@
         return soundCache.get(name);
     }
 
+    // hacky way to prioritze playing closer sounds
     let activeSoundDistances: number[] = [];
     game.onSound((snd, location) => {
         const isPositional = player && location && location !== player;
@@ -98,7 +99,7 @@
         const position = !isPositional ? defaultPosition :
             ('soundTarget' in location) ? store(location.center)
             : location.position;
-        // hacky way to prioritze playing closer sounds
+
         const dist = xyDistSqr(position?.val ?? $defaultPosition, $playerPosition ?? $defaultPosition);
         const index = activeSoundDistances.findIndex(e => e > dist);
         if (index > maxSounds || activeSoundDistances.length >= maxSounds) {
@@ -107,23 +108,23 @@
         activeSoundDistances.push(dist);
         activeSoundDistances.sort();
 
-        const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
-        const buffer = soundBuffer(name);
         const now = audio.currentTime;
 
         const sound = audio.createBufferSource();
+        const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
+        sound.buffer = soundBuffer(name);
         sound.addEventListener('ended', () => {
             activeSoundDistances = activeSoundDistances.filter(e => e !== dist);
         });
         sound.playbackRate.value = game.settings.timescale.val;
-        sound.buffer = buffer;
-        sound.start(now);
 
-        const gain = gainNode(now, isPositional ? soundGain : soundGain * .1, buffer);
+        const gain = gainNode(now, isPositional ? soundGain : soundGain * .1, sound.buffer);
         gain.connect(root);
+        sound.start(now);
 
         if (!isPositional) {
             sound.connect(gain);
+            return;
         }
 
         const pan = audio.createPanner();
@@ -154,7 +155,7 @@
             if (location.sector.val.ceilFlat.val === 'F_SKY1') {
                 // can't be 0 otherwise gainNode will error because we use exponential ramps
                 const gain = soundGain * .4 * (1 - Math.min(.99999999, dist / 1_000_000));
-                const fGain = gainNode(now, gain, buffer);
+                const fGain = gainNode(now, gain, sound.buffer);
                 fGain.connect(root);
                 const filter = audio.createBiquadFilter();
                 sound.connect(filter);
@@ -168,7 +169,7 @@
                 // calculate echo based on height of the room. It's not accurate but interesting to play with.
                 const heightM = (location.sector.val.zCeil.val - location.sector.val.zFloor.val) * verticalMeters;
                 const delay = heightM * 2 / speedOfSound;
-                const eGain = gainNode(now + delay, soundGain * .4, buffer);
+                const eGain = gainNode(now + delay, soundGain * .4, sound.buffer);
                 eGain.connect(root);
                 const echo = audio.createDelay();
                 echo.delayTime.value = delay;

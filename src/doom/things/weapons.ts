@@ -2,7 +2,7 @@ import { Euler, Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
-import { HALF_PI, QUARTER_PI, angleNoise, randInt } from '../math';
+import { HALF_PI, QUARTER_PI, angleNoise, rand, randInt } from '../math';
 import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
@@ -35,6 +35,7 @@ export class PlayerWeapon {
     readonly position = store<Vector2>(new Vector2(0, weaponBottom));
     readonly sprite = this._sprite.sprite;
     readonly flashSprite = this._flashSprite.sprite;
+    get state() { return this._sprite.index; }
 
     constructor(
         readonly name: WeaponName,
@@ -197,6 +198,8 @@ const bulletAngle = (player: MapObject, trace: ShotTracer) =>
     player.map.game.settings.xyAimAssist.val ? trace.lastAngle : player.direction.val;
 
 const weaponBobTime = 128 / ticksPerSecond;
+const ssgNoiseVariation = (255 << 5) / (1 << 16);
+const puffNoiseVariation = (255 << 10) / (1 << 16);
 // TODO: I'd actually like to remove these from ActionIndex and instead make them completely local to weapon.ts
 // I'd like to do the same thing with StateIndex (move all weapon states to this file so that all weapon related stuff
 // is isolated from other things). Long term, we could also move enemy and other bits to their own files too so that
@@ -255,9 +258,9 @@ export const weaponActions: { [key: number]: WeaponAction } = {
             weapon.fire();
         }
 
-        // if (player.weapon.val.name === 'chainsaw' && psp->state == &states[S_SAW]) {
-        //     player.map.game.playSound(SoundIndex.sfx_sawidl, player);
-        // }
+        if (weapon.name === 'chainsaw' && weapon.state === StateIndex.S_SAW) {
+            player.map.game.playSound(SoundIndex.sfx_sawidl, player);
+        }
 
         // bob the weapon based on movement speed
         weapon.position.update(pos => {
@@ -283,7 +286,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         }
 
         const slope = shotTracer.zAim(player, meleeRange);
-        const angle = bulletAngle(player, shotTracer) + angleNoise(20);
+        const angle = bulletAngle(player, shotTracer) + angleNoise(18);
         shotTracer.fire(player, damage, angle, slope, meleeRange);
 
         // turn to face target
@@ -297,7 +300,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 
         // use meleerange + 1 so the puff doesn't skip the flash
         const slope = shotTracer.zAim(player, meleeRange + 1);
-        const angle = bulletAngle(player, shotTracer) + angleNoise(20);
+        const angle = bulletAngle(player, shotTracer) + angleNoise(18);
         shotTracer.fire(player, damage, angle, slope, meleeRange + 1);
 
         if (!shotTracer.lastTarget) {
@@ -333,7 +336,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         let angle = bulletAngle(player, shotTracer);
         if (player.refire) {
             // mess up angle slightly for refire
-            angle += angleNoise(20);
+            angle += angleNoise(18);
         }
         shotTracer.fire(player, bulletDamage(), angle, slope, attackRange);
     },
@@ -345,7 +348,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const slope = shotTracer.zAim(player, scanRange);
         const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 7; i++) {
-            shotTracer.fire(player, bulletDamage(), angle + angleNoise(20), slope, attackRange);
+            shotTracer.fire(player, bulletDamage(), angle + angleNoise(18), slope, attackRange);
         }
     },
 
@@ -360,7 +363,8 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const slope = shotTracer.zAim(player, scanRange);
         const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 20; i++) {
-            shotTracer.fire(player, bulletDamage(), angle + angleNoise(15), slope + angleNoise(30), attackRange);
+            const slopeNoise = rand() * ssgNoiseVariation;
+            shotTracer.fire(player, bulletDamage(), angle + angleNoise(19), slope + slopeNoise, attackRange);
         }
     },
     [ActionIndex.A_OpenShotgun2]: (time, player, weapon) => {
@@ -384,7 +388,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         let angle = bulletAngle(player, shotTracer);
         if (player.refire) {
             // mess up angle slightly for refire
-            angle += angleNoise(20);
+            angle += angleNoise(18);
         }
         shotTracer.fire(player, bulletDamage(), angle, slope, attackRange);
     },
@@ -481,7 +485,7 @@ class ShotTracer {
             shooter.map.data.traceRay(this.start, this.direction, aim.fn);
         }
 
-        this._lastAngle = dir;
+        this._lastAngle = aim.target ? dir : shooter.direction.val;
         this._lastTarget = aim.target;
         if (shooter instanceof PlayerMapObject && !shooter.map.game.settings.zAimAssist.val) {
             // ignore all the tracing we did (except set last target for puch/saw) and simply use the camera angle
@@ -577,7 +581,7 @@ class ShotTracer {
     }
 
     private spawnBlood(source: MapObject, pos: Vector3, damage: number) {
-        const mobj = source.map.spawn(MapObjectIndex.MT_BLOOD, pos.x, pos.y, pos.z + randInt(-9, 9));
+        const mobj = source.map.spawn(MapObjectIndex.MT_BLOOD, pos.x, pos.y, pos.z + rand() * puffNoiseVariation);
         mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
 
         if (damage <= 12 && damage >= 9) {
@@ -687,7 +691,7 @@ function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {
 }
 
 export function spawnPuff(parent: MapObject, spot: Vector3) {
-    const zNoise = randInt(-5, 5) * .5;
+    const zNoise = rand() * puffNoiseVariation;
     const mobj = parent.map.spawn(MapObjectIndex.MT_PUFF, spot.x, spot.y, spot.z + zNoise);
     mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
     return mobj;

@@ -3,7 +3,7 @@ import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
 import { type GameTime } from '../game';
 import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
-import { EIGHTH_PI, HALF_PI, QUARTER_PI, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
+import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, angleNoise, normalizeAngle, randomChoice, signedLineDistance } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
@@ -394,10 +394,13 @@ function faceTarget(time: GameTime, mobj: MapObject, target: MapObject) {
     mobj.info.flags &= ~MFFlags.MF_AMBUSH;
     let angle = angleBetween(mobj, target);
     if (target.info.flags & MFFlags.MF_SHADOW) {
-        angle += angleNoise(5);
+        angle += angleNoise(21);
     }
     mobj.direction.set(angle);
 }
+
+const revenantTracerAngleAdjustment = 384 * 360 / 8192 * ToRadians;
+const revenantTracerZAdjust = 1 / 8;
 
 export const monsterAttackActions: ActionMap = {
     ...archvileActions,
@@ -414,7 +417,7 @@ export const monsterAttackActions: ActionMap = {
         mobj.map.game.playSound(SoundIndex.sfx_pistol, mobj);
 
         const slope = shotTracer.zAim(mobj, attackRange);
-        const angle = mobj.direction.val + angleNoise(12);
+        const angle = mobj.direction.val + angleNoise(20);
         const damage = 3 * randInt(1, 5);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
     },
@@ -427,7 +430,7 @@ export const monsterAttackActions: ActionMap = {
 
         const slope = shotTracer.zAim(mobj, attackRange);
         for (let i = 0; i < 3; i++) {
-            const angle = mobj.direction.val + angleNoise(12);
+            const angle = mobj.direction.val + angleNoise(20);
             const damage = 3 * randInt(1, 5);
             shotTracer.fire(mobj, damage, angle, slope, attackRange);
         }
@@ -465,7 +468,7 @@ export const monsterAttackActions: ActionMap = {
         allActions[ActionIndex.A_FaceTarget](time, mobj);
         mobj.map.game.playSound(SoundIndex.sfx_shotgn, mobj);
 
-        const angle = mobj.direction.val + angleNoise(12);
+        const angle = mobj.direction.val + angleNoise(20);
         const damage = 3 * randInt(1, 5);
         const slope = shotTracer.zAim(mobj, attackRange);
         shotTracer.fire(mobj, damage, angle, slope, attackRange);
@@ -595,9 +598,9 @@ export const monsterAttackActions: ActionMap = {
 
     // revenant missiles (tracking and smoke)
     [ActionIndex.A_Tracer]: (time, missile) => {
-        // I actually never noticed that some revenant missiles do not emit smoke and do not track the player. Wow!
+        // I never noticed that some revenant missiles do not emit smoke and do not track the player. Wow!
         // This condition creates a really subtle behaviour. https://zdoom.org/wiki/A_Tracer
-        if ( !missile.position) {
+        if (missile.map.game.time.tick.val & 3) {
             return;
         }
 
@@ -610,29 +613,27 @@ export const monsterAttackActions: ActionMap = {
         smoke.velocity.z = 1;
         smoke.setState(smoke.info.spawnstate, -randInt(0, 2));
 
-        // adjust direction
         const target = missile.tracerTarget;
         if (!target || target.isDead) {
             return;
         }
 
-        const xyAdjust = -1.1; // this constant isn't quite what doom uses (I not 100% confident in the integer angle math...) but it feels close
+        // adjust direction
         const angle = angleBetween(missile, target);
         let missileAngle = missile.direction.val;
         if (normalizeAngle(angle - missileAngle) > Math.PI) {
-            missileAngle -= xyAdjust;
-            missile.direction.set(normalizeAngle(angle - missileAngle) < Math.PI ? angle : missileAngle);
+            missileAngle += revenantTracerAngleAdjustment;
+            missile.direction.set(normalizeAngle(angle - missileAngle) > Math.PI ? missileAngle : angle);
         } else {
-            missileAngle += xyAdjust;
-            missile.direction.set(normalizeAngle(angle - missileAngle) > Math.PI ? angle : missileAngle);
+            missileAngle -= revenantTracerAngleAdjustment;
+            missile.direction.set(normalizeAngle(angle - missileAngle) < Math.PI ? missileAngle : angle);
         }
         missile.velocity.x = Math.cos(missile.direction.val) * missile.info.speed;
         missile.velocity.y = Math.sin(missile.direction.val) * missile.info.speed;
 
-        const zAdjust = .125;
         const dist = xyDistanceBetween(missile, target);
         const slope = ((target.position.val.z + 40) - missile.position.val.z) / dist * missile.info.speed;
-        missile.velocity.z += slope < missile.velocity.z ? -zAdjust : zAdjust;
+        missile.velocity.z += slope < missile.velocity.z ? -revenantTracerZAdjust : revenantTracerZAdjust;
     },
 }
 
@@ -1033,7 +1034,7 @@ function shootMissile(shooter: MapObject, target: MapObject, type: MissileType, 
     let direction = angle ?? angleBetween(shooter, target);
     if (target.info.flags & MFFlags.MF_SHADOW) {
         // shadow objects (invisibility) should add error to angle
-        direction += angleNoise(15);
+        direction += angleNoise(20);
     }
     const pos = shooter.position.val;
     const missile = shooter.map.spawn(type, pos.x, pos.y, pos.z + shotZOffset, direction);

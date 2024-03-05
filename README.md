@@ -29,7 +29,7 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * Screen wipe
 * ~~Victory screens~~
 * ~~Automatic weapon switching on low ammo~~
-* Shooting angle randomness isn't right (also Revenant rockets)
+* ~~Shooting angle randomness isn't right (also Revenant rockets)~~
 * Sounds for crushers and moving floors (door sounds work!)
 * Sound playback, in general, doesn't feel quite right (sounds are too soft or interrupted too often)
 * Multiplayer (P2P over webrtc?)

@@ -1,52 +1,11 @@
 import type { Action, ActionReturn } from 'svelte/action';
-import { useAppContext } from '../DoomContext';
 import { defaultInventory, MapRuntime, type Game, type Store, mapMusicTrack } from '../../doom';
 import { allWeapons } from '../../doom/things/weapons';
 
-export const keyboardCheatControls: Action<HTMLElement, Game> = (node, param): ActionReturn => {
+export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): ActionReturn => {
     const doc = node.ownerDocument;
-    let { noclip, invicibility } = useAppContext().settings;
-    let game = param;
 
-    class CheatCode {
-        private index = 0;
-        private extraKeys = [];
-        private keys: string[];
-        constructor(chars: string, private fn: (game: Game, extra?: string[]) => void) {
-            this.keys = chars.split('');
-        }
-
-        handleKey(key: string) {
-            if (this.keys[this.index] === key) {
-                this.index += 1;
-            } else if (this.keys[this.index] === '?') {
-                this.extraKeys.push(key);
-                this.index += 1;
-            } else {
-                this.reset();
-            }
-
-            if (this.keys.length === this.index) {
-                this.fn(game, this.extraKeys);
-                this.reset();
-            }
-        }
-
-        private reset() {
-            this.index = 0;
-            this.extraKeys.length = 0
-        }
-    }
-
-    let cheatStrings = [
-        new CheatCode('idclip', toggleFn(noclip, 'No clipping mode')),
-        new CheatCode('iddqd', toggleFn(invicibility, 'No clipping mode')),
-        new CheatCode('idfa', idfa),
-        new CheatCode('idkfa', idkfa),
-        new CheatCode('idclev??', warp),
-        new CheatCode('idmus??', changeMusic),
-    ];
-
+    let cheatStrings: CheatCode[] = [];
     function keyup(ev: KeyboardEvent) {
         let keyCode = ev.key.toLowerCase().charCodeAt(0);
         const isAlphaNumeric = (keyCode > 47 && keyCode < 58) || (keyCode > 96 && keyCode < 123);
@@ -58,11 +17,51 @@ export const keyboardCheatControls: Action<HTMLElement, Game> = (node, param): A
     const destroy = () => {
         doc.removeEventListener('keyup', keyup);
     }
-    const update = (param: Game) => {
-        game = param;
+
+    const update = (game: Game) => {
+        cheatStrings = [
+            new CheatCode(game, 'idclip', toggleFn(game.settings.noclip, 'No clipping mode')),
+            new CheatCode(game, 'iddqd', toggleFn(game.settings.invicibility, 'No clipping mode')),
+            new CheatCode(game, 'idfa', idfa),
+            new CheatCode(game, 'idkfa', idkfa),
+            new CheatCode(game, 'idclev??', warp),
+            new CheatCode(game, 'idmus??', changeMusic),
+        ];
     };
+    update(game);
+
     return { destroy, update };
 };
+
+class CheatCode {
+    private index = 0;
+    private extraKeys = [];
+    private keys: string[];
+    constructor(private game: Game, chars: string, private fn: (game: Game, extra?: string[]) => void) {
+        this.keys = chars.split('');
+    }
+
+    handleKey(key: string) {
+        if (this.keys[this.index] === key) {
+            this.index += 1;
+        } else if (this.keys[this.index] === '?') {
+            this.extraKeys.push(key);
+            this.index += 1;
+        } else {
+            this.reset();
+        }
+
+        if (this.keys.length === this.index) {
+            this.fn(this.game, this.extraKeys);
+            this.reset();
+        }
+    }
+
+    private reset() {
+        this.index = 0;
+        this.extraKeys.length = 0
+    }
+}
 
 const toggleFn = (e: Store<boolean>, message: string) => (game: Game) => {
     e.set(!e.val);

@@ -193,7 +193,7 @@ export class MapRuntime {
     }
 
     spawn(moType: MapObjectIndex, x: number, y: number, z?: number, direction?: number) {
-        const mobj = new MapObject(this, thingSpec(moType), { x, y }, direction);
+        const mobj = new MapObject(this, thingSpec(moType), { x, y }, direction ?? 0);
         if (z !== undefined) {
             mobj.position.val.z = z;
         }

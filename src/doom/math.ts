@@ -21,10 +21,16 @@ interface IntersectionPoint extends Vertex {
     u: number; // distance from point1 to point2 of the impact (0-1)
 }
 
+// Random number in the range (-1, 1)
+export const rand = () => Math.random() - Math.random();
 export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 export const randomChoice = (list: any[]) => list[randInt(0, list.length - 1)];
-// larger radius means less noise
-export const angleNoise = (radius: number) => (Math.random() - Math.random()) * (Math.PI / radius);
+// It took me a while to figure out how angles are randomized in DOOM.
+// 360/8192 (ie. 1<<13) is key. (1<<shiftBbits) / (1<<19) accounts for the angle size
+// (like pistol has less randomness than invisibility) and the whole thing is multiplied by
+// a random number in the range -255 to 255. https://doomwiki.org/wiki/Angle
+const circleAngle = 255 * 360 / (1 << 13) / (1 << 19) * ToRadians;
+export const angleNoise = (shiftBits: number) => rand() * circleAngle * (1 << shiftBits);
 
 export function signedLineDistance(l: Vertex[], v: Vertex) {
     // https://math.stackexchange.com/questions/274712
@@ -219,8 +225,7 @@ export function sweepAABBAABB(
     p2: Vertex, r2: number,
     bounded = true,
 ): IntersectionPoint {
-    // FIXME: is there a bug here? We do sometimes get stuck in monsters and now that we have AI, monsters seem to
-    // get stuck to each other. I wonder if this is related to the NaN check in lineBounds. Maybe we can unify these?
+    // TODO: is there a way to unify this and lineBounds? Seems like it would be nice.
 
     // test if already overlapping
     const left = (p2.x - r2) - (p1.x + r1);
