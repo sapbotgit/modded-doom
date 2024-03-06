@@ -196,7 +196,7 @@
     import WebAudioTinySynth from 'webaudio-tinysynth';
     import type { Game } from "../doom";
 
-    export let gain: GainNode;
+    export let audioRoot: AudioNode;
     export let game: Game;
     export let trackName: string;
     const { audio, settings } = useAppContext();
@@ -240,7 +240,7 @@
             const bq = audio.createBiquadFilter();
             effects[i] = { pan, bq };
         }
-        const drums = await new DrumMachine(audio, { storage, destination: gain }).load;
+        const drums = await new DrumMachine(audio, { storage, destination: audioRoot }).load;
         // drums.output.addInsert(effects[9].bq);
         drums.output.addInsert(effects[9].pan);
 
@@ -259,7 +259,7 @@
                     if (ev.channel !== 9) {
                         if (!instrumentNames[ev.value]) console.warn('missing-instrument', ev.value)
                         const instrument = instrumentNames[ev.value] ?? instrumentNames[6];
-                        const sf = await new Soundfont(audio, { storage, instrument, destination: gain }).load;;
+                        const sf = await new Soundfont(audio, { storage, instrument, destination: audioRoot }).load;;
                         sf.output.addInsert(effects[ev.channel].pan);
                         // sf.output.addInsert(effects[ev.channel].bq);
                         channels[ev.channel] = sf;
@@ -306,7 +306,7 @@
         stopTheMusic();
 
         const synth = new WebAudioTinySynth();
-        synth.setAudioContext(audio, gain);
+        synth.setAudioContext(audio, audioRoot);
         synth.loadMIDI(midi);
         synth.setLoop(1);
         // actually, it would be really cool to use GENMIDI here to configure the oscillars WebAudioTinySynth creates.

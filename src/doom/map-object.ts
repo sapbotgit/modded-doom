@@ -325,10 +325,11 @@ export class MapObject {
         // telefrag anything in our way
         this.map.data.traceMove(this.position.val, zeroVec, this.info.radius, this.info.height, hit => {
             if ('mobj' in hit) {
-                // skip non hittable things and (obviously) don't hit ourselves
-                if (!(hit.mobj.info.flags & hittableThing) || hit.mobj === this) {
+                // skip non shootable things and (obviously) don't hit ourselves
+                if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) || hit.mobj === this) {
                     return true;
                 }
+                console.log('telefrag?',this.class,this.info.doomednum)
                 hit.mobj.damage(10_000, this, this);
             }
             return true;

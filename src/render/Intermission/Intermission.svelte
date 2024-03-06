@@ -36,8 +36,8 @@
         mapName[0] === 'E' ? 'D_VICTOR' : 'D_READ_M';
 </script>
 
-<MusicPlayer {game} gain={musicGain} trackName={musicTrack} />
-<SoundPlayer {game} gain={soundGain} />
+<MusicPlayer {game} audioRoot={musicGain} trackName={musicTrack} />
+<SoundPlayer {game} audioRoot={soundGain} />
 
 <div
     class="

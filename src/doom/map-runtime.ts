@@ -492,6 +492,8 @@ class GameInput {
                         if (gap > 0) {
                             return true; // allow trace to continue
                         }
+                    }
+                    if (!hit.line.special) {
                         this.map.game.playSound(SoundIndex.sfx_noway, this.player);
                     }
                     return false; // always stop on the first line (unless above says we can continue)

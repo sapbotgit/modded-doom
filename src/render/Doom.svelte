@@ -46,7 +46,7 @@
 
     const soundGain = audio.createGain();
     soundGain.connect(mainGain);
-    $: soundGain.gain.value = $soundVolume;
+    $: soundGain.gain.value = $soundVolume * .1;
 
     const musicGain = audio.createGain();
     musicGain.connect(mainGain);
@@ -127,8 +127,8 @@
             {/if}
             <HUD size={viewSize} player={$map.player} />
 
-            <MusicPlayer {game} gain={musicGain} trackName={$mapMusicTrack} />
-            <SoundPlayer {game} player={$map.player} gain={soundGain} />
+            <MusicPlayer {game} audioRoot={musicGain} trackName={$mapMusicTrack} />
+            <SoundPlayer {game} player={$map.player} audioRoot={soundGain} />
         </MapContext>
 
         {#if !showMenu || $cameraMode === 'svg'}
