@@ -7,6 +7,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 No changes yet.
+## [0.2.0] - 2024-03-07
+
+### Added
+- Configuration screen for touch controls
+- Keyboard control remap
+- keyboard cheat codes
+- aim assist setting (mostly for touch screens)
+
+### Fixed
+- several collision detection bugs
+- fix monsters not opening doors
+- fix crushers/doors reversing even when they've crushed objects
+- fix sound propagating too far
+- missile auto aim
+- revenant tracer rockets turning too fast
+- chainsaw idle sounds
 
 ## [0.2.0] - 2024-02-22
 
