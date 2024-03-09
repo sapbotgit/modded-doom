@@ -211,6 +211,8 @@ export class MapObject {
     // inflictor is the thing doing damage (thing or missle) or null for slime/crushing
     // source is the thing that shot the missle (or null)
     damage(amount: number, inflictor?: MapObject, source?: MapObject) {
+        // make sure we are dealing integer damage
+        amount = Math.round(amount);
         this._attacker = source;
 
         if (this.info.flags & MFFlags.MF_SKULLFLY) {

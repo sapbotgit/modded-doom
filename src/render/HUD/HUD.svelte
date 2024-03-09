@@ -1,12 +1,11 @@
 <script lang="ts">
     import type { PlayerMapObject } from "../../doom";
     import Picture from "../Components/Picture.svelte";
-    import BigNum from "./BigNum.svelte";
-    import SmallNum from "./SmallNum.svelte";
     import Face from "./Face.svelte";
     import KeyCard from "./KeyCard.svelte";
     import type { Size } from "@threlte/core";
     import HUDMessages from "./HUDMessages.svelte";
+    import STNumber from "../Components/STNumber.svelte";
 
     export let player: PlayerMapObject;
     export let size: Size;
@@ -22,26 +21,26 @@
     <Picture name={'STBAR'} />
     <div class="ammo">
         {#if $inventory.ammo[$weapon.ammoType]}
-            <BigNum value={$inventory.ammo[$weapon.ammoType].amount} />
+            <STNumber sprite='STTNUM' value={$inventory.ammo[$weapon.ammoType].amount} />
         {/if}
     </div>
     <div class="health">
-        <BigNum value={$health} percent />
+        <STNumber sprite='STTNUM' value={$health} percent />
     </div>
     <div class="arms">
         <Picture name={'STARMS'} />
-        <span><SmallNum value={2} altNum={!weaponLights.includes(2)} /></span>
-        <span><SmallNum value={3} altNum={!weaponLights.includes(3)} /></span>
-        <span><SmallNum value={4} altNum={!weaponLights.includes(4)} /></span>
-        <span><SmallNum value={5} altNum={!weaponLights.includes(5)} /></span>
-        <span><SmallNum value={6} altNum={!weaponLights.includes(6)} /></span>
-        <span><SmallNum value={7} altNum={!weaponLights.includes(7)} /></span>
+        <span><STNumber sprite={weaponLights.includes(2) ? 'STYSNUM' : 'STGNUM'} value={2} /></span>
+        <span><STNumber sprite={weaponLights.includes(3) ? 'STYSNUM' : 'STGNUM'} value={3} /></span>
+        <span><STNumber sprite={weaponLights.includes(4) ? 'STYSNUM' : 'STGNUM'} value={4} /></span>
+        <span><STNumber sprite={weaponLights.includes(5) ? 'STYSNUM' : 'STGNUM'} value={5} /></span>
+        <span><STNumber sprite={weaponLights.includes(6) ? 'STYSNUM' : 'STGNUM'} value={6} /></span>
+        <span><STNumber sprite={weaponLights.includes(7) ? 'STYSNUM' : 'STGNUM'} value={7} /></span>
     </div>
     <div class="face">
         <Face {player} />
     </div>
     <div class="armor">
-        <BigNum value={$inventory.armor} percent />
+        <STNumber sprite='STTNUM' value={$inventory.armor} percent />
     </div>
     <div class="keys">
         {#if $inventory.keys.includes('B') || $inventory.keys.includes('b')}
@@ -56,20 +55,20 @@
     </div>
     <div class="backpack">
         <span>
-            <SmallNum value={$inventory.ammo.bullets.amount} />
-            <SmallNum value={$inventory.ammo.bullets.max} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.bullets.amount} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.bullets.max} />
         </span>
         <span>
-            <SmallNum value={$inventory.ammo.shells.amount} />
-            <SmallNum value={$inventory.ammo.shells.max} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.shells.amount} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.shells.max} />
         </span>
         <span>
-            <SmallNum value={$inventory.ammo.rockets.amount} />
-            <SmallNum value={$inventory.ammo.rockets.max} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.rockets.amount} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.rockets.max} />
         </span>
         <span>
-            <SmallNum value={$inventory.ammo.cells.amount} />
-            <SmallNum value={$inventory.ammo.cells.max} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.cells.amount} />
+            <STNumber sprite='STYSNUM' value={$inventory.ammo.cells.max} />
         </span>
     </div>
 </div>
@@ -90,12 +89,12 @@
     }
 
     .ammo {
-        left: -4px;
+        left: 3px;
         top: 3px;
     }
 
     .health {
-        left: 39px;
+        left: 48px;
         top: 3px;
     }
 
@@ -139,7 +138,7 @@
     }
 
     .armor {
-        left: 171px;
+        left: 179px;
         top: 3px;
     }
 

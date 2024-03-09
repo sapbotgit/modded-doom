@@ -21,11 +21,11 @@
 
 <ul class="relative menu left-0">
     {#each { length: slices } as _, i}
-        {@const rotation = baseAngle - (i * (sliceAngle + gap))}
+        {@const rotation = (i * (sliceAngle + gap)) - baseAngle}
         <li
             in:fly|global={{ y: '100%', duration, delay: i * 20 }}
             out:fly|global={{ y: '100%', duration, delay: (slices - i) * 20 }}
-            style="--rotate:{rotation}deg;"
+            style="--rotate:{-rotation}deg;"
         >
             <slot num={i} {rotation} angle={sliceAngle * -.5} />
         </li>

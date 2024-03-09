@@ -2,7 +2,7 @@
     import { ticksPerSecond, type IntermissionScreen, SoundIndex } from "../../doom";
     import Picture from "../Components/Picture.svelte";
     import AnimatedBackground from "./AnimatedBackground.svelte";
-    import Percent from "./Percent.svelte";
+    import STNumber from "../Components/STNumber.svelte";
     import Time from "./Time.svelte";
     import { writable } from "svelte/store";
     import MapNamePic from "../Components/MapNamePic.svelte";
@@ -160,15 +160,15 @@
             <div class="dstats">
                 <div>
                     <span><Picture name="WIOSTK" /></span>
-                    <span class:transparent={tickers.length < 1}><Percent value={$killPercent} /></span>
+                    <span class:transparent={tickers.length < 1}><STNumber sprite="WINUM" percent value={$killPercent} /></span>
                 </div>
                 <div>
                     <span><Picture name="WIOSTI" /></span>
-                    <span class:transparent={tickers.length < 2}><Percent value={$itemPercent} /></span>
+                    <span class:transparent={tickers.length < 2}><STNumber sprite="WINUM" percent value={$itemPercent} /></span>
                 </div>
                 <div>
                     <span><Picture name="WISCRT2" /></span>
-                    <span class:transparent={tickers.length < 3}><Percent value={$secretPercent} /></span>
+                    <span class:transparent={tickers.length < 3}><STNumber sprite="WINUM" percent value={$secretPercent} /></span>
                 </div>
             </div>
 

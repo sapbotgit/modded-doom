@@ -84,17 +84,17 @@ function addFullAmmo(game: Game) {
             inv.ammo[t].amount = inv.ammo[t].max;
         }
         let w = [...allWeapons];
-        if (!player.map.game.wad.spriteTextureData('SHT2A0')) {
-            // no super shotgun in this wad so remove it from the weapon list
-            w.splice(w.findIndex(e => e.name === 'super shotgun'), 1);
+        if (!player.map.game.wad.spriteTextureData('BFGGA0')) {
+            // no BFG (shareware doom?)
+            w[w.findIndex(e => e.name === 'bfg')] = undefined;
         }
         if (!player.map.game.wad.spriteTextureData('PLSGA0')) {
             // no plasma rifle (shareware doom?)
-            w.splice(w.findIndex(e => e.name === 'plasma rifle'), 1);
+            w[w.findIndex(e => e.name === 'plasma rifle')] = undefined;
         }
-        if (!player.map.game.wad.spriteTextureData('BFGGA0')) {
-            // no BFG (shareware doom?)
-            w.splice(w.findIndex(e => e.name === 'bfg'), 1);
+        if (!player.map.game.wad.spriteTextureData('SHT2A0')) {
+            // no super shotgun in this wad so remove it from the weapon list
+            w[w.findIndex(e => e.name === 'super shotgun')] = undefined;
         }
         inv.weapons = w;
         inv.armorType = 2;

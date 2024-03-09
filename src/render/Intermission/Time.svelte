@@ -8,7 +8,7 @@
     $: seconds = Math.floor(time % 60);
 </script>
 
-<div>
+<div class="inline-flex gap-[1.2px]">
     {#if time > 3600}
         <Picture name="WINUM{hours % 10}" />
         <Picture name="WICOLON" />
@@ -21,10 +21,3 @@
     <Picture name="WINUM{Math.floor(seconds / 10)}" />
     <Picture name="WINUM{seconds % 10}" />
 </div>
-
-<style>
-    div {
-        display: inline-flex;
-        gap: 1.2px;
-    }
-</style>

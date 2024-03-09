@@ -11,11 +11,26 @@
     export let viewSize: Size;
     export let player: PlayerMapObject = null;
     export let showDeadZone = false;
+
+    $: hasSuperShotgun = Boolean(game.wad.spriteTextureData('SHT2A0'));
     $: tick = game.time.tick;
+    $: inventory = player?.inventory;
+    $: playerWeapons = $inventory.weapons;
 
     const { settings } = useAppContext();
     const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchTargetHzPadding, touchTargetVPadding, touchTargetSize } = settings;
     const nowTime = () => new Date().getTime() * 0.001;
+    const weaponSprites: [string, number, number][] = [
+        ['PUNGB0', 26, -5],
+        ['SAWGC0', 23, -10],
+        ['PISGA0', 25, 0],
+        ['SHTGA0', 29, 0],
+        ['SHT2A0', 27, 8],
+        ['CHGGA0', 14, 0],
+        ['MISGB0', 13, -5],
+        ['PLSGA0', 17, -7],
+        ['BFGGA0', 9, -11],
+    ];
 
     let useButton = false;
     let useLock = false;
@@ -151,31 +166,16 @@
         }
     };
 
-    const weaponSprites: [string, number, number][] = [
-        ['PUNGB0', 26, -5],
-        ['SAWGC0', 23, -10],
-        ['PISGA0', 25, 0],
-        ['SHTGA0', 29, 0],
-        ['SHT2A0', 27, 8],
-        ['CHGGA0', 14, 0],
-        ['MISGB0', 13, -5],
-        ['PLSGA0', 17, -7],
-        ['BFGGA0', 9, -11],
-    ];
-    if (!game.wad.spriteTextureData('SHT2A0')) {
-        weaponSprites.splice(4, 1);
-    }
-
     let showWeaponMenu = false;
     function weaponWheelTouchMove(ev: TouchEvent) {
-        const btn = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY)
+        const btn = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY);
         if (btn instanceof HTMLButtonElement && btn.getAttribute('class').includes('wbutton')) {
             btn.focus()
         }
     }
 
     function weaponWheelTouchEnd(ev: TouchEvent) {
-        const btn = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY)
+        const btn = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY);
         if (btn instanceof HTMLButtonElement && btn.getAttribute('class').includes('wbutton')) {
             btn.click();
         }
@@ -183,8 +183,8 @@
     }
 
     const selectWeapon = (num: number) => () => {
-        if (player.weapon.val.name !== player.inventory.val.weapons[num].name) {
-            player.nextWeapon = player.inventory.val.weapons[num];
+        if (player.weapon.val.name !== playerWeapons[num].name) {
+            player.nextWeapon = playerWeapons[num];
         }
     }
 
@@ -248,20 +248,21 @@
 {#if showWeaponMenu && player}
     <div class="absolute flex justify-center items-center w-full bottom-8">
         <div class="absolute w-[30%] translate-y-[-75%] top-0">
-            <RoundMenu slices={weaponSprites.length} spanAngle={360} let:num let:rotation>
+            <RoundMenu slices={weaponSprites.length - (hasSuperShotgun ? 0 : 1)} spanAngle={360} let:num let:rotation>
+                {@const weaponNum = !hasSuperShotgun && num > 3 ? num + 1 : num}
                 <button
-                    disabled={!player.inventory.val.weapons[num]}
+                    disabled={!playerWeapons[weaponNum]}
                     class="wbutton btn no-animation w-full h-full opacity-80"
-                    style="--btn-focus-scale:.9; --rotation:{-rotation}deg;"
-                    on:click={selectWeapon(num)}
+                    style="--btn-focus-scale:.9; --rotation:{rotation}deg;"
+                    on:click={selectWeapon(weaponNum)}
                     on:touchend={() => showWeaponMenu = false}
                 >
                     <span
                         class="roundMenuItem"
-                        class:hidden={!player.inventory.val.weapons[num]}
-                        style="--top-offset:{weaponSprites[num][1]}%; --right-offset:{weaponSprites[num][2]}%;"
+                        class:hidden={!playerWeapons[weaponNum]}
+                        style="--top-offset:{weaponSprites[weaponNum][1]}%; --right-offset:{weaponSprites[weaponNum][2]}%;"
                     >
-                        <Picture name={weaponSprites[num][0]} />
+                        <Picture name={weaponSprites[weaponNum][0]} />
                     </span>
                 </button>
             </RoundMenu>
