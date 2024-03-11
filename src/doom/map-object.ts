@@ -4,7 +4,7 @@ import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex } f
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall } from "./map-data";
-import { ticksPerSecond, type GameTime, tickTime, physicsTickTime } from "./game";
+import { ticksPerSecond, type GameTime, tickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
@@ -23,8 +23,8 @@ export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
     return Math.sqrt(_distVec.x * _distVec.x + _distVec.y * _distVec.y);
 }
 
-const velocityPerSecond = (vel: number) => vel * physicsTickTime / tickTime;
-const velocityPerTick = (vel: number) => vel * tickTime / physicsTickTime;
+const velocityPerSecond = (time: number, vel: number) => vel * time / tickTime;
+const velocityPerTick = (time: number, vel: number) => vel * tickTime / time;
 
 const vec = new Vector3();
 export const maxFloatSpeed = 4;
@@ -739,14 +739,16 @@ export class PlayerMapObject extends MapObject {
     }
 
     thrust(x: number, y: number, z: number) {
-        super.thrust(velocityPerSecond(x), velocityPerSecond(y), velocityPerSecond(z));
+        const time = this.map.game.time.delta;
+        super.thrust(velocityPerSecond(time, x), velocityPerSecond(time, y), velocityPerSecond(time, z));
     }
 
     kill(source?: MapObject) {
         super.kill(source);
         // when we die, we start processing moving at tick intervals so convert current velocity (in seconds) to ticks
         // I don't really love how we evaluate player movement
-        this.velocity.set(velocityPerTick(this.velocity.x), velocityPerTick(this.velocity.y), velocityPerTick(this.velocity.z));
+        const time = this.map.game.time.delta;
+        this.velocity.set(velocityPerTick(time, this.velocity.x), velocityPerTick(time, this.velocity.y), velocityPerTick(time, this.velocity.z));
 
         // TODO: some map stats
         this.weapon.val.deactivate();

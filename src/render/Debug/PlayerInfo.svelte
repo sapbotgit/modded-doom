@@ -1,13 +1,13 @@
 <script lang="ts">
     import { Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { ToDegrees, physicsTickTime, tickTime, ticksPerSecond } from "../../doom";
+    import { ToDegrees, tickTime, ticksPerSecond } from "../../doom";
     import { fly } from "svelte/transition";
     import { useAppContext } from "../DoomContext";
 
     export let player: PlayerMapObject;
     export let interactive = true;
-    const { showPlayerInfo } = useAppContext().settings;
+    const { showPlayerInfo, timescale } = useAppContext().settings;
     const { position, direction, sector, inventory } = player;
     const tick = player.map.game.time.tick;
 
@@ -42,7 +42,7 @@
     function timeFromTicks(ticks: number) {
         return (ticks / ticksPerSecond).toFixed(2);
     }
-    const velocityPerTick = (vel: number) => vel * tickTime / physicsTickTime;
+    const velocityPerTick = (vel: number) => vel * tickTime * 60 / $timescale;
 </script>
 
 {#if $showPlayerInfo}
