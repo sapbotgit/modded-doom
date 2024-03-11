@@ -485,6 +485,7 @@ class GameInput {
                 if ('line' in hit) {
                     if (hit.line.special) {
                         this.map.triggerSpecial(hit.line, this.player, 'S');
+                        return false; // stop trace, we used a line
                     } else if (hit.line.left) {
                         const front = (hit.side === -1 ? hit.line.right : hit.line.left).sector;
                         const back = (hit.side === -1 ? hit.line.left : hit.line.right).sector;
@@ -493,9 +494,7 @@ class GameInput {
                             return true; // allow trace to continue
                         }
                     }
-                    if (!hit.line.special) {
-                        this.map.game.playSound(SoundIndex.sfx_noway, this.player);
-                    }
+                    this.map.game.playSound(SoundIndex.sfx_noway, this.player);
                     return false; // always stop on the first line (unless above says we can continue)
                 }
                 return true

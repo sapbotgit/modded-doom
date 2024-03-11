@@ -4,7 +4,7 @@ import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex } f
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall } from "./map-data";
-import { ticksPerSecond, type GameTime, tickTime } from "./game";
+import { ticksPerSecond, type GameTime, tickTime, physicsTickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
 import type { MapRuntime } from "./map-runtime";
 import type { PlayerWeapon, ThingSpec } from "./things";
@@ -23,9 +23,8 @@ export const xyDistanceBetween = (mobj1: MapObject, mobj2: MapObject) => {
     return Math.sqrt(_distVec.x * _distVec.x + _distVec.y * _distVec.y);
 }
 
-// I don't think these a right (see note about movement in GameInput.evaluate())
-const velocityPerSecond = (vel: number) => Math.sign(vel) * vel * vel * tickTime;
-const velocityPerTick = (vel: number) => Math.sign(vel) * Math.sqrt(Math.abs(vel) / tickTime);
+const velocityPerSecond = (vel: number) => vel * physicsTickTime / tickTime;
+const velocityPerTick = (vel: number) => vel * tickTime / physicsTickTime;
 
 const vec = new Vector3();
 export const maxFloatSpeed = 4;

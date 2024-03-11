@@ -32,6 +32,9 @@ export type Skill = 1 | 2 | 3 | 4 | 5;
 
 export const ticksPerSecond = 35;
 export const tickTime = 1 / ticksPerSecond;
+// Using a fixed time slice for physics makes it SOOOO much easier to reason about player movement and for the times we
+// need to convert it to DOOM's standard 35 tics
+export const physicsTickTime = 1 / 60;
 
 // player info persisted between levels
 interface PlayerInfo extends Omit<PlayerInventory, 'keys' | 'items'> {
@@ -77,6 +80,7 @@ export const defaultInventory = (): PlayerInfo => ({
 });
 
 export class Game {
+    private remainingTime = 0; // seconds
     private nextTickTime = 0; // seconds
     time = {
         playTime: 0,
@@ -114,23 +118,20 @@ export class Game {
             console.warn('time interval too long', delta);
             return;
         }
-        // we need to process in 1/35s ticks (or less)
-        delta *= this.settings.timescale.val;
-        const step = Math.min(tickTime, delta);
 
-        while (delta > 0) {
-            const dt = Math.min(step, delta);
-            delta -= dt;
-            this.time.delta = dt;
-            this.time.elapsed += dt;
-            this.time.isTick = false;
-            if (this.time.elapsed > this.nextTickTime) {
+        delta = delta * this.settings.timescale.val + this.remainingTime;
+        while (delta > physicsTickTime) {
+            delta -= physicsTickTime;
+            this.time.delta = physicsTickTime;
+            this.time.elapsed += physicsTickTime;
+            this.time.isTick = this.time.elapsed > this.nextTickTime;
+            if (this.time.isTick) {
                 this.nextTickTime += tickTime;
                 this.time.tick.update(tick => tick += 1);
-                this.time.isTick = true;
             }
             this.map.val?.timeStep(this.time);
         }
+        this.remainingTime = delta;
     }
 
     private soundHandler: SoundHandler;

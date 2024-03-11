@@ -1,15 +1,13 @@
-<script lang="ts" context="module">
-    export let visible = writable(false);
-</script>
 <script lang="ts">
     import { Vector3 } from "three";
     import type { PlayerInventory, PlayerMapObject } from "../../doom";
-    import { ToDegrees, tickTime, ticksPerSecond } from "../../doom";
+    import { ToDegrees, physicsTickTime, tickTime, ticksPerSecond } from "../../doom";
     import { fly } from "svelte/transition";
-    import { writable } from "svelte/store";
+    import { useAppContext } from "../DoomContext";
 
     export let player: PlayerMapObject;
     export let interactive = true;
+    const { showPlayerInfo } = useAppContext().settings;
     const { position, direction, sector, inventory } = player;
     const tick = player.map.game.time.tick;
 
@@ -44,10 +42,10 @@
     function timeFromTicks(ticks: number) {
         return (ticks / ticksPerSecond).toFixed(2);
     }
-    const velocityPerTick = (vel: number) => Math.sign(vel) * Math.sqrt(Math.abs(vel) / tickTime);
+    const velocityPerTick = (vel: number) => vel * tickTime / physicsTickTime;
 </script>
 
-{#if $visible}
+{#if $showPlayerInfo}
 <div class="root">
     <div
         class="settings bg-base-100 bg-honeycomb shadow-xl"

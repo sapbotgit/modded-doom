@@ -2,11 +2,12 @@
     import type { PlayerMapObject } from "../../doom";
     import { MapObjectIndex, SoundIndex, mapObjectInfo } from "../../doom";
     import { tweened } from "svelte/motion";
-    import { visible } from '../Debug/PlayerInfo.svelte';
     import { idfa, idkfa } from "../Controls/KeyboardCheatControls";
+    import { useAppContext } from "../DoomContext";
 
     export let player: PlayerMapObject;
     const { invicibility, noclip, freeFly } = player.map.game.settings;
+    const { showPlayerInfo } = useAppContext().settings;
 
     function revive() {
         // spawn a dead player where we revived (DSDA Doom at least has this behaviour and it's cool)
@@ -49,7 +50,7 @@
     <li>
         <label class="label cursor-pointer flex gap-2">
             <div class="label-text">Debug player info</div>
-            <input type="checkbox" class="checkbox" bind:checked={$visible} />
+            <input type="checkbox" class="checkbox" bind:checked={$showPlayerInfo} />
         </label>
     </li>
 </ul>

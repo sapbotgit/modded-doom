@@ -95,6 +95,7 @@ export const createDefaultSettings = () => {
         ...touchControlSettings,
         ...controllerConfig,
         showStats: writable(false),
+        showPlayerInfo: writable(false),
         fpsLimit: writable(60),
         pixelScale: writable(1),
         useTextures: store(true),
