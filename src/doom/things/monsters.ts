@@ -899,14 +899,10 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
     vecFromMovement(_moveEnd, start, move, mobj.info.radius);
     // NOTE: shrink the radius a bit to help the Barrons in E1M8 (also the pinkies at the start get stuck on steps)
     const moveRadius = mobj.info.radius - 1;
-    // compute highest and lowest floor we are touching because monsters cannot climb narrow steps (players can thoug)
-    let highestZFloor = -Infinity;
-    let lowestZFloor = Infinity;
-    mobj.map.data.traceSubsectors(start, move, moveRadius, h2 => {
-        highestZFloor = Math.max(highestZFloor, h2.sector.zFloor.val);
-        lowestZFloor = Math.min(lowestZFloor, h2.sector.zFloor.val);
-        return true;
-    });
+    // compute highest and lowest floor we are touching because monsters cannot climb narrow steps
+    // (players nad floating monsters can though)
+    const maxFloorChangeOK = (mobj.info.flags & MFFlags.MF_FLOAT) || maxFloorChange(mobj, move, moveRadius) <= maxStepSize;
+
     mobj.map.data.traceMove(start, move, moveRadius, mobj.info.height, hit => {
         if ('mobj' in hit) {
             const skipHit = false
@@ -936,7 +932,7 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
                 } else {
                     const stepUpOK =
                         (back.zFloor.val < front.zFloor.val) // not a step up
-                        || (back.zFloor.val - start.z <= maxStepSize && highestZFloor - lowestZFloor <= maxStepSize);
+                        || (back.zFloor.val - start.z <= maxStepSize && maxFloorChangeOK);
                     const transitionGapOk = (back.zCeil.val - start.z >= mobj.info.height);
                     const newCeilingFloorGapOk = (back.zCeil.val - back.zFloor.val >= mobj.info.height);
                     const stepDownOK =
@@ -967,6 +963,17 @@ function findMoveBlocker(mobj: MapObject, move: Vector3, specialLines?: LineTrac
         return !blocker;
     });
     return blocker;
+}
+
+function maxFloorChange(mobj: MapObject, move: Vector3, radius: number) {
+    let highestZFloor = -Infinity;
+    let lowestZFloor = Infinity;
+    mobj.map.data.traceSubsectors(mobj.position.val, move, radius, hit => {
+        highestZFloor = Math.max(highestZFloor, hit.sector.zFloor.val);
+        lowestZFloor = Math.min(lowestZFloor, hit.sector.zFloor.val);
+        return true;
+    });
+    return (highestZFloor - lowestZFloor);
 }
 
 function canMeleeAttack(mobj: MapObject, target: MapObject) {
