@@ -15,7 +15,7 @@
     $: hasSuperShotgun = Boolean(game.wad.spriteTextureData('SHT2A0'));
     $: tick = game.time.tick;
     $: inventory = player?.inventory;
-    $: playerWeapons = $inventory.weapons;
+    $: playerWeapons = $inventory?.weapons;
 
     const { settings } = useAppContext();
     const { touchDeadZone, tapTriggerTime, touchLookSpeed, analogMovement, touchTargetHzPadding, touchTargetVPadding, touchTargetSize } = settings;

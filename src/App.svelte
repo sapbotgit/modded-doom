@@ -2,10 +2,10 @@
     import { DoomWad, Game, MapRuntime, type Skill, data, WadFile } from './doom';
     import Doom from './render/Doom.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
-    import Picture from './render/Components/Picture.svelte';
+    import Picture, { imageDataUrl } from './render/Components/Picture.svelte';
     import { createAppContext } from './render/DoomContext';
     import { setContext } from 'svelte';
-    import { fly } from 'svelte/transition';
+    import { fade, fly } from 'svelte/transition';
     import WadScreen from './WadScreen.svelte';
     import { WadStore } from './WadStore';
 
@@ -75,55 +75,69 @@
     {:else if !wad}
         <WadScreen {wadStore} />
     {:else if wad}
-        <div class="container mx-auto flex flex-col gap-2 pb-8">
-            <button class="btn btn-secondary w-64" on:click={() => $urlHash = '#'}>❮ Select IWAD</button>
-            <div
-                class="h-32 grid justify-items-center items-center bg-base-300 rounded-box"
-                class:grid-cols-[1fr_auto_1fr]={mapName?.startsWith('E')}
-            >
-                <span class="scale-[2]"><Picture {wad} name="M_DOOM" /></span>
-                {#if mapName?.startsWith('E')}
-                    <div class="divider divider-horizontal"></div>
-                    {@const ep = parseInt(mapName[1])}
-                    <button class="btn h-full relative overflow-hidden" on:click={() => mapName = null}>
-                        <span class="scale-[2]"><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
-                        <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
-                    </button>
-                {/if}
-            </div>
-            {#if mapNames.includes('E1M1') && !mapName}
-                <span class="divider"><Picture {wad} name="M_EPISOD" /></span>
-                <!-- Why an extra div? Safari https://stackoverflow.com/questions/44770074 -->
-                <div>
-                    <div class="grid sm:grid-cols-2 gap-4 mx-auto">
-                        {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
-                            {#if mapNames.includes(`E${ep}M1`)}
-                                <button class="btn h-full relative overflow-hidden" on:click={() => mapName = `E${ep}M1`}>
-                                    <span class="scale-[2]"><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
-                                    <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
-                                </button>
-                            {/if}
+        <div in:fade class="
+            container mx-auto grid grid-cols-1 grid-rows-1 p-2 bg-base-100 justify-center
+            md:rounded-box md:shadow-2xl
+        ">
+            <div class="card image-full bg-base-200 shadow-xl absolute inset-0">
+                <button class="btn btn-secondary w-48 flex-none absolute top-0 left-0 z-30" on:click={() => $urlHash = '#'}>❮ Select IWAD</button>
+                <figure><img class="flex-grow h-64 object-cover" src={imageDataUrl(wad, 'TITLEPIC', 'any')} alt="" /></figure>
+                <div class="card-body justify-self-center pt-16">
+                    <div
+                        class="h-32 grid justify-items-center items-center bg-base-200 rounded-box"
+                        class:grid-cols-[1fr_auto_1fr]={mapName?.startsWith('E')}
+                    >
+                        <span class="scale-[2]"><Picture {wad} name="M_DOOM" /></span>
+                        {#if mapName?.startsWith('E')}
+                            <div class="divider divider-horizontal"></div>
+                            {@const ep = parseInt(mapName[1])}
+                            <button class="btn h-full relative overflow-hidden" on:click={() => mapName = null}>
+                                <span class="scale-[2]"><Picture {wad} name={ep === 4 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                                <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
+                            </button>
+                        {/if}
+                    </div>
+                    {#if mapNames.includes('E1M1') && !mapName}
+                    <div class="bg-base-300 rounded-box shadow-xl p-4">
+                        <span class="divider"><Picture {wad} name="M_EPISOD" /></span>
+                        <!-- Why an extra div? Safari https://stackoverflow.com/questions/44770074 -->
+                        <div>
+                            <div class="grid sm:grid-cols-2 gap-4 mx-auto">
+                                {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
+                                    {#if mapNames.includes(`E${ep}M1`)}
+                                        <button class="btn h-full relative overflow-hidden" on:click={() => mapName = `E${ep}M1`}>
+                                            <span class="scale-[2]"><Picture {wad} name={ep > 3 ? 'INTERPIC' : `WIMAP${ep - 1}`} /></span>
+                                            <span class="absolute bottom-0"><Picture {wad} name="M_EPI{ep}" /></span>
+                                        </button>
+                                    {/if}
+                                {/each}
+                            </div>
+                        </div>
+                    </div>
+                    {:else}
+                        <span class="divider"><Picture {wad} name="M_SKILL" /></span>
+                        {#each data.skills as skill, i}
+                            <button class="btn no-animation pulse-on-hover" in:fly={{ y: -60, delay: i * 50 }}
+                                on:click={() => startGame(skill.num)}
+                                class:skill-selected={difficulty === skill.num}
+                            >
+                                <Picture {wad} name={skill.pic} />
+                            </button>
                         {/each}
+                    {/if}
+                    <div class="card-actions">
                     </div>
                 </div>
-            {:else}
-                <span class="divider"><Picture {wad} name="M_SKILL" /></span>
-                {#each data.skills as skill, i}
-                    <button class="btn no-animation pulse-on-hover" in:fly={{ y: -60, delay: i * 50 }}
-                        on:click={() => startGame(skill.num)}
-                        class:skill-selected={difficulty === skill.num}
-                    >
-                        <Picture {wad} name={skill.pic} />
-                    </button>
-                {/each}
-            {/if}
+            </div>
         </div>
-    {:else}
-        Loading...
     {/if}
 </main>
 
 <style>
+    .container {
+        min-height: min(100vh, 36rem);
+    }
+
     .pulse-on-hover:hover {
         animation: pulse-saturate .5s infinite alternate-reverse;
     }
@@ -135,27 +149,11 @@
 
     :root {
         --line-width: 12px;
-        background-image:
-                radial-gradient(#0c4a6e, #000),
-                repeating-linear-gradient(transparent 0, rgba(0,0,0,0.1) calc(var(--line-width)/2), transparent var(--line-width));
-        /* animation: scan-lines 1s infinite alternate-reverse; */
-        background-size: cover;
-        background-position: 0px 0px;
-        background-blend-mode: overlay;
+        --honeycomb-size: 40px;
+        background: var(--honeycomb-gradient);
+        background-size: var(--honeycomb-size-x) var(--honeycomb-size-y);
         width: 100vw;
         height: 100vh;
-    }
-
-    @keyframes scan-lines {
-        0% { background-position: 0px 0px; }
-        12% { background-position: 0px 1px; }
-        28% { background-position: 0px 4px; }
-        42% { background-position: 0px 7px; }
-        61% { background-position: 0px 12px; }
-        65% { background-position: 0px 9px; }
-        84% { background-position: 0px 8px; }
-        92% { background-position: 0px 3px; }
-        100% { background-position: 0px 1px; }
     }
 
     /*

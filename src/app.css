@@ -8,18 +8,28 @@
             Very cool! https://projects.verou.me/css3patterns/#
             I tweaked the colours and size.
         */
+        --honeycomb-size: 40px;
+        --honeycomb-border-size: calc(var(--honeycomb-size) / 40);
+        --honeycomb-size-x: calc(var(--honeycomb-size));
+        --honeycomb-size-y: calc(var(--honeycomb-size) * 1.5);
+        --honeycomb-c1: var(--b3);
+        --honeycomb-c2: var(--b2);
         --honeycomb-gradient:
-            radial-gradient(circle farthest-side at 0% 50%, oklch(var(--b3)) 23.5%, rgba(240,166,17,0) 0) 10.5px 15px,
-            radial-gradient(circle farthest-side at 0% 50%, oklch(var(--b2)) 24%, rgba(240,166,17,0) 0) 9.5px 15px,
-            linear-gradient(oklch(var(--b3)) 14%,rgba(240,166,17,0) 0, rgba(240,166,17,0) 85%,oklch(var(--b3)) 0)0 0,
-            linear-gradient(150deg, oklch(var(--b3)) 24%, oklch(var(--b2)) 0, oklch(var(--b2)) 26%, rgba(240,166,17,0) 0, rgba(240,166,17,0) 74%, oklch(var(--b2)) 0, oklch(var(--b2)) 76%, oklch(var(--b3)) 0) 0 0,
-            linear-gradient(30deg, oklch(var(--b3)) 24%, oklch(var(--b2)) 0, oklch(var(--b2)) 26%, rgba(240,166,17,0) 0, rgba(240,166,17,0) 74%, oklch(var(--b2)) 0, oklch(var(--b2)) 76%, oklch(var(--b3)) 0) 0 0,
-            linear-gradient(90deg, oklch(var(--b2)) 2%, oklch(var(--b3)) 0, oklch(var(--b3)) 98%, oklch(var(--b2)) 0%) 0 0,
-            oklch(var(--b3));
+            radial-gradient(circle farthest-side at 0% 50%, oklch(var(--honeycomb-c1)) 23.5%, rgba(240,166,17,0) 0)
+                calc(var(--honeycomb-size-x) * .5 + var(--honeycomb-border-size))
+                calc(var(--honeycomb-size-y) * .5),
+            radial-gradient(circle farthest-side at 0% 50%, oklch(var(--honeycomb-c2)) 24%, rgba(240,166,17,0) 0)
+                calc(var(--honeycomb-size-x) * .5 - var(--honeycomb-border-size))
+                calc(var(--honeycomb-size-y) * .5),
+            linear-gradient(oklch(var(--honeycomb-c1)) 14%,rgba(240,166,17,0) 0, rgba(240,166,17,0) 85%,oklch(var(--honeycomb-c1)) 0) 0 0,
+            linear-gradient(150deg, oklch(var(--honeycomb-c1)) 24%, oklch(var(--honeycomb-c2)) 0, oklch(var(--honeycomb-c2)) 26%, rgba(240,166,17,0) 0, rgba(240,166,17,0) 74%, oklch(var(--honeycomb-c2)) 0, oklch(var(--honeycomb-c2)) 76%, oklch(var(--honeycomb-c1)) 0) 0 0,
+            linear-gradient(30deg, oklch(var(--honeycomb-c1)) 24%, oklch(var(--honeycomb-c2)) 0, oklch(var(--honeycomb-c2)) 26%, rgba(240,166,17,0) 0, rgba(240,166,17,0) 74%, oklch(var(--honeycomb-c2)) 0, oklch(var(--honeycomb-c2)) 76%, oklch(var(--honeycomb-c1)) 0) 0 0,
+            linear-gradient(90deg, oklch(var(--honeycomb-c2)) 2%, oklch(var(--honeycomb-c1)) 0, oklch(var(--honeycomb-c1)) 98%, oklch(var(--honeycomb-c2)) 0%) 0 0,
+            oklch(var(--honeycomb-c1));
     }
 
     .bg-honeycomb {
         background: var(--honeycomb-gradient);
-        background-size: 20px 30px;
+        background-size: var(--honeycomb-size-x) var(--honeycomb-size-y);
     }
 }

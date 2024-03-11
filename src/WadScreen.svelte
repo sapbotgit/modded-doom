@@ -1,19 +1,26 @@
 <script lang="ts">
     import { WadStore, type WADInfo } from "./WadStore";
     import { useAppContext } from "./render/DoomContext";
-    import WarningIcon from './render/Icons/WarningIcon.svelte'
     import WadDropbox from "./WadDropbox.svelte";
+	import { crossfade, fade, fly, scale } from 'svelte/transition';
 
     const { urlHash } = useAppContext();
+    const [send, receive] = crossfade({
+		duration: 300,
+		fallback: scale
+	});
 
     export let wadStore: WadStore;
     const wads = wadStore.wads;
     $: iWads = $wads.filter(wad => wad.iwad);
     $: pWads = $wads.filter(wad => !wad.iwad);
 
+    // used for exit transition. For some reason selectedIWad.name is always null
+    let selectedWadName: string;
     let selectedIWad: WADInfo;
     let selectedPWads: WADInfo[] = [];
     $: if (selectedIWad) {
+        selectedWadName = selectedIWad.name;
         selectedPWads = [];
     }
 
@@ -26,116 +33,101 @@
     }
 
     function detailsString(wad: WADInfo) {
-        return `${wad.mapCount} maps` + (wad.episodicMaps ? ' (episodes)' : '');
+        return `${wad.mapCount} maps` + (wad.episodicMaps ? ' (episodic)' : '');
     }
-
-    // TODO: it would be really nice to get transitions between the screens...
 </script>
 
-<div class="container mx-auto flex flex-col gap-2">
-    {#if selectedIWad}
-        <button class="btn btn-secondary w-64" on:click={() => selectedIWad = null}>❮ Select IWAD</button>
-    {/if}
-
-    {#if iWads.length}
-        <div class="divider">Game WADS (<a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a>)</div>
-        {#if selectedIWad}
-            <div class="flex flex-col sm:flex-row w-full">
-                <div class="grid flex-grow bg-base-300 rounded-box place-items-center">
-                    <img src={selectedIWad.image} alt={selectedIWad.name} />
-                </div>
-                {#if selectedPWads.length}
-                    <div class="divider sm:divider-horizontal">+</div>
-                    <div class="flex flex-wrap max-w-64 gap-2 p-4 bg-base-300 rounded-box place-items-center">
-                        {#each selectedPWads as pwad}
-                            <div class="badge badge-primary badge-lg">{pwad.name}</div>
-                        {/each}
-                    </div>
+<div out:fade class="
+    container mx-auto grid grid-cols-1 grid-rows-1 p-2 bg-base-100 justify-center
+    md:rounded-box md:shadow-2xl
+">
+    {#if !iWads.length}
+    <div class="flex flex-col place-items-center justify-center min-h-48">
+        <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>
+        <p>To start playing DOOM, drag and drop DOOM WAD files into the drop box below.</p>
+        <p>Don't have any DOOM WADs? Download and use the <a class="link link-primary" href="https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad">DOOM shareware WAD</a>.</p>
+    </div>
+    {:else}
+    <div class="flex flex-col gap-2">
+        <div class="grid sm:grid-cols-2 mx-auto gap-4">
+            {#each iWads as wad (wad.name)}
+                {#if selectedIWad !== wad}
+                <button
+                    class="btn h-auto no-animation"
+                    on:click={() => selectedIWad = wad}
+                    in:receive={{ key: wad.name }}
+                    out:send={{ key: wad.name }}
+                >
+                    <img src={wad.image} alt={wad.name} />
+                </button>
                 {/if}
-            </div>
-            <button
-                class="btn btn-primary w-full"
-                on:click={() => $urlHash = `#${[selectedIWad, ...selectedPWads].map(p => `wad=${p.name}`).join('&')}`}
-            >Launch</button>
-        {:else}
-            <div class="grid sm:grid-cols-2 mx-auto gap-4">
-                {#each iWads as wadInfo (wadInfo.name)}
-                    <div class="flex flex-col relative">
-                        <button class="btn h-auto" on:click={() => selectedIWad = wadInfo}>
-                            <img src={wadInfo.image} alt={wadInfo.name} />
-                        </button>
-                        <label class="swap swap-flip absolute bottom-0 right-0">
-                            <input type="checkbox" />
-                            <div class="btn btn-square swap-off justify-self-end self-end">{'🗑️'}</div>
-                            <div role="alert" class="swap-on alert alert-warning grid-flow-col">
-                                <WarningIcon />
-                                <span>Remove: Are you sure?</span>
-                                <div>
-                                    <button class="btn" on:click|stopPropagation={() => wadStore.removeWad(wadInfo.name)}>Yes</button>
-                                    <span class="btn">No</span>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                {/each}
-            </div>
-        {/if}
-    {:else}
-        <div class="flex flex-col place-items-center justify-center min-h-48">
-            <p>No game <a class="link link-primary" href="https://doomwiki.org/wiki/IWAD" target="_blank" rel="noreferrer" >IWADs</a> found.</p>
-            <p>To start playing DOOM, drag and drop DOOM WAD files into the drop box below.</p>
-            <p>Don't have any DOOM WADs? Download and use the <a class="link link-primary" href="https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad">DOOM shareware WAD</a>.</p>
+            {/each}
         </div>
-    {/if}
-
-    {#if selectedIWad && pWads.length}
-        <div class="collapse collapse-arrow text-center bg-base-300">
-            <input type="checkbox"/>
-            <div class="collapse-title text-xl font-medium">
-                Addons (<a class="link link-primary" href="https://doomwiki.org/wiki/PWAD" target="_blank" rel="noreferrer" >PWADs</a>)
-            </div>
-            <div class="collapse-content">
-                <div class="overflow-x-auto max-h-96">
-                    <table class="table table-zebra table-pin-rows">
-                    <thead>
-                        <tr>
-                            <th>Enabled</th>
-                            <th>Name</th>
-                            <th>Details</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {#each pWads as pwad (pwad.name)}
-                            <tr>
-                                <td><input type="checkbox" class="checkbox" checked={selectedPWads.includes(pwad)} on:change={() => pwadChange(pwad)} /></td>
-                                <td>{pwad.name}</td>
-                                <td>{detailsString(pwad)}</td>
-                                <td>
-                                    <label class="swap swap-flip">
-                                        <input type="checkbox" />
-                                        <div class="btn btn-square swap-off fill-current justify-self-end self-end">{'🗑️'}</div>
-                                        <div class="swap-on fill-current alert alert-warning">
-                                            <WarningIcon />
-                                            <span>Remove: Are you sure?</span>
-                                            <div>
-                                                <button class="btn" on:click|stopPropagation={() => wadStore.removeWad(pwad.name)}>Yes</button>
-                                                <span class="btn">No</span>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                    </table>
-                </div>
-                <WadDropbox {wadStore} />
-            </div>
-        </div>
-    {:else}
-        <div class="px-8">
+        <div class="p-8 max-w-6xl mx-auto">
             <WadDropbox {wadStore} />
         </div>
+    </div>
+    {/if}
+
+    {#if selectedIWad}
+    <div class="card image-full bg-base-200 shadow-xl absolute inset-0"
+        in:receive={{ key: selectedIWad.name }}
+        out:send={{ key: selectedWadName }}
+    >
+        <figure><img class="flex-grow h-64 object-cover" src={selectedIWad.image} alt={selectedIWad.name} /></figure>
+        <div class="card-body justify-end">
+            <h2 class="card-title">
+                <span>{selectedIWad.name}</span>
+                {#if selectedPWads.length}
+                <div class="divider sm:divider-horizontal">+</div>
+                <div class="flex flex-wrap gap-2 p-4 bg-base-300 rounded-box place-items-center">
+                    {#each selectedPWads as pwad}
+                        <div class="badge badge-primary badge-lg">{pwad.name}</div>
+                    {/each}
+                </div>
+                {/if}
+            </h2>
+            <div class="card-actions">
+                <div transition:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute top-0 left-0">
+                    <button class="btn btn-secondary w-48" on:click={() => (selectedIWad = null)}>❮ Select IWAD</button>
+                    {#if pWads.length}
+                    <div class="collapse collapse-arrow text-center bg-base-300">
+                        <input type="checkbox"/>
+                        <div class="collapse-title text-xl font-medium">
+                            Addons (<a class="link link-primary" href="https://doomwiki.org/wiki/PWAD" target="_blank" rel="noreferrer" >PWADs</a>)
+                        </div>
+                        <div class="collapse-content">
+                            <div class="menu flex-nowrap max-h-64 overflow-scroll">
+                                <button class="btn btn-sm" on:click={() => selectedPWads = []}>Clear selection</button>
+                                {#each pWads as pwad (pwad.name)}
+                                    {@const checked = selectedPWads.includes(pwad)}
+                                    <label class="label cursor-pointer">
+                                        <span class="label-text">{pwad.name} <span class="text-xs">[{detailsString(pwad)}]</span></span>
+                                        <input type="checkbox" class="checkbox" {checked} on:change={() => pwadChange(pwad)} />
+                                    </label>
+                                {/each}
+                            </div>
+                        </div>
+                    </div>
+                    {/if}
+                </div>
+                <button
+                    transition:fly={{ delay: 200, y: '100%' }}
+                    class="btn btn-primary btn-lg flex-grow no-animation"
+                    on:click={() => $urlHash = `#${[selectedIWad, ...selectedPWads].map(p => `wad=${p.name}`).join('&')}`}
+                >Play</button>
+            </div>
+        </div>
+    </div>
     {/if}
 </div>
+
+<style>
+    .container {
+        min-height: min(100vh, 36rem);
+    }
+
+    .card.image-full::before {
+        opacity: 0.5;
+    }
+</style>
