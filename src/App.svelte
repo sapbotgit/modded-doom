@@ -2,6 +2,7 @@
     import { DoomWad, Game, MapRuntime, type Skill, data, WadFile } from './doom';
     import Doom from './render/Doom.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
+    import AppInfo from './render/Components/AppInfo.svelte';
     import Picture, { imageDataUrl } from './render/Components/Picture.svelte';
     import { createAppContext } from './render/DoomContext';
     import { setContext } from 'svelte';
@@ -67,6 +68,10 @@
     use:context.pointerLock.pointerLockControls
 >
     <!-- <AABBSweepDebug /> -->
+
+    {#if !game}
+    <AppInfo />
+    {/if}
 
     {#if game}
         {#key game}

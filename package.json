@@ -13,6 +13,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
+    "@steeze-ui/heroicons": "^2.3.0",
+    "@steeze-ui/svelte-icon": "^1.5.0",
     "@sveltejs/vite-plugin-svelte": "^2.4.6",
     "@threlte/core": "^7.1.0",
     "@threlte/extras": "^8.7.5",

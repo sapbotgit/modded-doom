@@ -87,6 +87,7 @@ export const createDefaultSettings = () => {
         musicVolume: writable(.4),
         soundVolume: writable(.8),
         mainVolume: writable(.8),
+        muted: writable(false),
         experimentalSoundHacks: writable(false),
     }
     return {
@@ -94,6 +95,7 @@ export const createDefaultSettings = () => {
         ...soundSettings,
         ...touchControlSettings,
         ...controllerConfig,
+        simulate486: writable(false),
         showStats: writable(false),
         showPlayerInfo: writable(false),
         fpsLimit: writable(60),
@@ -169,7 +171,6 @@ export const createAppContext = () => {
     ];
 
     const pointerLock = createPointerLockControls();
-
     const audio = new AudioContext();
     return { urlHash, settings, settingsMenu, editor, audio, pointerLock };
 }

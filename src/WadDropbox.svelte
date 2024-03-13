@@ -1,7 +1,8 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
     import type { WADInfo, WadStore } from "./WadStore";
-    import WarningIcon from "./render/Icons/WarningIcon.svelte";
+    import { Icon } from '@steeze-ui/svelte-icon'
+    import { ExclamationTriangle } from '@steeze-ui/heroicons'
 
     export let wadStore: WadStore;
     const wads = wadStore.wads;
@@ -65,7 +66,7 @@
             <input type="checkbox" />
             <div class="swap-off btn btn-secondary">Remove All</div>
             <div class="swap-on fill-current alert alert-warning">
-                <WarningIcon />
+                <span><Icon src={ExclamationTriangle} theme='outline' size="1.5rem" /></span>
                 <span>Remove All: Are you sure?</span>
                 <div>
                     <button class="btn" on:click={() => $wads.forEach(wad => wadStore.removeWad(wad.name))}>Yes</button>
@@ -86,7 +87,7 @@
                                 <input type="checkbox" />
                                 <div class="swap-off btn btn-secondary">Remove</div>
                                 <div class="swap-on fill-current alert alert-warning h-0">
-                                    <WarningIcon />
+                                    <span><Icon src={ExclamationTriangle} theme='outline' size="1.5rem" /></span>
                                     <span>Remove: Are you sure?</span>
                                     <div>
                                         <button class="btn" on:click={() => wadStore.removeWad(wad.name)}>Yes</button>

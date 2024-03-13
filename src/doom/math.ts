@@ -21,6 +21,26 @@ interface IntersectionPoint extends Vertex {
     u: number; // distance from point1 to point2 of the impact (0-1)
 }
 
+
+// very cool! https://stackoverflow.com/questions/25582882
+// random numbers on a normal distribution
+export function randomNorm(min, max, skew) {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random() //Converting [0,1) to (0,1)
+    while(v === 0) v = Math.random()
+
+    let num = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v )
+    num = num / 10.0 + 0.5 // Translate to 0 -> 1
+    if (num > 1 || num < 0) {
+        num = randomNorm(min, max, skew) // resample between 0 and 1 if out of range
+    } else {
+        num = Math.pow(num, skew) // Skew
+        num *= max - min // Stretch to fill range
+        num += min // offset to min
+    }
+    return num
+}
+
 // Random number in the range (-1, 1)
 export const rand = () => Math.random() - Math.random();
 export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;

@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { type Game } from "../doom";
+    import { randInt, type Game, randomNorm } from "../doom";
+    import { tweened } from "svelte/motion";
     import { onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
@@ -19,13 +20,14 @@
     import Menu from "./Menu/Menu.svelte";
     import TouchControls from "./Controls/TouchControls.svelte";
     import { keyboardCheatControls } from "./Controls/KeyboardCheatControls";
+    import { derived, get } from "svelte/store";
 
     export let game: Game;
 
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
     const { urlHash, settings, audio, pointerLock } = useAppContext();
-    const { cameraMode, musicVolume, soundVolume, mainVolume, fpsLimit, pixelScale, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
+    const { cameraMode, musicVolume, soundVolume, muted, mainVolume, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
     const { map, intermission } = game;
 
     const touchDevice = matchMedia('(hover: none)').matches;
@@ -42,7 +44,7 @@
 
     const mainGain = audio.createGain();
     mainGain.connect(audio.destination);
-    $: mainGain.gain.value = $mainVolume;
+    $: mainGain.gain.value = $muted ? 0 : $mainVolume;
 
     const soundGain = audio.createGain();
     soundGain.connect(mainGain);
@@ -55,11 +57,35 @@
     const { isPointerLocked, requestLock } = pointerLock;
     $: showMenu = !$isPointerLocked;
 
+    // A fun little hack to make the game feel like it used to on my 486sx25
+    const { simulate486, timescale, pixelScale, fpsLimit } = settings;
+    let threlteCtx: ThrelteContext;
+    // F5 low-res mode (it should be .5 but that looks to sharp IMO)
+    // FIXME: starting the game with low pixel ratio and then increasing doesn't work... why?
+    $: threlteCtx?.renderer?.setPixelRatio($simulate486 ? .2 : $pixelScale);
+    let frameTime = 1 / $fpsLimit;
+    let tscale = $timescale;
+    $: if ($simulate486) {
+        const set486Params = () => {
+            if (!$simulate486) {
+                frameTime = 1 / $fpsLimit;
+                tscale = $timescale;
+                return;
+            }
+
+            // a real 486 would slow down if there was a lot of geometry or bad guys but this was simple and fun.
+            // This guy has some neat numbers though we're not strictly following it https://www.youtube.com/watch?v=rZcAo4oUc4o
+            frameTime = 1 / randomNorm(2, 18, 1.2);
+            // IIRC game logic would slow down when the CPU was busy. We simulate that slowing down time (just a little)
+            tscale = 1 - frameTime * 2;
+            setTimeout(set486Params, randInt(200, 800));
+        }
+        set486Params();
+    }
+
     // TODO: re-arrange Canvas component so we can use threlte's useTask() instead of svelte's onMount()
     // Also so we can use shaders to perform transitions?
-    $: frameTime = 1 / $fpsLimit;
     let viewSize = { width: 1024, height: 600 };
-    let threlteCtx: ThrelteContext;
     onMount(() => {
         const clock = new Clock();
         let lastTickTime = 0;
@@ -72,7 +98,7 @@
                 threlteCtx?.invalidate();
                 frameDelta = frameDelta % frameTime;
 
-                game.tick(clock.elapsedTime - lastTickTime);
+                game.tick(clock.elapsedTime - lastTickTime, tscale);
                 lastTickTime = clock.elapsedTime;
             }
         }
@@ -121,7 +147,7 @@
                 on:deactivate={() => (showMenu = true)}
             />
             {:else}
-            <Canvas bind:ctx={threlteCtx} autoRender={false} dpr={$pixelScale}>
+            <Canvas bind:ctx={threlteCtx} autoRender={false}>
                 <MapRoot map={$map} />
             </Canvas>
             {/if}
