@@ -1,6 +1,5 @@
 <script lang="ts">
     import { randInt, type Game, randomNorm } from "../doom";
-    import { tweened } from "svelte/motion";
     import { onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
@@ -20,7 +19,9 @@
     import Menu from "./Menu/Menu.svelte";
     import TouchControls from "./Controls/TouchControls.svelte";
     import { keyboardCheatControls } from "./Controls/KeyboardCheatControls";
-    import { derived, get } from "svelte/store";
+    import { derived } from "svelte/store";
+    import { Icon } from '@steeze-ui/svelte-icon'
+    import { Bars3BottomLeft } from '@steeze-ui/heroicons'
 
     export let game: Game;
 
@@ -76,7 +77,7 @@
             // a real 486 would slow down if there was a lot of geometry or bad guys but this was simple and fun.
             // This guy has some neat numbers though we're not strictly following it https://www.youtube.com/watch?v=rZcAo4oUc4o
             frameTime = 1 / randomNorm(2, 18, 1.2);
-            // IIRC game logic would slow down when the CPU was busy. We simulate that slowing down time (just a little)
+            // IIRC even game logic would slow down when the CPU was busy. We simulate that slowing down time (just a little)
             tscale = 1 - frameTime * 2;
             setTimeout(set486Params, randInt(200, 800));
         }
@@ -166,9 +167,7 @@
         {/if}
         {#if touchDevice && !showMenu}
             <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
-                </svg>
+                <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="3rem"/>
             </button>
             <TouchControls {viewSize} {game} player={$map?.player} />
         {/if}

@@ -15,7 +15,7 @@
     $: pos = $weapon.position;
 
     const cameraMode = useDoom().game.settings.cameraMode;
-    $: scale = $cameraMode === '1p' ? 2.5 : 1;
+    $: scale = $cameraMode === '1p' ? Math.max(2.5, screenSize.height / 200) : 1;
     const screenPosition = { x: 0, y: 0 };
     $: screenPosition.x = $cameraMode === '1p'
         ? $pos.x - (160 * scale) // center screen
