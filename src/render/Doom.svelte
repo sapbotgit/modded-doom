@@ -98,7 +98,9 @@
                 threlteCtx?.invalidate();
                 frameDelta = frameDelta % frameTime;
 
-                game.tick(clock.elapsedTime - lastTickTime, tscale);
+                if (!showMenu) {
+                    game.tick(clock.elapsedTime - lastTickTime, tscale);
+                }
                 lastTickTime = clock.elapsedTime;
             }
         }
@@ -166,7 +168,7 @@
         {/if}
         {#if touchDevice && !showMenu}
             <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
-                <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="3rem"/>
+                <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="2rem"/>
             </button>
             <TouchControls {viewSize} {game} player={$map?.player} />
         {/if}
