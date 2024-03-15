@@ -1,6 +1,7 @@
 import type { Action, ActionReturn } from 'svelte/action';
-import { defaultInventory, MapRuntime, type Game, type Store, mapMusicTrack } from '../../doom';
-import { allWeapons } from '../../doom/things/weapons';
+import { defaultInventory, MapRuntime, type Game, type Store, mapMusicTrack, type PlayerInventory, ticksPerSecond } from '../../doom';
+import { allWeapons, giveWeapon } from '../../doom/things/weapons';
+import { useAppContext } from '../DoomContext';
 
 export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): ActionReturn => {
     const doc = node.ownerDocument;
@@ -19,13 +20,26 @@ export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): Ac
     }
 
     const update = (game: Game) => {
+        const showPlayerInfo = useAppContext().settings.showPlayerInfo;
         cheatStrings = [
             new CheatCode(game, 'idclip', toggleFn(game.settings.noclip, 'No clipping mode')),
+            new CheatCode(game, 'idspispopd', toggleFn(game.settings.noclip, 'No clipping mode')),
             new CheatCode(game, 'iddqd', toggleFn(game.settings.invicibility, 'No clipping mode')),
             new CheatCode(game, 'idfa', idfa),
             new CheatCode(game, 'idkfa', idkfa),
             new CheatCode(game, 'idclev??', warp),
             new CheatCode(game, 'idmus??', changeMusic),
+            new CheatCode(game, 'idmypos', toggleFn(showPlayerInfo, 'Debug info')),
+            new CheatCode(game, 'idchoppers', idchoppers),
+            // only shows the message
+            new CheatCode(game, 'idbehold', (game) => game.map?.val?.player?.hudMessage?.set('inVuln, Str, Inviso, Rad, Allmap, or Lite-amp')),
+            // actually applies hte powerup
+            new CheatCode(game, 'idbeholdv', idbeholdInvulnerable),
+            new CheatCode(game, 'idbeholds', idbeholdBerserk),
+            new CheatCode(game, 'idbeholdi', idbeholdInvisible),
+            new CheatCode(game, 'idbeholdr', idbeholdRadiation),
+            new CheatCode(game, 'idbeholda', idbeholdAllMap),
+            new CheatCode(game, 'idbeholdl', idbeholdLiteAmp),
         ];
     };
     update(game);
@@ -67,6 +81,24 @@ const toggleFn = (e: Store<boolean>, message: string) => (game: Game) => {
     e.set(!e.val);
     game.map.val?.player?.hudMessage?.set(message + ' ' + (e.val ? 'ON' : 'OFF'));
 };
+
+const idbehold = (powerup: (inv: PlayerInventory) => void) => (game: Game) => {
+    game.map?.val?.player?.hudMessage?.set('Power-up Toggled');
+    game.map?.val?.player?.inventory?.update(inv => {
+        powerup(inv);
+        return inv;
+    });
+}
+export const idbeholdBerserk = idbehold(inv => {
+    inv.items.berserk = !inv.items.berserk;
+    inv.items.berserkTicks = inv.items.berserk ? 30 * ticksPerSecond : 0;
+});
+export const idbeholdInvisible = idbehold(inv => inv.items.invisibilityTicks = (1 - Math.sign(inv.items.invisibilityTicks)) * 30 * ticksPerSecond);
+export const idbeholdRadiation = idbehold(inv => inv.items.radiationSuitTicks = (1 - Math.sign(inv.items.radiationSuitTicks)) * 30 * ticksPerSecond);
+export const idbeholdAllMap = idbehold(inv => inv.items.computerMap = !inv.items.computerMap);
+// NB: we don't go to zero here but 1 (see how light override is done in inventory up in MapObject)
+export const idbeholdLiteAmp = idbehold(inv => inv.items.nightVisionTicks = 1 + (1 - Math.sign(inv.items.nightVisionTicks)) * 30 * ticksPerSecond);
+export const idbeholdInvulnerable = idbehold(inv => inv.items.invincibilityTicks = 1 + (1 - Math.sign(inv.items.invincibilityTicks)) * 30 * ticksPerSecond);
 
 export function idkfa(game: Game) {
     game.map?.val?.player?.inventory?.update(inv => {
@@ -111,18 +143,37 @@ export function idfa(game: Game) {
 function warp(game: Game, extra: string[]) {
     const mapName = game.episodic ? `E${extra[0]}M${extra[1]}` : `MAP${extra[0]}${extra[1]}`;
     if (game.wad.mapNames.includes(mapName)) {
-        game.map.val?.player?.hudMessage?.set('Changing Level...');
-        Object.assign(game.inventory, defaultInventory());
-        game.map.set(new MapRuntime(mapName, game));
+        idclev(game, mapName);
     }
+}
+
+export function idclev(game: Game, mapName: string) {
+    game.map.val?.player?.hudMessage?.set('Changing Level...');
+    Object.assign(game.inventory, defaultInventory());
+    game.map.set(new MapRuntime(mapName, game));
 }
 
 function changeMusic(game: Game, extra: string[]) {
     const mapName = game.episodic ? `E${extra[0]}M${extra[1]}` : `MAP${extra[0]}${extra[1]}`;
     if (game.wad.mapNames.includes(mapName)) {
-        game.map.val?.player?.hudMessage?.set('Music Change');
-        game.map?.val?.musicTrack?.set(mapMusicTrack(game, mapName));
+        idmus(game, mapName);
     } else {
         game.map.val?.player?.hudMessage?.set('IMPOSSIBLE SELECTION');
+    }
+}
+
+export function idmus(game: Game, mapName: string) {
+    game.map.val?.player?.hudMessage?.set('Music Change');
+    game.map?.val?.musicTrack?.set(mapMusicTrack(game, mapName));
+}
+
+export function idchoppers(game: Game) {
+    if (game.map.val?.player) {
+        const player = game.map.val?.player;
+        player.hudMessage?.set("... doesn't suck - GM");
+        if (player.inventory.val.weapons[1]) {
+            return;
+        }
+        giveWeapon('chainsaw')(player, null);
     }
 }

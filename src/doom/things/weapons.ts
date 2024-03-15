@@ -148,7 +148,7 @@ export const weaponItems: ThingType[] = [
     { type: 2006, class: 'W', description: 'BFG9000', onPickup: giveWeapon('bfg') },
 ];
 
-function giveWeapon(name: WeaponName) {
+export function giveWeapon(name: WeaponName) {
     const factory = inventoryWeapon(name);
     const weapon = factory.fn();
     return (player: PlayerMapObject, mobj: MapObject) => {

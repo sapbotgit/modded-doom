@@ -19,7 +19,6 @@
     import Menu from "./Menu/Menu.svelte";
     import TouchControls from "./Controls/TouchControls.svelte";
     import { keyboardCheatControls } from "./Controls/KeyboardCheatControls";
-    import { derived } from "svelte/store";
     import { Icon } from '@steeze-ui/svelte-icon'
     import { Bars3BottomLeft } from '@steeze-ui/heroicons'
 

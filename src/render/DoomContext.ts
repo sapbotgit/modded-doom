@@ -97,7 +97,7 @@ export const createDefaultSettings = () => {
         ...controllerConfig,
         simulate486: writable(false),
         showStats: writable(false),
-        showPlayerInfo: writable(false),
+        showPlayerInfo: store(false),
         fpsLimit: writable(60),
         pixelScale: writable(1),
         useTextures: store(true),
