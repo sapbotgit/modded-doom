@@ -24,7 +24,7 @@ export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): Ac
         cheatStrings = [
             new CheatCode(game, 'idclip', toggleFn(game.settings.noclip, 'No clipping mode')),
             new CheatCode(game, 'idspispopd', toggleFn(game.settings.noclip, 'No clipping mode')),
-            new CheatCode(game, 'iddqd', toggleFn(game.settings.invicibility, 'No clipping mode')),
+            new CheatCode(game, 'iddqd', toggleFn(game.settings.invicibility, 'Degreelessness mode')),
             new CheatCode(game, 'idfa', idfa),
             new CheatCode(game, 'idkfa', idkfa),
             new CheatCode(game, 'idclev??', warp),
