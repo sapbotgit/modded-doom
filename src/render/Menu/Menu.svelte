@@ -5,7 +5,7 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { data } from "../../doom";
+    import { MapRuntime, data, defaultInventory } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
@@ -24,6 +24,17 @@
     const touchDevice = matchMedia('(hover: none)').matches;
     // a hack to allow a fullscreen menu for configuring touch controls
     let showTouchControls = false;
+
+    $: episodeEnd = $intermission && $intermission.finishedMap.name.endsWith('M8');
+    $: nextEpisodeMap = `E${1 + parseInt(episodeEnd ? $intermission.finishedMap.name[1] : '-1')}M1`;
+    $: hasNextEpisode = game.wad.mapNames.includes(nextEpisodeMap);
+    function startNextEpisode() {
+        // reset inventory
+        Object.assign(game.inventory, defaultInventory());
+        const nextMap = new MapRuntime(nextEpisodeMap, game);
+        game.map.set(nextMap);
+        game.intermission.set(null);
+    }
 
     const settings = {
         Normal: settingsMenu.filter((e) => e.cat === "normal"),
@@ -71,9 +82,14 @@
         </div>
         <div class="divider" />
         <button class="btn btn-primary uppercase z-20 sticky top-0" on:click={requestLock}>Resume</button>
+
+        {#if hasNextEpisode}
+        <button on:click={startNextEpisode} class="btn btn-secondary">Next episode</button>
+        {/if}
         <!-- TODO: someday... get save/load working-->
         <button class="btn" disabled>Load</button>
         <button class="btn" disabled>Save</button>
+
 
         <div class="divider" />
         <div class="flex mx-auto join">

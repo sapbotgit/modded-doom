@@ -15,13 +15,13 @@
     export let size: Size;
 
     $: scale = Math.min(size.width / 320, size.height / 200);
-    const { wad, game } = useDoom();
+    const { game } = useDoom();
 
     const mapName = details.finishedMap.name;
     let episodeEnd = mapName.endsWith('M8')
     let summaryComplete = episodeEnd;
     let textComplete = false;
-    let artComplete = false;
+    let artComplete = !episodeEnd;
     let castComplete = mapName !== 'MAP30';
     $: if (artComplete && textComplete && summaryComplete && castComplete && !episodeEnd) {
         const nextMap = new MapRuntime(details.nextMapName, game);

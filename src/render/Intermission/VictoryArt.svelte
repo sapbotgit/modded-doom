@@ -9,7 +9,7 @@
     const { game } = useDoom();
     const tick = game.time.tick;
 
-    complete = (mapName.startsWith('MAP') || mapName.startsWith('E1'));
+    complete = mapName.startsWith('MAP') || mapName.endsWith('E1');
 
     const waitTime = 50;
     let startTick = $tick;
