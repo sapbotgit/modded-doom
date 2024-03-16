@@ -90,32 +90,35 @@
             <div class="card-actions">
                 <div transition:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute top-0 left-0">
                     <button class="btn btn-secondary w-48" on:click={() => (selectedIWad = null)}>❮ Select IWAD</button>
+                </div>
+                <div class="flex w-full gap-2"
+                    transition:fly={{ delay: 200, y: '100%' }}
+                >
+                    <button
+                        class="btn btn-primary btn-lg flex-grow no-animation"
+                        on:click={() => $urlHash = `#${[selectedIWad, ...selectedPWads].map(p => `wad=${p.name}`).join('&')}`}
+                    >Play</button>
                     {#if pWads.length}
-                    <div class="collapse collapse-arrow text-center bg-base-300">
-                        <input type="checkbox"/>
-                        <div class="collapse-title text-xl font-medium">
+                    <div class="dropdown dropdown-top flex-shrink">
+                        <!-- <input type="checkbox"/> -->
+                        <div tabindex="0" role="button" class="btn btn-lg min-w-80">
                             Addons (<a class="link link-primary" href="https://doomwiki.org/wiki/PWAD" target="_blank" rel="noreferrer" >PWADs</a>)
                         </div>
-                        <div class="collapse-content">
-                            <div class="menu flex-nowrap max-h-64 overflow-scroll">
-                                <button class="btn btn-sm" on:click={() => selectedPWads = []}>Clear selection</button>
-                                {#each pWads as pwad (pwad.name)}
-                                    {@const checked = selectedPWads.includes(pwad)}
+                        <ul tabindex="-1" class="dropdown-content menu flex-nowrap max-h-64 overflow-scroll bg-base-300">
+                            <li><button class="btn btn-sm" on:click={() => selectedPWads = []}>Clear selection</button></li>
+                            {#each pWads as pwad (pwad.name)}
+                                {@const checked = selectedPWads.includes(pwad)}
+                                <li>
                                     <label class="label cursor-pointer">
                                         <span class="label-text">{pwad.name} <span class="text-xs">[{detailsString(pwad)}]</span></span>
                                         <input type="checkbox" class="checkbox" {checked} on:change={() => pwadChange(pwad)} />
                                     </label>
-                                {/each}
-                            </div>
-                        </div>
+                                </li>
+                            {/each}
+                        </ul>
                     </div>
                     {/if}
                 </div>
-                <button
-                    transition:fly={{ delay: 200, y: '100%' }}
-                    class="btn btn-primary btn-lg flex-grow no-animation"
-                    on:click={() => $urlHash = `#${[selectedIWad, ...selectedPWads].map(p => `wad=${p.name}`).join('&')}`}
-                >Play</button>
             </div>
         </div>
     </div>
