@@ -24,9 +24,7 @@
     let artComplete = !episodeEnd;
     let castComplete = mapName !== 'MAP30';
     $: if (artComplete && textComplete && summaryComplete && castComplete && !episodeEnd) {
-        const nextMap = new MapRuntime(details.nextMapName, game);
-        game.map.set(nextMap);
-        game.intermission.set(null);
+        game.startMap(new MapRuntime(details.nextMapName, game));
     }
 
     $: musicTrack =

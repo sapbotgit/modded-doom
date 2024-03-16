@@ -5,7 +5,7 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { MapRuntime, data, defaultInventory } from "../../doom";
+    import { MapRuntime, data } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
@@ -29,11 +29,8 @@
     $: nextEpisodeMap = `E${1 + parseInt(episodeEnd ? $intermission.finishedMap.name[1] : '-1')}M1`;
     $: hasNextEpisode = game.wad.mapNames.includes(nextEpisodeMap);
     function startNextEpisode() {
-        // reset inventory
-        Object.assign(game.inventory, defaultInventory());
-        const nextMap = new MapRuntime(nextEpisodeMap, game);
-        game.map.set(nextMap);
-        game.intermission.set(null);
+        game.resetInventory();
+        game.startMap(new MapRuntime(nextEpisodeMap, game));
     }
 
     const settings = {

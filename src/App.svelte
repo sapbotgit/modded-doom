@@ -46,7 +46,7 @@
         const urlMapName = params.get('map');
         if (urlMapName && (!game || game.map.val?.name !== urlMapName)) {
             game = new Game(wad, difficulty, context.settings);
-            game.map.set(new MapRuntime(urlMapName, game));
+            game.startMap(new MapRuntime(urlMapName, game));
         }
     }
     $: parseUrlHash($urlHash);

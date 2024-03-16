@@ -64,7 +64,7 @@ export interface IntermissionScreen {
 
 type SoundHandler = (snd: SoundIndex, position?: MapObject | Sector) => void;
 
-export const defaultInventory = (): PlayerInfo => ({
+const defaultInventory = (): PlayerInfo => ({
     health: 100,
     armor: 0,
     armorType: 0,
@@ -133,6 +133,16 @@ export class Game {
             this.map.val?.timeStep(this.time);
         }
         this.remainingTime = delta;
+    }
+
+    resetInventory() {
+        Object.assign(this.inventory, defaultInventory());
+    }
+
+    startMap(map: MapRuntime) {
+        this.map.val?.dispose();
+        this.map.set(map);
+        this.intermission.set(null);
     }
 
     private soundHandler: SoundHandler;

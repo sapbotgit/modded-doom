@@ -1,5 +1,5 @@
 import type { Action, ActionReturn } from 'svelte/action';
-import { defaultInventory, MapRuntime, type Game, type Store, mapMusicTrack, type PlayerInventory, ticksPerSecond } from '../../doom';
+import { MapRuntime, type Game, type Store, mapMusicTrack, type PlayerInventory, ticksPerSecond } from '../../doom';
 import { allWeapons, giveWeapon } from '../../doom/things/weapons';
 import { useAppContext } from '../DoomContext';
 
@@ -149,8 +149,8 @@ function warp(game: Game, extra: string[]) {
 
 export function idclev(game: Game, mapName: string) {
     game.map.val?.player?.hudMessage?.set('Changing Level...');
-    Object.assign(game.inventory, defaultInventory());
-    game.map.set(new MapRuntime(mapName, game));
+    game.resetInventory();
+    game.startMap(new MapRuntime(mapName, game));
 }
 
 function changeMusic(game: Game, extra: string[]) {

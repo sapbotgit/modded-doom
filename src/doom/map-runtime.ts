@@ -399,7 +399,15 @@ class GameInput {
 
     evaluate(delta: number) {
         if (this.player.isDead) {
-            // TODO: we should handle use/click to restart the level
+            if (this.input.attack || this.input.use) {
+                // clear input received from after dying
+                this.input.aim.set(0, 0, 0);
+                this.input.weaponIndex = -1;
+                this.input.weaponKeyNum = 0;
+                // restart the level
+                this.map.game.resetInventory();
+                this.map.game.startMap(new MapRuntime(this.map.name, this.map.game));
+            }
             return;
         }
 
