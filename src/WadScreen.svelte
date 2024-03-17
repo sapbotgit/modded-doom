@@ -104,7 +104,7 @@
                         <div tabindex="0" role="button" class="btn btn-lg min-w-80">
                             Addons (<a class="link link-primary" href="https://doomwiki.org/wiki/PWAD" target="_blank" rel="noreferrer" >PWADs</a>)
                         </div>
-                        <ul tabindex="-1" class="dropdown-content menu flex-nowrap max-h-64 overflow-scroll bg-base-300">
+                        <ul tabindex="-1" class="dropdown-content menu flex-nowrap max-h-64 overflow-scroll bg-base-300 shadow rounded-box">
                             <li><button class="btn btn-sm" on:click={() => selectedPWads = []}>Clear selection</button></li>
                             {#each pWads as pwad (pwad.name)}
                                 {@const checked = selectedPWads.includes(pwad)}
