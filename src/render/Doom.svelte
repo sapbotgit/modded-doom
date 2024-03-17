@@ -63,13 +63,11 @@
     // F5 low-res mode (it should be .5 but that looks to sharp IMO)
     // FIXME: starting the game with low pixel ratio and then increasing doesn't work... why?
     $: threlteCtx?.renderer?.setPixelRatio($simulate486 ? .2 : $pixelScale);
-    let frameTime = 1 / $fpsLimit;
-    let tscale = $timescale;
+    let frameTime: number;
+    let tscale: number;
     $: if ($simulate486) {
         const set486Params = () => {
             if (!$simulate486) {
-                frameTime = 1 / $fpsLimit;
-                tscale = $timescale;
                 return;
             }
 
@@ -81,6 +79,9 @@
             setTimeout(set486Params, randInt(200, 800));
         }
         set486Params();
+    } else {
+        frameTime = 1 / $fpsLimit;
+        tscale = $timescale;
     }
 
     // TODO: re-arrange Canvas component so we can use threlte's useTask() instead of svelte's onMount()

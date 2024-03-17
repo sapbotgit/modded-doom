@@ -5,7 +5,7 @@
     import type { WebGLRenderer } from 'three';
     import { useAppContext } from '../DoomContext';
 
-    const { renderer } = useThrelte();
+    const { renderer, renderStage } = useThrelte();
     const { showStats, fpsLimit } = useAppContext().settings;
     renderer.info.autoReset = false;
 
@@ -36,20 +36,13 @@
     ];
     panels.forEach(p => stats.addPanel(p.panel));
 
-    let time = 0;
-    $: frameTime = 1 / $fpsLimit;
-    useTask(delta => {
-        // this is called more often than I expect so we keep track of our own elapsed time to keep the stats correct
-        time += delta;
-        if (time > frameTime) {
-            time %= frameTime;
-            stats.end();
-            panels.forEach(p => p.updateInfo());
+    useTask(() => {
+        stats.end();
+        panels.forEach(p => p.updateInfo());
 
-            renderer.info.reset();
-            stats.begin();
-        }
-    }, { autoInvalidate: false });
+        renderer.info.reset();
+        stats.begin();
+    }, { autoInvalidate: false, stage: renderStage });
 
     $: stats.dom.style.display = $showStats ? null : 'none';
 </script>
