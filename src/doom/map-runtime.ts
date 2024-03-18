@@ -400,7 +400,13 @@ class GameInput {
 
     evaluate(delta: number) {
         if (this.player.isDead) {
-            if (this.input.attack || this.input.use) {
+            // wait till view height gets close to the ground before we allow restarting (so that the player doesn't miss out!)
+            // also make sure the use/attack button has been freshly pressed since dying
+            const canRestart = this.player.viewHeight.val < 10 &&
+                ((this.input.attack && !this.player.attacking) || (this.input.use && this.handledUsePress));
+            this.player.attacking = this.input.attack;
+            this.handledUsePress = this.input.use;
+            if (canRestart) {
                 // clear input received from after dying
                 this.input.aim.set(0, 0, 0);
                 this.input.weaponIndex = -1;
@@ -434,9 +440,6 @@ class GameInput {
         // clear for next eval
         this.input.weaponIndex = -1;
         this.input.weaponKeyNum = 0;
-
-        // attack
-        this.player.attacking = this.input.attack;
 
         // handle rotation movements
         const euler = this.obj.rotation;
@@ -483,6 +486,9 @@ class GameInput {
         if (!this.player.reactiontime) {
             this.player.xyMove();
         }
+
+        // attack
+        this.player.attacking = this.input.attack;
 
         // use stuff (switches, doors, etc)
         if (this.input.use && !this.handledUsePress) {

@@ -235,7 +235,7 @@
             || snd === SoundIndex.sfx_sawhit
             || snd === SoundIndex.sfx_stnmov
         );
-        if (channel.isActive && (isSingletonSound || channel.location || snd === channel.sound)) {
+        if (channel.isActive && (isSingletonSound || channel.location === location || snd === channel.sound)) {
             channel.stop();
         }
         channel.play(snd, location, position, dist);

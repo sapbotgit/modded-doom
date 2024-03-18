@@ -812,12 +812,14 @@ export class PlayerMapObject extends MapObject {
     updateViewHeight(time: GameTime) {
         if (this.info.flags & MFFlags.MF_NOGRAVITY) {
             this.viewHeight.set(playerViewHeightDefault);
+            return;
         }
 
         if (this.isDead) {
             // Doom player falls 1 unit per tick (or 35 units per second) until 6 units above the ground so...
             this.viewHeightOffset = Math.max(6, this.viewHeightOffset - 35 * time.delta);
             this.viewHeight.set(this.viewHeightOffset);
+            return;
         }
 
         const delta = ticksPerSecond * time.delta;
