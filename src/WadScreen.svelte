@@ -7,7 +7,7 @@
     const { urlHash } = useAppContext();
     const [send, receive] = crossfade({
 		duration: 300,
-		fallback: scale
+		fallback: scale,
 	});
 
     export let wadStore: WadStore;
@@ -88,20 +88,20 @@
                 {/if}
             </h2>
             <div class="card-actions">
-                <div transition:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute top-0 left-0">
-                    <button class="btn btn-secondary w-48" on:click={() => (selectedIWad = null)}>❮ Select IWAD</button>
+                <div transition:fly={{ delay: 200, y: '-100%' }} class="flex gap-2 absolute sm:top-2 sm:left-2">
+                    <button class="btn btn-secondary w-48 shadow-xl" on:click={() => (selectedIWad = null)}>❮ Select IWAD</button>
                 </div>
                 <div class="flex w-full gap-2"
                     transition:fly={{ delay: 200, y: '100%' }}
                 >
                     <button
-                        class="btn btn-primary btn-lg flex-grow no-animation"
+                        class="btn btn-primary btn-lg flex-grow no-animation shadow-xl"
                         on:click={() => $urlHash = `#${[selectedIWad, ...selectedPWads].map(p => `wad=${p.name}`).join('&')}`}
                     >Play</button>
                     {#if pWads.length}
                     <div class="dropdown dropdown-top flex-shrink">
                         <!-- <input type="checkbox"/> -->
-                        <div tabindex="0" role="button" class="btn btn-lg min-w-80">
+                        <div tabindex="0" role="button" class="btn btn-lg min-w-80 shadow-xl">
                             Addons (<a class="link link-primary" href="https://doomwiki.org/wiki/PWAD" target="_blank" rel="noreferrer" >PWADs</a>)
                         </div>
                         <ul tabindex="-1" class="dropdown-content menu flex-nowrap max-h-64 overflow-scroll bg-base-300 shadow rounded-box">
@@ -131,6 +131,6 @@
     }
 
     .card.image-full::before {
-        opacity: 0.5;
+        opacity: 0;
     }
 </style>

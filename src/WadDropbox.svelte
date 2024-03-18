@@ -27,7 +27,11 @@
     }
 
     function detailsString(wad: WADInfo) {
-        return `${wad.mapCount} maps` + (wad.episodicMaps ? ' (episodes)' : '');
+        return [
+            `${wad.mapCount} maps`,
+            (wad.episodicMaps ? '(episodic)' : null),
+            (wad.iwad ? '[iwad]' : '[pwad]'),
+        ].filter(e => e).join(' ');
     }
 
     // https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
@@ -60,7 +64,7 @@
     <div class="collapse-title text-center text-xl font-medium">
       Manage WADs
     </div>
-    <div class="collapse-content">
+    <div class="collapse-content z-0">
         {#if $wads.length}
         <label class="swap swap-flip">
             <input type="checkbox" />
@@ -75,7 +79,7 @@
             </div>
         </label>
         {/if}
-        <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-scroll">
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-scroll">
             {#each $wads as wad (wad.name)}
                 <div class="card image-full card-compact">
                     <figure><img src={wad.image} alt="" /></figure>

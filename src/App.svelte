@@ -81,11 +81,11 @@
         <WadScreen {wadStore} />
     {:else if wad}
         <div in:fade class="
-            container mx-auto grid grid-cols-1 grid-rows-1 p-2 bg-base-100 justify-center
+            container grid grid-cols-1 grid-rows-1 p-2 bg-base-100 justify-center
             md:rounded-box md:shadow-2xl
         ">
             <div class="card image-full bg-base-200 shadow-xl absolute inset-0">
-                <button class="btn btn-secondary w-48 flex-none absolute top-0 left-0 z-30" on:click={() => $urlHash = '#'}>❮ Select IWAD</button>
+                <button class="btn btn-secondary w-48 flex-none absolute top-2 left-2 z-30" on:click={() => $urlHash = '#'}>❮ Select IWAD</button>
                 <figure><img class="flex-grow h-64 object-cover" src={imageDataUrl(wad, 'TITLEPIC', 'any')} alt="" /></figure>
                 <div class="card-body justify-self-center pt-16">
                     <div
@@ -105,7 +105,7 @@
                     {#if mapNames.includes('E1M1') && !mapName}
                     <div class="bg-base-300 rounded-box shadow-xl p-4">
                         <span class="divider"><Picture {wad} name="M_EPISOD" /></span>
-                        <!-- Why an extra div? Safari https://stackoverflow.com/questions/44770074 -->
+                        <!-- Why an extra div? Safari and grids https://stackoverflow.com/questions/44770074 -->
                         <div>
                             <div class="grid sm:grid-cols-2 gap-4 mx-auto">
                                 {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as ep}
@@ -130,8 +130,6 @@
                             </button>
                         {/each}
                     {/if}
-                    <div class="card-actions">
-                    </div>
                 </div>
             </div>
         </div>
