@@ -172,6 +172,7 @@ export class MapObject {
 
             const sector = map.data.findSector(p.x, p.y);
             this._zCeil = lowestZCeil(sector, sector.zCeil.val);
+            const lastZFloor = this._zFloor;
             this._zFloor = fromCeiling && !this.isDead //<-- for keens
                 ? this.zCeil - this.info.height
                 // we want the sector with the highest floor which means we float a little when standing on an edge
@@ -182,6 +183,8 @@ export class MapObject {
             }
             if (this.sector.val !== sector) {
                 this.sector.set(sector);
+            }
+            if (lastZFloor !== this._zFloor) {
                 this.applyGravity();
             }
         });
@@ -193,17 +196,20 @@ export class MapObject {
     }
 
     tick() {
-        // apply friction when on the ground (and we're not a missle/lost soul)
-        if (this.onGround && !(this.info.flags & (MFFlags.MF_MISSILE | MFFlags.MF_SKULLFLY))) {
-            // friction (not z because gravity)
-            this.velocity.x *= friction;
-            this.velocity.y *= friction;
-        }
+        this.applyFriction();
         this.updatePosition();
         this.applyGravity();
 
         this._state.tick();
         // TODO: update movecount (+other nightmare-only handling)
+    }
+
+    protected applyFriction() {
+        if (this.onGround && !(this.info.flags & (MFFlags.MF_MISSILE | MFFlags.MF_SKULLFLY))) {
+            // friction (not z because gravity)
+            this.velocity.x *= friction;
+            this.velocity.y *= friction;
+        }
     }
 
     // kind of like P_DamageMobj
@@ -330,7 +336,6 @@ export class MapObject {
                 if (!(hit.mobj.info.flags & MFFlags.MF_SHOOTABLE) || hit.mobj === this) {
                     return true;
                 }
-                console.log('telefrag?',this.class,this.info.doomednum)
                 hit.mobj.damage(10_000, this, this);
             }
             return true;
@@ -584,8 +589,9 @@ const playerMaxBob = 16;
 const playerViewHeightDefault = 41;
 const playerViewHeightDefaultHalf = playerViewHeightDefault * .5;
 export class PlayerMapObject extends MapObject {
-    private viewHeight = playerViewHeightDefault;
+    private viewHeightOffset = playerViewHeightDefault;
     private deltaViewHeight = 0;
+    readonly viewHeight = store(this.viewHeightOffset);
 
     // head looking up/down
     pitch = store(0);
@@ -641,13 +647,16 @@ export class PlayerMapObject extends MapObject {
     }
 
     tick() {
-        super.tick();
+        this.applyFriction();
+        this._state.tick();
 
         this.reactiontime = Math.max(0, this.reactiontime - 1);
         this.damageCount.update(val => Math.max(0, val - 1));
         this.bonusCount.update(val => Math.max(0, val - 1));
         this.weapon.val.tick();
         if (this.isDead) {
+            super.updatePosition();
+            this.applyGravity();
             if (this.attacker && this.attacker !== this) {
                 const ang = angleBetween(this, this.attacker);
                 this.direction.set(ang);
@@ -764,11 +773,7 @@ export class PlayerMapObject extends MapObject {
     }
 
     protected updatePosition(): void {
-        // when we are alive, game input calls .xyMove() so only update position from this function (called from tick())
-        // when the player is dead. confusing.
-        if (this.isDead) {
-            return super.updatePosition();
-        }
+        // do nothing, super.updatePosition() can be called from game input handling (xyMove) or when we are dead (tick)
     }
 
     protected applyGravity(): void {
@@ -787,10 +792,10 @@ export class PlayerMapObject extends MapObject {
     protected hitFlat(zVal: number): void {
         // smooth step up
         if (this.position.val.z < zVal) {
-            this.viewHeight -= zVal - this.position.val.z;
+            this.viewHeightOffset -= zVal - this.position.val.z;
             // this means we change view height by 1, 2, or 3 depending on the step
             // >> 3 is equivalent to divide by 8 but faster? Doom cleverly used integer math and I haven't tested the performance in JS
-            this.deltaViewHeight = (playerViewHeightDefault - this.viewHeight) >> 3;
+            this.deltaViewHeight = (playerViewHeightDefault - this.viewHeightOffset) >> 3;
         }
         // hit the ground so lower the screen
         if (this.position.val.z > zVal) {
@@ -804,20 +809,26 @@ export class PlayerMapObject extends MapObject {
     }
 
     // P_CalcHeight in p_user.c
-    computeViewHeight(time: GameTime) {
+    updateViewHeight(time: GameTime) {
+        if (this.info.flags & MFFlags.MF_NOGRAVITY) {
+            this.viewHeight.set(playerViewHeightDefault);
+        }
+
         if (this.isDead) {
-            return this.computeDeadViewHeight(time);
+            // Doom player falls 1 unit per tick (or 35 units per second) until 6 units above the ground so...
+            this.viewHeightOffset = Math.max(6, this.viewHeightOffset - 35 * time.delta);
+            this.viewHeight.set(this.viewHeightOffset);
         }
 
         const delta = ticksPerSecond * time.delta;
-        this.viewHeight += this.deltaViewHeight * delta;
+        this.viewHeightOffset += this.deltaViewHeight * delta;
 
-        if (this.viewHeight > playerViewHeightDefault) {
-            this.viewHeight = playerViewHeightDefault;
+        if (this.viewHeightOffset > playerViewHeightDefault) {
+            this.viewHeightOffset = playerViewHeightDefault;
             this.deltaViewHeight = 0;
         }
-        if (this.viewHeight < playerViewHeightDefaultHalf) {
-            this.viewHeight = playerViewHeightDefaultHalf;
+        if (this.viewHeightOffset < playerViewHeightDefaultHalf) {
+            this.viewHeightOffset = playerViewHeightDefaultHalf;
             if (this.deltaViewHeight <= 0) {
                 this.deltaViewHeight = 1;
             }
@@ -827,22 +838,16 @@ export class PlayerMapObject extends MapObject {
             this.deltaViewHeight += delta / 4;
         }
 
-        if (this.viewHeight < playerViewHeightDefault && this.deltaViewHeight === 0) {
+        if (this.viewHeightOffset < playerViewHeightDefault && this.deltaViewHeight === 0) {
             this.deltaViewHeight = 1;
         }
 
         this.bob = Math.min(this.velocity.lengthSq(), playerMaxBob);
         const bob = Math.sin(Math.PI * 2 * bobTime * time.elapsed) * this.bob * .5;
 
-        let viewHeight = this.viewHeight + bob;
+        let viewHeight = this.viewHeightOffset + bob;
         const maxHeight = this.zCeil - 4 - this.position.val.z;
-        return Math.min(maxHeight, viewHeight);
-    }
-
-    private computeDeadViewHeight(time: GameTime) {
-        // Doom player falls 1 unit per tick (or 35 units per second) until 6 units above the ground so...
-        this.viewHeight = Math.max(6, this.viewHeight - 35 * time.delta);
-        return this.viewHeight;
+        this.viewHeight.set(Math.min(maxHeight, viewHeight));
     }
 
     // kind of P_TouchSpecialThing in p_inter.c

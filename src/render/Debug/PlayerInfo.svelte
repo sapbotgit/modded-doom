@@ -8,16 +8,14 @@
     export let player: PlayerMapObject;
     export let interactive = true;
     const { showPlayerInfo, timescale } = useAppContext().settings;
-    const { position, direction, sector, inventory } = player;
+    const { position, direction, sector, inventory, viewHeight } = player;
     const tick = player.map.game.time.tick;
 
     const debugBuild = import.meta.env.DEV;
-    let vh: number;
     let subsectors = [];
     $: if ($position) {
         subsectors = []
         player.subsectors(s => subsectors.push(s));
-        vh = player.computeViewHeight(player.map.game.time);
     }
 
     let velocity = player.velocity;
@@ -58,7 +56,7 @@
         <div class:hidden={!debugBuild}>sect: {$sector.num}, [floor, ceil]=[{$sector.zFloor.val}, {$sector.zCeil.val}]</div>
         <div class:hidden={!debugBuild}>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
         <div class:hidden={!debugBuild}>Subsectors: [{subsectors.map(e => e.num)}]</div>
-        <div class:hidden={!debugBuild}>viewHeight: {vh.toFixed(2)}</div>
+        <div class:hidden={!debugBuild}>viewHeight: {$viewHeight.toFixed(2)}</div>
         <div
             class="grid grid-cols-2 justify-items-stretch gap-1 pt-1"
             class:hidden={!debugBuild || !interactive}

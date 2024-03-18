@@ -8,13 +8,13 @@
     // TODO: most cameras (except ortho) only differ by how they set position and angle. We should consolidate
     const { map, renderSectors, camera } = useDoomMap();
     const player = map.player;
-    const { position: playerPosition, direction: yaw, pitch } = player;
-    const { freeFly, cameraMode } = map.game.settings;
+    const { position: playerPosition, direction: yaw, pitch, viewHeight } = player;
 
     const { position, angle } = camera;
-    $: $position.x = $playerPosition.x
+    // If we useTask() here, then there is one frame that is rendered before $position is setup correctly.
+    $: $position.x = $playerPosition.x;
     $: $position.y = $playerPosition.y;
-    $: $position.z = $playerPosition.z + ($freeFly ? 41 : player.computeViewHeight(map.game.time));
+    $: $position.z = $playerPosition.z + $viewHeight;
 
     $: $angle.x = $pitch + HALF_PI;
     $: $angle.z = $yaw - HALF_PI;
