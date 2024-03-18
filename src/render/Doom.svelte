@@ -70,7 +70,6 @@
             if (!$simulate486) {
                 return;
             }
-
             // a real 486 would slow down if there was a lot of geometry or bad guys but this was simple and fun.
             // This guy has some neat numbers though we're not strictly following it https://www.youtube.com/watch?v=rZcAo4oUc4o
             frameTime = 1 / randomNorm(2, 18, 1.2);
@@ -88,24 +87,23 @@
     // Also so we can use shaders to perform transitions?
     let viewSize = { width: 1024, height: 600 };
     onMount(() => {
-        const clock = new Clock();
         let lastTickTime = 0;
-        let frameDelta = 0;
+        let lastFrameTime = 0;
         let frameReq: number;
-        function update() {
+        const update = (time: DOMHighResTimeStamp) => {
+            time *= .001;
             frameReq = requestAnimationFrame(update);
-            frameDelta += clock.getDelta();
-            if (frameDelta > frameTime) {
+            if (time - lastFrameTime > frameTime) {
                 threlteCtx?.invalidate();
-                frameDelta = frameDelta % frameTime;
+                lastFrameTime = time - (time % frameTime);
 
                 if (!showMenu) {
-                    game.tick(clock.elapsedTime - lastTickTime, tscale);
+                    game.tick(time - lastTickTime, tscale);
                 }
-                lastTickTime = clock.elapsedTime;
+                lastTickTime = time;
             }
-        }
-        update();
+        };
+        requestAnimationFrame(update);
 
         return () => cancelAnimationFrame(frameReq);
     });
