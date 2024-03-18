@@ -10,7 +10,6 @@
     import MapRoot from "./Map/Root.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";
     import MapContext from "./Map/Context.svelte";
-    import { Clock } from "three";
     import Intermission from "./Intermission/Intermission.svelte";
     import { keyboardControls } from "./Controls/KeyboardControls";
     import { mouseControls } from "./Controls/MouseControls";
@@ -26,17 +25,14 @@
 
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
-    const { urlHash, settings, audio, pointerLock } = useAppContext();
+    const { settings, audio, pointerLock } = useAppContext();
     const { cameraMode, musicVolume, soundVolume, muted, mainVolume, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
     const { map, intermission } = game;
 
     const touchDevice = matchMedia('(hover: none)').matches;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
     $: settings.compassMove.set($cameraMode === "svg");
-    // keep url in sync with game
     $: if ($map) {
-        $urlHash = `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`;
-
         // Test intermission screens
         // $map.triggerSpecial({ special: 52 } as any, $map.player, 'W')
     }
@@ -155,7 +151,7 @@
             <HUD size={viewSize} player={$map.player} />
 
             <MusicPlayer {game} audioRoot={musicGain} trackName={$mapMusicTrack} />
-            <SoundPlayer {game} player={$map.player} audioRoot={soundGain} />
+            <SoundPlayer {game} audioRoot={soundGain} player={$map.player} />
         </MapContext>
 
         {#if !showMenu || $cameraMode === 'svg'}

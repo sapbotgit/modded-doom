@@ -109,10 +109,6 @@ export const createDefaultSettings = () => {
 export type KeyMap = Pick<ReturnType<typeof createDefaultSettings>, 'keymap'>['keymap']['initial'];
 
 export const createAppContext = () => {
-    const urlHash = writable(location.hash);
-    urlHash.subscribe(hash => history.pushState(null, null, hash));
-    addEventListener('popstate', () => urlHash.set(location.hash));
-
     const settings = createDefaultSettings();
     const editor = writable({
         active: false,
@@ -172,7 +168,7 @@ export const createAppContext = () => {
 
     const pointerLock = createPointerLockControls();
     const audio = new AudioContext();
-    return { urlHash, settings, settingsMenu, editor, audio, pointerLock };
+    return { settings, settingsMenu, editor, audio, pointerLock };
 }
 
 export const createGameContext = (game: Game) => {

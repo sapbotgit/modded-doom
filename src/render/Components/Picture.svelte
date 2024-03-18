@@ -5,6 +5,10 @@
 
     type ImageType = 'wall' | 'flat' | 'sprite' | 'any';
     export function imageDataUrl(wad: DoomWad, name: string, type: ImageType) {
+        if (wad !== lastWad) {
+            cache.clear();
+        }
+
         const key = name + type;
         let dataUrl = cache.get(key);
         if (dataUrl) {
@@ -49,9 +53,6 @@
     export let wad: DoomWad = null;
 
     wad = wad ?? useDoom().wad;
-    if (wad !== lastWad) {
-        cache.clear();
-    }
 
     $: gfx = wad.graphic(name);
     $: dataUrl = imageDataUrl(wad, name, type);
