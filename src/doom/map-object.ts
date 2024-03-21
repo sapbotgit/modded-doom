@@ -648,6 +648,7 @@ export class PlayerMapObject extends MapObject {
 
     tick() {
         this.applyFriction();
+        this.applyGravity();
         this._state.tick();
 
         this.reactiontime = Math.max(0, this.reactiontime - 1);
@@ -656,7 +657,6 @@ export class PlayerMapObject extends MapObject {
         this.weapon.val.tick();
         if (this.isDead) {
             super.updatePosition();
-            this.applyGravity();
             if (this.attacker && this.attacker !== this) {
                 const ang = angleBetween(this, this.attacker);
                 this.direction.set(ang);
