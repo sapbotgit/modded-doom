@@ -25,13 +25,13 @@
         endTick = $tick;
     }
     $: endItem = Math.floor(Math.min(6, Math.max(0, ($tick - endTick - waitTime) / 5)));
-    $: if (endTick && endItem > 0) {
+    $: if (mapName === 'E3M8' && endTick && endItem > 0) {
         game.playSound(SoundIndex.sfx_pistol);
     }
 </script>
 
 {#if mapName === 'E2M8'}
-        <Picture name="VICTORY2" />
+    <Picture name="VICTORY2" />
 {:else if mapName === 'E3M8'}
     <div class="flex" style="transform: translateX({transform}px)">
         <Picture name="PFUB2" />

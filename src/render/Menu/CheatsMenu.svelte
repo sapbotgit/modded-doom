@@ -74,7 +74,7 @@
                     <option>{opt}</option>
                 {/each}
             </select>
-            <button class="btn btn-primary" on:click={() => idmus(player.map.game, warpMap)}>Go</button>
+            <button class="btn btn-primary" on:click={() => idclev(player.map.game, warpMap)}>Go</button>
         </label>
     </li>
     <li>
@@ -86,7 +86,7 @@
                     <option>{opt}</option>
                 {/each}
             </select>
-            <button class="btn btn-primary" on:click={() => idclev(player.map.game, warpMap)}>Play</button>
+            <button class="btn btn-primary" on:click={() => idmus(player.map.game, mapMusic)}>Play</button>
         </label>
     </li>
     <li>

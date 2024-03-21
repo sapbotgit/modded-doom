@@ -20,14 +20,24 @@
     import { keyboardCheatControls } from "./Controls/KeyboardCheatControls";
     import { Icon } from '@steeze-ui/svelte-icon'
     import { Bars3BottomLeft } from '@steeze-ui/heroicons'
+    import WipeContainer from "./Components/WipeContainer.svelte";
 
     export let game: Game;
+    export let musicGain: GainNode;
+    export let soundGain: GainNode;
 
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
-    const { settings, audio, pointerLock } = useAppContext();
-    const { cameraMode, musicVolume, soundVolume, muted, mainVolume, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
+    const { settings, pointerLock } = useAppContext();
+    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
     const { map, intermission } = game;
+    // TODO: having a separate WipeContainer component is messy and so is tracking two screen states. I wonder if we could
+    // move to a single "screen" variable and manage it somehow in App.svelte?
+    // I'm pretty confident this can all be cleaned up... somday.
+    // NOTE: add noise to map name so that idclev to same map does screen wipe
+    $: screenName = ($map?.name ?? '') + Math.random();
+    $: intScreen = $intermission ? 'summary' : null;
+    let intermissionMusic: string;
 
     const touchDevice = matchMedia('(hover: none)').matches;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
@@ -37,18 +47,6 @@
         // $map.triggerSpecial({ special: 52 } as any, $map.player, 'W')
     }
     $: mapMusicTrack = $map?.musicTrack;
-
-    const mainGain = audio.createGain();
-    mainGain.connect(audio.destination);
-    $: mainGain.gain.value = $muted ? 0 : $mainVolume;
-
-    const soundGain = audio.createGain();
-    soundGain.connect(mainGain);
-    $: soundGain.gain.value = $soundVolume * .1;
-
-    const musicGain = audio.createGain();
-    musicGain.connect(mainGain);
-    $: musicGain.gain.value = $musicVolume;
 
     const { isPointerLocked, requestLock } = pointerLock;
     $: showMenu = !$isPointerLocked;
@@ -80,7 +78,6 @@
     }
 
     // TODO: re-arrange Canvas component so we can use threlte's useTask() instead of svelte's onMount()
-    // Also so we can use shaders to perform transitions?
     let viewSize = { width: 1024, height: 600 };
     onMount(() => {
         let lastTickTime = 0;
@@ -114,25 +111,18 @@
 
 <svelte:window on:load={scrollBottom} />
 
-<!--
-    TODO: we want the screen wipe!!
-    interesting: https://www.shadertoy.com/view/XtlyDn
--->
-<div
-    class="select-none overflow-hidden relative"
-    bind:clientHeight={viewSize.height}
-    bind:clientWidth={viewSize.width}
->
-    <div class="game">
+<WipeContainer key={intScreen ?? screenName}>
+    <div
+        class="game"
+        bind:clientHeight={viewSize.height}
+        bind:clientWidth={viewSize.width}
+    >
         {#if $intermission}
-            {#key $intermission}
-                <Intermission
-                    {musicGain}
-                    {soundGain}
-                    size={viewSize}
-                    details={$intermission}
-                />
-            {/key}
+            <!-- NOTE: be cautious with #key and bind: https://github.com/sveltejs/svelte/issues/7704 (until svelte5) -->
+            <Intermission details={$intermission}
+                size={viewSize}
+                bind:musicTrack={intermissionMusic}
+                bind:screenName={screenName} />
         {/if}
 
         <MapContext map={$map} {renderSectors}>
@@ -150,37 +140,37 @@
             {/if}
             <HUD size={viewSize} player={$map.player} />
 
-            <MusicPlayer {game} audioRoot={musicGain} trackName={$mapMusicTrack} />
-            <SoundPlayer {game} audioRoot={soundGain} player={$map.player} />
+            <PlayerInfo player={$map.player} interactive={showMenu} />
+            <EditPanel map={$map} />
         </MapContext>
-
-        {#if !showMenu || $cameraMode === 'svg'}
-        <div use:keyboardControls={{ input: game.input, keymap: $keymap }} />
-        <div use:keyboardCheatControls={game} />
-        {/if}
-        {#if $isPointerLocked && !touchDevice}
-        <div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }} />
-        {/if}
-        {#if touchDevice && !showMenu}
-            <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
-                <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="2rem"/>
-            </button>
-            <TouchControls {viewSize} {game} player={$map?.player} />
-        {/if}
     </div>
+</WipeContainer>
 
-    {#if showMenu}
-        <Menu {viewSize} {requestLock} />
-    {/if}
+<MusicPlayer wad={game.wad} audioRoot={musicGain} trackName={$mapMusicTrack ?? intermissionMusic} />
+<SoundPlayer wad={game.wad} audioRoot={soundGain} soundEmitter={game} timescale={$timescale} player={$map?.player} />
 
-    <MapContext map={$map} {renderSectors}>
-        <PlayerInfo player={$map.player} interactive={showMenu} />
-        <EditPanel map={$map} />
-    </MapContext>
-</div>
+{#if showMenu}
+    <Menu {viewSize} {requestLock} />
+{/if}
+
+{#if !showMenu || $cameraMode === 'svg'}
+<div use:keyboardControls={{ input: game.input, keymap: $keymap }} />
+<div use:keyboardCheatControls={game} />
+{/if}
+{#if $isPointerLocked && !touchDevice}
+<div use:mouseControls={{ input: game.input, mouseSpeed: $mouseSensitivity, invertY: $mouseInvertY, swapButtons: $mouseSwitchLeftRightButtons }} />
+{/if}
+{#if touchDevice && !showMenu}
+    <button class="absolute top-4 left-4 text-4xl" on:click={() => $isPointerLocked = false}>
+        <Icon class="swap-on fill-current opacity-60" src={Bars3BottomLeft} theme='solid' size="2rem"/>
+    </button>
+    <TouchControls {viewSize} {game} player={$map?.player} />
+{/if}
 
 <style>
     .game {
+        user-select: none;
+        overflow: hidden;
         position: relative;
         display: grid;
         width: 100vw;

@@ -1,3 +1,8 @@
+<script lang="ts" context="module">
+    // NOTE: map name comparison should match up with const data below. Ideally we would not copy this but I don't have a simple solution
+    const mapsWithText = ['E1M8','E2M8','E3M8','E4M8','MAP06','MAP11','MAP20','MAP30','MAP15','MAP31'];
+    export const hasVictoryText = (mapName: string) => mapsWithText.includes(mapName);
+</script>
 <script lang="ts">
     import { useDoom } from "../DoomContext";
     import { type MessageId, _T } from "../../doom";

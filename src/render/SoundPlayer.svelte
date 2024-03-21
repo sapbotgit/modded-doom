@@ -1,14 +1,15 @@
 <script lang="ts">
     import { useAppContext } from "./DoomContext";
-    import { Game, MapObject, PlayerMapObject, SoundIndex, store, type Sector } from "../doom";
+    import { MapObject, PlayerMapObject, SoundIndex, store, type Sector, type SoundEmitter, DoomWad } from "../doom";
     import { Vector3 } from "three";
     import { randInt } from "three/src/math/MathUtils";
 
-    export let game: Game;
     export let audioRoot: AudioNode;
+    export let wad: DoomWad;
+    export let soundEmitter: SoundEmitter;
+    export let timescale: number;
     export let player: PlayerMapObject = null;
 
-    const { timescale } = game.settings;
     const { audio, settings } = useAppContext();
     const { experimentalSoundHacks } = settings;
 
@@ -38,7 +39,9 @@
     const defaultPosition = store(new Vector3());
     // Camera position or player position? I think camera is probably more useful (especially for orthogonal/follow cam)
     // even though it's less accurate.
-    const { position: playerPosition, direction: yaw, pitch } = player ?? { position: defaultPosition };
+    $: playerPosition = player?.position ?? defaultPosition;
+    $: yaw = player?.direction;
+    $: pitch = player?.pitch;
     $: updateListener($playerPosition, $yaw, $pitch);
     function updateListener(position: Vector3, yaw: number, pitch: number) {
         if (!player) {
@@ -77,7 +80,7 @@
     const dword = (buff: Uint8Array, offset: number) => word(buff, offset + 2) << 16 | word(buff, offset);
     function soundBuffer(name: string) {
         if (!soundBuffers.has(name)) {
-            const buff = game.wad.lumpByName(name).contents as Uint8Array;
+            const buff = wad.lumpByName(name).contents as Uint8Array;
             const sampleRate = word(buff, 0x2);
             const numSamples = dword(buff, 0x4) - 32;
             const buffer = audio.createBuffer(1, numSamples, sampleRate);
@@ -109,7 +112,7 @@
             const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
             this.soundNode = audio.createBufferSource()
             this.soundNode.buffer = soundBuffer(name);
-            this.soundNode.playbackRate.value = game.settings.timescale.val;
+            this.soundNode.playbackRate.value = timescale;
             this.soundNode.addEventListener('ended', this.deactivate);
             this.soundNode.start(now);
             // A controversial feature? https://doomwiki.org/wiki/Random_sound_pitch_removed
@@ -205,9 +208,9 @@
     let soundChannels: SoundChannel[] = Array.from({ length: maxSounds }, () => new SoundChannel());
     // Adjust sound playback speed as timescale changes.
     // In practice, this probably doesn't matter but it's cool we can do it.
-    $: soundChannels.forEach(sc => sc.soundNode?.playbackRate?.exponentialRampToValueAtTime($timescale, audio.currentTime + .1));
+    $: soundChannels.forEach(sc => sc.soundNode?.playbackRate?.exponentialRampToValueAtTime(timescale, audio.currentTime + .1));
 
-    game.onSound((snd, location) => {
+    soundEmitter.onSound((snd, location) => {
         const isPositional = player && location && location !== player;
         const position = !isPositional ? defaultPosition :
             ('soundTarget' in location) ? store(location.center)

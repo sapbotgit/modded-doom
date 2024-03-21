@@ -63,6 +63,10 @@ export interface IntermissionScreen {
 }
 
 type SoundHandler = (snd: SoundIndex, position?: MapObject | Sector) => void;
+export interface SoundEmitter {
+    onSound(handler: SoundHandler): void;
+    playSound(snd: SoundIndex, location?: MapObject | Sector): void;
+}
 
 const defaultInventory = (): PlayerInfo => ({
     health: 100,
@@ -79,7 +83,7 @@ const defaultInventory = (): PlayerInfo => ({
     weapons: ['fist', null, 'pistol'].map(inventoryWeapon),
 });
 
-export class Game {
+export class Game implements SoundEmitter {
     private remainingTime = 0; // seconds
     private nextTickTime = 0; // seconds
     time = {

@@ -194,15 +194,15 @@
     import { Soundfont, DrumMachine } from "smplr";
     import { useAppContext } from "./DoomContext";
     import WebAudioTinySynth from 'webaudio-tinysynth';
-    import type { Game } from "../doom";
+    import type { DoomWad } from "../doom";
 
     export let audioRoot: AudioNode;
-    export let game: Game;
+    export let wad: DoomWad;
     export let trackName: string;
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
-    $: musicBuffer = game.wad.lumpByName(trackName)?.contents;
+    $: musicBuffer = wad.lumpByName(trackName)?.contents;
     $: midi = loadMusic(musicBuffer);
     function loadMusic(musicBuffer: Uint8Array) {
         try {

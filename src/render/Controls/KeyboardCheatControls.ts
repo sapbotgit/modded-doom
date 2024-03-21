@@ -29,7 +29,7 @@ export const keyboardCheatControls: Action<HTMLElement, Game> = (node, game): Ac
             new CheatCode(game, 'idkfa', idkfa),
             new CheatCode(game, 'idclev??', warp),
             new CheatCode(game, 'idmus??', changeMusic),
-            new CheatCode(game, 'idmypos', toggleFn(showPlayerInfo, 'Debug info')),
+            new CheatCode(game, 'idmypos', toggleFn(showPlayerInfo, 'Player info')),
             new CheatCode(game, 'idchoppers', idchoppers),
             // only shows the message
             new CheatCode(game, 'idbehold', (game) => game.map?.val?.player?.hudMessage?.set('inVuln, Str, Inviso, Rad, Allmap, or Lite-amp')),

@@ -7,11 +7,30 @@
     import { setContext } from 'svelte';
     import WadScreen from './WadScreen.svelte';
     import { WadStore } from './WadStore';
+    import WipeContainer from './render/Components/WipeContainer.svelte';
+    import { fly } from 'svelte/transition';
 
     const wadStore = new WadStore();
     const context = createAppContext();
     setContext('doom-app-context', context);
+
     const { audio } = context;
+    function enableSoundOnce() {
+        audio.resume();
+    }
+    const { musicVolume, soundVolume, muted, mainVolume } = context.settings;
+
+    const mainGain = audio.createGain();
+    mainGain.connect(audio.destination);
+    $: mainGain.gain.value = $muted ? 0 : $mainVolume;
+
+    const soundGain = audio.createGain();
+    soundGain.connect(mainGain);
+    $: soundGain.gain.value = $soundVolume * .1;
+
+    const musicGain = audio.createGain();
+    musicGain.connect(mainGain);
+    $: musicGain.gain.value = $musicVolume;
 
     let wad: DoomWad;
     let game: Game;
@@ -56,9 +75,7 @@
         history.pushState(null, null, `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`);
     }
 
-    function enableSoundOnce() {
-        audio.resume();
-    }
+    $: screenName = game ? 'game' : 'start';
 </script>
 
 <svelte:window on:popstate={parseUrlParams} />
@@ -66,19 +83,22 @@
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <main
+    class="overflow-hidden h-screen"
     on:click|once={enableSoundOnce}
     use:context.pointerLock.pointerLockControls
 >
     <!-- <AABBSweepDebug /> -->
 
-    {#if game}
-        {#key game}
-            <Doom {game} />
-        {/key}
-    {:else}
-        <WadScreen {wad} {wadStore} />
-        <AppInfo />
-    {/if}
+    <WipeContainer key={screenName}>
+        {#if game}
+            {#key game}
+                <Doom {game} {musicGain} {soundGain} />
+            {/key}
+        {:else}
+            <WadScreen {wad} {wadStore} />
+            <AppInfo />
+        {/if}
+    </WipeContainer>
 </main>
 
 <style>

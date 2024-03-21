@@ -31,6 +31,7 @@
     function startNextEpisode() {
         game.resetInventory();
         game.startMap(new MapRuntime(nextEpisodeMap, game));
+        requestLock();
     }
 
     const settings = {
