@@ -5,9 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+TBD
 
-No changes yet.
-## [0.2.0] - 2024-03-07
+## [0.4.0] - 2024-03-23
+
+### Added
+- `<noscript>` block if javascript is disabled
+- Quick options in menu (camera, mute, and 486-mode)
+- "Next episode" button in menu when completing M8 levels in DOOM 1
+- Pressing use or attack will restart the map when dead
+- Basic screen wipes
+
+### Changed
+- Smooth transition on intro menu and improve intro menu workflow
+- Intro menus update url fragment which gives a nice behaviour with browser back button
+- Pause game when showing menu
+
+### Fixed
+- Health showing 0% but player not dead
+- Player thrust is applied consistently in different timescale and max fps
+- Floating monsters not floating over obstacles
+- Map transitions not working in E2, E3, and E4
+
+## [0.3.0] - 2024-03-07
 
 ### Added
 - Configuration screen for touch controls
