@@ -2,6 +2,8 @@
 
 A (mostly complete) rewrite of DOOM for the browser. "ISO" because the inspiration for the project came from trying to render DOOM in isometric projection ([kinda like this](https://www.doomworld.com/forum/topic/126329-top-down-isometric-view-from-a-wad-file/)).
 
+![DOOM map E1M1](assets/screenshot1.jpg) ![DOOM in isomorphic projection](assets/screenshot2.jpg)
+
 ## Description
 
 A playable version of DOOM implemented in typescript, rendered in threejs, with a svelte UI. It is not a port of DOOM _per se_ because it deviates from the DOOM implementaiton where it was fun or interesting to experiment but it should still _feel_ like DOOM. Parts of ISO DOOM are derived from the [DOOM source code](https://github.com/id-Software/DOOM) - in particular for animation, monster behaviour, and timing - so if you're familiar with that code you may recognize parts of it in this implementation.
