@@ -50,15 +50,20 @@
         };
     }
 
+    // hmmm... not ideal but without it, we can't scroll inside the wipe container and for the main menu, that is critical.
+    let transitionActive = false;
+
     // I wonder what other kinds of transitions might be fun to create...
 </script>
 
-<div class="absolute inset-0 overflow-hidden z-0">
+<div class="absolute inset-0 z-0" class:overflow-hidden={transitionActive}>
     {#key key}
     <div
         class="absolute inset-0"
         style="z-index:{zi--}"
         out:melt={{ duration, easing }}
+        on:outrostart={() => transitionActive = true}
+        on:outroend={() => transitionActive = false}
     >
         <div class="absolute inset-0" out:fly={{ easing, duration, opacity: 1, y: '100%' }}>
             <slot />

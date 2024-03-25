@@ -83,7 +83,6 @@
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <main
-    class="overflow-hidden h-screen"
     on:click|once={enableSoundOnce}
     use:context.pointerLock.pointerLockControls
 >
