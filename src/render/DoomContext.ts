@@ -44,6 +44,7 @@ export const createDefaultSettings = () => {
         noclip: store(false),
         alwaysRun: store(true),
         compassMove: store(false),
+        shotTraceSeconds: store(0),
         maxLostSouls: store(20),
         timescale: store(1),
         monsterAI: store('enabled'),
@@ -160,6 +161,7 @@ export const createAppContext = () => {
         toggle('debug', settings.showStats, 'Show render stats'),
         toggle('debug', settings.showBlockMap, 'Show blockmap'),
         toggle('debug', settings.useTextures, 'Show textures'),
+        range('debug', settings.shotTraceSeconds, 'Shot tracer duration (seconds)', 0, 20, .25),
         option('debug', settings.monsterAI, 'AI mode', ['enabled', 'disabled', 'move-only', 'fast']),
         option('debug', settings.wireframe, 'Show geometry', ['off', 'visible', 'all']),
         // experimental

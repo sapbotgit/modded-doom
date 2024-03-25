@@ -8,10 +8,18 @@
     import SkyBox from "./SkyBox.svelte";
     import Sector from "./Sector.svelte";
     import { interactivity } from "@threlte/extras";
+    import { PlaneGeometry } from "three";
+    import { T } from "@threlte/core";
+    import ShotTrace from "./ShotTrace.svelte";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
     const { editor } = useAppContext();
+    const trev = map.trev;
+    let tracers: typeof map.tracers;
+    $: if ($trev) {
+        tracers = map.tracers;
+    }
 
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);
@@ -28,6 +36,10 @@
 
 {#each renderSectors as renderSector}
     <Sector {renderSector} />
+{/each}
+
+{#each tracers as trace (trace.id)}
+    <ShotTrace {trace} />
 {/each}
 
 <Player /> <!-- and camera... -->

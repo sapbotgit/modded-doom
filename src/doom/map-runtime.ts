@@ -70,6 +70,13 @@ interface AnimatedTexture {
     target: Store<string>;
 }
 
+interface ShotTrace {
+    id: number;
+    start: Vector3;
+    end: Vector3;
+    ticks: Store<number>;
+}
+
 export class MapRuntime {
     readonly data: MapData; // TODO: make this non-public?
     private actions = new Set<Action>();
@@ -84,6 +91,8 @@ export class MapRuntime {
         elapsedTime: 0,
     };
 
+    tracers: ShotTrace[] = [];
+    readonly trev = store(1);
     objs: MapObject[] = []; // TODO: make this readonly?
     // don't love this rev hack... we need a list with a subscribe method
     readonly rev = store(1);
@@ -198,7 +207,7 @@ export class MapRuntime {
             mobj.position.val.z = z;
         }
         this.objs.push(mobj);
-        this.rev.update(v => v += 1);
+        this.rev.update(v => v + 1);
         return mobj;
     }
 
@@ -231,6 +240,13 @@ export class MapRuntime {
         });
 
         this.objs.forEach(thing => thing.tick());
+
+        let len = this.tracers.length;
+        this.tracers.forEach(tr => tr.ticks.update(v => v - 1));
+        this.tracers = this.tracers.filter(tr => tr.ticks.val > 0);
+        if (len !== this.tracers.length) {
+            this.trev.update(v => v + 1);
+        }
     }
 
     initializeTextureAnimation(target: Store<string>, type: 'wall' | 'flat') {

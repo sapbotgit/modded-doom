@@ -13,11 +13,11 @@
     $: mo = [...$mobjs].sort((a, b) => a.id - b.id);
 
     // Why wrap this in a div? It reduces the cost of reflow from adding/removing DOM nodes.
-    // From profiling data, we reduce reflow from 20% of the overall time to 1%. Also mark the divs
+    // From profiling data, we reduce reflow from 20% of the overall time to 1%. Also mark the div
     // as position:absolute to hopefully help(?)
 </script>
 
-<div>
+<div class="absolute">
     {#if geometry}
         <Flat
             {renderSector}
@@ -46,9 +46,3 @@
         {/if}
     {/each}
 </div>
-
-<style>
-    div {
-        position: absolute;
-    }
-</style>

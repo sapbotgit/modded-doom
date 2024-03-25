@@ -11,6 +11,7 @@ import { hitSkyFlat, type HandleTraceHit, type Sector, hitSkyWall } from "../map
 import { itemPickedUp, noPickUp } from "./pickup";
 import type { MessageId } from "../text";
 import { propagateSound } from "./monsters";
+import type { MapRuntime } from "../map-runtime";
 
 export const weaponTop = 32;
 const weaponBottom = 32 - 128;
@@ -455,6 +456,8 @@ class ShotTracer {
     private _lastAngle: number;
     get lastAngle() { return this._lastAngle; }
 
+    private traceNum = 0;
+    private map: MapRuntime;
     private start = new Vector3();
     private direction = new Vector3();
     zAim(shooter: MapObject | PlayerMapObject, range: number) {
@@ -506,6 +509,8 @@ class ShotTracer {
         // aim once and fire several bullets
         _shotEuler.set(0, Math.acos(aimSlope) - HALF_PI, angle);
         this.direction.set(range, 0, 0).applyEuler(_shotEuler);
+
+        this.map = shooter.map;
 
         shooter.map.data.traceRay(this.start, this.direction, hit => {
             const hitZ = this.direction.z * hit.fraction + this.start.z;
@@ -575,9 +580,19 @@ class ShotTracer {
 
     private hitLocation = new Vector3();
     private bulletHitLocation(dist: number, range: number, frac: number) {
-        return this.hitLocation.copy(this.start)
+        const end = this.hitLocation.copy(this.start)
             // position the hit location little bit in front of the actual impact
             .addScaledVector(this.direction, frac - dist / range);
+        if (range === attackRange && this.map.game.settings.shotTraceSeconds.val > 0) {
+            this.map.tracers.push({
+                id: this.traceNum++,
+                start: this.start.clone(),
+                end: end.clone(),
+                ticks: store(this.map.game.settings.shotTraceSeconds.val * ticksPerSecond),
+            });
+            this.map.trev.update(v => v + 1);
+        }
+        return end;
     }
 
     private spawnBlood(source: MapObject, pos: Vector3, damage: number) {

@@ -23,6 +23,7 @@ export interface GameSettings {
     freeFly: Store<boolean>;
     maxLostSouls: Store<number>;
     monsterAI: Store<'enabled' | 'disabled' | 'move-only' | 'fast'>;
+    shotTraceSeconds: Store<number>;
     // useful for birds eye view where we may not want to rotate the camera when the player rotates
     compassMove: Store<boolean>;
     invicibility: Store<boolean>;
