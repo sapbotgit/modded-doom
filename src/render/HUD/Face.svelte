@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { type PlayerMapObject, type  PlayerInventory, ToDegrees, angleBetween, normalizeAngle, randInt, QUARTER_PI } from "../../doom";
+    import { randInt } from "three/src/math/MathUtils";
+    import { type PlayerMapObject, type  PlayerInventory, ToDegrees, angleBetween, normalizeAngle, QUARTER_PI } from "../../doom";
     import Picture from "../Components/Picture.svelte";
     import { useDoom } from "../DoomContext";
 

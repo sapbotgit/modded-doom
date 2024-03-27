@@ -6,6 +6,7 @@ import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
 import type { Sector } from "./map-data";
+import { type RNG, TableRNG } from "./math";
 
 export interface GameTime {
     elapsed: number; // seconds
@@ -23,6 +24,7 @@ export interface GameSettings {
     alwaysRun: Store<boolean>;
     freeFly: Store<boolean>;
     maxLostSouls: Store<number>;
+    randomNumbers: Store<'table' | 'computed'>,
     monsterAI: Store<'enabled' | 'disabled' | 'move-only' | 'fast'>;
     shotTraceSeconds: Store<number>;
     // useful for birds eye view where we may not want to rotate the camera when the player rotates
@@ -111,6 +113,7 @@ export class Game implements SoundEmitter {
     readonly map = store<MapRuntime>(null);
     readonly intermission = store<IntermissionScreen>(null);
     get episodic() { return !this.wad.mapNames.includes('MAP01'); }
+    readonly rng: RNG = new TableRNG();
 
     constructor(
         readonly wad: DoomWad,

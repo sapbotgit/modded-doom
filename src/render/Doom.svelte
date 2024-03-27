@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { randInt, type Game, randomNorm } from "../doom";
+    import { type Game, randomNorm } from "../doom";
     import { onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
@@ -21,6 +21,7 @@
     import { Icon } from '@steeze-ui/svelte-icon'
     import { Bars3BottomLeft } from '@steeze-ui/heroicons'
     import WipeContainer from "./Components/WipeContainer.svelte";
+    import { randInt } from "three/src/math/MathUtils";
 
     export let game: Game;
     export let musicGain: GainNode;

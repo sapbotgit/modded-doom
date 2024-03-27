@@ -2,7 +2,7 @@ import { Euler, Vector2, Vector3 } from "three";
 import type { ThingType } from ".";
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "../doom-things-info";
 import { store } from "../store";
-import { HALF_PI, QUARTER_PI, angleNoise, rand, randInt } from '../math';
+import { HALF_PI, QUARTER_PI } from '../math';
 import { PlayerMapObject, type PlayerInventory, MapObject, angleBetween } from '../map-object';
 import { SpriteStateMachine } from '../sprite';
 import { giveAmmo } from "./ammunitions";
@@ -195,7 +195,7 @@ export const meleeRange = 1 * 64;
 export const meleeRangeSqr = meleeRange * meleeRange;
 export const scanRange = 16 * 64;
 export const attackRange = 32 * 64;
-const bulletDamage = () => 5 * randInt(1, 3);
+const bulletDamage = (mobj: MapObject) => 5 * mobj.rng.int(1, 3);
 const bulletAngle = (player: MapObject, trace: ShotTracer) =>
     player.map.game.settings.xyAimAssist.val ? trace.lastAngle : player.direction.val;
 
@@ -282,13 +282,13 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     },
 
     [ActionIndex.A_Punch]: (time, player, weapon) => {
-        let damage = randInt(1, 10) * 2;
+        let damage = player.rng.int(1, 10) * 2;
         if (player.inventory.val.items.berserk) {
             damage *= 10;
         }
 
         const slope = shotTracer.zAim(player, meleeRange);
-        const angle = bulletAngle(player, shotTracer) + angleNoise(18);
+        const angle = bulletAngle(player, shotTracer) + player.rng.angleNoise(18);
         shotTracer.fire(player, damage, angle, slope, meleeRange);
 
         // turn to face target
@@ -298,11 +298,11 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         }
     },
     [ActionIndex.A_Saw]: (time, player, weapon) => {
-        let damage = randInt(1, 10) * 2;
+        let damage = player.rng.int(1, 10) * 2;
 
         // use meleerange + 1 so the puff doesn't skip the flash
         const slope = shotTracer.zAim(player, meleeRange + 1);
-        const angle = bulletAngle(player, shotTracer) + angleNoise(18);
+        const angle = bulletAngle(player, shotTracer) + player.rng.angleNoise(18);
         shotTracer.fire(player, damage, angle, slope, meleeRange + 1);
 
         if (!shotTracer.lastTarget) {
@@ -338,9 +338,9 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         let angle = bulletAngle(player, shotTracer);
         if (player.refire) {
             // mess up angle slightly for refire
-            angle += angleNoise(18);
+            angle += player.rng.angleNoise(18);
         }
-        shotTracer.fire(player, bulletDamage(), angle, slope, attackRange);
+        shotTracer.fire(player, bulletDamage(player), angle, slope, attackRange);
     },
     [ActionIndex.A_FireShotgun]: (time, player, weapon) => {
         weaponActions[ActionIndex.A_GunFlash](time, player, weapon);
@@ -350,7 +350,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const slope = shotTracer.zAim(player, scanRange);
         const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 7; i++) {
-            shotTracer.fire(player, bulletDamage(), angle + angleNoise(18), slope, attackRange);
+            shotTracer.fire(player, bulletDamage(player), angle + player.rng.angleNoise(18), slope, attackRange);
         }
     },
 
@@ -365,8 +365,8 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const slope = shotTracer.zAim(player, scanRange);
         const angle = bulletAngle(player, shotTracer);
         for (let i = 0; i < 20; i++) {
-            const slopeNoise = rand() * ssgNoiseVariation;
-            shotTracer.fire(player, bulletDamage(), angle + angleNoise(19), slope + slopeNoise, attackRange);
+            const slopeNoise = player.rng.real2() * ssgNoiseVariation;
+            shotTracer.fire(player, bulletDamage(player), angle + player.rng.angleNoise(19), slope + slopeNoise, attackRange);
         }
     },
     [ActionIndex.A_OpenShotgun2]: (time, player, weapon) => {
@@ -390,9 +390,9 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         let angle = bulletAngle(player, shotTracer);
         if (player.refire) {
             // mess up angle slightly for refire
-            angle += angleNoise(18);
+            angle += player.rng.angleNoise(18);
         }
-        shotTracer.fire(player, bulletDamage(), angle, slope, attackRange);
+        shotTracer.fire(player, bulletDamage(player), angle, slope, attackRange);
     },
 
     [ActionIndex.A_FireMissile]: (time, player, weapon) => {
@@ -401,7 +401,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
     },
 
     [ActionIndex.A_FirePlasma]: (time, player, weapon) => {
-        weapon.flash(randInt(0, 1));
+        weapon.flash(player.rng.int(0, 1));
         // don't go to S_PLAY_ATK2... was that intentional in doom?
         useAmmo(player, weapon);
         shootMissile(player, MapObjectIndex.MT_PLASMA);
@@ -443,7 +443,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
 
             let damage = 0;
             for (let j = 0; j < 15; j++) {
-                damage += randInt(1, 8);
+                damage += mobj.rng.int(1, 8);
             }
             aim.target.damage(damage, shooter, shooter);
         }
@@ -597,8 +597,9 @@ class ShotTracer {
     }
 
     private spawnBlood(source: MapObject, pos: Vector3, damage: number) {
-        const mobj = source.map.spawn(MapObjectIndex.MT_BLOOD, pos.x, pos.y, pos.z + rand() * puffNoiseVariation);
-        mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
+        const mobj = source.map.spawn(MapObjectIndex.MT_BLOOD,
+            pos.x, pos.y, pos.z + source.rng.real2() * puffNoiseVariation);
+        mobj.setState(mobj.info.spawnstate, -source.rng.int(0, 2));
 
         if (damage <= 12 && damage >= 9) {
             mobj.setState(StateIndex.S_BLOOD2);
@@ -707,8 +708,8 @@ function useAmmo(player: PlayerMapObject, weapon: PlayerWeapon) {
 }
 
 export function spawnPuff(parent: MapObject, spot: Vector3) {
-    const zNoise = rand() * puffNoiseVariation;
+    const zNoise = parent.rng.real2() * puffNoiseVariation;
     const mobj = parent.map.spawn(MapObjectIndex.MT_PUFF, spot.x, spot.y, spot.z + zNoise);
-    mobj.setState(mobj.info.spawnstate, -randInt(0, 2));
+    mobj.setState(mobj.info.spawnstate, -parent.rng.int(0, 2));
     return mobj;
 }

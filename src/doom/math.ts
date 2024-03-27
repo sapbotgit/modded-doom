@@ -21,6 +21,84 @@ interface IntersectionPoint extends Vertex {
     u: number; // distance from point1 to point2 of the impact (0-1)
 }
 
+// straight outta m_random.c. It's just not doom without it.
+// Note we don't have an equivalent for M_Random(). M_Random() is used for UI effects
+// and we use Math.random() for those.
+const rngTable = [
+    0,   8, 109, 220, 222, 241, 149, 107,  75, 248, 254, 140,  16,  66 ,
+    74,  21, 211,  47,  80, 242, 154,  27, 205, 128, 161,  89,  77,  36 ,
+    95, 110,  85,  48, 212, 140, 211, 249,  22,  79, 200,  50,  28, 188 ,
+    52, 140, 202, 120,  68, 145,  62,  70, 184, 190,  91, 197, 152, 224 ,
+    149, 104,  25, 178, 252, 182, 202, 182, 141, 197,   4,  81, 181, 242 ,
+    145,  42,  39, 227, 156, 198, 225, 193, 219,  93, 122, 175, 249,   0 ,
+    175, 143,  70, 239,  46, 246, 163,  53, 163, 109, 168, 135,   2, 235 ,
+    25,  92,  20, 145, 138,  77,  69, 166,  78, 176, 173, 212, 166, 113 ,
+    94, 161,  41,  50, 239,  49, 111, 164,  70,  60,   2,  37, 171,  75 ,
+    136, 156,  11,  56,  42, 146, 138, 229,  73, 146,  77,  61,  98, 196 ,
+    135, 106,  63, 197, 195,  86,  96, 203, 113, 101, 170, 247, 181, 113 ,
+    80, 250, 108,   7, 255, 237, 129, 226,  79, 107, 112, 166, 103, 241 ,
+    24, 223, 239, 120, 198,  58,  60,  82, 128,   3, 184,  66, 143, 224 ,
+    145, 224,  81, 206, 163,  45,  63,  90, 168, 114,  59,  33, 159,  95 ,
+    28, 139, 123,  98, 125, 196,  15,  70, 194, 253,  54,  14, 109, 226 ,
+    71,  17, 161,  93, 186,  87, 244, 138,  20,  52, 123, 251,  26,  36 ,
+    17,  46,  52, 231, 232,  76,  31, 221,  84,  37, 216, 165, 212, 106 ,
+    197, 242,  98,  43,  39, 175, 254, 145, 190,  84, 118, 222, 187, 136 ,
+    120, 163, 236, 249
+]
+// We want numbers from 0-1
+.map(e => e / 255);
+export interface RNG {
+    // Real number in range [0, 1]
+    real(): number;
+    // Real number in range [-1, 1]
+    real2(): number;
+    // Integer bewteen min and max
+    int(min: number, max: number): number;
+    choice(list: any[]): any;
+    angleNoise(shiftBits: number): number;
+}
+
+export class TableRNG implements RNG {
+    private index = 0;
+
+    real() {
+        this.index = (this.index + 1) & 0xff;
+        return rngTable[this.index];
+    }
+
+    real2() {
+        return (this.real() - this.real());
+    }
+
+    int(min: number, max: number) {
+        return Math.floor(this.real() * (max - min + 1)) + min;
+    }
+
+    choice(list: any[]) {
+        return list[this.int(0, list.length - 1)];
+    }
+
+    angleNoise(shiftBits: number) {
+        return this.real2() * circleAngle * (1 << shiftBits)
+    }
+}
+
+const real = () => Math.random() === 0 ? 1 : Math.random()
+export class ComputedRNG implements RNG {
+    real = real;
+    real2 = () => Math.random() - Math.random();
+    int = randInt;
+    choice = (list: any[]) => list[randInt(0, list.length - 1)];
+    angleNoise = (shiftBits: number) => (real() - real()) * circleAngle * (1 << shiftBits);
+}
+
+export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+// It took me a while to figure out how angles are randomized in DOOM.
+// 360/8192 (ie. 1<<13) is key. (1<<shiftBbits) / (1<<19) accounts for the angle size
+// (like pistol has less randomness than invisibility) and the whole thing is multiplied by
+// a random number in the range -255 to 255. https://doomwiki.org/wiki/Angle
+const circleAngle = 255 * 360 / (1 << 13) / (1 << 19) * ToRadians;
 
 // very cool! https://stackoverflow.com/questions/25582882
 // random numbers on a normal distribution
@@ -40,17 +118,6 @@ export function randomNorm(min, max, skew) {
     }
     return num
 }
-
-// Random number in the range (-1, 1)
-export const rand = () => Math.random() - Math.random();
-export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-export const randomChoice = (list: any[]) => list[randInt(0, list.length - 1)];
-// It took me a while to figure out how angles are randomized in DOOM.
-// 360/8192 (ie. 1<<13) is key. (1<<shiftBbits) / (1<<19) accounts for the angle size
-// (like pistol has less randomness than invisibility) and the whole thing is multiplied by
-// a random number in the range -255 to 255. https://doomwiki.org/wiki/Angle
-const circleAngle = 255 * 360 / (1 << 13) / (1 << 19) * ToRadians;
-export const angleNoise = (shiftBits: number) => rand() * circleAngle * (1 << shiftBits);
 
 export function signedLineDistance(l: Vertex[], v: Vertex) {
     // https://math.stackexchange.com/questions/274712

@@ -1,8 +1,8 @@
 <script lang="ts">
     import { Color, CubeTexture, DataTexture, NearestFilter, SRGBColorSpace } from "three";
     import { useDoom, useDoomMap } from "../DoomContext";
-    import { randInt } from "../../doom";
     import { T, useThrelte } from "@threlte/core";
+    import { randInt } from "three/src/math/MathUtils";
 
     const { scene } = useThrelte();
     const { textures } = useDoom();

@@ -1,5 +1,5 @@
 import { ActionIndex, SpriteNames, StateIndex, states, type State } from "./doom-things-info";
-import { randInt } from "./math";
+import type { RNG } from "./math";
 import { store } from "./store";
 
 const FF_FULLBRIGHT = 0x8000;
@@ -67,9 +67,9 @@ export class SpriteStateMachine {
         });
     }
 
-    randomizeTicks() {
+    randomizeTicks(rng: RNG) {
         if (this.ticks > 0) {
-            this.ticks = randInt(1, this.ticks);
+            this.ticks = rng.int(1, this.ticks);
         }
     }
 }

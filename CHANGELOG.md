@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Doom random number generator (RNG) and setting
+
 ### Fixed
 - Monster interpolation even after target dies
+- Custom textures from PWADs were not loaded properly
+- Power up duration corrected for: rad suit, light amp, and invis
 
 ## [0.6.0] - 2024-09-10
 

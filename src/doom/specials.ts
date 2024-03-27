@@ -1,6 +1,5 @@
 // kind of based on p_spec.c
 import { MapObject, PlayerMapObject } from "./map-object";
-import { randInt } from "./math";
 import { MFFlags, MapObjectIndex, SoundIndex, StateIndex } from "./doom-things-info";
 import type { MapRuntime } from "./map-runtime";
 import { zeroVec, type LineDef, type Sector, hittableThing } from "./map-data";
@@ -130,6 +129,7 @@ function crunchMapObject(mobj: MapObject) {
     return true;
 }
 
+const crushVelocity = 255 * (1 << 12) / (1 << 16);
 function crunchAndDamageMapObject(mobj: MapObject) {
     let hitSolid = crunchMapObject(mobj);
     if ((mobj.info.flags & MFFlags.MF_SHOOTABLE) && (mobj.map.game.time.tick.val & 3) === 0) {
@@ -139,8 +139,8 @@ function crunchAndDamageMapObject(mobj: MapObject) {
         const pos = mobj.position.val;
         const blood = mobj.map.spawn(MapObjectIndex.MT_BLOOD, pos.x, pos.y, pos.z + mobj.info.height * .5);
         blood.velocity.set(
-            randInt(-255, 255) * 0.0625,
-            randInt(-255, 255) * 0.0625,
+            crushVelocity * mobj.rng.real2(),
+            crushVelocity * mobj.rng.real2(),
             0);
     }
     return hitSolid;
@@ -867,7 +867,7 @@ const strobeFlash =
         const max = sector.light.initial;
         const nearestMin = lowestLight(map.data.sectorNeighbours(sector), max);
         const min = (nearestMin === max) ? 0 : nearestMin;
-        let ticks = synchronized ? 1 : randInt(1, 7);
+        let ticks = synchronized ? 1 : map.game.rng.int(1, 7);
         return () => {
             if (--ticks) {
                 return;
@@ -894,10 +894,10 @@ const randomFlicker = (map: MapRuntime, sector: Sector) => {
         }
         sector.light.update(val => {
             if (val === max) {
-                ticks = randInt(1, 7);
+                ticks = map.game.rng.int(1, 7);
                 return min;
             } else {
-                ticks = randInt(1, 64);
+                ticks = map.game.rng.int(1, 64);
                 return max;
             }
         });
@@ -927,7 +927,7 @@ const fireFlicker = (map: MapRuntime, sector: Sector) => {
             return;
         }
         ticks = 4;
-        const amount = randInt(0, 2) * 16;
+        const amount = map.game.rng.int(0, 2) * 16;
         sector.light.set(Math.max(max - amount, min));
     }
 };

@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { MapData, type LineDef, type Thing, type Action } from "./map-data";
 import { Object3D, Vector3 } from "three";
-import { HALF_PI, ToRadians } from "./math";
+import { HALF_PI, ComputedRNG, TableRNG, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
 import { sectorLightAnimations, triggerSpecial, type SpecialDefinition, type TriggerType } from "./specials";
 import { ticksPerSecond, type Game, type GameTime, type ControllerInput, tickTime } from "./game";
@@ -391,6 +391,11 @@ class GameInput {
         this.alwaysRun = this.map.game.settings.alwaysRun;
         this.compassMove = this.map.game.settings.compassMove;
         this.map.disposables.push(
+            // TODO: this doesn't belong here but I can't think of a better place at the moment :(
+            this.map.game.settings.randomNumbers.subscribe(randomNumberGenerator => {
+                (this.map.game.rng as any) = (randomNumberGenerator === 'table')
+                    ? new TableRNG() : new ComputedRNG();
+            }),
             this.map.game.settings.noclip.subscribe(noclip => {
                 if (noclip) {
                     this.player.info.flags |= MFFlags.MF_NOCLIP;

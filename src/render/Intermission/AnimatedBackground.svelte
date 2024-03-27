@@ -1,8 +1,9 @@
 <script lang="ts">
     import { fade } from "svelte/transition";
-    import { ticksPerSecond, type IntermissionScreen, type Vertex, randInt } from "../../doom";
+    import { ticksPerSecond, type IntermissionScreen, type Vertex } from "../../doom";
     import Picture from "../Components/Picture.svelte";
     import { useDoom } from "../DoomContext";
+    import { randInt } from "three/src/math/MathUtils";
 
     export let details: IntermissionScreen;
     export let episode: number;

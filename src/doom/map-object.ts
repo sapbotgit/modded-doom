@@ -2,7 +2,7 @@ import { store, type Store } from "./store";
 import { thingSpec, stateChangeAction } from "./things";
 import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
-import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
+import { HALF_PI, signedLineDistance, ToRadians, type Vertex, randInt } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall } from "./map-data";
 import { ticksPerSecond, type GameTime, tickTime } from "./game";
 import { SpriteStateMachine } from "./sprite";
@@ -50,6 +50,7 @@ export class MapObject {
     protected _zCeil = Infinity;
     get zCeil() { return this._zCeil; }
     get zFloor() { return this._zFloor; }
+    get rng() { return this.map.game.rng; }
 
     protected _attacker: MapObject;
     get attacker() { return this._attacker; }
@@ -193,7 +194,7 @@ export class MapObject {
         // set state last because it may trigger other actions (like find player or play a sound)
         this._state.setState(this.info.spawnstate);
         // initial spawn sets ticks a little randomly so animations don't all move at the same time
-        this._state.randomizeTicks();
+        this._state.randomizeTicks(map.game.rng);
     }
 
     get spriteTime() { return 1 / states[this._state.index].tics; }
@@ -241,7 +242,7 @@ export class MapObject {
             const shouldFallForward = (amount < 40
                 && amount > this.health.val
                 && this.position.val.z - inflictor.position.val.z > 64
-                && Math.random() > 0.5);
+                && (this.rng.real() < .5));
             if (shouldFallForward) {
                 angle += Math.PI;
                 thrust *= 4;
@@ -256,7 +257,7 @@ export class MapObject {
         }
 
         this.reactiontime = 0;
-        if (Math.random() < this.info.painchance && !(this.info.flags & MFFlags.MF_SKULLFLY)) {
+        if (this.rng.real() < this.info.painchance && !(this.info.flags & MFFlags.MF_SKULLFLY)) {
             this.info.flags |= MFFlags.MF_JUSTHIT;
             this.setState(this.info.painstate);
         }
@@ -299,9 +300,9 @@ export class MapObject {
 
         this.info.height *= .25;
         if (this.health.val < -this.info.spawnhealth && this.info.xdeathstate !== StateIndex.S_NULL) {
-            this._state.setState(this.info.xdeathstate, -randInt(0, 2));
+            this._state.setState(this.info.xdeathstate, -this.rng.int(0, 2));
         } else {
-            this._state.setState(this.info.deathstate, -randInt(0, 2));
+            this._state.setState(this.info.deathstate, -this.rng.int(0, 2));
         }
 
         // Some enemies drop things (guns or ammo) when they die
@@ -316,6 +317,7 @@ export class MapObject {
             mobj.info.flags |= MFFlags.MF_DROPPED; // special versions of items
 
             // items pop up when dropped (gzdoom has this effect and I think it's pretty cool)
+            // don't use pRandom() because it would affect demo playback (if we every implement that...)
             mobj.velocity.z = randInt(5, 7);
             // position slightly above the current floor otherwise it will immediately stick to floor
             mobj.position.val.z += 1;
@@ -447,7 +449,7 @@ export class MapObject {
                             (this.chaseTarget.type === MapObjectIndex.MT_BRUISER && hit.mobj.type === MapObjectIndex.MT_KNIGHT)
                         );
                         if (!sameSpecies) {
-                            const damage = randInt(1, 8) * this.info.damage;
+                            const damage = this.info.damage * this.rng.int(1, 8);
                             hit.mobj.damage(damage, this, this.chaseTarget);
                         }
                         this.explode();
@@ -552,7 +554,7 @@ export class MapObject {
                 this.setState(this.info.spawnstate);
                 // if hit is a mobj, then damage it
                 if ('mobj' in blocker) {
-                    const damage = this.info.damage * randInt(1, 8);
+                    const damage = this.info.damage * this.rng.int(1, 8);
                     blocker.mobj.damage(damage, this, this);
                     this.velocity.set(0, 0, 0);
                 }
@@ -570,7 +572,7 @@ export class MapObject {
     protected explode() {
         this.info.flags &= ~MFFlags.MF_MISSILE;
         this.velocity.set(0, 0, 0);
-        this._state.setState(this.info.deathstate, -randInt(0, 2));
+        this._state.setState(this.info.deathstate, -this.rng.int(0, 2));
         this.map.game.playSound(this.info.deathsound, this);
     }
 }
@@ -696,7 +698,7 @@ export class PlayerMapObject extends MapObject {
             } else if (sector.type === 7 && causePain) {
                 this.damage(5);
             } else if (sector.type === 16 || sector.type === 4) {
-                if ((!haveRadiationSuit || Math.random() < superSlimePainChance) && isPainTick) {
+                if ((!haveRadiationSuit || this.rng.real() < superSlimePainChance) && isPainTick) {
                     this.damage(20);
                 }
             } else if (sector.type === 11) {
