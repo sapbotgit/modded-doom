@@ -192,6 +192,7 @@ function chooseNewWeapon(player: PlayerMapObject) {
 }
 
 export const meleeRange = 1 * 64;
+export const meleeRangeSqr = meleeRange * meleeRange;
 export const scanRange = 16 * 64;
 export const attackRange = 32 * 64;
 const bulletDamage = () => 5 * randInt(1, 3);

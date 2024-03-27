@@ -70,7 +70,7 @@
         x={$position.x - radius} y={-$position.y}
         stroke='none'
         fill={thingColor(mobj)}
-    >{mobj.description ?? ''}</text>
+    >{mobj.description ?? ''} {mobj.id}</text>
 </g>
 
 <style>

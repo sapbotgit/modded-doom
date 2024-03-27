@@ -7,7 +7,7 @@ import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, angleNoise, normalizeAngle, 
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
-import { attackRange, meleeRange, shotTracer, spawnPuff } from './weapons';
+import { attackRange, meleeRange, meleeRangeSqr, shotTracer, spawnPuff } from './weapons';
 import { exitLevel } from '../specials';
 
 export const monsters: ThingType[] = [
@@ -31,6 +31,18 @@ export const monsters: ThingType[] = [
     { type: 3005, class: 'M', description: 'Cacodemon' },
     { type: 3006, class: 'M', description: 'Lost soul' },
 ];
+
+export enum MoveDirection {
+    East = 0,
+    NorthEast = QUARTER_PI,
+    North = HALF_PI,
+    NorthWest = HALF_PI + QUARTER_PI,
+    West = Math.PI,
+    SouthWest = Math.PI + QUARTER_PI,
+    South = Math.PI + HALF_PI,
+    SouthEast = Math.PI + HALF_PI + QUARTER_PI,
+    None = -1,
+}
 
 const smallDeathSounds = [SoundIndex.sfx_podth1, SoundIndex.sfx_podth2, SoundIndex.sfx_podth3];
 const bigDeathSounds = [SoundIndex.sfx_bgdth1, SoundIndex.sfx_bgdth2];
@@ -740,37 +752,40 @@ const anyMonstersOfSameTypeAlive = (mobj: MapObject) =>
 export const monsterAiActions = { ...monsterMoveActions, ...monsterAttackActions };
 const allActions = { ...monsterActions, ...monsterAiActions, ...doom2BossActions, ...archvileActions };
 
+// We get a 30-40% improvement from this lookup table
+const _directionTable = Object.fromEntries([
+    MoveDirection.North, MoveDirection.NorthEast, MoveDirection.East, MoveDirection.SouthEast,
+    MoveDirection.South, MoveDirection.SouthWest, MoveDirection.West, MoveDirection.NorthWest,
+].map(d => [d, new Vector3(Math.cos(d), Math.sin(d), 0)]));
+const _findPlayerVec1 = new Vector3();
+const _findPlayerVec2 = new Vector3();
 function findPlayerTarget(mobj: MapObject, allAround = false) {
-    const players = mobj.map.objs.filter(mo => mo.type === MapObjectIndex.MT_PLAYER && !mo.isDead);
-    for (const player of players) {
-        const dist = mobj.position.val.distanceTo(player.position.val);
-        if (dist < meleeRange) {
+    for (const player of mobj.map.players) {
+        if (player.isDead) {
+            continue;
+        }
+
+        const distSqr = mobj.position.val.distanceToSquared(player.position.val);
+        if (distSqr < meleeRangeSqr) {
             return player;
+        }
+
+        _findPlayerVec1.set(player.position.val.x - mobj.position.val.x, player.position.val.y - mobj.position.val.y, 0);
+        const v2 = _directionTable[mobj.direction.val] ??
+            _findPlayerVec2.set(Math.cos(mobj.direction.val), Math.sin(mobj.direction.val), 0);
+        const dot = v2.dot(_findPlayerVec1);
+        if (dot < 0 && !allAround) {
+            continue;
         }
 
         const lineOfSight = hasLineOfSight(mobj, player);
         if (lineOfSight) {
-            const delta = angleBetween(mobj, player);
-            const angle = normalizeAngle(delta - mobj.direction.val) - Math.PI;
-            if (allAround || (angle > -HALF_PI && angle < HALF_PI)) {
-                return player;
-            }
+            return player;
         }
     }
     return null;
 }
 
-export enum MoveDirection {
-    East = 0,
-    NorthEast = QUARTER_PI,
-    North = HALF_PI,
-    NorthWest = HALF_PI + QUARTER_PI,
-    West = Math.PI,
-    SouthWest = Math.PI + QUARTER_PI,
-    South = Math.PI + HALF_PI,
-    SouthEast = Math.PI + HALF_PI + QUARTER_PI,
-    None = -1,
-}
 const compassOpposite = {
     [MoveDirection.West]: MoveDirection.East,
     [MoveDirection.SouthWest]: MoveDirection.NorthEast,

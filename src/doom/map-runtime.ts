@@ -93,6 +93,7 @@ export class MapRuntime {
 
     tracers: ShotTrace[] = [];
     readonly trev = store(1);
+    players: MapObject[] = [];
     objs: MapObject[] = []; // TODO: make this readonly?
     // don't love this rev hack... we need a list with a subscribe method
     readonly rev = store(1);
@@ -136,6 +137,7 @@ export class MapRuntime {
         Object3D.DEFAULT_UP.set(0, 0, 1);
         this.input = new GameInput(this, game.input);
 
+        this.players.push(this.player);
         this.objs.push(this.player);
         this.data.things.forEach(e => this.initialThingSpawn(e));
 
@@ -205,6 +207,9 @@ export class MapRuntime {
         const mobj = new MapObject(this, thingSpec(moType), { x, y }, direction ?? 0);
         if (z !== undefined) {
             mobj.position.val.z = z;
+        }
+        if (moType === MapObjectIndex.MT_PLAYER) {
+            this.players.push(mobj);
         }
         this.objs.push(mobj);
         this.rev.update(v => v + 1);
