@@ -7,7 +7,7 @@
 
     export let yScale: number;
 
-    let zoom = 100; // TODO: is this a reasonable default?
+    let zoom = 100;
     const { map, renderSectors, camera } = useDoomMap();
     const { position: playerPosition, direction: yaw } = map.player;
 

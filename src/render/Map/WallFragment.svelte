@@ -143,7 +143,7 @@
         renderOrder={skyHack ? 0 : 1}
         position.x={mid.x}
         position.y={mid.y}
-        position.z={top - height * .5 }
+        position.z={top - height * .5}
         rotation.x={HALF_PI}
         rotation.z={angle}
         rotation.order={'ZXY'}

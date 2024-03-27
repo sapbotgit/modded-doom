@@ -340,6 +340,7 @@ export const monsterMoveActions: ActionMap = {
 
         // melee attack
         if (mobj.info.meleestate && canMeleeAttack(mobj, mobj.chaseTarget)) {
+            mobj.movedir = MoveDirection.None;
             mobj.map.game.playSound(mobj.info.attacksound, mobj);
             mobj.setState(mobj.info.meleestate);
             return;
@@ -348,6 +349,7 @@ export const monsterMoveActions: ActionMap = {
         // missile attack
         const canShoot = mobj.info.missilestate && (fastMonsters || !mobj.movecount) && canShootAttack(mobj, mobj.chaseTarget);
         if (canShoot) {
+            mobj.movedir = MoveDirection.None;
             mobj.setState(mobj.info.missilestate);
             mobj.info.flags |= MFFlags.MF_JUSTATTACKED;
             return;
@@ -758,7 +760,7 @@ function findPlayerTarget(mobj: MapObject, allAround = false) {
     return null;
 }
 
-enum MoveDirection {
+export enum MoveDirection {
     East = 0,
     NorthEast = QUARTER_PI,
     North = HALF_PI,
@@ -879,8 +881,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
         // float if the z-delta is reasonably far from the floor we're aiming for
         if (Math.abs(dz) > 0.0001) {
             const zmove = dz > 0 ? Math.min(dz, maxFloatSpeed) : Math.max(dz, -maxFloatSpeed);
-            // TODO: moving down without checking for collisions means we may come down on top of someone and get stuck. Probably we need a better z-collision mechanism
-            mobj.position.update(pos => pos.setZ(pos.z + zmove));
+            mobj.velocity.z = zmove * mobj.spriteTime;
             mobj.info.flags |= MFFlags.MF_INFLOAT;
             // actually we are blocked but return true so we don't chage direction. the last part of A_Chase will look at
             // MF_INFLOAT to decide if we should move along xy. Kind of messy :/

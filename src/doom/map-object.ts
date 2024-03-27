@@ -1,6 +1,6 @@
 import { store, type Store } from "./store";
 import { thingSpec, stateChangeAction } from "./things";
-import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex } from "./doom-things-info";
+import { StateIndex, MFFlags, type MapObjectInfo, MapObjectIndex, SoundIndex, states } from "./doom-things-info";
 import { Vector3 } from "three";
 import { HALF_PI, randInt, signedLineDistance, ToRadians, type Vertex } from "./math";
 import { hittableThing, zeroVec, type Sector, type SubSector, type Thing, type TraceHit, hitSkyFlat, hitSkyWall } from "./map-data";
@@ -11,6 +11,7 @@ import type { PlayerWeapon, ThingSpec } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
 import { exitLevel } from "./specials";
 import { _T } from "./text";
+import { MoveDirection } from "./things/monsters";
 
 export const angleBetween = (mobj1: MapObject, mobj2: MapObject) =>
     Math.atan2(
@@ -54,7 +55,7 @@ export class MapObject {
     get attacker() { return this._attacker; }
 
     // ai stuff
-    movedir = 0;
+    movedir = MoveDirection.None;
     movecount = 0;
     reactiontime = 0;
     chaseThreshold = 0;
@@ -195,6 +196,9 @@ export class MapObject {
         this._state.randomizeTicks();
     }
 
+    get spriteTime() { return 1 / states[this._state.index].tics; }
+    get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
+
     tick() {
         this.applyFriction();
         this.updatePosition();
@@ -276,6 +280,7 @@ export class MapObject {
     }
 
     kill(source?: MapObject) {
+        this.movedir = MoveDirection.None;
         this.info.flags |= MFFlags.MF_CORPSE | MFFlags.MF_DROPOFF;
         this.info.flags &= ~(MFFlags.MF_SHOOTABLE | MFFlags.MF_FLOAT | MFFlags.MF_SKULLFLY);
         if (this.type !== MapObjectIndex.MT_SKULL) {

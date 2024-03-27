@@ -7,10 +7,10 @@
     import Wall from "./Wall.svelte";
 
     export let renderSector: RenderSector;
-
     const { zFloor, zCeil, floorFlat, ceilFlat } = renderSector.sector;
     const { geometry, zHackCeil, zHackFloor, mobjs } = renderSector;
     $: mo = [...$mobjs].sort((a, b) => a.id - b.id);
+
 
     // Why wrap this in a div? It reduces the cost of reflow from adding/removing DOM nodes.
     // From profiling data, we reduce reflow from 20% of the overall time to 1%. Also mark the div

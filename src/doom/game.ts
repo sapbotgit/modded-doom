@@ -11,6 +11,7 @@ export interface GameTime {
     elapsed: number; // seconds
     delta: number; // seconds
     tick: Store<number>;
+    partialTick: Store<number>;
     isTick: boolean; // if we have elapsed a tick (1/35 of a second)
 }
 export interface GameSettings {
@@ -92,6 +93,7 @@ export class Game implements SoundEmitter {
         elapsed: 0,
         delta: 0,
         tick: store(0),
+        partialTick: store(0),
         isTick: false,
     }
 
@@ -134,6 +136,10 @@ export class Game implements SoundEmitter {
             if (this.time.isTick) {
                 this.nextTickTime += tickTime;
                 this.time.tick.update(tick => tick += 1);
+                this.time.partialTick.set(0);
+            } else {
+                const partial = 1 - Math.max(0, (this.nextTickTime - this.time.elapsed) / tickTime)
+                this.time.partialTick.set(partial);
             }
             this.map.val?.timeStep(this.time);
         }

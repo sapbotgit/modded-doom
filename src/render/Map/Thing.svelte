@@ -14,15 +14,15 @@
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';
-    import { getContext } from 'svelte';
-    import type { State } from '@threlte/extras/dist/interactivity/types';
+    import { MoveDirection } from '../../doom/things/monsters';
 
     export let thing: MapObject;
     export let renderSector: RenderSector;
 
     const { map, camera } = useDoomMap();
-    const tick = map.game.time.tick;
-    const { editor } = useAppContext();
+    const { tick, partialTick } = map.game.time;
+    const { editor, settings } = useAppContext();
+    const interpolateMovement = settings.interpolateMovement;
     const { textures, wad } = useDoom();
     const cameraMode = map.game.settings.cameraMode;
     const extraLight = map.player.extraLight;
@@ -50,6 +50,22 @@
         * (invertYOffset ? -1 : 1)
         + (isMissile ? texture.userData.yOffset - texture.userData.height : 0);
     $: hOffset = (texture.userData.xOffset - texture.userData.width) + (texture.userData.width * .5);
+
+    // Position is interpolated based on partial tick time, velocity, and move direction. Move direction is more
+    // complicated because objects don't move every tick so we need to know how close they are to their next move.
+    // Interpolation is most useful for fast moving objects like fireballs and rockets when the timescale is small or
+    // else the mobj jumps to the new position every 1/35s.
+    // It's still not perfect if you watch closely. mobj.movecount can mess it up and so can collisions but it's pretty good.
+    const ppos = { x: 0, y: 0, z: 0 };
+    $: if ($interpolateMovement) {
+        const floating = thing.info.flags & MFFlags.MF_INFLOAT;
+        if (!floating) {
+            const partialMove = ($partialTick * thing.spriteTime + thing.spriteCompletion) * thing.info.speed;
+            ppos.x = $partialTick * thing.velocity.x + (thing.movedir === MoveDirection.None ? 0 : Math.cos(thing.movedir) * partialMove);
+            ppos.y = $partialTick * thing.velocity.y + (thing.movedir === MoveDirection.None ? 0 : Math.sin(thing.movedir) * partialMove);
+        }
+        ppos.z = $partialTick * thing.velocity.z;
+    }
 
     const rotation = { x: 0, y: 0, z: 0 };
     $: if ($cameraMode === 'bird') {
@@ -115,9 +131,9 @@
     rotation.y={rotation.y}
     rotation.z={rotation.z ?? 0}
     rotation.order={'ZXY'}
-    position.x={$tpos.x - Math.sin(ang) * hOffset}
-    position.y={$tpos.y + Math.cos(ang) * hOffset}
-    position.z={$tpos.z + vOffset}
+    position.x={ppos.x + $tpos.x - Math.sin(ang) * hOffset}
+    position.y={ppos.y + $tpos.y + Math.cos(ang) * hOffset}
+    position.z={ppos.z + $tpos.z + vOffset}
 >
     <Wireframe />
 </T.Mesh>

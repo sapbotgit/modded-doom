@@ -16,6 +16,7 @@ export class SpriteStateMachine {
     private stateIndex: StateIndex;
     private state: State;
     readonly sprite = store<Sprite>(null);
+    get ticsRemaining() { return this.ticks; }
     get index() { return this.stateIndex; }
 
     constructor(
