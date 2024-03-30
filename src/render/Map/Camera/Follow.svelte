@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { T, useTask } from "@threlte/core";
-    import { useDoomMap } from "../../DoomContext";
+    import { T, useTask, useThrelte } from "@threlte/core";
+    import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { Vector3 } from "three";
     import { tweened } from "svelte/motion";
@@ -8,6 +8,7 @@
 
     export let yScale: number;
 
+    const fov = useAppContext().settings.fov;
     const { map, renderSectors, camera } = useDoomMap();
     const player = map.player;
     const { position: playerPosition, direction: yaw, pitch } = player;
@@ -33,7 +34,7 @@
         if ($cameraMode === '3p') {
             clipPosition($position);
         }
-    }, { autoInvalidate: false });
+    }, { autoInvalidate: false, stage: useThrelte().renderStage });
 
     const _ppos = new Vector3();
     const _3pDir = new Vector3();
@@ -70,5 +71,5 @@
     position.z={$position.z}
     scale.y={yScale}
     far={100000}
-    fov={72}
+    fov={$fov}
 />

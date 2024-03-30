@@ -1,11 +1,12 @@
 <script lang="ts">
     import { T } from "@threlte/core";
-    import { useDoomMap } from "../../DoomContext";
+    import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
 
     export let yScale: number;
 
     // TODO: most cameras (except ortho) only differ by how they set position and angle. We should consolidate
+    const fov = useAppContext().settings.fov;
     const { map, renderSectors, camera } = useDoomMap();
     const player = map.player;
     const { position: playerPosition, direction: yaw, pitch, viewHeight } = player;
@@ -30,6 +31,6 @@
     position.y={$position.y}
     position.z={$position.z}
     far={100000}
-    fov={72}
+    fov={$fov}
     scale.y={yScale}
 />
