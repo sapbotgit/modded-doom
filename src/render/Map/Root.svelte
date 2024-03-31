@@ -8,8 +8,6 @@
     import SkyBox from "./SkyBox.svelte";
     import Sector from "./Sector.svelte";
     import { interactivity } from "@threlte/extras";
-    import { PlaneGeometry } from "three";
-    import { T } from "@threlte/core";
     import ShotTrace from "./ShotTrace.svelte";
 
     export let map: MapRuntime;

@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { T, useTask, useThrelte } from "@threlte/core";
+    import { T, useTask } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
-    import { Vector3 } from "three";
+    import { Euler, Vector3 } from "three";
     import { tweened } from "svelte/motion";
     import { quadOut } from "svelte/easing";
 
@@ -14,27 +14,29 @@
     const { position: playerPosition, direction: yaw, pitch } = player;
     const { cameraMode } = map.game.settings;
 
+    let followHeight = 46;
+    let shoulderOffset = -10;
+    let zoom = 50;
+    useTask(() => {
+        zoom = Math.max(10, Math.min(100, zoom + map.game.input.aim.z));
+        map.game.input.aim.setZ(0);
+    }, { autoInvalidate: false });
+
     const { position, angle } = camera;
     $: $angle.x = $pitch + HALF_PI;
     $: $angle.z = $yaw - HALF_PI;
 
-    let followHeight = 46;
-    let shoulderOffset = -10;
-    let zoom = 50;
     let tz = tweened(0, { easing: quadOut });
     $: $tz = $playerPosition.z;
-    useTask(() => {
-        zoom = Math.max(10, Math.min(100, zoom + map.game.input.aim.z));
-        map.game.input.aim.setZ(0);
-
-        $position.x = -Math.sin(-$angle.x) * -Math.sin(-$angle.z) * zoom + $playerPosition.x + shoulderOffset * Math.cos($angle.z);
-        $position.y = -Math.sin(-$angle.x) * -Math.cos(-$angle.z) * zoom + $playerPosition.y + shoulderOffset * Math.sin($angle.z);
-        $position.z = Math.cos($angle.x) * zoom + $tz + followHeight;
-
+    $: updatePos($playerPosition, $tz, $angle);
+    function updatePos(pos: Vector3, pz: number, angle: Euler) {
+        $position.x = -Math.sin(-angle.x) * -Math.sin(-angle.z) * zoom + pos.x + shoulderOffset * Math.cos(angle.z);
+        $position.y = -Math.sin(-angle.x) * -Math.cos(-angle.z) * zoom + pos.y + shoulderOffset * Math.sin(angle.z);
+        $position.z = Math.cos(angle.x) * zoom + pz + followHeight;
         if ($cameraMode === '3p') {
             clipPosition($position);
         }
-    }, { autoInvalidate: false, stage: useThrelte().renderStage });
+    }
 
     const _ppos = new Vector3();
     const _3pDir = new Vector3();

@@ -4,6 +4,7 @@
     import { HALF_PI } from "../../../doom";
     import { tweened } from "svelte/motion";
     import { quadOut } from "svelte/easing";
+    import type { Vector3 } from "three";
 
     export let yScale: number;
 
@@ -12,20 +13,23 @@
     const { position: playerPosition, direction: yaw } = map.player;
 
     let zoom = 200;
-    let tz = tweened(0, { easing: quadOut });
-    $: $tz = $playerPosition.z;
     useTask(() => {
         zoom = Math.max(50, Math.min(1500, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-        $position.z = $tz + zoom;
     }, { autoInvalidate: false });
 
     const { position, angle } = camera;
-    $: $position.x = $playerPosition.x;
-    $: $position.y = $playerPosition.y;
-
     $: $angle.x = 0;
     $: $angle.z = $yaw - HALF_PI;
+
+    let tz = tweened(0, { easing: quadOut });
+    $: $tz = $playerPosition.z;
+    $: updatePos($playerPosition, $tz);
+    function updatePos(pos: Vector3, pz: number) {
+        $position.x = pos.x;
+        $position.y = pos.y;
+        $position.z = pz + zoom;
+    }
 </script>
 
 <T.PerspectiveCamera
