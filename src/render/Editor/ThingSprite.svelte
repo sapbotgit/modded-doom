@@ -10,5 +10,7 @@
     const frame = frames[frameNum][8] ?? frames[frameNum][0];
 </script>
 
-<div class="text-xs">{text}</div>
-<Picture name={frame.name} />
+<div class="text-xs z-10">{text}</div>
+<div class="scale-[1.5] translate-x-10">
+    <Picture name={frame.name} />
+</div>

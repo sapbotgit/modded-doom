@@ -8,13 +8,14 @@
 </script>
 <script lang="ts">
     import { T } from '@threlte/core';
-    import { TransformControls } from '@threlte/extras';
     import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
     import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';
+    import { getContext } from 'svelte';
+    import type { State } from '@threlte/extras/dist/interactivity/types';
 
     export let thing: MapObject;
     export let renderSector: RenderSector;
@@ -99,12 +100,6 @@
         ev.stopPropagation();
         $editor.selected = thing;
     }
-
-    function positionChanged(ev) {
-        tpos.val.x = Math.floor(ev.detail.target.worldPosition.x);
-        tpos.val.y = Math.floor(ev.detail.target.worldPosition.y);
-        tpos.set(tpos.val);
-    }
 </script>
 
 <T.Mesh
@@ -124,12 +119,5 @@
     position.y={$tpos.y + Math.cos(ang) * hOffset}
     position.z={$tpos.z + vOffset}
 >
-    <!-- {#if $editor.selected === thing}
-        <TransformControls
-            mode='translate'
-            showZ={false}
-            on:object-changed={positionChanged}
-        />
-    {/if} -->
     <Wireframe />
 </T.Mesh>

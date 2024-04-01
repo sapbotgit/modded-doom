@@ -10,7 +10,7 @@
 <div class="flag-stack text-sm pe-2">
     <span>Flags {flags}</span>
     {#each info as [flag, description]}
-        <label class="label p-0">
+        <label class="label p-0 cursor-pointer">
             <span class="label-text">{description}</span>
             <input class="checkbox" type="checkbox" checked={Boolean(flags & flag)} on:change={() => toggle(flag)} />
         </label>

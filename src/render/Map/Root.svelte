@@ -12,13 +12,13 @@
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
-    const { editor } = useAppContext();
     const trev = map.trev;
     let tracers: typeof map.tracers;
     $: if ($trev) {
         tracers = map.tracers;
     }
 
+    const { editor } = useAppContext();
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);
 

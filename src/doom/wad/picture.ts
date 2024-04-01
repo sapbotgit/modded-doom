@@ -49,7 +49,7 @@ export class LumpPicture implements Picture {
         this.height = word(this.raw, 2);
         this.xOffset = toInt16(word(this.raw, 4));
         this.yOffset = toInt16(word(this.raw, 6));
-        if (this.width > 2048 || this.height > 2048) {
+        if (this.raw.length !== 4096 && (this.width > 2048 || this.height > 2048)) {
             console.warn('bad pic?', lump, this.width, this.height)
         }
     }

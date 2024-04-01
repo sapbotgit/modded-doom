@@ -37,6 +37,7 @@
         top: 0;
         padding-inline-start: 1em;
         padding-inline-end: 1em;
+        user-select: text;
 
         height: 100vh;
         overflow-y: scroll;

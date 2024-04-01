@@ -24,7 +24,7 @@
     <TextureChooser {wad} label="Middle" type="wall" bind:value={$middle} on:change={() => map.initializeTextureAnimation(middle, 'wall')} />
     <TextureChooser {wad} label="Lower" type="wall" bind:value={$lower} on:change={() => map.initializeTextureAnimation(lower, 'wall')} />
 
-    <div class="bg-base-300 rounded-box p-2">
+    <div class="bg-base-300 rounded-box p-2 mt-4 flex flex-col gap-2">
         <SectorEditor {map} sector={sidedef.sector} />
     </div>
 </div>

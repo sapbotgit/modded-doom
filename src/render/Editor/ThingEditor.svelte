@@ -6,6 +6,7 @@
     import FlagList from "./FlagList.svelte";
     import { MapObject } from "../../doom/map-object";
     import NumberChooser from "./NumberChooser.svelte";
+    import { reveal } from "./TextureChooser.svelte";
 
     const { editor } = useAppContext();
     const { textures, wad } = useDoom();
@@ -23,14 +24,14 @@
     ]
 
     const { direction, sprite, position } = thing;
-    const frames = wad.spriteFrames($sprite.name);
-    const frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
-    const texture = textures.get(frame.name, 'sprite');
+    $: frames = wad.spriteFrames($sprite.name);
+    $: frame = frames[$sprite.frame][8] ?? frames[$sprite.frame][0];
+    $: texture = textures.get(frame.name, 'sprite');
 
-    let showSelector = false;
+    let showOptions = false;
     let selectorFilter = '';
     function toggleSelector() {
-        showSelector = !showSelector;
+        showOptions = !showOptions;
     }
 
     type ParialThingSpec = Omit<ThingSpec, 'mo'>
@@ -42,7 +43,7 @@
         $editor.selected = thing;
 
         selectorFilter = '';
-        showSelector = false;
+        showOptions = false;
     }
 
     $: directionButton = Math.floor($direction * ToDegrees) / 45;
@@ -86,22 +87,29 @@
 </script>
 
 <h3>Thing <NumberChooser num={thing.id} on:select={changeThing} /></h3>
-<div>
+<div class="relative">
     <button class="btn flex flex-col" on:click={toggleSelector}>
         <ThingSprite frames={frames} state={states[thing.info.spawnstate]} text={thing.description} />
     </button>
-    {#if showSelector}
-        <div class="z-10 overflow-y-scroll max-h-96 absolute flex gap-5 flex-wrap">
+    {#if showOptions}
+    <div class="relative h-0">
+        <div
+            transition:reveal
+            class="z-30 absolute top-0 left-0 p-2 flex flex-col gap-2 shadow-2xl bg-neutral rounded-box"
+        >
             <!-- svelte-ignore a11y-autofocus -->
-            <input autofocus class="input w-full" type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
+            <input autofocus class="input" type="text" placeholder="Search..." autocomplete="off" id="searchInput" bind:value={selectorFilter} on:input>
+            <div class="overflow-y-scroll max-h-96 flex flex-wrap gap-2">
             {#each types as t}
                 {#if !selectorFilter.length || t.text.toLowerCase().includes(selectorFilter)}
-                    <button class="btn h-full flex flex-col" on:click={() => changeType(t.value)}>
+                    <button class="btn h-full flex flex-col overflow-hidden" on:click={() => changeType(t.value)}>
                         <ThingSprite frames={t.frames} state={t.state} text={t.text} />
                     </button>
                 {/if}
             {/each}
+            </div>
         </div>
+    </div>
     {/if}
 </div>
 <div>
@@ -111,11 +119,10 @@
     -->
 </div>
 <div>
-    <div>Position: {[$position.x.toFixed(2), $position.y.toFixed(2), $position.z.toFixed(2)]}</div>
+    <div>Position: {[Math.floor($position.x), Math.floor($position.y), Math.floor($position.z)]}</div>
     <div>Subsectors: [{subsectors.map(e => e.num)}]</div>
-    <div>Sectors: [{[...new Set(subsectors.map(e=>e.sector.num))]}]</div>
+    <div>Sectors: [{[...new Set(subsectors.map(e => e.sector.num))]}]</div>
 </div>
-<!-- position is edited in Thing.svelte -->
 <div class="self-center p-4 w-48 grid grid-cols-3 gap-1 rounded-box bg-neutral">
     <button class="btn" class:btn-primary={directionButton === 7} on:click={setDirection(315)}>NW</button>
     <button class="btn" class:btn-primary={directionButton === 6} on:click={setDirection(270)}>North</button>
@@ -127,7 +134,7 @@
     <button class="btn" class:btn-primary={directionButton === 2} on:click={setDirection(90)}>South</button>
     <button class="btn" class:btn-primary={directionButton === 3} on:click={setDirection(135)}>SE</button>
 </div>
-<div class="bg-base-100 pt-2 rounded-box">
+<div class="bg-base-100 p-2 rounded-box">
     <span>Sprite Info</span>
     <div>name: {frame.name}</div>
     <div>[width, height]: [{texture.userData.width}, {texture.userData.height}]</div>
