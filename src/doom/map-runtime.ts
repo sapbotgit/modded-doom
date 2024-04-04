@@ -133,8 +133,6 @@ export class MapRuntime {
             weapon.activate(this.player);
         });
 
-        // must be done before creating GameInput and Camera so movement behaves properly
-        Object3D.DEFAULT_UP.set(0, 0, 1);
         this.input = new GameInput(this, game.input);
 
         this.players.push(this.player);
@@ -381,6 +379,7 @@ class GameInput {
 
     constructor(private map: MapRuntime, readonly input: ControllerInput) {
         this.obj.rotation.order = 'ZXY';
+        this.obj.up.set(0, 0, 1);
         const euler = this.obj.rotation;
         euler.x = 0;
         this.player.direction.subscribe(dir => {

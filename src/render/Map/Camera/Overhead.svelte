@@ -16,7 +16,7 @@
     useTask(() => {
         zoom = Math.max(50, Math.min(1500, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    }, { autoInvalidate: false });
+    });
 
     const { position, angle } = camera;
     $: $angle.x = 0;

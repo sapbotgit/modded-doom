@@ -1,48 +1,36 @@
 <script lang="ts">
-    import { onDestroy, onMount } from 'svelte';
-    import { useTask, useThrelte } from '@threlte/core';
-    import Stats from 'three/examples/jsm/libs/stats.module';
-    import type { WebGLRenderer } from 'three';
+    import { PerfMonitor } from '@threlte/extras';
     import { useAppContext } from '../DoomContext';
+    import { ThreePerf } from 'three-perf';
+    import { useTask, useThrelte } from '@threlte/core';
+    import { onDestroy } from 'svelte';
 
     const { renderer, renderStage } = useThrelte();
-    const { showStats, fpsLimit } = useAppContext().settings;
-    renderer.info.autoReset = false;
+    const { showStats } = useAppContext().settings;
 
-    class RenderInfoPanel {
-        max: number;
-        panel: Stats.Panel;
+    // we can't use PerfMonitor from @threlte/extras out of the box because of how we throttle framerates. hmm
+    const { start, stop } = useTask(() => {
+        perf.end();
+        perf.begin();
+    }, {
+        stage: renderStage
+    });
 
-        constructor(readonly field: keyof WebGLRenderer['info']['render'], name: string, foreground: string, background: string) {
-            this.panel = new Stats.Panel(name, foreground, background)
-        }
-
-        updateInfo() {
-            const value = renderer.info.render[this.field];
-            this.max = Math.max(this.max, value);
-            this.panel.update(value, this.max);
-        }
+    let perf: ThreePerf;
+    $: if ($showStats) {
+        perf = new ThreePerf({
+            domElement: document.body,
+            renderer: renderer,
+            anchorY: 'top',
+            anchorX: 'right',
+        });
+        start();
+    } else {
+        perf?.dispose();
+        stop();
     }
 
-    const stats = new Stats();
-    stats.dom.style.left = null;
-    stats.dom.style.right = '0px';
-    onMount(() => document.body.appendChild(stats.dom));
-    onDestroy(() => document.body.removeChild(stats.dom));
-
-    const panels = [
-        new RenderInfoPanel('triangles', 'tri', 'white', 'black'),
-        new RenderInfoPanel('calls', 'draw', 'white', 'black'),
-    ];
-    panels.forEach(p => stats.addPanel(p.panel));
-
-    useTask(() => {
-        stats.end();
-        panels.forEach(p => p.updateInfo());
-
-        renderer.info.reset();
-        stats.begin();
-    }, { autoInvalidate: false, stage: renderStage });
-
-    $: stats.dom.style.display = $showStats ? null : 'none';
+    onDestroy(() => {
+        perf?.dispose();
+    });
 </script>

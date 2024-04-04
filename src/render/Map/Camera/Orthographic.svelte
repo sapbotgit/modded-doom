@@ -116,7 +116,7 @@
         //     });
         // }
         // // console.log('vis',vc)
-    }, { autoInvalidate: false });
+    });
 
     function traceHits(screenPosition: Vector2) {
         rayCaster.setFromCamera(screenPosition, $cam);

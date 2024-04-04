@@ -20,7 +20,7 @@
     useTask(() => {
         zoom = Math.max(10, Math.min(100, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
-    }, { autoInvalidate: false });
+    });
 
     const { position, angle } = camera;
     $: $angle.x = $pitch + HALF_PI;

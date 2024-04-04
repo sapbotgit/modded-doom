@@ -87,7 +87,7 @@
             time *= .001;
             frameReq = requestAnimationFrame(update);
             if (time - lastFrameTime > frameTime) {
-                threlteCtx?.invalidate();
+                threlteCtx?.advance();
                 lastFrameTime = time - (time % frameTime);
 
                 if (!showMenu) {
@@ -134,7 +134,7 @@
                 on:deactivate={() => (showMenu = true)}
             />
             {:else}
-            <Canvas bind:ctx={threlteCtx} autoRender={false}>
+            <Canvas bind:ctx={threlteCtx} renderMode='manual' autoRender={false}>
                 <MapRoot map={$map} />
             </Canvas>
             {/if}

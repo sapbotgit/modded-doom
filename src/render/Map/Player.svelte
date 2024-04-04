@@ -58,7 +58,7 @@
 
     useTask(delta => {
         composer.render(delta);
-    }, { stage: renderStage, autoInvalidate: false });
+    }, { stage: renderStage });
 </script>
 
 {#if $cameraMode !== "1p"}
