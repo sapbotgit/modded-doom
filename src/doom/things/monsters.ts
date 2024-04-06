@@ -152,10 +152,7 @@ const archvileActions: ActionMap = {
         // find corpse to resurrect
         if (mobj.movedir !== MoveDirection.None) {
             let corpseMobj: MapObject;
-            _moveVec.set(
-                Math.cos(mobj.movedir) * mobj.info.speed,
-                Math.sin(mobj.movedir) * mobj.info.speed,
-                0);
+            _moveVec.copy(_directionTable[mobj.movedir]).multiplyScalar(mobj.info.speed);
             mobj.map.data.traceMove(mobj.position.val, _moveVec, mobj.info.radius, mobj.info.height, hit => {
                 const foundCorpse = ('mobj' in hit)
                     // TODO: Doom also check mobj.state.ticks, should we?
@@ -752,7 +749,7 @@ const anyMonstersOfSameTypeAlive = (mobj: MapObject) =>
 export const monsterAiActions = { ...monsterMoveActions, ...monsterAttackActions };
 const allActions = { ...monsterActions, ...monsterAiActions, ...doom2BossActions, ...archvileActions };
 
-// We get a 30-40% improvement from this lookup table
+// We get a 30-40% improvement in findPlayerTarget from this lookup table
 const _directionTable = Object.fromEntries([
     MoveDirection.North, MoveDirection.NorthEast, MoveDirection.East, MoveDirection.SouthEast,
     MoveDirection.South, MoveDirection.SouthWest, MoveDirection.West, MoveDirection.NorthWest,
@@ -885,10 +882,7 @@ function canMove(mobj: MapObject, dir: number, specialLines?: LineTraceHit[]) {
     if (dir === MoveDirection.None) {
         return false; // don't allow None movements, monsters should move as much as possible
     }
-    _moveVec.set(
-        Math.cos(dir) * mobj.info.speed,
-        Math.sin(dir) * mobj.info.speed,
-        0);
+    _moveVec.copy(_directionTable[dir]).multiplyScalar(mobj.info.speed);
     const blocker = findMoveBlocker(mobj, _moveVec, specialLines);
     // if we can float and we're blocked by a two-sided line then float!
     if (blocker && 'line' in blocker && blocker.line.left && mobj.info.flags & MFFlags.MF_FLOAT) {
