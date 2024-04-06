@@ -74,6 +74,9 @@
         <p>To start playing DOOM, drag and drop DOOM WAD files into the drop box below.</p>
         <p>Don't have any DOOM WADs? Download and use the <a class="link link-primary" href="https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad">DOOM shareware WAD</a>.</p>
     </div>
+    <div class="p-8 max-w-6xl mx-auto">
+        <WadDropbox {wadStore} />
+    </div>
     {:else}
     <div class="flex flex-col gap-2">
         <div class="grid sm:grid-cols-2 mx-auto gap-4">
