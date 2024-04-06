@@ -1087,6 +1087,9 @@ function spawnLostSoul(time: GameTime, parent: MapObject, angle: number) {
         pos.x += Math.cos(angle) * offset;
         pos.y += Math.sin(angle) * offset;
         pos.z += 8;
+        if (pos.z + lostSoul.info.height > lostSoul.zCeil) {
+            pos.z = lostSoul.zCeil - lostSoul.info.height;
+        }
         return pos;
     });
     // if the lost soul can't move, destroy it
