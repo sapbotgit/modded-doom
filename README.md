@@ -33,18 +33,19 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * ~~Automatic weapon switching on low ammo~~
 * ~~Shooting angle randomness isn't right (also Revenant rockets)~~
 * Sounds for crushers and moving floors (door sounds work!)
+* Crackling/popping sounds
 * ~~Sound playback, in general, doesn't feel quite right (sounds are too soft or interrupted too often)~~
-* Multiplayer (P2P over webrtc?)
 * Holes in floor/ceiling geometry in some maps (eg. Doom2 MAP25, Plutonia MAP25 and MAP29)
 * Load/Save games
-* Play demos
 * Lighting effects (like ~~[fake contrast](https://doomwiki.org/wiki/Fake_contrast)~~ and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
 * Automap
-* Fullscreen mode
+* ~~Fullscreen mode~~
 
 Nice to haves:
 
 * ~~Mobile (touch) controls~~
+* Multiplayer (P2P over webrtc?)
+* Play demos
 * Nightmare monster respawn (and other nightmare monster behaviours)
 * More HUD options
 * Spin off src/doom into it's own project to make it easier to re-use (or rewrite)

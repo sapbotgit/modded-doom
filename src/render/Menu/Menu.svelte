@@ -12,12 +12,11 @@
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
     import type { Size } from "@threlte/core";
     import { Icon } from '@steeze-ui/svelte-icon'
-    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User } from '@steeze-ui/heroicons'
+    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut } from '@steeze-ui/heroicons'
 
-    export let requestLock: () => void;
     export let viewSize: Size;
 
-    const { settingsMenu, editor } = useAppContext();
+    const { settingsMenu, editor, pointerLock, fullscreen } = useAppContext();
     const { muted, cameraMode, simulate486 } = useAppContext().settings;
     const { game } = useDoom();
     const { intermission, map } = game;
@@ -25,13 +24,18 @@
     // a hack to allow a fullscreen menu for configuring touch controls
     let showTouchControls = false;
 
+    $: isFullscreen = fullscreen.isFullscreen;
+    const toggleFullscreen = () => $isFullscreen
+        ? fullscreen.releaseFullscreen()
+        : fullscreen.requestFullscreen();
+
     $: episodeEnd = $intermission && $intermission.finishedMap.name.endsWith('M8');
     $: nextEpisodeMap = `E${1 + parseInt(episodeEnd ? $intermission.finishedMap.name[1] : '-1')}M1`;
     $: hasNextEpisode = game.wad.mapNames.includes(nextEpisodeMap);
     function startNextEpisode() {
         game.resetInventory();
         game.startMap(new MapRuntime(nextEpisodeMap, game));
-        requestLock();
+        pointerLock.requestLock();
     }
 
     const settings = {
@@ -43,10 +47,15 @@
 
     function keyup(ev: KeyboardEvent) {
         switch (ev.code) {
+            case "Backquote":
             case "Escape":
-                requestLock();
+                resumeGame();
                 break;
         }
+    }
+
+    function resumeGame() {
+        pointerLock.requestLock();
     }
 </script>
 
@@ -79,7 +88,7 @@
             <MapStats map={$map} />
         </div>
         <div class="divider" />
-        <button class="btn btn-primary uppercase z-20 sticky top-0" on:click={requestLock}>Resume</button>
+        <button class="btn btn-primary uppercase z-20 sticky top-0" on:click={resumeGame}>Resume</button>
 
         {#if hasNextEpisode}
         <button on:click={startNextEpisode} class="btn btn-secondary">Next episode</button>
@@ -91,6 +100,11 @@
 
         <div class="divider" />
         <div class="flex mx-auto join">
+            <label class="swap btn btn-lg join-item">
+                <input type="checkbox" bind:checked={$isFullscreen} on:click={toggleFullscreen} />
+                <Icon class="swap-on fill-current" src={ArrowsPointingIn} theme='solid' size="2rem"/>
+                <Icon class="swap-off fill-current" src={ArrowsPointingOut} theme='solid' size="2rem"/>
+            </label>
             <div class="dropdown dropdown-bottom">
                 <div tabindex="0" role="button" class="btn btn-lg join-item"><Icon src={VideoCamera} theme='solid' size="2rem"/></div>
                 <ul tabindex="-1" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">

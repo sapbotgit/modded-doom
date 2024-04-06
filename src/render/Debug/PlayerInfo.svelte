@@ -7,7 +7,7 @@
 
     export let player: PlayerMapObject;
     export let interactive = true;
-    const { showPlayerInfo, timescale } = useAppContext().settings;
+    const { timescale } = useAppContext().settings;
     const { position, direction, sector, inventory, viewHeight } = player;
     const tick = player.map.game.time.tick;
 
@@ -43,7 +43,6 @@
     const velocityPerTick = (vel: number) => vel * tickTime * 60 / $timescale;
 </script>
 
-{#if $showPlayerInfo}
 <div class="root">
     <div
         class="settings bg-base-100 bg-honeycomb shadow-xl"
@@ -76,7 +75,6 @@
         </div>
     </div>
 </div>
-{/if}
 
 <style>
     .root {

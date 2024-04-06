@@ -29,7 +29,7 @@
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
     const { settings, pointerLock } = useAppContext();
-    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons } = settings;
+    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons, showPlayerInfo } = settings;
     const { map, intermission } = game;
     // TODO: having a separate WipeContainer component is messy and so is tracking two screen states. I wonder if we could
     // move to a single "screen" variable and manage it somehow in App.svelte?
@@ -48,7 +48,7 @@
     }
     $: mapMusicTrack = $map?.musicTrack;
 
-    const { isPointerLocked, requestLock } = pointerLock;
+    const isPointerLocked = pointerLock.isPointerLocked;
     $: showMenu = !$isPointerLocked;
 
     // A fun little hack to make the game feel like it used to on my 486sx25
@@ -77,7 +77,6 @@
         tscale = $timescale;
     }
 
-    // TODO: re-arrange Canvas component so we can use threlte's useTask() instead of svelte's onMount()
     let viewSize = { width: 1024, height: 600 };
     onMount(() => {
         let lastTickTime = 0;
@@ -107,9 +106,18 @@
     function scrollBottom() {
         setTimeout(() => window.scrollTo(0, 1), 50);
     }
+
+    function keyup(ev: KeyboardEvent) {
+        switch (ev.code) {
+            // show menu, we don't need to catch "escape" because pointer lock handles that
+            case "Backquote":
+                pointerLock.releaseLock();
+                break;
+        }
+    }
 </script>
 
-<svelte:window on:load={scrollBottom} />
+<svelte:window on:load={scrollBottom} on:keyup|preventDefault={keyup} />
 
 <WipeContainer key={intScreen ?? screenName}>
     <div
@@ -140,7 +148,9 @@
             {/if}
             <HUD size={viewSize} player={$map.player} />
 
+            {#if $showPlayerInfo}
             <PlayerInfo player={$map.player} interactive={showMenu} />
+            {/if}
             <EditPanel map={$map} />
         </MapContext>
     </div>
@@ -150,7 +160,7 @@
 <SoundPlayer wad={game.wad} audioRoot={soundGain} soundEmitter={game} timescale={$timescale} player={$map?.player} />
 
 {#if showMenu}
-    <Menu {viewSize} {requestLock} />
+    <Menu {viewSize} />
 {/if}
 
 {#if !showMenu || $cameraMode === 'svg'}

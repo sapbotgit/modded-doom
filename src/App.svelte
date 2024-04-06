@@ -85,6 +85,7 @@
 <main
     on:click|once={enableSoundOnce}
     use:context.pointerLock.pointerLockControls
+    use:context.fullscreen.fullscreenControls
 >
     <!-- <AABBSweepDebug /> -->
 
