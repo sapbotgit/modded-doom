@@ -56,22 +56,22 @@ export class LumpPicture implements Picture {
 
     toBuffer(buffer: Uint8ClampedArray): void {
         this.pixels((col, x, y) => {
-            let i = y * this.width + x;
-            buffer[i * 4 + 0] = col.r;
-            buffer[i * 4 + 1] = col.g;
-            buffer[i * 4 + 2] = col.b;
-            buffer[i * 4 + 3] = 255;
+            let i = 4 * (y * this.width + x);
+            buffer[i + 0] = col.r;
+            buffer[i + 1] = col.g;
+            buffer[i + 2] = col.b;
+            buffer[i + 3] = 255;
         });
     }
 
     applyPatch(buff: Uint8ClampedArray, width: number, height: number, originX: number, originY: number) {
         this.pixels((col, x, y) => {
-            const u = originX + x;
-            const v = originY + y;
-            if (u < 0 || u >= width || v < 0 || v >= height) {
+            const tx = originX + x;
+            const ty = originY + y;
+            if (tx < 0 || tx >= width || ty < 0 || ty >= height) {
                 return;
             }
-            const idx = 4 * (u + v * width);
+            const idx = 4 * (ty * width + tx);
             buff[idx + 0] = col.r;
             buff[idx + 1] = col.g;
             buff[idx + 2] = col.b;
@@ -81,23 +81,18 @@ export class LumpPicture implements Picture {
 
     private pixels(fn: (col: Color, x: number, y: number) => void) {
         // Based on the "Converting from a doom picture" of https://doomwiki.org/wiki/Picture_format
-        let columns = [];
         for (let i = 0; i < this.width; i++) {
-            columns[i] = dword(this.raw, 8 + i * 4)
-        }
+            let seek = dword(this.raw, 8 + i * 4);
 
-        for (let i = 0; i < this.width; i++) {
-            let seek = columns[i];
             for (let rowStart = this.raw[seek]; rowStart !== 255; rowStart = this.raw[seek]) {
                 let pixelCount = this.raw[seek + 1];
+
                 seek += 3; // 2 + 1 dummy byte
                 for (let j = 0; j < pixelCount; j++) {
                     fn(this.palette[this.raw[seek]], i, j + rowStart);
                     seek += 1;
                 }
                 seek += 1; // dummy byte
-
-                rowStart = this.raw[seek];
             }
         }
     }
