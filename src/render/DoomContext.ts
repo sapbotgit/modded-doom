@@ -4,7 +4,7 @@ import { Game, MapRuntime, type GameSettings, store, type Store } from '../doom'
 import { get, writable, type Writable } from 'svelte/store';
 import type { Color, Euler, Vector3 } from 'three';
 import { createPointerLockControls } from './Controls/PointerLockControls';
-import { createFullscreenControls } from './Controls/FullScreenControls';
+import { createFullscreenControls } from './Controls/FullscreenControls';
 
 // TODO: so many "contexts". We should simplify
 
