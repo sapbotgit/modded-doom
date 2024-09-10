@@ -1,16 +1,16 @@
-# ISO DOOM
+# DUNSHIRE DOOM
 
-A (mostly complete) rewrite of DOOM for the browser. "ISO" because the inspiration for the project came from trying to render DOOM in isometric projection ([kinda like this](https://www.doomworld.com/forum/topic/126329-top-down-isometric-view-from-a-wad-file/)).
+A (mostly complete) rewrite of DOOM for the browser. The project started by trying to render DOOM in isometric projection ([kinda like this](https://www.doomworld.com/forum/topic/126329-top-down-isometric-view-from-a-wad-file/)) but quickly snowballed. Dunshire is a nod to Parks and Recreation's [Cones of Dunshire](https://parksandrecreation.fandom.com/wiki/The_Cones_of_Dunshire) because Ben Wyatt's story arc always felt relatable.
 
-![DOOM map E1M1](assets/screenshot1.jpg) ![DOOM in isomorphic projection](assets/screenshot2.jpg)
+![DOOM map E1M1](assets/screenshot1.jpg) ![DOOM in isometric projection](assets/screenshot2.jpg)
 
 ## Description
 
-A playable version of DOOM implemented in typescript, rendered in threejs, with a svelte UI. It is not a port of DOOM _per se_ because it deviates from the DOOM implementaiton where it was fun or interesting to experiment but it should still _feel_ like DOOM. Parts of ISO DOOM are derived from the [DOOM source code](https://github.com/id-Software/DOOM) - in particular for animation, monster behaviour, and timing - so if you're familiar with that code you may recognize parts of it in this implementation.
+A playable version of DOOM implemented in typescript, rendered in threejs, with a svelte UI. It is not a port of DOOM _per se_ because it deviates from the DOOM implementation where it was fun or interesting to experiment but it should still _feel_ like DOOM. Parts of DUNSHIRE DOOM are derived from the [DOOM source code](https://github.com/id-Software/DOOM) - in particular for animation, monster behaviour, and timing - so if you're familiar with that code you may recognize parts of it in this implementation.
 
-The project started as a playground to dabble in threejs, svelte, and game development for the web. Putting DOOM on the web is not unique, several people have created WASM ports or built partial projects in JS: [smol/doom](https://github.com/smol/doom), [yvesgurcan/jsdoom](https://github.com/yvesgurcan/jsdoom), [jmickle66666666/wad-js](https://github.com/jmickle66666666/wad-js), but this project is probably unique in terms of completeness.
+The project started as a playground to dabble in threejs, svelte, and game development for the web. Putting DOOM on the web is not unique, several people have created WASM ports or built partial projects in JS: [smol/doom](https://github.com/smol/doom), [yvesgurcan/jsdoom](https://github.com/yvesgurcan/jsdoom), [jmickle66666666/wad-js](https://github.com/jmickle66666666/wad-js), but this project is probably unique in terms of completeness. At least for a web project. It's not as complete a project as [Helion](https://github.com/Helion-Engine/Helion) or older source ports.
 
-Performance is okay but not great mostly because the renderer is inefficent. ISO DOOM renders the entire map and all monsters and items using thousands of draw calls per frame. Interestingly, this naive approach is fast enough for most of the original WADs on modern(ish) hardware.
+Performance is not great mostly because the renderer is inefficent. DUNSHIRE DOOM renders the entire map and all monsters and items using thousands of draw calls per frame. Interestingly, this naive approach is fast enough for most of the original WADs on modern(ish) hardware. In a perfect world, I would take a closer look at [Helion](https://github.com/Helion-Engine/Helion) and fix this.
 
 ## Getting Started
 
