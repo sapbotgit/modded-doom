@@ -56,7 +56,7 @@ export const ScreenColorShader = {
     }
 
     float berserkScale() {
-        return 0.3 * sin( berserkTime / 30.0 );
+        return 0.3 * sin( berserkTime / 20.0 );
     }
 
     float bonusScale() {
