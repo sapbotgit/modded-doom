@@ -334,6 +334,7 @@ export const monsterMoveActions: ActionMap = {
             if (!mobj.chaseTarget) {
                 // no target? go back to default state
                 mobj.setState(mobj.info.spawnstate);
+                mobj.movedir = MoveDirection.None;
             }
             return;
         }
@@ -349,17 +350,17 @@ export const monsterMoveActions: ActionMap = {
 
         // melee attack
         if (mobj.info.meleestate && canMeleeAttack(mobj, mobj.chaseTarget)) {
-            mobj.movedir = MoveDirection.None;
             mobj.map.game.playSound(mobj.info.attacksound, mobj);
             mobj.setState(mobj.info.meleestate);
+            mobj.movedir = MoveDirection.None;
             return;
         }
 
         // missile attack
         const canShoot = mobj.info.missilestate && (fastMonsters || !mobj.movecount) && canShootAttack(mobj, mobj.chaseTarget);
         if (canShoot) {
-            mobj.movedir = MoveDirection.None;
             mobj.setState(mobj.info.missilestate);
+            mobj.movedir = MoveDirection.None;
             mobj.info.flags |= MFFlags.MF_JUSTATTACKED;
             return;
         }

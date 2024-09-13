@@ -5,13 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
-TBD
+
+### Fixed
+- Monster interpolation even after target dies
+
+## [0.6.0] - 2024-09-10
+
+### Changed
+- Renamed project (iso is not really specific enough)
 
 ## [0.5.0] - 2024-04-08
 
 ### Added
 - Field of view (FOV) setting
-- Interpolate movement (especially notiecable with timescale)
+- Interpolate movement (especially noticeable with timescale)
 - full screen
 
 ### Fixed
