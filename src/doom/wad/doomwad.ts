@@ -22,14 +22,14 @@ export class WadFile {
     }
 }
 
+type WallTexture = { lump: any, pnames: string[] };
 export class DoomWad {
     private spriteFrameTable = new Map<string, SpriteFrame[][]>();
     readonly palettes: Palette[] = [];
-    private textureLumps: any[] = [];
+    private textureData: WallTexture[] = [];
     private flatLumps: any[] = [];
     private spriteLumps: any[] = [];
     private mapLumps = new Map<string, any[]>();
-    private pnames: string[];
 
     private switchWalls: string[][];
     private animatedFlats: string[][];
@@ -39,24 +39,24 @@ export class DoomWad {
     get isIWAD() {
         // this is a _very_ cheap (and incorrect) version of the check from https://doomwiki.org/wiki/IWAD.
         // It will probably cause problems and need to be improved
-        return Boolean(this.pnames.length && this.textureLumps.length && this.spriteLumps.length && this.flatLumps.length
+        return Boolean(this.textureData.length && this.spriteLumps.length && this.flatLumps.length
             && this.palettes.length && this.animatedFlats.length && this.animatedWalls.length && this.switchWalls.length
             && this.mapNames.length && this.lumpByName('ENDOOM') && this.lumpByName('COLORMAP'));
     }
 
     constructor(readonly name: string, private wads: WadFile[]) {
         // use maps so that the last wad wins
-        const textures = new Map<string, any>();
+        const textures = new Map<string, WallTexture>();
         const sprites = new Map<string, any>();
         const flats = new Map<string, any>();
         const patches = new Set<string>();
         for (const wad of wads) {
-            const pnames = wad.lumpByName('PNAMES')?.contents.names.map(e => e.toUpperCase()) ?? [];
+            const pnames = wad.lumpByName('PNAMES')?.contents.names.map(fixLumpName) ?? [];
             pnames.forEach(name => patches.add(name));
 
             const texture1 = wad.lumpByName('TEXTURE1')?.contents.textures ?? [];
             const texture2 = wad.lumpByName('TEXTURE2')?.contents.textures ?? [];
-            [...texture1, ...texture2].forEach(lump => textures.set(lump.body.name, lump));
+            [...texture1, ...texture2].forEach(lump => textures.set(lump.body.name, { lump, pnames }));
 
             const sStartIndex = wad.raw.findIndex(e => e.name === 'S_START' || e.name === 'SS_START');
             const sEndIndex = wad.raw.findIndex(e => e.name === 'S_END' || e.name === 'SS_END');
@@ -81,8 +81,7 @@ export class DoomWad {
             }
         }
 
-        this.pnames = [...patches];
-        this.textureLumps = [...textures.values()];
+        this.textureData = [...textures.values()];
         this.spriteLumps = [...sprites.values()];
         this.flatLumps = [...flats.values()];
 
@@ -225,7 +224,7 @@ export class DoomWad {
     }
 
     texturesNames(): string[] {
-        return this.textureLumps.map(e => e.body.name);
+        return this.textureData.map(e => e.lump.body.name);
     }
 
     flatsNames(): string[] {
@@ -242,11 +241,11 @@ export class DoomWad {
         // a better approach would be to use F_START/P_START markers
 
         // try a texture from patches first
-        const texture = this.textureLumps.find(e => e.body.name === uname);
+        const texture = this.textureData.find(e => e.lump.body.name === uname);
         if (texture) {
-            const { width, height, patches } = texture.body;
+            const { width, height, patches } = texture.lump.body;
             const pics = patches.map(({ patchId, originX, originY }) => {
-                const pname = this.pnames[patchId];
+                const pname = texture.pnames[patchId];
                 const pic = this.graphic(pname);
                 if (!pic) {
                     console.warn('invalid patch', patchId, pname)
@@ -343,3 +342,14 @@ export class DoomWad {
 const isMap = (item) =>
     /^MAP\d\d$/.test(item.name) ||
     /^E\dM\d$/.test(item.name);
+
+const fixLumpName = (name: string) => {
+    const uname = name.toUpperCase();
+    for (let i = 0; i < uname.length; i++) {
+        const charCode = uname.charCodeAt(i);
+        if (charCode > 127 || charCode < 32) {
+            return uname.substring(0, i);
+        }
+    }
+    return uname;
+}
