@@ -52,7 +52,7 @@ export const ScreenColorShader = {
     }
 
     float damageScale() {
-        return 0.3 * sin( min( 20.0, damageCount ) / 20.0 * PI_2 );
+        return 0.89 * sin( min( 100.0, damageCount ) / 100.0 * PI_2 );
     }
 
     float berserkScale() {
@@ -89,7 +89,7 @@ export const ScreenColorShader = {
         // mixin the radiation suit and damage colours to the base image (texel)
         // then mix invunerability (which may replace base) and add bonus
         vec3 base = mix(damageC, berserkC, 0.5) + radC + texel.rgb;
-        vec3 color = mix( base, invulnC, invlunScale() ) + bonusC;
+        vec3 color = mix(base, invulnC, invlunScale()) + bonusC;
 
         gl_FragColor = vec4( color, texel.a );
     }`,
