@@ -1,6 +1,3 @@
-import KaitaiStream from 'kaitai-struct/KaitaiStream';
-import DoomWadRaw from './doom-wad.ksy.ts';
-
 export type Lump = { name: string, data: Uint8Array };
 export class WadFile {
     raw: any[];

@@ -9,7 +9,6 @@
     "build-dev": "vite build --minify false",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "generate-wad-reader": "ts-node src/doom/wad/reader-generator.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
@@ -24,8 +23,6 @@
     "daisyui": "^4.12.10",
     "iconv-lite": "^0.6.3",
     "js-yaml": "^4.1.0",
-    "kaitai-struct": "^0.10.0",
-    "kaitai-struct-compiler": "^0.10.0",
     "midi-player-js": "^2.0.16",
     "mus2midi": "^1.0.8",
     "postcss": "^8.4.33",
