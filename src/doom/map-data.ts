@@ -248,16 +248,16 @@ export interface TreeNode {
     childRight: TreeNode | SubSector;
     childLeft: TreeNode | SubSector;
 }
-function bspNodesLump(lump: Lump) {
+function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
     const len = 28;
     // TODO: if length % len then... invalid?
     const num = lump.data.length / len;
     let nodes = new Array<TreeNode>(num);
     for (let i = 0; i < num; i++) {
-        const xStart = int16(word(lump.data, 0 + i * len));
-        const yStart = int16(word(lump.data, 2 + i * len));
-        const xChange = int16(word(lump.data, 4 + i * len));
-        const yChange = int16(word(lump.data, 6 + i * len));
+        let xStart = int16(word(lump.data, 0 + i * len));
+        let yStart = int16(word(lump.data, 2 + i * len));
+        let xChange = int16(word(lump.data, 4 + i * len));
+        let yChange = int16(word(lump.data, 6 + i * len));
         const childRight: any = int16(word(lump.data, 24 + i * len));
         const childLeft: any = int16(word(lump.data, 26 + i * len));
         nodes[i] = {
@@ -266,10 +266,42 @@ function bspNodesLump(lump: Lump) {
                 { x: xStart, y: yStart },
                 { x: xStart + xChange, y: yStart + yChange },
             ],
-         };
+        };
     }
+
+    nodes.forEach(node => {
+        fixBSPLine(node, vertexes);
+        node.childLeft = assignChild(node.childLeft, this.nodes, subsectors);
+        node.childRight = assignChild(node.childRight, this.nodes, subsectors);
+    });
+
     return nodes;
 }
+
+function fixBSPLine(node: TreeNode, vertexes: Vertex[]) {
+    // adjust bsp lines based on map vertexes (similar to fixVertexes())
+    let closest = closestVertex(node.v[0], vertexes);
+    node.v[0].x = closest.x;
+    node.v[0].y = closest.y;
+
+    closest = closestVertex(node.v[1], vertexes);
+    node.v[1].x = closest.x;
+    node.v[1].y = closest.y;
+}
+
+function closestVertex(p: Vertex, vertexes: Vertex[]) {
+    let dist = Infinity;
+    let closest = p;
+    for (const v of vertexes) {
+        let d = distSqr(p, v);
+        if (d < dist) {
+            dist = d;
+            closest = v;
+        }
+    }
+    return closest;
+}
+
 function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: SubSector[]) {
     let idx = (child as any) as number;
     return (idx & 0xa000)
@@ -331,7 +363,6 @@ export class MapData {
             this.vertexes,
             lumps[2], // linedefs
             lumps[5], // segs
-            lumps[7], // bsp nodes
         );
 
         const blockmap = blockmapLump(lumps[10]);
@@ -346,11 +377,7 @@ export class MapData {
         const segs = segsLump(lumps[5], this.vertexes, this.linedefs);
         const subsectors = subSectorLump(lumps[6], segs);
 
-        this.nodes = bspNodesLump(lumps[7]);
-        this.nodes.forEach(n => {
-            n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
-            n.childRight = assignChild(n.childRight, this.nodes, subsectors);
-        });
+        this.nodes = bspNodesLump(lumps[7], this.vertexes, subsectors);
         const rootNode = this.nodes[this.nodes.length - 1];
         completeSubSectors(rootNode, subsectors);
         this.bspTracer = createBspTracer(rootNode);
@@ -716,14 +743,7 @@ function fixVertexes(
     vertexes: Vertex[],
     lineDefData: Lump,
     segData: Lump,
-    bspNodes: Lump,
 ) {
-    // This function looks even uglier now that it's editing uint8arrays. I do really wonder if we are better
-    // off re-evaluating segs or something like that so that we don't do all this hacking and guessing at the best
-    // location for vertexes.
-    // Also FIXME: somehow when moving away from kaitai struct, this function started
-    // introducing a few wholes in the floors of some maps. It is desperately in need of a whole new approach.
-
     // Doom vertexes are integers so segs from integers can't always be on the line. These "fixes" are mostly
     // about taking seg vertices that are close to a linedef but not actually on the linedef. Once we put them on
     // the linedef, they don't always intersect with the bsp lines so we correct them again later
@@ -747,50 +767,9 @@ function fixVertexes(
             vertexes[v1] = closestPoint(line, vx1);
         }
     }
-
-    // adjust bsp lines based on changes to vertexes above
-    const numNodes = bspNodes.data.length / 28;
-    for (let i = 0; i < numNodes; i++) {
-        let xStart = int16(word(bspNodes.data, 0 + i * 28));
-        let yStart = int16(word(bspNodes.data, 2 + i * 28));
-        const vx0 = { x: xStart, y: yStart };
-        let closest = closestVertex(vx0, vertexes);
-        xStart = closest.x;
-        yStart = closest.y;
-
-        let xChange = int16(word(bspNodes.data, 4 + i * 28));
-        let yChange = int16(word(bspNodes.data, 6 + i * 28));
-        const vx1 = { x: xStart + xChange, y: yStart + yChange };
-        closest = closestVertex(vx1, vertexes);
-        xChange = closest.x - xStart;
-        yChange = closest.y - yStart;
-
-        // write new data back to uint8array for later processing
-        writeWordLE(bspNodes.data, 0 + i * 28, xStart);
-        writeWordLE(bspNodes.data, 2 + i * 28, yStart);
-        writeWordLE(bspNodes.data, 4 + i * 28, xChange);
-        writeWordLE(bspNodes.data, 6 + i * 28, yChange);
-    }
-}
-
-const writeWordLE = (buff: Uint8Array, offset: number, word: number) => {
-    buff[offset + 0] = word & 0xff;
-    buff[offset + 1] = (word >> 8) & 0xff;
 }
 
 const distSqr = (a: Vertex, b: Vertex) => (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y);
-function closestVertex(p: Vertex, vertexes: Vertex[]) {
-    let dist = Infinity;
-    let closest = p;
-    for (const v of vertexes) {
-        let d = distSqr(p, v);
-        if (d < dist) {
-            dist = d;
-            closest = v;
-        }
-    }
-    return closest;
-}
 
 const _vec = new Vector3();
 function addExtraImplicitVertexes(subsector: SubSector, tracer: ReturnType<typeof createSubsectorTrace>) {

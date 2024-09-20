@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Doom random number generator (RNG) and setting
 
+### Changed
+- Removed kaitai struct dependency for reading wads. Remove 1 dependency and 1KLoC
+
 ### Fixed
 - Monster interpolation even after target dies
 - Custom textures from PWADs were not loaded properly
