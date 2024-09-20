@@ -17,8 +17,10 @@ export interface Thing {
 }
 function thingsLump(lump: Lump) {
     const len = 10;
-    // TODO: if length % len then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: THINGS');
+    }
     let things = new Array<Thing>(num);
     for (let i = 0; i < num; i++) {
         const x = int16(word(lump.data, 0 + i * len));
@@ -50,8 +52,10 @@ export interface LineDef {
 }
 function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
     const len = 14;
-    // TODO: if length % len then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: LINEDEFS');
+    }
     let lindefs = new Array<LineDef>(num);
     for (let i = 0; i < num; i++) {
         const v0 = int16(word(lump.data, 0 + i * len));
@@ -87,8 +91,10 @@ export interface SideDef {
 }
 function sideDefsLump(lump: Lump, sectors: Sector[]) {
     const len = 30;
-    // TODO: if length % len then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: SIDEDEFS');
+    }
     let sidedefs = new Array<SideDef>(num);
     for (let i = 0; i < num; i++) {
         const xOffset = store(int16(word(lump.data, 0 + i * len)));
@@ -127,8 +133,10 @@ export interface Sector {
 }
 function sectorsLump(lump: Lump) {
     const len = 26;
-    // TODO: if length % 26 then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: SECTORS');
+    }
     let sectors = new Array<Sector>(num);
     for (let i = 0; i < num; i++) {
         const zFloor = store(int16(word(lump.data, 0 + i * len)));
@@ -154,8 +162,10 @@ function sectorsLump(lump: Lump) {
 
 function vertexesLump(lump: Lump) {
     const len = 4;
-    // TODO: if length % len then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: VERTEXES');
+    }
     let vertexes = new Array<Vertex>(num);
     for (let i = 0; i < num; i++) {
         const x = int16(word(lump.data, 0 + i * len));
@@ -182,8 +192,10 @@ export interface Seg {
 }
 function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
     const len = 12;
-    // TODO: if length % len then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: SEGS');
+    }
     let segs = new Array<Seg>(num);
     for (let i = 0; i < num; i++) {
         const v0 = int16(word(lump.data, 0 + i * len));
@@ -220,8 +232,10 @@ export interface SubSector {
 }
 function subSectorLump(lump: Lump, segs: Seg[]) {
     const len = 4;
-    // TODO: if length % len then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: SSECTORS');
+    }
     let subsectors = new Array<SubSector>(num);
     for (let i = 0; i < num; i++) {
         const segCount = int16(word(lump.data, 0 + i * len));
@@ -250,8 +264,10 @@ export interface TreeNode {
 }
 function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
     const len = 28;
-    // TODO: if length % len then... invalid?
-    const num = lump.data.length / len;
+    const num = Math.trunc(lump.data.length / len);
+    if (num * len !== lump.data.length) {
+        throw new Error('invalid lump: NODES');
+    }
     let nodes = new Array<TreeNode>(num);
     for (let i = 0; i < num; i++) {
         let xStart = int16(word(lump.data, 0 + i * len));
@@ -271,8 +287,8 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
 
     nodes.forEach(node => {
         fixBSPLine(node, vertexes);
-        node.childLeft = assignChild(node.childLeft, this.nodes, subsectors);
-        node.childRight = assignChild(node.childRight, this.nodes, subsectors);
+        node.childLeft = assignChild(node.childLeft, nodes, subsectors);
+        node.childRight = assignChild(node.childRight, nodes, subsectors);
     });
 
     return nodes;
