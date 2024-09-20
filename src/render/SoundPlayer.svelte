@@ -80,7 +80,7 @@
     const dword = (buff: Uint8Array, offset: number) => word(buff, offset + 2) << 16 | word(buff, offset);
     function soundBuffer(name: string) {
         if (!soundBuffers.has(name)) {
-            const buff = wad.lumpByName(name).contents as Uint8Array;
+            const buff = wad.lumpByName(name).data;
             const sampleRate = word(buff, 0x2);
             const numSamples = dword(buff, 0x4) - 32;
             const buffer = audio.createBuffer(1, numSamples, sampleRate);

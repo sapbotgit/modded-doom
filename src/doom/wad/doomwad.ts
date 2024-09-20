@@ -1,20 +1,20 @@
 import { MapData } from '../map-data.ts';
 import { type Picture, type Palette, PatchPicture, LumpPicture, FlatPicture } from './picture.ts';
 import { Color } from 'three';
-import type { WadFile } from './wadfile.ts';
+import { pnamesLump, textureLump, type Lump, type Texture, type WadFile } from './wadfile.ts';
 
 interface SpriteFrame {
     name: string;
     mirror: boolean;
 }
 
-type WallTexture = { lump: any, pnames: string[] };
+type WallTexture = { lump: Texture, pnames: string[] };
 export class DoomWad {
     private spriteFrameTable = new Map<string, SpriteFrame[][]>();
     readonly palettes: Palette[] = [];
     private textureData: WallTexture[] = [];
-    private flatLumps: any[] = [];
-    private spriteLumps: any[] = [];
+    private flatLumps: Lump[] = [];
+    private spriteLumps: Lump[] = [];
     private mapLumps = new Map<string, any[]>();
 
     private switchWalls: string[][];
@@ -33,30 +33,30 @@ export class DoomWad {
     constructor(readonly name: string, private wads: WadFile[]) {
         // use maps so that the last wad wins
         const textures = new Map<string, WallTexture>();
-        const sprites = new Map<string, any>();
-        const flats = new Map<string, any>();
+        const sprites = new Map<string, Lump>();
+        const flats = new Map<string, Lump>();
         const patches = new Set<string>();
         for (const wad of wads) {
-            const pnames = wad.lumpByName('PNAMES')?.contents.names.map(fixLumpName) ?? [];
+            const pnames = pnamesLump(wad.lumpByName('PNAMES'));
             pnames.forEach(name => patches.add(name));
 
-            const texture1 = wad.lumpByName('TEXTURE1')?.contents.textures ?? [];
-            const texture2 = wad.lumpByName('TEXTURE2')?.contents.textures ?? [];
-            [...texture1, ...texture2].forEach(lump => textures.set(lump.body.name, { lump, pnames }));
+            const texture1 = textureLump(wad.lumpByName('TEXTURE1'));
+            const texture2 = textureLump(wad.lumpByName('TEXTURE2'));
+            [...texture1, ...texture2].forEach(lump => textures.set(lump.name, { lump, pnames }));
 
-            const sStartIndex = wad.raw.findIndex(e => e.name === 'S_START' || e.name === 'SS_START');
-            const sEndIndex = wad.raw.findIndex(e => e.name === 'S_END' || e.name === 'SS_END');
+            const sStartIndex = wad.lumps.findIndex(e => e.name === 'S_START' || e.name === 'SS_START');
+            const sEndIndex = wad.lumps.findIndex(e => e.name === 'S_END' || e.name === 'SS_END');
             for (let i = sStartIndex; i < sEndIndex; i++) {
-                if (!wad.raw[i].name.endsWith('_START') && !wad.raw[i].name.endsWith('_END')) {
-                    sprites.set(wad.raw[i].name, wad.raw[i]);
+                if (!wad.lumps[i].name.endsWith('_START') && !wad.lumps[i].name.endsWith('_END')) {
+                    sprites.set(wad.lumps[i].name, wad.lumps[i]);
                 }
             }
 
-            const fStartIndex = wad.raw.findIndex(e => e.name === 'F_START' || e.name === 'FF_START');
-            const fEndIndex = wad.raw.findIndex(e => e.name === 'F_END' || e.name === 'FF_END');
+            const fStartIndex = wad.lumps.findIndex(e => e.name === 'F_START' || e.name === 'FF_START');
+            const fEndIndex = wad.lumps.findIndex(e => e.name === 'F_END' || e.name === 'FF_END');
             for (let i = fStartIndex; i < fEndIndex; i++) {
-                if (!wad.raw[i].name.endsWith('_START') && !wad.raw[i].name.endsWith('_END')) {
-                    flats.set(wad.raw[i].name, wad.raw[i]);
+                if (!wad.lumps[i].name.endsWith('_START') && !wad.lumps[i].name.endsWith('_END')) {
+                    flats.set(wad.lumps[i].name, wad.lumps[i]);
                 }
             }
 
@@ -77,9 +77,9 @@ export class DoomWad {
             for (let i = 0; i < 14; i++) {
                 const palette = [];
                 for (let j = 0; j < 256; j++) {
-                    const r = playpal.contents[i * 768 + j * 3 + 0];
-                    const g = playpal.contents[i * 768 + j * 3 + 1];
-                    const b = playpal.contents[i * 768 + j * 3 + 2];
+                    const r = playpal.data[i * 768 + j * 3 + 0];
+                    const g = playpal.data[i * 768 + j * 3 + 1];
+                    const b = playpal.data[i * 768 + j * 3 + 2];
                     palette.push(new Color(r, g, b));
                 }
                 this.palettes.push(palette);
@@ -210,11 +210,11 @@ export class DoomWad {
     }
 
     texturesNames(): string[] {
-        return this.textureData.map(e => e.lump.body.name);
+        return this.textureData.map(e => e.lump.name);
     }
 
     flatsNames(): string[] {
-        return this.flatLumps.map(e => e.name);
+        return this.flatLumps.map(lump => lump.name);
     }
 
     wallTextureData(name: string) {
@@ -227,12 +227,12 @@ export class DoomWad {
         // a better approach would be to use F_START/P_START markers
 
         // try a texture from patches first
-        const texture = this.textureData.find(e => e.lump.body.name === uname);
+        const texture = this.textureData.find(e => e.lump.name === uname);
         if (texture) {
-            const { width, height, patches } = texture.lump.body;
+            const { width, height, patches } = texture.lump;
             const pics = patches.map(({ patchId, originX, originY }) => {
                 const pname = texture.pnames[patchId];
-                const pic = this.graphic(pname);
+                const pic = this.graphic(pname) as LumpPicture;
                 if (!pic) {
                     console.warn('invalid patch', patchId, pname)
                     return null;
@@ -286,9 +286,9 @@ export class DoomWad {
 
     spriteTextureData(name: string): Picture {
         const uname = name.toUpperCase();
-        const data = this.spriteLumps.find(e => e.name === uname);
-        if (data) {
-            return new LumpPicture(data, this.palettes[0]);
+        const lump = this.spriteLumps.find(lump => lump.name === uname);
+        if (lump) {
+            return new LumpPicture(lump.data, this.palettes[0]);
         }
         console.warn('missing sprite:' + uname)
         return null;
@@ -296,9 +296,9 @@ export class DoomWad {
 
     flatTextureData(name: string): Picture {
         const uname = name.toUpperCase();
-        const data = this.flatLumps.find(e => e.name === uname);
-        if (data) {
-            return new FlatPicture(data, this.palettes[0]);
+        const lump = this.flatLumps.find(lump => lump.name === uname);
+        if (lump) {
+            return new FlatPicture(lump.data, this.palettes[0]);
         }
         console.warn('missing flat:' + uname)
         return null;
@@ -310,7 +310,7 @@ export class DoomWad {
         if (!lump) {
             return null;
         }
-        return new LumpPicture(lump, this.palettes[0]);
+        return new LumpPicture(lump.data, this.palettes[0]);
     }
 
     lumpByName(name: string) {
@@ -328,14 +328,3 @@ export class DoomWad {
 const isMap = (item) =>
     /^MAP\d\d$/.test(item.name) ||
     /^E\dM\d$/.test(item.name);
-
-const fixLumpName = (name: string) => {
-    const uname = name.toUpperCase();
-    for (let i = 0; i < uname.length; i++) {
-        const charCode = uname.charCodeAt(i);
-        if (charCode > 127 || charCode < 32) {
-            return uname.substring(0, i);
-        }
-    }
-    return uname;
-}

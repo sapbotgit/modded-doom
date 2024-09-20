@@ -16,16 +16,13 @@ export class FlatPicture implements Picture {
     readonly yOffset = 0;
     readonly width = 64;
     readonly height = 64;
-    private raw: Uint8Array;
 
-    constructor(lump: any, readonly palette: Palette) {
-        this.raw = lump.contents as Uint8Array;
-    }
+    constructor(private lump: Uint8Array, readonly palette: Palette) {}
 
     toBuffer(buffer: Uint8ClampedArray) {
         const size = this.width * this.height;
         for (let i = 0; i < size; i++) {
-            let col = this.palette[this.raw[i]];
+            let col = this.palette[this.lump[i]];
             buffer[i * 4 + 0] = col.r;
             buffer[i * 4 + 1] = col.g;
             buffer[i * 4 + 2] = col.b;
@@ -40,16 +37,12 @@ export class LumpPicture implements Picture {
     readonly width: number;
     readonly height: number;
 
-    private raw: Uint8Array;
-
-    constructor(lump: any, readonly palette: Palette) {
-        this.raw = lump.contents as Uint8Array;
-
-        this.width = word(this.raw, 0);
-        this.height = word(this.raw, 2);
-        this.xOffset = toInt16(word(this.raw, 4));
-        this.yOffset = toInt16(word(this.raw, 6));
-        if (this.raw.length !== 4096 && (this.width > 2048 || this.height > 2048)) {
+    constructor(private lump: Uint8Array, readonly palette: Palette) {
+        this.width = word(this.lump, 0);
+        this.height = word(this.lump, 2);
+        this.xOffset = toInt16(word(this.lump, 4));
+        this.yOffset = toInt16(word(this.lump, 6));
+        if (this.lump.length !== 4096 && (this.width > 2048 || this.height > 2048)) {
             console.warn('bad pic?', lump, this.width, this.height)
         }
     }
@@ -82,14 +75,14 @@ export class LumpPicture implements Picture {
     private pixels(fn: (col: Color, x: number, y: number) => void) {
         // Based on the "Converting from a doom picture" of https://doomwiki.org/wiki/Picture_format
         for (let i = 0; i < this.width; i++) {
-            let seek = dword(this.raw, 8 + i * 4);
+            let seek = dword(this.lump, 8 + i * 4);
 
-            for (let rowStart = this.raw[seek]; rowStart !== 255; rowStart = this.raw[seek]) {
-                let pixelCount = this.raw[seek + 1];
+            for (let rowStart = this.lump[seek]; rowStart !== 255; rowStart = this.lump[seek]) {
+                let pixelCount = this.lump[seek + 1];
 
                 seek += 3; // 2 + 1 dummy byte
                 for (let j = 0; j < pixelCount; j++) {
-                    fn(this.palette[this.raw[seek]], i, j + rowStart);
+                    fn(this.palette[this.lump[seek]], i, j + rowStart);
                     seek += 1;
                 }
                 seek += 1; // dummy byte

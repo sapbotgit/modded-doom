@@ -202,7 +202,7 @@
     const { audio, settings } = useAppContext();
     const musicPlayback = settings.musicPlayback;
 
-    $: musicBuffer = wad.lumpByName(trackName)?.contents;
+    $: musicBuffer = wad.lumpByName(trackName)?.data;
     $: midi = loadMusic(musicBuffer);
     function loadMusic(musicBuffer: Uint8Array) {
         try {
