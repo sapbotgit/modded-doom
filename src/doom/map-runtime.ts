@@ -188,6 +188,10 @@ export class MapRuntime {
         }
 
         const type = mapObjectInfo.findIndex(e => e.doomednum === thing.type);
+        if (type === -1) {
+            console.warn('unable to spawn thing type', thing.type);
+            return;
+        }
         const mobj = this.spawn(type, thing.x, thing.y, undefined, thing.angle * ToRadians);
 
         if (thing.flags & 0x0008) {
