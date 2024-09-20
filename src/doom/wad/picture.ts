@@ -77,7 +77,7 @@ export class LumpPicture implements Picture {
         for (let i = 0; i < this.width; i++) {
             let seek = dword(this.lump, 8 + i * 4);
 
-            for (let rowStart = this.lump[seek]; rowStart !== 255; rowStart = this.lump[seek]) {
+            for (let rowStart = this.lump[seek]; rowStart !== undefined && rowStart !== 255; rowStart = this.lump[seek]) {
                 let pixelCount = this.lump[seek + 1];
 
                 seek += 3; // 2 + 1 dummy byte
