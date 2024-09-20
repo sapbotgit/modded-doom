@@ -266,6 +266,14 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
     const len = 28;
     const num = Math.trunc(lump.data.length / len);
     if (num * len !== lump.data.length) {
+        // TODO: to load larger and more modern maps, we need to read other node types
+        // like XNOD (or zdoom extended nodes) or DeeP nodes https://doomwiki.org/wiki/Node_builder
+        if ('XNOD' === String.fromCharCode(...lump.data.subarray(0, 4))) {
+            throw new Error('invalid lump: ZDoom extended nodes not yet supported');
+        }
+        if ('xNd4' === String.fromCharCode(...lump.data.subarray(0, 4))) {
+            throw new Error('invalid lump: DeeP nodes not yet supported');
+        }
         throw new Error('invalid lump: NODES');
     }
     let nodes = new Array<TreeNode>(num);
