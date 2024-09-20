@@ -60,9 +60,9 @@ export class DoomWad {
                 }
             }
 
-            for (let i = 0; i < wad.raw.length; i++) {
-                if (isMap(wad.raw[i])) {
-                    this.mapLumps.set(wad.raw[i].name, wad.raw.slice(i, i + 11));
+            for (let i = 0; i < wad.lumps.length; i++) {
+                if (isMap(wad.lumps[i])) {
+                    this.mapLumps.set(wad.lumps[i].name, wad.lumps.slice(i, i + 11));
                 }
             }
         }
@@ -325,6 +325,6 @@ export class DoomWad {
     }
 }
 
-const isMap = (item) =>
+const isMap = (item: Lump) =>
     /^MAP\d\d$/.test(item.name) ||
     /^E\dM\d$/.test(item.name);

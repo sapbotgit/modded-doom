@@ -1,10 +1,10 @@
 import { store, type Store } from "./store";
-import type { DoomWad } from "./wad/doomwad";
 import { Vector3 } from "three";
-import { MapObject, xyDistanceBetween } from "./map-object";
+import { MapObject } from "./map-object";
 import { centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
+import { type Lump, int16, word, lumpString } from "../doom";
 
 export type Action = (time: GameTime) => void;
 
@@ -14,6 +14,21 @@ export interface Thing {
     angle: number;
     type: number;
     flags: number;
+}
+function thingsLump(lump: Lump) {
+    const len = 10;
+    // TODO: if length % len then... invalid?
+    const num = lump.data.length / len;
+    let things = new Array<Thing>(num);
+    for (let i = 0; i < num; i++) {
+        const x = int16(word(lump.data, 0 + i * len));
+        const y = int16(word(lump.data, 2 + i * len));
+        const angle = int16(word(lump.data, 4 + i * len));
+        const type = int16(word(lump.data, 6+ i * len));
+        const flags = int16(word(lump.data, 8 + i * len));
+        things[i] = { x, y, angle, type, flags };
+    }
+    return things;
 }
 
 export interface LineDef {
@@ -33,19 +48,34 @@ export interface LineDef {
     switchAction: Action;
     hitC: number; // don't hit the same line twice during collision detection
 }
-const toLineDef = (num: number, ld: any, vertexes: Vertex[], sidedefs: SideDef[]): LineDef => ({
-    num,
-    v: [vertexes[ld.vertexStartIdx], vertexes[ld.vertexEndIdx]],
-    left: sidedefs[ld.sidedefLeftIdx],
-    right: sidedefs[ld.sidedefRightIdx],
-    tag: ld.sectorTag,
-    special: ld.lineType,
-    flags: ld.flags,
-    switchAction: null,
-    hitC: 0,
-    transparentDoorHack: false,
-    transparentWindowHack: false,
-});
+function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
+    const len = 14;
+    // TODO: if length % len then... invalid?
+    const num = lump.data.length / len;
+    let lindefs = new Array<LineDef>(num);
+    for (let i = 0; i < num; i++) {
+        const v0 = int16(word(lump.data, 0 + i * len));
+        const v1 = int16(word(lump.data, 2 + i * len));
+        const flags = int16(word(lump.data, 4 + i * len));
+        const special = int16(word(lump.data, 6 + i * len));
+        const tag = int16(word(lump.data, 8 + i * len));
+        const rightSidedef = int16(word(lump.data, 10 + i * len));
+        const leftSidedef = int16(word(lump.data, 12 + i * len));
+
+        lindefs[i] = {
+            tag, special, flags,
+            num: i,
+            v: [vertexes[v0], vertexes[v1]],
+            left: sidedefs[leftSidedef],
+            right: sidedefs[rightSidedef],
+            switchAction: null,
+            hitC: 0,
+            transparentDoorHack: false,
+            transparentWindowHack: false,
+        };
+    }
+    return lindefs;
+}
 
 export interface SideDef {
     xOffset: Store<number>;
@@ -55,38 +85,27 @@ export interface SideDef {
     lower: Store<string>;
     middle: Store<string>;
 }
-const toSideDef = (sd: any, sectors: Sector[]): SideDef => ({
-    xOffset: store(sd.offsetX),
-    yOffset: store(sd.offsetY),
-    sector: sectors[sd.sectorId],
-    lower: store(fixTextureName(sd.lowerTextureName)),
-    middle: store(fixTextureName(sd.normalTextureName)),
-    upper: store(fixTextureName(sd.upperTextureName)),
-});
+function sideDefsLump(lump: Lump, sectors: Sector[]) {
+    const len = 30;
+    // TODO: if length % len then... invalid?
+    const num = lump.data.length / len;
+    let sidedefs = new Array<SideDef>(num);
+    for (let i = 0; i < num; i++) {
+        const xOffset = store(int16(word(lump.data, 0 + i * len)));
+        const yOffset = store(int16(word(lump.data, 2 + i * len)));
+        const upper = store(fixTextureName(lumpString(lump.data, 4 + i * len, 8)));
+        const lower = store(fixTextureName(lumpString(lump.data, 12 + i * len, 8)));
+        const middle = store(fixTextureName(lumpString(lump.data, 20 + i * len, 8)));
+        const sectorId = int16(word(lump.data, 28 + i * len));
+        const sector = sectors[sectorId];
+        sidedefs[i] = { xOffset, yOffset, sector, lower, middle, upper };
+    }
+    return sidedefs;
+}
 
 function fixTextureName(name: string) {
-    return !name || name.startsWith('-') ? undefined : name.split('\u0000')[0].toUpperCase();
+    return !name || name.startsWith('-') ? undefined : name.toUpperCase();
 }
-
-export interface Seg {
-    v: Vertex[];
-    angle: number;
-    linedef: LineDef;
-    direction: number;
-    offset: number;
-}
-const toSeg = (item: any, vertexes: Vertex[], linedefs: LineDef[]): Seg => ({
-    v: [vertexes[item.vertexStart], vertexes[item.vertexEnd]],
-    // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
-    // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
-    angle: Math.atan2(
-        vertexes[item.vertexEnd].y - vertexes[item.vertexStart].y,
-        vertexes[item.vertexEnd].x - vertexes[item.vertexStart].x,
-    ),
-    linedef: linedefs[item.linedef],
-    direction: item.direction,
-    offset: item.offset,
-});
 
 export interface Sector {
     num: number;
@@ -106,24 +125,83 @@ export interface Sector {
     soundTarget: MapObject;
     portalSegs: Seg[];
 }
-const toSector = (num: number, sd: any): Sector => {
-    const sector = {
-        num,
-        tag: sd.tag,
-        type: sd.specialType,
-        zFloor: store(sd.floorZ),
-        zCeil: store(sd.ceilZ),
-        light: store(sd.light),
-        floorFlat: store(fixTextureName(sd.floorFlat)),
-        ceilFlat: store(fixTextureName(sd.ceilFlat)),
-        specialData: null,
-        soundC: 0,
-        soundTarget: null,
-         // filled in after completeSubSectors
-        center: new Vector3(),
-        portalSegs: [],
-    };
-    return sector;
+function sectorsLump(lump: Lump) {
+    const len = 26;
+    // TODO: if length % 26 then... invalid?
+    const num = lump.data.length / len;
+    let sectors = new Array<Sector>(num);
+    for (let i = 0; i < num; i++) {
+        const zFloor = store(int16(word(lump.data, 0 + i * len)));
+        const zCeil = store(int16(word(lump.data, 2 + i * len)));
+        const floorFlat = store(fixTextureName(lumpString(lump.data, 4 + i * len, 8)));
+        const ceilFlat = store(fixTextureName(lumpString(lump.data, 12 + i * len, 8)));
+        const light = store(int16(word(lump.data, 20 + i * len)));
+        const type = int16(word(lump.data, 22 + i * len));
+        const tag = int16(word(lump.data, 24 + i * len));
+        sectors[i] = {
+            tag, type, zFloor, zCeil, ceilFlat, floorFlat, light,
+            num: i,
+            specialData: null,
+            soundC: 0,
+            soundTarget: null,
+             // filled in after completeSubSectors
+            center: new Vector3(),
+            portalSegs: [],
+        };
+    }
+    return sectors;
+}
+
+function vertexesLump(lump: Lump) {
+    const len = 4;
+    // TODO: if length % len then... invalid?
+    const num = lump.data.length / len;
+    let vertexes = new Array<Vertex>(num);
+    for (let i = 0; i < num; i++) {
+        const x = int16(word(lump.data, 0 + i * len));
+        const y = int16(word(lump.data, 2 + i * len));
+        vertexes[i] = { x, y };
+    }
+    return vertexes;
+}
+
+function blockmapLump(lump: Lump) {
+    const originX = int16(word(lump.data, 0));
+    const originY = int16(word(lump.data, 2));
+    const numCols = int16(word(lump.data, 4));
+    const numRows = int16(word(lump.data, 6));
+    return { originX, originY, numCols, numRows };
+}
+
+export interface Seg {
+    v: Vertex[];
+    angle: number;
+    linedef: LineDef;
+    direction: number;
+    offset: number;
+}
+function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
+    const len = 12;
+    // TODO: if length % len then... invalid?
+    const num = lump.data.length / len;
+    let segs = new Array<Seg>(num);
+    for (let i = 0; i < num; i++) {
+        const v0 = int16(word(lump.data, 0 + i * len));
+        const v1 = int16(word(lump.data, 2 + i * len));
+        const v = [vertexes[v0], vertexes[v1]];
+        // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
+        // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
+        const angle = Math.atan2(
+            vertexes[v1].y - vertexes[v0].y,
+            vertexes[v1].x - vertexes[v0].x,
+        );
+        const linedefId = int16(word(lump.data, 6 + i * len));
+        const linedef = linedefs[linedefId];
+        const direction = int16(word(lump.data, 8 + i * len));
+        const offset = int16(word(lump.data, 10 + i * len));
+        segs[i] = { v, angle, linedef, direction, offset };
+    }
+    return segs;
 }
 
 // this bounds will never be true when testing for collisions because if something
@@ -140,37 +218,58 @@ export interface SubSector {
     bounds: Bounds;
     hitC: number;
 }
-const toSubSector = (num: number, item: any, segs: Seg[]): SubSector => ({
-    num,
-    sector: segs[item.firstSeg].direction
-        ? segs[item.firstSeg].linedef.left.sector
-        : segs[item.firstSeg].linedef.right.sector,
-    segs: segs.slice(item.firstSeg, item.firstSeg + item.count),
-    mobjs: new Set(),
-    hitC: 0,
-    // bounds and vertexes will be populated by completeSubSectors()
-    bounds: _invalidBounds,
-    vertexes: [],
-    bspLines: [],
-});
+function subSectorLump(lump: Lump, segs: Seg[]) {
+    const len = 4;
+    // TODO: if length % len then... invalid?
+    const num = lump.data.length / len;
+    let subsectors = new Array<SubSector>(num);
+    for (let i = 0; i < num; i++) {
+        const segCount = int16(word(lump.data, 0 + i * len));
+        const segId = int16(word(lump.data, 2 + i * len));
+        subsectors[i] = {
+            num: i,
+            sector: segs[segId].direction
+                ? segs[segId].linedef.left.sector
+                : segs[segId].linedef.right.sector,
+            segs: segs.slice(segId, segId + segCount),
+            mobjs: new Set(),
+            hitC: 0,
+            // bounds and vertexes will be populated by completeSubSectors()
+            bounds: _invalidBounds,
+            vertexes: [],
+            bspLines: [],
+         };
+    }
+    return subsectors;
+}
 
 export interface TreeNode {
     v: Vertex[];
-    boundsRight: Bounds;
-    boundsLeft: Bounds;
     childRight: TreeNode | SubSector;
     childLeft: TreeNode | SubSector;
 }
-const toNode = (item: any): TreeNode => ({
-    v: [
-        { x: item.xStart, y: item.yStart },
-        { x: item.xStart + item.xChange, y: item.yStart + item.yChange },
-    ],
-    childRight: item.rightChild,
-    childLeft: item.leftChild,
-    boundsRight: item.rightBounds,
-    boundsLeft: item.leftBounds,
-});
+function bspNodesLump(lump: Lump) {
+    const len = 28;
+    // TODO: if length % len then... invalid?
+    const num = lump.data.length / len;
+    let nodes = new Array<TreeNode>(num);
+    for (let i = 0; i < num; i++) {
+        const xStart = int16(word(lump.data, 0 + i * len));
+        const yStart = int16(word(lump.data, 2 + i * len));
+        const xChange = int16(word(lump.data, 4 + i * len));
+        const yChange = int16(word(lump.data, 6 + i * len));
+        const childRight: any = int16(word(lump.data, 24 + i * len));
+        const childLeft: any = int16(word(lump.data, 26 + i * len));
+        nodes[i] = {
+            childRight, childLeft,
+            v: [
+                { x: xStart, y: yStart },
+                { x: xStart + xChange, y: yStart + yChange },
+            ],
+         };
+    }
+    return nodes;
+}
 function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: SubSector[]) {
     let idx = (child as any) as number;
     return (idx & 0xa000)
@@ -224,30 +323,30 @@ export class MapData {
     readonly nodes: TreeNode[];
     readonly blockMapBounds: Bounds;
 
-    constructor(lumps: any[]) {
-        this.things = lumps[1].contents.entries;
-        this.sectors = lumps[8].contents.entries.map((s, i) => toSector(i, s));
-        this.vertexes = lumps[4].contents.entries;
+    constructor(lumps: Lump[]) {
+        this.things = thingsLump(lumps[1]);
+        this.sectors = sectorsLump(lumps[8]);
+        this.vertexes = vertexesLump(lumps[4]);
         fixVertexes(
             this.vertexes,
-            lumps[2].contents.entries, // linedefs
-            lumps[5].contents.entries, // segs
-            lumps[7].contents.entries, // bsp nodes
+            lumps[2], // linedefs
+            lumps[5], // segs
+            lumps[7], // bsp nodes
         );
 
-        const blockmap = lumps[10].contents;
+        const blockmap = blockmapLump(lumps[10]);
         this.blockMapBounds = {
             top: blockmap.originY + blockmap.numRows * 128,
             left: blockmap.originX,
             bottom: blockmap.originY,
             right: blockmap.originX + blockmap.numCols * 128,
         }
-        const sidedefs: SideDef[] = lumps[3].contents.entries.map(e => toSideDef(e, this.sectors));
-        this.linedefs = lumps[2].contents.entries.map((e, i) => toLineDef(i, e, this.vertexes, sidedefs));
-        const segs: Seg[] = lumps[5].contents.entries.map(e => toSeg(e, this.vertexes, this.linedefs));
-        const subsectors: SubSector[] = lumps[6].contents.entries.map((e, i) => toSubSector(i, e, segs));
+        const sidedefs = sideDefsLump(lumps[3], this.sectors);
+        this.linedefs = lineDefsLump(lumps[2], this.vertexes, sidedefs);
+        const segs = segsLump(lumps[5], this.vertexes, this.linedefs);
+        const subsectors = subSectorLump(lumps[6], segs);
 
-        this.nodes = lumps[7].contents.entries.map(d => toNode(d));
+        this.nodes = bspNodesLump(lumps[7]);
         this.nodes.forEach(n => {
             n.childLeft = assignChild(n.childLeft, this.nodes, subsectors);
             n.childRight = assignChild(n.childRight, this.nodes, subsectors);
@@ -615,41 +714,68 @@ function subsectorVerts(segs: Seg[], bspLines: Vertex[][]) {
 
 function fixVertexes(
     vertexes: Vertex[],
-    lineDefData: any[],
-    segData: any[],
-    bspNodes: any[],
+    lineDefData: Lump,
+    segData: Lump,
+    bspNodes: Lump,
 ) {
+    // This function looks even uglier now that it's editing uint8arrays. I do really wonder if we are better
+    // off re-evaluating segs or something like that so that we don't do all this hacking and guessing at the best
+    // location for vertexes.
+    // Also FIXME: somehow when moving away from kaitai struct, this function started
+    // introducing a few wholes in the floors of some maps. It is desperately in need of a whole new approach.
+
     // Doom vertexes are integers so segs from integers can't always be on the line. These "fixes" are mostly
     // about taking seg vertices that are close to a linedef but not actually on the linedef. Once we put them on
     // the linedef, they don't always intersect with the bsp lines so we correct them again later
     // (see addExtraImplicitVertexes()).
-    for (const seg of segData) {
-        const ld = lineDefData[seg.linedef];
-        const line = [vertexes[ld.vertexStartIdx], vertexes[ld.vertexEndIdx]];
+    const numSegs = segData.data.length / 12;
+    for (let i = 0; i < numSegs; i++) {
+        const ld = int16(word(segData.data, 6 + i * 12));
+        const ldv0 = int16(word(lineDefData.data, 0 + ld * 14));
+        const ldv1 = int16(word(lineDefData.data, 2 + ld * 14));
+        const line = [vertexes[ldv0], vertexes[ldv1]];
 
-        const vx1 = vertexes[seg.vertexStart];
-        if (!pointOnLine(vx1, line)) {
-            vertexes[seg.vertexStart] = closestPoint(line, vx1);
+        const v0 = int16(word(segData.data, 0 + i * 12));
+        const vx0 = vertexes[v0];
+        if (!pointOnLine(vx0, line)) {
+            vertexes[v0] = closestPoint(line, vx0);
         }
 
-        const vx2 = vertexes[seg.vertexEnd];
-        if (!pointOnLine(vx2, line)) {
-            vertexes[seg.vertexEnd] = closestPoint(line, vx2);
+        const v1 = int16(word(segData.data, 2 + i * 12));
+        const vx1 = vertexes[v1];
+        if (!pointOnLine(vx1, line)) {
+            vertexes[v1] = closestPoint(line, vx1);
         }
     }
 
     // adjust bsp lines based on changes to vertexes above
-    for (const node of bspNodes) {
-        const vx1 = { x: node.xStart, y: node.yStart };
-        let closest = closestVertex(vx1, vertexes);
-        node.xStart = closest.x;
-        node.yStart = closest.y;
+    const numNodes = bspNodes.data.length / 28;
+    for (let i = 0; i < numNodes; i++) {
+        let xStart = int16(word(bspNodes.data, 0 + i * 28));
+        let yStart = int16(word(bspNodes.data, 2 + i * 28));
+        const vx0 = { x: xStart, y: yStart };
+        let closest = closestVertex(vx0, vertexes);
+        xStart = closest.x;
+        yStart = closest.y;
 
-        const vx2 = { x: node.xStart + node.xChange, y: node.yStart + node.yChange };
-        closest = closestVertex(vx2, vertexes);
-        node.xChange = closest.x - node.xStart;
-        node.yChange = closest.y - node.yStart;
+        let xChange = int16(word(bspNodes.data, 4 + i * 28));
+        let yChange = int16(word(bspNodes.data, 6 + i * 28));
+        const vx1 = { x: xStart + xChange, y: yStart + yChange };
+        closest = closestVertex(vx1, vertexes);
+        xChange = closest.x - xStart;
+        yChange = closest.y - yStart;
+
+        // write new data back to uint8array for later processing
+        writeWordLE(bspNodes.data, 0 + i * 28, xStart);
+        writeWordLE(bspNodes.data, 2 + i * 28, yStart);
+        writeWordLE(bspNodes.data, 4 + i * 28, xChange);
+        writeWordLE(bspNodes.data, 6 + i * 28, yChange);
     }
+}
+
+const writeWordLE = (buff: Uint8Array, offset: number, word: number) => {
+    buff[offset + 0] = word & 0xff;
+    buff[offset + 1] = (word >> 8) & 0xff;
 }
 
 const distSqr = (a: Vertex, b: Vertex) => (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y);

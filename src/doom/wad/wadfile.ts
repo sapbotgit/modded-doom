@@ -22,8 +22,8 @@ export class WadFile {
             this.lumps[i] = lump;
         }
 
-        const data = new DoomWadRaw(new KaitaiStream(buffer), null, null);
-        this.raw = data.index;
+        // const data = new DoomWadRaw(new KaitaiStream(buffer), null, null);
+        // this.raw = data.index;
     }
 
     lumpByName(name: string) {
@@ -99,10 +99,10 @@ const fixLumpName = (name: string) => {
     return uname;
 }
 
-const lumpString = (buff: Uint8Array, offset: number, length: number) =>
+export const lumpString = (buff: Uint8Array, offset: number, length: number) =>
     fixLumpName(String.fromCharCode(...buff.subarray(offset, offset + length)));
 
 // Nifty little hack! https://stackoverflow.com/questions/50179214
-const toInt16 = (num: number) => (num << 16) >> 16;
-const word = (buff: Uint8Array, offset: number) => buff[offset + 1] << 8 | buff[offset];
-const dword = (buff: Uint8Array, offset: number) => word(buff, offset + 2) << 16 | word(buff, offset);
+export const int16 = (num: number) => (num << 16) >> 16;
+export const word = (buff: Uint8Array, offset: number) => buff[offset + 1] << 8 | buff[offset];
+export const dword = (buff: Uint8Array, offset: number) => word(buff, offset + 2) << 16 | word(buff, offset);
