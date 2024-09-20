@@ -224,7 +224,7 @@ export class MapData {
     readonly nodes: TreeNode[];
     readonly blockMapBounds: Bounds;
 
-    constructor(readonly wad: DoomWad, lumps: any[]) {
+    constructor(lumps: any[]) {
         this.things = lumps[1].contents.entries;
         this.sectors = lumps[8].contents.entries.map((s, i) => toSector(i, s));
         this.vertexes = lumps[4].contents.entries;

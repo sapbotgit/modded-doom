@@ -1,25 +1,11 @@
-import KaitaiStream from 'kaitai-struct/KaitaiStream';
-import DoomWadRaw from './doom-wad.ksy.ts';
 import { MapData } from '../map-data.ts';
 import { type Picture, type Palette, PatchPicture, LumpPicture, FlatPicture } from './picture.ts';
 import { Color } from 'three';
+import type { WadFile } from './wadfile.ts';
 
 interface SpriteFrame {
     name: string;
     mirror: boolean;
-}
-
-export class WadFile {
-    raw: any[];
-
-    constructor(readonly name: string, buffer: ArrayBuffer) {
-        const data = new DoomWadRaw(new KaitaiStream(buffer), null, null);
-        this.raw = data.index;
-    }
-
-    lumpByName(name: string) {
-        return this.raw.find(p => p.name === name);
-    }
 }
 
 type WallTexture = { lump: any, pnames: string[] };
@@ -191,7 +177,7 @@ export class DoomWad {
 
     readMap(name: string) {
         const lumps = this.mapLumps.get(name)
-        return lumps ? new MapData(this, lumps) : null;
+        return lumps ? new MapData(lumps) : null;
     }
 
     switchToggle(name: string): string | undefined {

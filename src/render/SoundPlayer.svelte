@@ -109,6 +109,7 @@
             const isPositional = player && location && location !== player;
             const now = audio.currentTime;
 
+            // FIXME: SoundIndex[snd] can be undefined?
             const name = 'DS' + SoundIndex[snd].toUpperCase().split('_')[1];
             this.soundNode = audio.createBufferSource()
             this.soundNode.buffer = soundBuffer(name);
