@@ -188,7 +188,6 @@ export interface Seg {
     angle: number;
     linedef: LineDef;
     direction: number;
-    offset: number;
 }
 function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
     const len = 12;
@@ -210,8 +209,7 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
         const linedefId = int16(word(lump.data, 6 + i * len));
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 8 + i * len));
-        const offset = int16(word(lump.data, 10 + i * len));
-        segs[i] = { v, angle, linedef, direction, offset };
+        segs[i] = { v, angle, linedef, direction };
     }
     return segs;
 }
@@ -380,6 +378,7 @@ export class MapData {
     readonly blockMapBounds: Bounds;
 
     constructor(lumps: Lump[]) {
+        console.time('map-load')
         this.things = thingsLump(lumps[1]);
         this.sectors = sectorsLump(lumps[8]);
         this.vertexes = vertexesLump(lumps[4]);
@@ -401,12 +400,15 @@ export class MapData {
         const segs = segsLump(lumps[5], this.vertexes, this.linedefs);
         const subsectors = subSectorLump(lumps[6], segs);
 
+        console.time('bsp-nodes')
         this.nodes = bspNodesLump(lumps[7], this.vertexes, subsectors);
+        console.timeEnd('bsp-nodes')
         const rootNode = this.nodes[this.nodes.length - 1];
         completeSubSectors(rootNode, subsectors);
         this.bspTracer = createBspTracer(rootNode);
         this.subsectorTrace = createSubsectorTrace(rootNode);
 
+        console.time('sects')
         for (const sector of this.sectors) {
             sector.portalSegs = segs.filter(seg => seg.linedef.left && (seg.linedef.left.sector === sector || seg.linedef.right.sector === sector));
             // figure out any sectors that need sky height adjustment
@@ -426,6 +428,7 @@ export class MapData {
                 (sector.zCeil.val + sector.zFloor.val) * .5,
             );
         }
+        console.timeEnd('sects')
 
         // really? linedefs without segs? I've only found this in a few final doom maps (plutonia29, tnt20, tnt21, tnt27)
         // and all of them are two-sided, most have special flags which is a particular problem. Because we are detection
@@ -456,6 +459,7 @@ export class MapData {
                 return true; // continue to next subsector
             });
         }
+        console.timeEnd('map-load')
     }
 
     findSubSector(x: number, y: number): SubSector {
@@ -768,26 +772,37 @@ function fixVertexes(
     lineDefData: Lump,
     segData: Lump,
 ) {
+    let segVerts = new Set(Array(vertexes.length).keys());
+    const numLinedefs = lineDefData.data.length / 14;
+    for (let i = 0; i < numLinedefs; i++) {
+        segVerts.delete(int16(word(lineDefData.data, 0 + i * 14)));
+        segVerts.delete(int16(word(lineDefData.data, 2 + i * 14)));
+    }
+
     // Doom vertexes are integers so segs from integers can't always be on the line. These "fixes" are mostly
     // about taking seg vertices that are close to a linedef but not actually on the linedef. Once we put them on
     // the linedef, they don't always intersect with the bsp lines so we correct them again later
     // (see addExtraImplicitVertexes()).
     const numSegs = segData.data.length / 12;
     for (let i = 0; i < numSegs; i++) {
+        const v0 = int16(word(segData.data, 0 + i * 12));
+        const v1 = int16(word(segData.data, 2 + i * 12));
+        if (!segVerts.has(v0) && !segVerts.has(v1)) {
+            continue;
+        }
+
         const ld = int16(word(segData.data, 6 + i * 12));
         const ldv0 = int16(word(lineDefData.data, 0 + ld * 14));
         const ldv1 = int16(word(lineDefData.data, 2 + ld * 14));
         const line = [vertexes[ldv0], vertexes[ldv1]];
 
-        const v0 = int16(word(segData.data, 0 + i * 12));
         const vx0 = vertexes[v0];
-        if (!pointOnLine(vx0, line)) {
+        if (segVerts.has(v0) && !pointOnLine(vx0, line)) {
             vertexes[v0] = closestPoint(line, vx0);
         }
 
-        const v1 = int16(word(segData.data, 2 + i * 12));
         const vx1 = vertexes[v1];
-        if (!pointOnLine(vx1, line)) {
+        if (segVerts.has(v1) && !pointOnLine(vx1, line)) {
             vertexes[v1] = closestPoint(line, vx1);
         }
     }
