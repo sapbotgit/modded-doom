@@ -142,7 +142,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         // https://doomwiki.org/wiki/Making_deep_water
         const leftlines = map.linedefs.filter(ld => ld.left && ld.left.sector === sector);
         const selfref = leftlines.length === linedefs.length && leftlines.every(ld => ld.right.sector === sector);
-        if (selfref) {
+        if (selfref && geometry) {
             selfReferencing.push(renderSector);
         }
 
@@ -270,40 +270,26 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
 function smallestSectorContaining(rs: RenderSector, renderSectors: RenderSector[]) {
     let outerRS: RenderSector;
     let smallestArea = Infinity;
-    let innerBounds = computeBounds(rs);
+    let innerBound = rs.geometry.boundingBox;
     for (const candidate of renderSectors) {
-        if (candidate === rs) {
+        if (candidate === rs || !candidate.geometry) {
             continue;
         }
 
-        const outerBounds = computeBounds(candidate);
-        const contained = outerBounds.left <= innerBounds.left && outerBounds.right >= innerBounds.right
-            && outerBounds.top <= innerBounds.top && outerBounds.bottom >= innerBounds.bottom;
+        const outerBounds = candidate.geometry.boundingBox;
+        const contained = outerBounds.min.x <= innerBound.min.x && outerBounds.max.x >= innerBound.max.x
+            && outerBounds.min.y <= innerBound.min.y && outerBounds.max.y >= innerBound.max.y;
         if (!contained) {
             continue;
         }
 
-        const area = (outerBounds.right - outerBounds.left) * (outerBounds.bottom - outerBounds.top);
+        const area = (outerBounds.max.x - outerBounds.min.x) * (outerBounds.max.y - outerBounds.min.y)
         if (area < smallestArea) {
             smallestArea = area;
             outerRS = candidate;
         }
     }
     return outerRS;
-}
-
-function computeBounds(rs: RenderSector) {
-    let left = Infinity;
-    let right = -Infinity;
-    let top = Infinity;
-    let bottom = -Infinity;
-    for (const subsec of rs.subsectors) {
-        left = Math.min(left, subsec.bounds.left);
-        right = Math.max(right, subsec.bounds.right);
-        top = Math.min(top, subsec.bounds.top);
-        bottom = Math.max(bottom, subsec.bounds.bottom);
-    }
-    return { left, right, top, bottom };
 }
 
 function createShape(verts: Vertex[]) {
