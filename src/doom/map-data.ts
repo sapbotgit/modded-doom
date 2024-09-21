@@ -1,7 +1,7 @@
 import { store, type Store } from "./store";
 import { Vector3 } from "three";
 import { MapObject } from "./map-object";
-import { centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
+import { QuadTree, centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
 import type { GameTime } from "./game";
 import { type Lump, int16, word, lumpString } from "../doom";
@@ -290,9 +290,13 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
             ],
         };
     }
+    const qt = new QuadTree(5);
+    for (const v of vertexes) {
+        qt.insert(v);
+    }
 
     nodes.forEach(node => {
-        fixBSPLine(node, vertexes);
+        fixBSPLine(node, qt);
         node.childLeft = assignChild(node.childLeft, nodes, subsectors);
         node.childRight = assignChild(node.childRight, nodes, subsectors);
     });
@@ -300,27 +304,27 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
     return nodes;
 }
 
-function fixBSPLine(node: TreeNode, vertexes: Vertex[]) {
+function fixBSPLine(node: TreeNode, qt: QuadTree<Vertex>) {
     // adjust bsp lines based on map vertexes (similar to fixVertexes())
-    let closest = closestVertex(node.v[0], vertexes);
+    let closest = closestVertex(node.v[0], qt);
     node.v[0].x = closest.x;
     node.v[0].y = closest.y;
 
-    closest = closestVertex(node.v[1], vertexes);
+    closest = closestVertex(node.v[1], qt);
     node.v[1].x = closest.x;
     node.v[1].y = closest.y;
 }
 
-function closestVertex(p: Vertex, vertexes: Vertex[]) {
+function closestVertex(p: Vertex, qt: QuadTree<Vertex>) {
     let dist = Infinity;
     let closest = p;
-    for (const v of vertexes) {
+    qt.query(p, v => {
         let d = distSqr(p, v);
         if (d < dist) {
             dist = d;
             closest = v;
         }
-    }
+    });
     return closest;
 }
 
@@ -400,17 +404,28 @@ export class MapData {
         const segs = segsLump(lumps[5], this.vertexes, this.linedefs);
         const subsectors = subSectorLump(lumps[6], segs);
 
-        console.time('bsp-nodes')
         this.nodes = bspNodesLump(lumps[7], this.vertexes, subsectors);
-        console.timeEnd('bsp-nodes')
         const rootNode = this.nodes[this.nodes.length - 1];
         completeSubSectors(rootNode, subsectors);
         this.bspTracer = createBspTracer(rootNode);
         this.subsectorTrace = createSubsectorTrace(rootNode);
 
-        console.time('sects')
+        let portalSegsBySector = new Map<Sector, Seg[]>();
+        for (const seg of segs) {
+            if (!seg.linedef.left) {
+                continue;
+            }
+
+            let list = portalSegsBySector.get(seg.linedef.left.sector) || [];
+            list.push(seg);
+            portalSegsBySector.set(seg.linedef.left.sector, list);
+
+            list = portalSegsBySector.get(seg.linedef.right.sector) || [];
+            list.push(seg);
+            portalSegsBySector.set(seg.linedef.right.sector, list);
+        }
         for (const sector of this.sectors) {
-            sector.portalSegs = segs.filter(seg => seg.linedef.left && (seg.linedef.left.sector === sector || seg.linedef.right.sector === sector));
+            sector.portalSegs = portalSegsBySector.get(sector);
             // figure out any sectors that need sky height adjustment
             if (sector.ceilFlat.val === 'F_SKY1') {
                 const skyHeight = this.sectorNeighbours(sector)
@@ -419,16 +434,9 @@ export class MapData {
                 sector.skyHeight = skyHeight;
             }
             // compute sector centers which is used for sector sound origin
-            const subs = subsectors.filter(sub => sub.sector === sector)
-            const verts = subs.map(sub => sub.vertexes).flat();
-            const bounds = computeBounds(verts);
-            sector.center.set(
-                (bounds.right + bounds.left) * .5,
-                (bounds.bottom + bounds.top) * .5,
-                (sector.zCeil.val + sector.zFloor.val) * .5,
-            );
+            const mid = sectorMiddle(sector, subsectors);
+            sector.center.set(mid.x, mid.y, (sector.zCeil.val + sector.zFloor.val) * .5);
         }
-        console.timeEnd('sects')
 
         // really? linedefs without segs? I've only found this in a few final doom maps (plutonia29, tnt20, tnt21, tnt27)
         // and all of them are two-sided, most have special flags which is a particular problem. Because we are detection
@@ -471,6 +479,7 @@ export class MapData {
     }
 
     sectorNeighbours(sector: Sector): Sector[] {
+        // FIXME: can we use sector.portalSegs here instead? It looks like the same computation
         const sectors = [];
         for (const ld of this.linedefs) {
             if (ld.left) { // two-sided
@@ -893,4 +902,23 @@ function computeBounds(verts: Vertex[], allowLinearBounds = false): Bounds {
         return computeBounds(verts.filter(e => !('implicitLines' in e)), true);
     }
     return { left, right, top, bottom };
+}
+
+function sectorMiddle(sector: Sector, subsectors: SubSector[]) {
+    let mid = { x: 0, y: 0 };
+    let vcount = 0;
+    for (const sub of subsectors) {
+        if (sub.sector !== sector) {
+            continue;
+        }
+
+        for (const v of sub.vertexes) {
+            vcount += 1;
+            mid.x += v.x;
+            mid.y += v.y;
+        }
+    }
+    mid.x /= vcount;
+    mid.y /= vcount;
+    return mid;
 }

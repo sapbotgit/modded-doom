@@ -101,6 +101,7 @@ export interface RenderSector {
 }
 
 export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
+    console.time('b-rs')
     // WOW! There are so many nifty rendering (and gameplay) tricks out there:
     // https://www.doomworld.com/forum/topic/52921-thread-of-vanilla-mapping-tricks/
     // https://www.doomworld.com/vb/thread/74354
@@ -262,6 +263,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         });
     });
 
+    console.timeEnd('b-rs')
     return rSectors;
 }
 

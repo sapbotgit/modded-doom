@@ -404,3 +404,107 @@ export function lineAABB(line: Vertex[], pos: Vertex, radius: number, bounded = 
     // we can get lineAABB using sweep and setting the box radius to 0
     return sweepAABBAABB(line[0], 0, _lineAABB, pos, radius, bounded);
 }
+
+
+class Box {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+
+    constructor(left: number, top: number, right: number, bottom: number) {
+        if (left > right || top > bottom)  {
+            throw new Error('invalid box ' + JSON.stringify({ x1: left, y1: top, x2: right, y2: bottom }));
+        }
+        this.left = left;
+        this.top = top;
+        this.right = right;
+        this.bottom = bottom;
+        return this;
+    }
+
+    intersectBox(box: Box) {
+        return !(box.left > this.right || box.right < this.left || box.top > this.bottom || box.bottom < this.top);
+    }
+}
+
+// Based on the "loose quadtree" from https://stackoverflow.com/questions/41946007
+export class QuadTree<T extends Vertex> {
+    private nw: QuadTree<T>;
+    private ne: QuadTree<T>;
+    private se: QuadTree<T>;
+    private sw: QuadTree<T>;
+    data: T[] = [];
+    constructor(private capacity = 10, private box: Box = null) {}
+
+    get children() { return this.nw ? [this.nw, this.ne, this.se, this.sw] : []; }
+
+    insert(t: T) {
+        if (!this.box) {
+            this.box = new Box(t.x, t.y, t.x, t.y);
+        } else {
+            this.box.left = Math.min(this.box.left, t.x);
+            this.box.top = Math.min(this.box.top, t.y);
+            this.box.right = Math.max(this.box.right, t.x);
+            this.box.bottom = Math.max(this.box.bottom, t.y);
+        }
+        this.add(t);
+    }
+
+    private add(t: T) {
+        if (this.nw) {
+            return this.child(t).insert(t);
+        }
+        if (this.data.length < this.capacity) {
+            return this.data.push(t);
+        }
+        this.subdivide();
+        this.child(t).add(t);
+    }
+
+    private subdivide() {
+        const halfx = (this.box.left + this.box.right) * .5;
+        const halfy = (this.box.top + this.box.bottom) * .5;
+        this.nw = new QuadTree<T>(this.capacity, new Box(this.box.left, this.box.top, halfx, halfy));
+        this.ne = new QuadTree<T>(this.capacity, new Box(halfx, this.box.top, this.box.right, halfy));
+        this.se = new QuadTree<T>(this.capacity, new Box(halfx, halfy, this.box.right, this.box.bottom));
+        this.sw = new QuadTree<T>(this.capacity, new Box(this.box.left, halfy, halfx, this.box.bottom));
+
+        // push points to children
+        for (let i = 0; i < this.data.length; ++i) {
+            let d = this.data[i];
+            this.child(d).add(d);
+        }
+        this.data.length = 0;
+    }
+
+    private child(t: T) {
+        return (t.y < this.nw.box.bottom)
+            ? ((t.x < this.nw.box.right) ? this.nw : this.ne)
+            : ((t.x < this.nw.box.right) ? this.sw : this.se);
+    }
+
+    query(point: Vertex, fn: (t: T) => void) {
+        const box = new Box(point.x, point.y, point.x, point.y);
+        this.findPoints(box, fn);
+    }
+
+    private findPoints(box: Box, fn: (t :T) => void) {
+        if (!this.box) {
+            return;
+        }
+        if (!box.intersectBox(this.box)) {
+            return;
+        }
+        if (this.nw) {
+            this.nw.findPoints(box, fn);
+            this.ne.findPoints(box, fn);
+            this.se.findPoints(box, fn);
+            this.sw.findPoints(box, fn);
+        } else {
+            for (let i = 0; i < this.data.length; ++i) {
+                fn(this.data[i]);
+            }
+        }
+    }
+}
