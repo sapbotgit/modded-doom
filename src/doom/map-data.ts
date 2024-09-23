@@ -335,6 +335,13 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
         : nodes[idx & 0x7fff];
 };
 
+function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: LineDef[]) {
+    const segs = segsLump(mapLumps[5], vertexes, linedefs);
+    const subsectors = subSectorLump(mapLumps[6], segs);
+    const nodes = bspNodesLump(mapLumps[7], vertexes, subsectors);
+    return { segs, nodes, subsectors };
+}
+
 interface BaseTraceHit {
     subsector: SubSector;
     fraction: number; // 0-1 of how far we moved along the desired path
@@ -401,10 +408,9 @@ export class MapData {
         }
         const sidedefs = sideDefsLump(lumps[3], this.sectors);
         this.linedefs = lineDefsLump(lumps[2], this.vertexes, sidedefs);
-        const segs = segsLump(lumps[5], this.vertexes, this.linedefs);
-        const subsectors = subSectorLump(lumps[6], segs);
 
-        this.nodes = bspNodesLump(lumps[7], this.vertexes, subsectors);
+        const { segs, nodes, subsectors } = readBspData(lumps, this.vertexes, this.linedefs);
+        this.nodes = nodes;
         const rootNode = this.nodes[this.nodes.length - 1];
         completeSubSectors(rootNode, subsectors);
         this.bspTracer = createBspTracer(rootNode);
