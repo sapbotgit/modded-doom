@@ -45,12 +45,12 @@ const rngTable = [
     197, 242,  98,  43,  39, 175, 254, 145, 190,  84, 118, 222, 187, 136 ,
     120, 163, 236, 249
 ]
-// We want numbers from 0-1
-.map(e => e / 255);
+// We want numbers from [0, 1)
+.map(e => e / 256);
 export interface RNG {
-    // Real number in range [0, 1]
+    // Real number in range [0, 1)
     real(): number;
-    // Real number in range [-1, 1]
+    // Real number in range (-1, 1)
     real2(): number;
     // Integer bewteen min and max
     int(min: number, max: number): number;
@@ -83,13 +83,12 @@ export class TableRNG implements RNG {
     }
 }
 
-const real = () => Math.random() === 0 ? 1 : Math.random()
 export class ComputedRNG implements RNG {
-    real = real;
+    real = Math.random;
     real2 = () => Math.random() - Math.random();
     int = randInt;
     choice = (list: any[]) => list[randInt(0, list.length - 1)];
-    angleNoise = (shiftBits: number) => (real() - real()) * circleAngle * (1 << shiftBits);
+    angleNoise = (shiftBits: number) => (Math.random() - Math.random()) * circleAngle * (1 << shiftBits);
 }
 
 export const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;

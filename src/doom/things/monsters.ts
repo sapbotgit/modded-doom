@@ -117,7 +117,7 @@ const doom2BossActions: ActionMap = {
         const tpos = target.position.val;
 
         // choose monster type (see https://doomwiki.org/wiki/Monster_spawner)
-        const chance = mobj.rng.real() * 255;
+        const chance = mobj.rng.real() * 256;
         const type =
             chance < 50 ? MapObjectIndex.MT_TROOP :
             chance < 90 ? MapObjectIndex.MT_SERGEANT :
@@ -1040,7 +1040,7 @@ function canShootAttack(mobj: MapObject, target: MapObject) {
     if (mobj.type === MapObjectIndex.MT_CYBORG && chance > 160) {
 	    chance = 160;
     }
-    return (mobj.rng.real() * 255 > chance);
+    return (mobj.rng.real() * 256 > chance);
 }
 
 const shotZOffset = 32;
