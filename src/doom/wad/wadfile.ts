@@ -74,8 +74,8 @@ export function textureLump(lump: Lump) {
         const patchCount = word(lump.data, 0x14 + offsets[i]);
         const patches = new Array<Patch>(patchCount);
         for (let j = 0; j < patchCount; j++) {
-            const originX = word(lump.data, 0x16 + offsets[i] + 10 * j);
-            const originY = word(lump.data, 0x18 + offsets[i] + 10 * j);
+            const originX = int16(word(lump.data, 0x16 + offsets[i] + 10 * j));
+            const originY = int16(word(lump.data, 0x18 + offsets[i] + 10 * j));
             const patchId = word(lump.data, 0x1A + offsets[i] + 10 * j);
             patches[j] = { originX, originY, patchId };
         }
