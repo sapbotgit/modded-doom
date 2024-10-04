@@ -10,6 +10,12 @@ export interface Vertex {
 }
 const dot = (a: Vertex, b: Vertex) => a.x * b.x + a.y * b.y;
 
+export const xyDistSqr = (v1: Vertex, v2: Vertex) => {
+    const dx = v2.x - v1.x;
+    const dy = v2.y - v1.y;
+    return dx * dx + dy * dy;
+}
+
 export interface Bounds {
     top: number;
     left: number;
@@ -403,7 +409,6 @@ export function lineAABB(line: Vertex[], pos: Vertex, radius: number, bounded = 
     // we can get lineAABB using sweep and setting the box radius to 0
     return sweepAABBAABB(line[0], 0, _lineAABB, pos, radius, bounded);
 }
-
 
 class Box {
     left: number;

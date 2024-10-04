@@ -2,7 +2,7 @@ import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex, SoundIndex, StateIndex, states } from '../doom-things-info';
 import { type GameTime } from '../game';
 import { angleBetween, xyDistanceBetween, type MapObject, maxStepSize, maxFloatSpeed } from '../map-object';
-import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance } from '../math';
+import { EIGHTH_PI, HALF_PI, QUARTER_PI, ToRadians, normalizeAngle, signedLineDistance, xyDistSqr } from '../math';
 import { hasLineOfSight, radiusDamage } from './obstacles';
 import { Vector3 } from 'three';
 import { hittableThing, zeroVec, type LineTraceHit, type TraceHit, type Sector, vecFromMovement } from '../map-data';
@@ -765,7 +765,7 @@ function findPlayerTarget(mobj: MapObject, allAround = false) {
             continue;
         }
 
-        const distSqr = mobj.position.val.distanceToSquared(player.position.val);
+        const distSqr = xyDistSqr(mobj.position.val, player.position.val);
         if (distSqr < meleeRangeSqr) {
             return player;
         }

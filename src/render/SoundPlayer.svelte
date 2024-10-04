@@ -1,6 +1,6 @@
 <script lang="ts">
     import { useAppContext } from "./DoomContext";
-    import { MapObject, PlayerMapObject, SoundIndex, store, type Sector, type SoundEmitter, DoomWad } from "../doom";
+    import { MapObject, PlayerMapObject, SoundIndex, store, type Sector, type SoundEmitter, DoomWad, xyDistSqr } from "../doom";
     import { Vector3 } from "three";
     import { randInt } from "three/src/math/MathUtils";
 
@@ -68,12 +68,6 @@
                 0, 0, Math.cos(pitch));
         }
     }
-
-    const xyDistSqr = (v1: Vector3, v2: Vector3) => {
-        const dx = v2.x - v1.x;
-        const dy = v2.y - v1.y;
-        return dx * dx + dy * dy;
-    };
 
     const soundBuffers = new Map<string, AudioBuffer>()
     const word = (buff: Uint8Array, offset: number) => buff[offset + 1] << 8 | buff[offset];
