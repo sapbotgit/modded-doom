@@ -17,10 +17,11 @@
     const { position, direction } = map.player;
     const showBlockmap = useAppContext().settings.showBlockMap;
 
-    let zoom = 500;
-    $: left = $position.x - zoom * .5;
-    $: top = $position.y - zoom * .5;
+    // DOOM vertexes are in the range -32768 and 32767 so maps have a fixed maximum size
+    const mapSize = 65536;
+    let zoom = 60;
     let bounds = map.data.blockMapBounds;
+    $: tScale = -Math.min(size.height, size.width) / mapSize;
 
     function keypress(ev: KeyboardEvent) {
         if (ev.code === 'Escape') {
@@ -47,7 +48,7 @@
     }
 
     function mousewheel(ev: WheelEvent) {
-        zoom = Math.max(50, Math.min(10_000, zoom + ev.deltaY * 2));
+        zoom = Math.max(1, Math.min(200, zoom + ev.deltaY * (zoom / 200)));
     }
 
     function mousemove(ev: MouseEvent) {
@@ -84,7 +85,12 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <svg
     width={size.width} height={size.height}
-    viewBox="{left} {top} {zoom} {zoom}"
+    viewBox="{mapSize * -.5} {mapSize * -.5} {mapSize} {mapSize}"
+    style="
+    transform:
+        scale({zoom})
+        translate({tScale * $position.x}px, {tScale * $position.y}px);
+    "
     on:mousemove={mousemove}
     on:mousedown={mousedown}
     on:mouseup={mouseup}
@@ -177,8 +183,9 @@
 
 <style>
     svg {
+        /* transform: translate(var(--tran)) scale(var(--scale)); */
         /* invert top and bottom */
-        transform: scaleY(-1);
+        scale: 1 -1;
         user-select: none;
     }
 
