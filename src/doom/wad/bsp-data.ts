@@ -34,10 +34,7 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
         const v = [vertexes[v0], vertexes[v1]];
         // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
         // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
-        const angle = Math.atan2(
-            vertexes[v1].y - vertexes[v0].y,
-            vertexes[v1].x - vertexes[v0].x,
-        );
+        const angle = Math.atan2(v[1].y - v[0].y, v[1].x - v[0].x);
         const linedefId = int16(word(lump.data, 6 + i * len));
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 8 + i * len));
@@ -48,7 +45,7 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
 
 // this bounds will never be true when testing for collisions because if something
 // is bigger than left, it will be less than right and fail (same for top and bottom)
-const _invalidBounds: Bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+export const _invalidBounds: Bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
 
 function subSectorLump(lump: Lump, segs: Seg[]) {
     const len = 4;

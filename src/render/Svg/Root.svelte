@@ -47,7 +47,7 @@
     }
 
     function mousewheel(ev: WheelEvent) {
-        zoom = Math.max(50, Math.min(2000, zoom + ev.deltaY * 2));
+        zoom = Math.max(50, Math.min(10_000, zoom + ev.deltaY * 2));
     }
 
     function mousemove(ev: MouseEvent) {
