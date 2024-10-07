@@ -3,7 +3,6 @@ import type { Vertex } from "../math";
 import { _invalidBounds, type BSPData } from "./bsp-data";
 import { dword, int16, word, type Lump } from "./wadfile";
 
-// TODO: negative?
 const fixed = (buff: Uint8Array, offset: number) => dword(buff, offset) / 65536.0;
 
 export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: LineDef[]): BSPData {

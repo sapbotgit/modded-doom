@@ -984,6 +984,7 @@ export const applyTeleportAction = (mobj: MapObject, linedef: LineDef, trigger: 
     }
 
     let triggered = false;
+    // FIXME: for maps with lots of mobjs and teleports, this is going to be slow
     const teleports = map.objs.filter(mo => mo.type === MapObjectIndex.MT_TELEPORTMAN);
     for (const tp of teleports) {
         const tpos = tp.position.val;

@@ -29,13 +29,13 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
     }
     let segs = new Array<Seg>(num);
     for (let i = 0; i < num; i++) {
-        const v0 = int16(word(lump.data, 0 + i * len));
-        const v1 = int16(word(lump.data, 2 + i * len));
+        const v0 = word(lump.data, 0 + i * len);
+        const v1 = word(lump.data, 2 + i * len);
         const v = [vertexes[v0], vertexes[v1]];
         // re-compute this angle because the integer angle (-32768 -> 32767) was not precise enough
         // (if we don't do this, we get walls that sometimes are little bit misaligned in E1M1 - and many other places)
         const angle = Math.atan2(v[1].y - v[0].y, v[1].x - v[0].x);
-        const linedefId = int16(word(lump.data, 6 + i * len));
+        const linedefId = word(lump.data, 6 + i * len);
         const linedef = linedefs[linedefId];
         const direction = int16(word(lump.data, 8 + i * len));
         segs[i] = { v, angle, linedef, direction };

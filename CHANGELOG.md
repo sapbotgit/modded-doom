@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Doom random number generator (RNG) and setting
+- Loading uncompressed zdoom bsp nodes for modern maps (like cosmogenesis)
 
 ### Changed
 - Removed kaitai struct dependency for reading wads. Remove 1 dependency and 1KLoC

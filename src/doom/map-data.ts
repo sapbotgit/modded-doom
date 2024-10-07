@@ -59,13 +59,13 @@ function lineDefsLump(lump: Lump, vertexes: Vertex[], sidedefs: SideDef[]) {
     }
     let lindefs = new Array<LineDef>(num);
     for (let i = 0; i < num; i++) {
-        const v0 = int16(word(lump.data, 0 + i * len));
-        const v1 = int16(word(lump.data, 2 + i * len));
+        const v0 = word(lump.data, 0 + i * len);
+        const v1 = word(lump.data, 2 + i * len);
         const flags = int16(word(lump.data, 4 + i * len));
         const special = int16(word(lump.data, 6 + i * len));
         const tag = int16(word(lump.data, 8 + i * len));
-        const rightSidedef = int16(word(lump.data, 10 + i * len));
-        const leftSidedef = int16(word(lump.data, 12 + i * len));
+        const rightSidedef = word(lump.data, 10 + i * len);
+        const leftSidedef = word(lump.data, 12 + i * len);
 
         lindefs[i] = {
             tag, special, flags,
@@ -657,8 +657,8 @@ function fixVertexes(
     let segVerts = new Set(Array(vertexes.length).keys());
     const numLinedefs = lineDefData.data.length / 14;
     for (let i = 0; i < numLinedefs; i++) {
-        segVerts.delete(int16(word(lineDefData.data, 0 + i * 14)));
-        segVerts.delete(int16(word(lineDefData.data, 2 + i * 14)));
+        segVerts.delete(word(lineDefData.data, 0 + i * 14));
+        segVerts.delete(word(lineDefData.data, 2 + i * 14));
     }
 
     // Doom vertexes are integers so segs from integers can't always be on the line. These "fixes" are mostly
@@ -667,15 +667,15 @@ function fixVertexes(
     // (see addExtraImplicitVertexes()).
     const numSegs = segData.data.length / 12;
     for (let i = 0; i < numSegs; i++) {
-        const v0 = int16(word(segData.data, 0 + i * 12));
-        const v1 = int16(word(segData.data, 2 + i * 12));
+        const v0 = word(segData.data, 0 + i * 12);
+        const v1 = word(segData.data, 2 + i * 12);
         if (!segVerts.has(v0) && !segVerts.has(v1)) {
             continue;
         }
 
-        const ld = int16(word(segData.data, 6 + i * 12));
-        const ldv0 = int16(word(lineDefData.data, 0 + ld * 14));
-        const ldv1 = int16(word(lineDefData.data, 2 + ld * 14));
+        const ld = word(segData.data, 6 + i * 12);
+        const ldv0 = word(lineDefData.data, 0 + ld * 14);
+        const ldv1 = word(lineDefData.data, 2 + ld * 14);
         const line = [vertexes[ldv0], vertexes[ldv1]];
 
         const vx0 = vertexes[v0];
