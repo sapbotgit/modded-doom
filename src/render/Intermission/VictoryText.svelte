@@ -17,7 +17,7 @@
     // A hack to decide if we are Doom2, plutonia, or TNT (and it will often be wrong when we've loaded pwads but then
     // modern PWADs have some kind of map info that we would want to read anyway)
     const endoom = wad.lumpByName('ENDOOM')
-    const chars = endoom.contents.map((c, i) => !(i & 1) ? c : null).filter(e => e);
+    const chars = endoom.data.map((c, i) => !(i & 1) ? c : null).filter(e => e);
     const endoomText = String.fromCharCode(...chars);
     const messageFlavour =
         endoomText.includes('Final DOOM: TNT - Evilution') ? 'T' :
