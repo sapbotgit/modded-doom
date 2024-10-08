@@ -8,15 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Doom random number generator (RNG) and setting
-- Loading uncompressed zdoom bsp nodes for modern maps (like cosmogenesis)
+- Loading uncompressed zdoom bsp nodes (XNOD) for modern maps (like cosmogenesis)
 
 ### Changed
 - Removed kaitai struct dependency for reading wads. Remove 1 dependency and 1KLoC
+- Use CSS transforms (instead of changing viewbox) to make large SVGs render faster
 
 ### Fixed
 - Monster interpolation even after target dies
 - Custom textures from PWADs were not loaded properly
 - Power up duration corrected for: rad suit, light amp, and invis
+- Improve map load performance (from 3-4seconds to 400-800ms on larger maps)
 
 ## [0.6.0] - 2024-09-10
 
