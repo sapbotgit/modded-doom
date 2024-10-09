@@ -10,6 +10,7 @@
     import WipeContainer from './render/Components/WipeContainer.svelte';
     import { fly } from 'svelte/transition';
     import TextureMap from './render/Debug/TextureMap.svelte';
+    import { Canvas } from '@threlte/core';
 
     const wadStore = new WadStore();
     const context = createAppContext();
@@ -89,7 +90,11 @@
     use:context.fullscreen.fullscreenControls
 >
     <!-- <AABBSweepDebug /> -->
-    <TextureMap />
+    <div class="h-screen w-screen">
+        <Canvas>
+            <TextureMap />
+        </Canvas>
+    </div>
 
     <!-- <WipeContainer key={screenName}>
         {#if game}
