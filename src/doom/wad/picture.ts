@@ -9,6 +9,7 @@ export interface Picture {
     readonly height: number;
 
     toBuffer(buffer: Uint8ClampedArray): void;
+    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, x: number, y: number): void;
 }
 
 export class FlatPicture implements Picture {
@@ -29,6 +30,19 @@ export class FlatPicture implements Picture {
             buffer[i * 4 + 3] = 255;
         }
     }
+
+    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, ax: number, ay: number) {
+        for (let x = 0; x < this.width; x++) {
+            for (let y = 0; y < this.height; y++) {
+                let col = this.palette[this.lump[y * this.width + x]];
+                const n = (ay + y) * width + x + ax;
+                buffer[n * 4 + 0] = col.r;
+                buffer[n * 4 + 1] = col.g;
+                buffer[n * 4 + 2] = col.b;
+                buffer[n * 4 + 3] = 255;
+            }
+        }
+    }
 }
 
 export class LumpPicture implements Picture {
@@ -45,6 +59,16 @@ export class LumpPicture implements Picture {
         if (this.lump.length !== 4096 && (this.width > 2048 || this.height > 2048)) {
             console.warn('bad pic?', lump, this.width, this.height)
         }
+    }
+
+    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, ax: number, ay: number) {
+        this.pixels((col, x, y) => {
+            let i = 4 * (ay + y * width + x + ax);
+            buffer[i + 0] = col.r;
+            buffer[i + 1] = col.g;
+            buffer[i + 2] = col.b;
+            buffer[i + 3] = 255;
+        });
     }
 
     toBuffer(buffer: Uint8ClampedArray): void {
@@ -65,6 +89,21 @@ export class LumpPicture implements Picture {
                 return;
             }
             const idx = 4 * (ty * width + tx);
+            buff[idx + 0] = col.r;
+            buff[idx + 1] = col.g;
+            buff[idx + 2] = col.b;
+            buff[idx + 3] = 255;
+        });
+    }
+
+    applyPatchAtlas(buff: Uint8ClampedArray, aWidth: number, ax: number, ay: number, width: number, height: number, originX: number, originY: number) {
+        this.pixels((col, x, y) => {
+            const tx = originX + x;
+            const ty = originY + y;
+            if (tx < 0 || tx >= width || ty < 0 || ty >= height) {
+                return;
+            }
+            const idx = 4 * ((ty + ay) * aWidth + tx + ax);
             buff[idx + 0] = col.r;
             buff[idx + 1] = col.g;
             buff[idx + 2] = col.b;
@@ -105,6 +144,12 @@ export class PatchPicture implements Picture {
         readonly width: number,
         readonly height: number,
         private patches: Patch[]) {}
+
+    toAtlasBuffer(buffer: Uint8ClampedArray, width: number, x: number, y: number) {
+        for (const patch of this.patches) {
+            patch.pic.applyPatchAtlas(buffer, width, x, y, this.width, this.height, patch.originX, patch.originY);
+        }
+    }
 
     toBuffer(buffer: Uint8ClampedArray): void {
         for (const patch of this.patches) {
