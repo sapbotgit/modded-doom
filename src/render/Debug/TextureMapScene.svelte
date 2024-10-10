@@ -1,0 +1,28 @@
+<script lang="ts">
+    import { Canvas, T } from '@threlte/core';
+    import TextureMap from './TextureMap.svelte';
+    import Stats from './Stats.svelte';
+    import { OrbitControls } from '@threlte/extras';
+</script>
+<div class="h-screen w-screen">
+    <Canvas>
+        <Stats />
+
+        <T.PerspectiveCamera
+            makeDefault
+            fov={45}
+            position.x={0}
+            position.y={75}
+            position.z={100}
+        >
+            <OrbitControls  />
+        </T.PerspectiveCamera>
+
+        <T.PointLight
+            args={[0xe7e7e7, 2.5, 100, 0]}
+            position.y={30}
+        />
+
+        <TextureMap />
+    </Canvas>
+</div>
