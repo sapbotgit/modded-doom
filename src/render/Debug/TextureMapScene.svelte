@@ -11,6 +11,7 @@
         <T.PerspectiveCamera
             makeDefault
             fov={45}
+            far={100000}
             position.x={0}
             position.y={75}
             position.z={100}
