@@ -89,9 +89,9 @@
     use:context.fullscreen.fullscreenControls
 >
     <!-- <AABBSweepDebug /> -->
-    <TextureMapScene />
+    <!-- <TextureMapScene /> -->
 
-    <!-- <WipeContainer key={screenName}>
+    <WipeContainer key={screenName}>
         {#if game}
             {#key game}
                 <Doom {game} {musicGain} {soundGain} />
@@ -100,7 +100,7 @@
             <WadScreen {wad} {wadStore} />
             <AppInfo />
         {/if}
-    </WipeContainer> -->
+    </WipeContainer>
 </main>
 
 <style>

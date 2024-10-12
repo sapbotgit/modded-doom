@@ -3,6 +3,7 @@
     import TextureMap from './TextureMap.svelte';
     import Stats from './Stats.svelte';
     import { OrbitControls } from '@threlte/extras';
+    import { FogExp2 } from 'three';
 </script>
 <div class="h-screen w-screen">
     <Canvas>

@@ -7,7 +7,8 @@
     import { buildRenderSectors } from "./RenderData";
     import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
-    import MapRoot from "./Map/Root.svelte";
+    // import MapRoot from "./Map/Root.svelte";
+    import MapRoot from "./R2/Root.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";
     import MapContext from "./Map/Context.svelte";
     import Intermission from "./Intermission/Intermission.svelte";
