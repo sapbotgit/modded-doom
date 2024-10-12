@@ -24,9 +24,10 @@
     const geometry = mapGeo.geometry;
 
     const material = new ShaderMaterial({ ...TextureAtlasShader() });
+    material.uniforms.tLightMap.value = mapGeo.lightMap;
+    material.uniforms.numSectors.value = mapGeo.lightMap.image.width;
     material.uniforms.tMap.value = ta.texture;
     material.uniforms.tAtlas.value = ta.atlas;
-
 </script>
 
 <T.Mesh

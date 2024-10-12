@@ -1,15 +1,16 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import { BufferAttribute, Matrix4, PlaneGeometry, type BufferGeometry } from "three";
+import { BufferAttribute, DataTexture, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
-import { HALF_PI, type LineDef, type Vertex } from "../../doom";
+import { HALF_PI, type LineDef, type Sector, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
+import { cubicIn } from 'svelte/easing';
 
 interface GeometryInfo {
     width: number;
     height: number;
     textureName: string;
     vertexOffset: number;
-    type: 'flat' | 'wall';
+    source: LineDef | RenderSector;
 }
 
 // https://github.com/mrdoob/three.js/issues/17361
@@ -90,7 +91,7 @@ export class MapRenderGeometryBuilder {
         const textureR = ld.right[type];
         const textureName = useLeft ? (textureL?.val ?? textureR.val) : (textureR.val ?? textureL?.val);
 
-        const n = this.addGeometry(geo, textureName);
+        const n = this.addGeometry(geo, ld, textureName);
         geo.rotateX(HALF_PI);
         geo.rotateZ(angle);
         geo.translate(mid.x, mid.y, top - height * .5);
@@ -109,25 +110,28 @@ export class MapRenderGeometryBuilder {
             flipWindingOrder(geo);
             // TODO: also flip normals? We're not doing lighting so maybe not important
         }
-        let n = this.addGeometry(geo, textureName);
+        let n = this.addGeometry(geo, renderSector, textureName);
         geo.translate(0, 0, vertical);
-        this.geoInfo[n].type = 'flat';
         return n;
     }
 
-    addGeometry(geo: BufferGeometry, textureName: string) {
+    private addGeometry(geo: BufferGeometry, source: LineDef | RenderSector, textureName: string) {
+        if (!textureName) {
+            return;
+        }
         this.geos.push(geo);
         geo.computeBoundingBox();
-        const vertexCount = geo.attributes.position.array.length / geo.attributes.position.itemSize;
+        const vertexCount = geo.attributes.position.count;
         if (textureName) {
-            this.applyTexture(geo, textureName);
+            this.applyTexture(geo, textureName,
+                'sector' in source ? source.sector.num : source.right.sector.num);
         } else {
-            geo.setAttribute('texN', new BufferAttribute(new Float32Array(4).fill(0), 1));
+            geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(0), 1));
+            geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
         }
 
         this.geoInfo.push({
-            textureName,
-            type: 'wall',
+            textureName, source,
             width: geo.boundingBox.max.x - geo.boundingBox.min.x,
             height: geo.boundingBox.max.y - geo.boundingBox.min.y,
             vertexOffset: this.vertexCount,
@@ -137,27 +141,30 @@ export class MapRenderGeometryBuilder {
         return this.geos.length - 1;
     }
 
-    private applyTexture(geo: BufferGeometry, textureName: string) {
+    private applyTexture(geo: BufferGeometry, textureName: string, sectorNum: number) {
         let [index, tx] = this.textureAtlas.textureData(textureName);
         const width = geo.boundingBox.max.x - geo.boundingBox.min.x;
         const height = geo.boundingBox.max.y - geo.boundingBox.min.y;
         if (geo.type === 'PlaneGeometry') {
+            const invHeight = 1 / tx.height;
             geo.attributes.uv.array[0] = 0;
-            geo.attributes.uv.array[1] = ((height % tx.height) - height) / tx.height;
+            geo.attributes.uv.array[1] = ((height % tx.height) - height) * invHeight;
             geo.attributes.uv.array[2] = width / tx.width;
-            geo.attributes.uv.array[3] = ((height % tx.height) - height) / tx.height;
+            geo.attributes.uv.array[3] = ((height % tx.height) - height) * invHeight;
             geo.attributes.uv.array[4] = 0;
-            geo.attributes.uv.array[5] = (height % tx.height) / tx.height;
+            geo.attributes.uv.array[5] = (height % tx.height) * invHeight;
             geo.attributes.uv.array[6] = width / tx.width;
-            geo.attributes.uv.array[7] = (height % tx.height) / tx.height;
+            geo.attributes.uv.array[7] = (height % tx.height) * invHeight;
         } else {
             for (let i = 0; i < geo.attributes.uv.array.length; i++) {
                 geo.attributes.uv.array[i] /= 64;
             }
         }
 
-        const vertexCount = geo.attributes.position.array.length / geo.attributes.position.itemSize;
+        const vertexCount = geo.attributes.position.count;
         geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(index), 1));
+        geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
+        (geo.attributes.doomLight as any).gpuType = IntType;
     }
 
     build() {
@@ -167,11 +174,42 @@ export class MapRenderGeometryBuilder {
 }
 
 class MapRenderGeometry {
+    readonly lightMap: DataTexture;
+    private lightCache = new Map<number, number>;
+
     constructor(
         readonly geometry: BufferGeometry,
         readonly geoInfo: GeometryInfo[],
         readonly textureAtlas: TextureAtlas,
-    ) {}
+    ) {
+        const maxLight = 255;
+        for (let i = 0; i < maxLight + 1; i++) {
+            // scale light using a curve to make it look more like doom
+            // TODO: in the old render, I used sineIn but here I need something "stronger". Why?
+            const light = Math.floor(cubicIn(i / maxLight) * maxLight);
+            this.lightCache.set(i, light);
+        }
+
+        let sectors = new Set<Sector>();
+        geoInfo.forEach(info => {
+            if ('sector' in info.source) {
+                sectors.add(info.source.sector);
+            }
+        });
+
+        const buff = new Uint8ClampedArray(sectors.size * 4);
+        this.lightMap = new DataTexture(buff, sectors.size);
+        sectors.keys().forEach((sector, i) => {
+            sector.light.subscribe(light => {
+                const lightVal = this.lightCache.get(Math.max(0, Math.min(255, Math.floor(light))));
+                buff[i * 4 + 0] = lightVal;
+                buff[i * 4 + 1] = lightVal;
+                buff[i * 4 + 2] = lightVal;
+                buff[i * 4 + 3] = 255;
+                this.lightMap.needsUpdate = true;
+            });
+        });
+    }
 
     applyTexture(geoIndex: number, textureName: string, offsetX: number, offsetY: number) {
         const geo = this.geometry;
@@ -181,19 +219,17 @@ class MapRenderGeometry {
         let [index, tx] = this.textureAtlas.textureData(textureName);
 
         // reset uv coords
+        const invHeight = 1 / tx.height;
         geo.attributes.uv.array[2 * offset + 0] = 0;
-        geo.attributes.uv.array[2 * offset + 1] = ((info.height % tx.height) - info.height) / tx.height;
+        geo.attributes.uv.array[2 * offset + 1] = ((info.height % tx.height) - info.height) * invHeight;
         geo.attributes.uv.array[2 * offset + 2] = info.width / tx.width;
-        geo.attributes.uv.array[2 * offset + 3] = ((info.height % tx.height) - info.height) / tx.height;
+        geo.attributes.uv.array[2 * offset + 3] = ((info.height % tx.height) - info.height) * invHeight;
         geo.attributes.uv.array[2 * offset + 4] = 0;
-        geo.attributes.uv.array[2 * offset + 5] = (info.height % tx.height) / tx.height;
+        geo.attributes.uv.array[2 * offset + 5] = (info.height % tx.height) * invHeight;
         geo.attributes.uv.array[2 * offset + 6] = info.width / tx.width;
-        geo.attributes.uv.array[2 * offset + 7] = (info.height % tx.height) / tx.height;
+        geo.attributes.uv.array[2 * offset + 7] = (info.height % tx.height) * invHeight;
         // set texture index
-        geo.attributes.texN.array[offset + 0] = index;
-        geo.attributes.texN.array[offset + 1] = index;
-        geo.attributes.texN.array[offset + 2] = index;
-        geo.attributes.texN.array[offset + 3] = index;
+        geo.attributes.texN.array.fill(index);
 
         geo.attributes.uv.needsUpdate = true;
         geo.attributes.texN.needsUpdate = true;
