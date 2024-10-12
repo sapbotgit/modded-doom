@@ -15,7 +15,7 @@
     const mapBuilder = new MapRenderGeometryBuilder(ta);
     for (const rs of renderSectors) {
         rs.linedefs.forEach(ld => mapBuilder.addLinedef(ld));
-        // TODO: what abaut hack floor/ceiling?
+        // TODO: what about hack floor/ceiling?
         mapBuilder.addFlat(rs, rs.sector.floorFlat.val, rs.sector.zFloor.val);
         mapBuilder.addFlat(rs, rs.sector.ceilFlat.val, rs.sector.zCeil.val, true);
     }

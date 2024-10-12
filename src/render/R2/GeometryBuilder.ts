@@ -86,12 +86,16 @@ export class MapRenderGeometryBuilder {
     }
 
     private wallFragment(ld: LineDef, width: number, height: number, top: number, mid: Vertex, angle: number, useLeft = false, type: 'upper' | 'lower' | 'middle' = 'middle') {
-        const geo = new PlaneGeometry(width, height);
         const textureL = ld.left?.[type];
         const textureR = ld.right[type];
         const textureName = useLeft ? (textureL?.val ?? textureR.val) : (textureR.val ?? textureL?.val);
+        if (!textureName) {
+            return -1;
+        }
 
-        const n = this.addGeometry(geo, ld, textureName);
+        const geo = new PlaneGeometry(width, height);
+        const n = this.addGeometry(geo, ld);
+        this.applyWallTexture(geo, textureName, useLeft ? ld.left.sector.num : ld.right.sector.num);
         geo.rotateX(HALF_PI);
         geo.rotateZ(angle);
         geo.translate(mid.x, mid.y, top - height * .5);
@@ -110,28 +114,20 @@ export class MapRenderGeometryBuilder {
             flipWindingOrder(geo);
             // TODO: also flip normals? We're not doing lighting so maybe not important
         }
-        let n = this.addGeometry(geo, renderSector, textureName);
+        let n = this.addGeometry(geo, renderSector);
+        this.applyFlatTexture(geo, textureName, renderSector.sector.num);
         geo.translate(0, 0, vertical);
         return n;
     }
 
-    private addGeometry(geo: BufferGeometry, source: LineDef | RenderSector, textureName: string) {
-        if (!textureName) {
-            return;
-        }
+    addGeometry(geo: BufferGeometry, source: LineDef | RenderSector) {
         this.geos.push(geo);
         geo.computeBoundingBox();
         const vertexCount = geo.attributes.position.count;
-        if (textureName) {
-            this.applyTexture(geo, textureName,
-                'sector' in source ? source.sector.num : source.right.sector.num);
-        } else {
-            geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(0), 1));
-            geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
-        }
 
         this.geoInfo.push({
-            textureName, source,
+            source,
+            textureName: '',
             width: geo.boundingBox.max.x - geo.boundingBox.min.x,
             height: geo.boundingBox.max.y - geo.boundingBox.min.y,
             vertexOffset: this.vertexCount,
@@ -141,25 +137,32 @@ export class MapRenderGeometryBuilder {
         return this.geos.length - 1;
     }
 
-    private applyTexture(geo: BufferGeometry, textureName: string, sectorNum: number) {
-        let [index, tx] = this.textureAtlas.textureData(textureName);
+    applyFlatTexture(geo: BufferGeometry, textureName: string, sectorNum: number) {
+        let index = this.textureAtlas.flatTexture(textureName)[0];
+        for (let i = 0; i < geo.attributes.uv.array.length; i++) {
+            geo.attributes.uv.array[i] /= 64;
+        }
+
+        const vertexCount = geo.attributes.position.count;
+        geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(index), 1));
+        geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
+        (geo.attributes.doomLight as any).gpuType = IntType;
+    }
+
+    applyWallTexture(geo: BufferGeometry, textureName: string, sectorNum: number) {
+        let [index, tx] = this.textureAtlas.wallTexture(textureName);
         const width = geo.boundingBox.max.x - geo.boundingBox.min.x;
         const height = geo.boundingBox.max.y - geo.boundingBox.min.y;
-        if (geo.type === 'PlaneGeometry') {
-            const invHeight = 1 / tx.height;
-            geo.attributes.uv.array[0] = 0;
-            geo.attributes.uv.array[1] = ((height % tx.height) - height) * invHeight;
-            geo.attributes.uv.array[2] = width / tx.width;
-            geo.attributes.uv.array[3] = ((height % tx.height) - height) * invHeight;
-            geo.attributes.uv.array[4] = 0;
-            geo.attributes.uv.array[5] = (height % tx.height) * invHeight;
-            geo.attributes.uv.array[6] = width / tx.width;
-            geo.attributes.uv.array[7] = (height % tx.height) * invHeight;
-        } else {
-            for (let i = 0; i < geo.attributes.uv.array.length; i++) {
-                geo.attributes.uv.array[i] /= 64;
-            }
-        }
+
+        const invHeight = 1 / tx.height;
+        geo.attributes.uv.array[0] = 0;
+        geo.attributes.uv.array[1] = ((height % tx.height) - height) * invHeight;
+        geo.attributes.uv.array[2] = width / tx.width;
+        geo.attributes.uv.array[3] = ((height % tx.height) - height) * invHeight;
+        geo.attributes.uv.array[4] = 0;
+        geo.attributes.uv.array[5] = (height % tx.height) * invHeight;
+        geo.attributes.uv.array[6] = width / tx.width;
+        geo.attributes.uv.array[7] = (height % tx.height) * invHeight;
 
         const vertexCount = geo.attributes.position.count;
         geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(index), 1));
@@ -216,7 +219,7 @@ class MapRenderGeometry {
         const info = this.geoInfo[geoIndex];
         info.textureName = textureName;
         const offset = info.vertexOffset;
-        let [index, tx] = this.textureAtlas.textureData(textureName);
+        let [index, tx] = this.textureAtlas.wallTexture(textureName);
 
         // reset uv coords
         const invHeight = 1 / tx.height;
@@ -229,7 +232,12 @@ class MapRenderGeometry {
         geo.attributes.uv.array[2 * offset + 6] = info.width / tx.width;
         geo.attributes.uv.array[2 * offset + 7] = (info.height % tx.height) * invHeight;
         // set texture index
-        geo.attributes.texN.array.fill(index);
+        if ('sector' in info.source) {
+            geo.attributes.texN.array[offset + 0] = index;
+            geo.attributes.texN.array[offset + 1] = index;
+            geo.attributes.texN.array[offset + 2] = index;
+            geo.attributes.texN.array[offset + 3] = index;
+        }
 
         geo.attributes.uv.needsUpdate = true;
         geo.attributes.texN.needsUpdate = true;

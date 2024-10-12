@@ -5,9 +5,10 @@ export class TextureAtlas {
     readonly atlas: DataTexture;
     readonly texture: DataTexture;
     private textures: [string, Picture][];
+    private flats: [string, Picture][];
+    private flatStart = 0;
 
     constructor(wad: DoomWad, tSize: number) {
-
         const textures = wad.texturesNames()
             .map<[string, Picture]>(e => [e, wad.wallTextureData(e)])
             .sort((a, b) => b[1].height - a[1].height);
@@ -15,7 +16,9 @@ export class TextureAtlas {
 
         const atlasTexture = new Uint8ClampedArray(tSize * tSize * 4);
         const flats = wad.flatsNames().map<[string, Picture]>(e => [e, wad.flatTextureData(e)]);
+        this.flats = flats;
         const atlasMap = new Float32Array((textures.length + flats.length) * 4);
+        this.flatStart = textures.length;
 
         let off = { x: 0, y: 0 };
         let maxH = -Infinity;
@@ -50,36 +53,40 @@ export class TextureAtlas {
 
             tx.toAtlasBuffer(atlasTexture, tSize, off.x, off.y);
 
-            atlasMap[0 + textures.length * 4] = off.x / tSize;
-            atlasMap[1 + textures.length * 4] = off.y / tSize;
+            atlasMap[0 + (i + this.flatStart) * 4] = off.x / tSize;
+            atlasMap[1 + (i + this.flatStart) * 4] = off.y / tSize;
             off.x += 64;
-            atlasMap[2 + textures.length * 4] = off.x / tSize;
-            atlasMap[3 + textures.length * 4] = (off.y + 64) / tSize;
-            this.textures.push(flats[i])
+            atlasMap[2 + (i + this.flatStart) * 4] = off.x / tSize;
+            atlasMap[3 + (i + this.flatStart) * 4] = (off.y + 64) / tSize;
         }
 
-        const tAtlas = new DataTexture(atlasMap, textures.length);
+        const tAtlas = new DataTexture(atlasMap, flats.length + textures.length);
         tAtlas.type = FloatType;
         tAtlas.needsUpdate = true;
         this.atlas = tAtlas;
 
-        // const data = wad.flatTextureData('CEIL3_5')
-        // const data = wad.flatTextureData('FLOOR4_8')
         const texture = new DataTexture(atlasTexture, tSize, tSize)
         texture.wrapS = RepeatWrapping;
         texture.wrapT = RepeatWrapping;
         texture.magFilter = NearestFilter;
-        // texture.flipY = true;
-        texture.needsUpdate = true;
         texture.colorSpace = SRGBColorSpace;
+        texture.needsUpdate = true;
         this.texture = texture;
     }
 
-    textureData(textureName: string): [number, Picture] {
-        let index = this.textures.findIndex(e => e[0] === textureName);
+    wallTexture(name: string): [number, Picture] {
+        let index = this.textures.findIndex(e => e[0] === name);
         if (index === -1) {
-            console.warn('unmapped texture', textureName);
+            console.warn('unmapped texture', name);
         }
-        return [index / this.textures.length, this.textures[index][1]];
+        return [index / this.atlas.image.width, this.textures[index][1]];
+    }
+
+    flatTexture(name: string): [number, Picture] {
+        let index = this.flats.findIndex(e => e[0] === name);
+        if (index === -1) {
+            console.warn('unmapped flat', name);
+        }
+        return [(index + this.flatStart) / this.atlas.image.width, this.flats[index][1]];
     }
 }
