@@ -17,7 +17,6 @@ interface GeometryInfo {
 function flipWindingOrder(geometry: BufferGeometry) {
     const index = geometry.index.array;
     for( let i = 0, il = index.length / 3; i < il; i++ ) {
-
       const x = index[i * 3];
       index[i * 3] = index[i * 3 + 2];
       index[i * 3 + 2] = x;

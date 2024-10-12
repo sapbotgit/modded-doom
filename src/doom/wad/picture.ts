@@ -35,7 +35,8 @@ export class FlatPicture implements Picture {
         for (let x = 0; x < this.width; x++) {
             for (let y = 0; y < this.height; y++) {
                 let col = this.palette[this.lump[y * this.width + x]];
-                const n = (ay + y) * width + x + ax;
+                // NB: we y-flip flat textures for the texture atlas (NOT wall textures though)
+                const n = (ay + (this.height - y - 1)) * width + x + ax;
                 buffer[n * 4 + 0] = col.r;
                 buffer[n * 4 + 1] = col.g;
                 buffer[n * 4 + 2] = col.b;
