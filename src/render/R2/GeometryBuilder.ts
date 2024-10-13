@@ -51,7 +51,30 @@ export class MapRenderGeometryBuilder {
             return;
         }
 
-        let skyHack = false; // TODO: fix me
+        // Sky Hack! https://doomwiki.org/wiki/Sky_hack
+        // Detect the skyhack is simple but how it's handled is... messy. How it
+        // works is:
+        // (1) we set render order to 1 for everything non-sky
+        // (2) put extra walls from top of line to sky with (renderOrder=0, writeColor=false, and writeDepth=true)
+        //   to occlude geometry behind them
+        //
+        // These extra walls are mostly fine but not perfect. If you go close to an edge and look toward the bunker thing
+        // you can see part of the walls occluded which shouldn't be. Interestingly you can see the same thing in gzDoom
+        //
+        // What I really want to do is not draw stuff that occluded but I can't think of way to do that.
+        // Overall we draw way more geometry than needed.
+        //
+        // See also E3M6 https://doomwiki.org/wiki/File:E3m6_three.PNG
+        const ceilFlatL = (ld.left?.sector ?? {}).ceilFlat?.val;
+        const ceilFlatR = ld.right.sector.ceilFlat.val;
+        const needSkyWall = ceilFlatR === 'F_SKY1';
+        const skyHack = (ceilFlatL === 'F_SKY1' && needSkyWall);
+
+        if (needSkyWall && !skyHack) {
+            const skyHeight = ld.right.sector.skyHeight;
+            this.skyWall(ld, width, skyHeight - zCeilR.val, skyHeight, mid, angle);
+        }
+
         if (ld.left) {
             // two-sided so figure out top and bottom
             if (zCeilR.val !== zCeilL.val && !skyHack) {
@@ -84,6 +107,22 @@ export class MapRenderGeometryBuilder {
         }
     }
 
+    private skyWall(ld: LineDef, width: number, height: number, top: number, mid: Vertex, angle: number) {
+        const geo = new PlaneGeometry(width, height);
+        geo.userData['skyHack'] = true;
+        const vertexCount = geo.attributes.position.count;
+        geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(0), 1));
+        geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
+        (geo.attributes.doomLight as any).gpuType = IntType;
+
+        const n = this.addGeometry(geo, ld);
+        geo.rotateX(HALF_PI);
+        geo.rotateZ(angle);
+        geo.translate(mid.x, mid.y, top - height * .5);
+
+        return n;
+    }
+
     private wallFragment(ld: LineDef, width: number, height: number, top: number, mid: Vertex, angle: number, useLeft = false, type: 'upper' | 'lower' | 'middle' = 'middle') {
         const textureL = ld.left?.[type];
         const textureR = ld.right[type];
@@ -109,6 +148,11 @@ export class MapRenderGeometryBuilder {
     ) {
         let geo = renderSector.geometry.clone();
         if (ceiling) {
+            if (textureName === 'F_SKY1') {
+                // careful: userData is shared between cloned geometries
+                geo.userData = { ...geo.userData };
+                geo.userData['skyHack'] = true;
+            }
             // flip over triangles for ceiling
             flipWindingOrder(geo);
             // TODO: also flip normals? We're not doing lighting so maybe not important
@@ -170,8 +214,16 @@ export class MapRenderGeometryBuilder {
     }
 
     build() {
-        const geometry = BufferGeometryUtils.mergeGeometries(this.geos);
-        return new MapRenderGeometry(geometry, this.geoInfo, this.textureAtlas);
+        const skyGeos = this.geos.filter(e => e.userData['skyHack']);
+        if (skyGeos.length === 0) {
+            // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
+            skyGeos.push(new PlaneGeometry(0, 0));
+        }
+        const geos = this.geos.filter(e => !e.userData['skyHack']);
+        return new MapRenderGeometry(
+            BufferGeometryUtils.mergeGeometries(geos),
+            BufferGeometryUtils.mergeGeometries(skyGeos),
+            this.geoInfo, this.textureAtlas);
     }
 }
 
@@ -181,6 +233,7 @@ class MapRenderGeometry {
 
     constructor(
         readonly geometry: BufferGeometry,
+        readonly skyGeometry: BufferGeometry,
         readonly geoInfo: GeometryInfo[],
         readonly textureAtlas: TextureAtlas,
     ) {
