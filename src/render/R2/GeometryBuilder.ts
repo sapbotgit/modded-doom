@@ -1,5 +1,5 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import { BufferAttribute, DataTexture, IntType, PlaneGeometry, type BufferGeometry } from "three";
+import { BufferAttribute, DataTexture, IntType, PlaneGeometry, type BufferGeometry, type TypedArray } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
 import { HALF_PI, type LineDef, type Sector, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
@@ -22,6 +22,12 @@ function flipWindingOrder(geometry: BufferGeometry) {
       index[i * 3 + 2] = x;
     }
     geometry.index.needsUpdate = true;
+}
+
+const intBufferAttribute = (array: TypedArray, itemSize: number) => {
+    const attr = new BufferAttribute(array, itemSize);
+    attr.gpuType = IntType;
+    return attr;
 }
 
 export class MapRenderGeometryBuilder {
@@ -111,9 +117,8 @@ export class MapRenderGeometryBuilder {
         const geo = new PlaneGeometry(width, height);
         geo.userData['skyHack'] = true;
         const vertexCount = geo.attributes.position.count;
-        geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(0), 1));
-        geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
-        (geo.attributes.doomLight as any).gpuType = IntType;
+        geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
+        geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
 
         const n = this.addGeometry(geo, ld);
         geo.rotateX(HALF_PI);
@@ -187,9 +192,8 @@ export class MapRenderGeometryBuilder {
         }
 
         const vertexCount = geo.attributes.position.count;
-        geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(index), 1));
-        geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
-        (geo.attributes.doomLight as any).gpuType = IntType;
+        geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(index), 1));
+        geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
     }
 
     applyWallTexture(geo: BufferGeometry, textureName: string, sectorNum: number) {
@@ -198,19 +202,19 @@ export class MapRenderGeometryBuilder {
         const height = geo.boundingBox.max.y - geo.boundingBox.min.y;
 
         const invHeight = 1 / tx.height;
+        const top = height % tx.height;
         geo.attributes.uv.array[0] = 0;
-        geo.attributes.uv.array[1] = ((height % tx.height) - height) * invHeight;
+        geo.attributes.uv.array[1] = (top - height) * invHeight;
         geo.attributes.uv.array[2] = width / tx.width;
-        geo.attributes.uv.array[3] = ((height % tx.height) - height) * invHeight;
+        geo.attributes.uv.array[3] = (top - height) * invHeight;
         geo.attributes.uv.array[4] = 0;
-        geo.attributes.uv.array[5] = (height % tx.height) * invHeight;
+        geo.attributes.uv.array[5] = top * invHeight;
         geo.attributes.uv.array[6] = width / tx.width;
-        geo.attributes.uv.array[7] = (height % tx.height) * invHeight;
+        geo.attributes.uv.array[7] = top * invHeight;
 
         const vertexCount = geo.attributes.position.count;
-        geo.setAttribute('texN', new BufferAttribute(new Float32Array(vertexCount).fill(index), 1));
-        geo.setAttribute('doomLight', new BufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
-        (geo.attributes.doomLight as any).gpuType = IntType;
+        geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(index), 1));
+        geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
     }
 
     build() {

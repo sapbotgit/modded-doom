@@ -8,6 +8,8 @@ export class TextureAtlas {
     private flats: [string, Picture][];
     private flatStart = 0;
 
+    get numTextures() { return this.atlas.image.width; }
+
     constructor(wad: DoomWad, tSize: number) {
         const textures = wad.texturesNames()
             .map<[string, Picture]>(e => [e, wad.wallTextureData(e)])
@@ -79,7 +81,7 @@ export class TextureAtlas {
         if (index === -1) {
             console.warn('unmapped texture', name);
         }
-        return [index / this.atlas.image.width, this.textures[index][1]];
+        return [index, this.textures[index][1]];
     }
 
     flatTexture(name: string): [number, Picture] {
@@ -87,6 +89,6 @@ export class TextureAtlas {
         if (index === -1) {
             console.warn('unmapped flat', name);
         }
-        return [(index + this.flatStart) / this.atlas.image.width, this.flats[index][1]];
+        return [(index + this.flatStart), this.flats[index][1]];
     }
 }

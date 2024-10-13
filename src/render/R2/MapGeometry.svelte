@@ -32,6 +32,7 @@
     material.uniforms.numSectors.value = mapGeo.lightMap.image.width;
     material.uniforms.tMap.value = ta.texture;
     material.uniforms.tAtlas.value = ta.atlas;
+    material.uniforms.numTextures.value = ta.numTextures;
 
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
 </script>

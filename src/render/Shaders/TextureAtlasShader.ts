@@ -5,6 +5,7 @@ export const TextureAtlasShader  = () => ({
         'tAtlas': { value: null },
         'tLightMap' : { value: 0 },
         'numSectors' : { value: 0 },
+        'numTextures' : { value: 0 },
         'time': { value: 1.0 },
     },
 
@@ -12,8 +13,8 @@ export const TextureAtlasShader  = () => ({
     varying vec2 vUV;
 
     // texture index
-    flat out float tN;
-    attribute float texN;
+    flat out uint tN;
+    attribute uint texN;
 
     // doom light level
     flat out uint dL;
@@ -32,10 +33,11 @@ export const TextureAtlasShader  = () => ({
     uniform sampler2D tMap;
     uniform sampler2D tAtlas;
     uniform sampler2D tLightMap;
+    uniform uint numTextures;
     uniform uint numSectors;
 
     varying vec2 vUV;
-    flat in float tN;
+    flat in uint tN;
     flat in uint dL;
 
     // https://gamedev.stackexchange.com/questions/138384/how-do-i-avoid-using-the-wrong-texture2d-function-in-glsl
@@ -47,10 +49,10 @@ export const TextureAtlasShader  = () => ({
 
     void main() {
         // light level
-        vec4 light = TEXTURE2D( tLightMap, vec2( float(dL) / float(numSectors), 0.5 ) );
+        vec4 light = TEXTURE2D( tLightMap, vec2( (float(dL) + .5) / float(numSectors), 0.5 ) );
 
         // texture dimensions
-        vec4 t1 = TEXTURE2D( tAtlas, vec2( tN, 0.5 ) );
+        vec4 t1 = TEXTURE2D( tAtlas, vec2( ((float(tN)) + .5) / float(numTextures), 0.5 ) );
         vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
 
         vec2 uv = mod(vUV * dim, dim) + t1.xy;
