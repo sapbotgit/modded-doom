@@ -5,9 +5,9 @@
     import { DoomWad, HALF_PI, store, WadFile } from '../../doom';
     import { WadStore } from '../../WadStore';
     import { TextureAtlas } from '../R2/TextureAtlas';
-    import { TextureAtlasShader } from '../Shaders/TextureAtlasShader';
     import { MapRenderGeometryBuilder } from '../R2/GeometryBuilder';
     import type { RenderSector } from '../RenderData';
+    import { mapMeshMaterial } from '../R2/MapMeshMaterial';
 
     let geometry: BufferGeometry;
     let material: Material;
@@ -97,11 +97,7 @@
         geometry = mapGeo.geometry;
         console.log('attr',geometry.attributes)
 
-        let m = new ShaderMaterial({ ...TextureAtlasShader(), side:DoubleSide });
-        m.uniforms.tLightMap.value = mapGeo.lightMap;
-        m.uniforms.numSectors.value = mapGeo.lightMap.image.width;
-        m.uniforms.tMap.value = ta.texture;
-        m.uniforms.tAtlas.value = ta.atlas;
+        let m = mapMeshMaterial(ta, mapGeo);
         material = m;
 
         if (animate) {

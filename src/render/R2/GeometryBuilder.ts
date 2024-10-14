@@ -16,12 +16,18 @@ interface GeometryInfo {
 // https://github.com/mrdoob/three.js/issues/17361
 function flipWindingOrder(geometry: BufferGeometry) {
     const index = geometry.index.array;
-    for( let i = 0, il = index.length / 3; i < il; i++ ) {
+    for (let i = 0, end = index.length / 3; i < end; i++) {
       const x = index[i * 3];
       index[i * 3] = index[i * 3 + 2];
       index[i * 3 + 2] = x;
     }
     geometry.index.needsUpdate = true;
+
+
+    for (let i = 0; i < geometry.attributes.normal.array.length; i++) {
+        geometry.attributes.normal.array[i] *= -1;
+    }
+    geometry.attributes.normal.needsUpdate = true;
 }
 
 const intBufferAttribute = (array: TypedArray, itemSize: number) => {
@@ -231,7 +237,7 @@ export class MapRenderGeometryBuilder {
     }
 }
 
-class MapRenderGeometry {
+export class MapRenderGeometry {
     readonly lightMap: DataTexture;
     private lightCache = new Map<number, number>;
 
