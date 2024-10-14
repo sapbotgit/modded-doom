@@ -1,10 +1,11 @@
 <script lang="ts">
     import { T, useThrelte } from '@threlte/core';
-    import { MeshBasicMaterial, MeshStandardMaterial } from 'three';
+    import { MeshBasicMaterial } from 'three';
     import { useDoomMap } from '../DoomContext';
     import { TextureAtlas } from './TextureAtlas'
     import { MapRenderGeometryBuilder } from './GeometryBuilder';
     import Wireframe from '../Debug/Wireframe.svelte';
+    import { mapMeshMaterials } from './MapMeshMaterial';
 
 
     const threlte = useThrelte();
@@ -26,71 +27,14 @@
     const mapGeo = mapBuilder.build();
     const geometry = mapGeo.geometry;
 
-    const material = new MeshStandardMaterial({ map: ta.texture, color: 0xffffff });
-    material.onBeforeCompile = shader => {
-        shader.uniforms.tLightMap = { value: mapGeo.lightMap };
-        shader.uniforms.numSectors = { value: mapGeo.lightMap.image.width };
-        shader.uniforms.tMap = { value: ta.texture };
-        shader.uniforms.tAtlas = { value: ta.atlas };
-        shader.uniforms.numTextures = { value: ta.numTextures };
-
-        shader.vertexShader = shader.vertexShader.replace('void main() {', `
-        // texture index
-        flat out uint tN;
-        attribute uint texN;
-
-        // doom light level
-        flat out uint dL;
-        attribute uint doomLight;
-
-        void main() {
-            tN = texN;
-            dL = doomLight;
-        `);
-
-        shader.fragmentShader = `
-        uniform float time;
-        uniform float alphaTest;
-        uniform sampler2D tAtlas;
-        uniform sampler2D tLightMap;
-        uniform uint numTextures;
-        uniform uint numSectors;
-
-        flat in uint tN;
-        flat in uint dL;
-        ` + shader.fragmentShader;
-        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-        #ifdef USE_MAP
-
-        // texture dimensions
-        vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(numTextures), 0.5 ) );
-        vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
-
-        vec2 uv = mod(vMapUv * dim, dim) + t1.xy;
-        vec4 sampledDiffuseColor = texture2D( map, uv );
-        if (sampledDiffuseColor.a < 1.0) {
-            discard;
-        }
-
-        #ifdef DECODE_VIDEO_TEXTURE
-            // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
-            sampledDiffuseColor = vec4( mix( pow( sampledDiffuseColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), sampledDiffuseColor.rgb * 0.0773993808, vec3( lessThanEqual( sampledDiffuseColor.rgb, vec3( 0.04045 ) ) ) ), sampledDiffuseColor.w );
-        #endif
-        diffuseColor *= sampledDiffuseColor;
-
-        #endif
-
-        // light level
-        vec4 sectorLight = texture2D( tLightMap, vec2( (float(dL) + .5) / float(numSectors), 0.5 ) );
-        diffuseColor.rgb *= sectorLight.rgb;
-        `);
-        shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '');
-    };
-
+    const { material, distanceMaterial, depthMaterial } = mapMeshMaterials(ta, mapGeo);
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
 
+    // magic https://stackoverflow.com/questions/49873459
+    const shadowBias = -0.004;
+
     const receiveShadow = true;
-    const castShadow = true;
+    const castShadow = receiveShadow;
     const { position } = map.player;
 </script>
 
@@ -106,6 +50,8 @@
     renderOrder={1}
     {geometry}
     {material}
+    customDepthMaterial={depthMaterial}
+    customDistanceMaterial={distanceMaterial}
     {receiveShadow}
     {castShadow}
 >
@@ -121,4 +67,5 @@
     position.x={$position.x}
     position.y={$position.y}
     position.z={$position.z + 40}
+    shadow.bias={shadowBias}
 />

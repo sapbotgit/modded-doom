@@ -16,7 +16,7 @@ export class TextureAtlas {
             .sort((a, b) => b[1].height - a[1].height);
         this.textures = textures;
 
-        const atlasTexture = new Uint8ClampedArray(tSize * tSize * 4);
+        const atlasTexture = new Uint8ClampedArray(tSize * tSize * 4).fill(0);
         const flats = wad.flatsNames().map<[string, Picture]>(e => [e, wad.flatTextureData(e)]);
         this.flats = flats;
         const atlasMap = new Float32Array((textures.length + flats.length) * 4);

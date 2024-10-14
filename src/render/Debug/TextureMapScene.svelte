@@ -20,10 +20,7 @@
             <OrbitControls  />
         </T.PerspectiveCamera>
 
-        <T.PointLight
-            args={[0xe7e7e7, 2.5, 100, 0]}
-            position.y={30}
-        />
+        <!-- <T.AmbientLight color={'white'} intensity={4} /> -->
 
         <TextureMap />
     </Canvas>

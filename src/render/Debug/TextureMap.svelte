@@ -1,16 +1,19 @@
 <script lang="ts">
-    import { T, useThrelte } from '@threlte/core';
-    import { BufferAttribute, DoubleSide, BufferGeometry, Color, Material, PlaneGeometry, ShaderMaterial } from 'three';
+    import { T, useTask, useThrelte } from '@threlte/core';
+    import { BufferAttribute, DoubleSide, BufferGeometry, Mesh, Color, MeshDepthMaterial, RGBADepthPacking, Material, PlaneGeometry, MeshDistanceMaterial, PCFSoftShadowMap, PCFShadowMap, ShaderMaterial, VSMShadowMap,BasicShadowMap, SphereGeometry, MeshBasicMaterial } from 'three';
     import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
     import { DoomWad, HALF_PI, store, WadFile } from '../../doom';
     import { WadStore } from '../../WadStore';
     import { TextureAtlas } from '../R2/TextureAtlas';
     import { MapRenderGeometryBuilder } from '../R2/GeometryBuilder';
     import type { RenderSector } from '../RenderData';
-    import { mapMeshMaterial } from '../R2/MapMeshMaterial';
+    import { mapMeshMaterials } from '../R2/MapMeshMaterial';
+    import { onMount } from 'svelte';
 
     let geometry: BufferGeometry;
     let material: Material;
+    let depthMaterial: Material;
+    let distanceMaterial: Material;
 
     const threlte = useThrelte();
 
@@ -87,18 +90,31 @@
         geo.rotateY(-HALF_PI);
         geo.translate(wallSize / 2, wallSize / 2, 0);
 
-        // // back
+        // back
         geo = new PlaneGeometry(wallSize, wallSize);
         let backWall = mrgBuilder.addGeometry(geo, source);
         mrgBuilder.applyWallTexture(geo, textureNames[14], 0);
         geo.translate(0, wallSize / 2, -wallSize / 2);
 
+        // mid front
+        geo = new PlaneGeometry(300, 256);
+        mrgBuilder.addGeometry(geo, source);
+        mrgBuilder.applyWallTexture(geo, 'BRNSMALC', 0);
+        geo.translate(0, 200, 0);
+        // mid back
+        geo = new PlaneGeometry(300, 256);
+        mrgBuilder.addGeometry(geo, source);
+        mrgBuilder.applyWallTexture(geo, 'BRNSMALC', 0);
+        geo.rotateX(Math.PI);
+        geo.translate(0, 200, 0);
+
         const mapGeo = mrgBuilder.build();
         geometry = mapGeo.geometry;
-        console.log('attr',geometry.attributes)
 
-        let m = mapMeshMaterial(ta, mapGeo);
-        material = m;
+        let m = mapMeshMaterials(ta, mapGeo);
+        material = m.material;
+        depthMaterial = m.depthMaterial;
+        distanceMaterial = m.distanceMaterial;
 
         if (animate) {
             let n = 0;
@@ -106,9 +122,7 @@
                 for (let i = 0; i < (stressTest ? 100 : 1); i++) {
                     n = (n + 1) % textureNames.length;
                     let gi = stressTest ? Math.floor(Math.random() * mapGeo.geoInfo.length - 1) : backWall;
-                    mapGeo.applyTexture(gi, textureNames[n], 0, 0);
-                    gi = stressTest ? Math.floor(Math.random() * mapGeo.geoInfo.length - 1) : backWall;
-                    mapGeo.changeWallHeight(gi, wallSize * Math.random() * 2);
+                    mapGeo.changeWallHeight(gi, wallSize * Math.random() * 2, textureNames[n]);
                 }
             }, stressTest ? 1 : 1000)
         }
@@ -121,8 +135,26 @@
     Loading
 {:then}
     <T.Mesh
+        castShadow
+        receiveShadow
         position.y={-wallSize / 2}
         {geometry}
         {material}
+        customDepthMaterial={depthMaterial}
+        customDistanceMaterial={distanceMaterial}
     />
 {/await}
+
+
+<T.PointLight
+    color={0xe7e7e7}
+    intensity={20}
+    distance={400}
+    decay={0}
+    castShadow
+    position.y={-70}
+    position.z={120}
+    shadow.bias={-.004}
+>
+    <T.Mesh geometry={new SphereGeometry(10)} material={new MeshBasicMaterial({ color: 'white' })} />
+</T.PointLight>

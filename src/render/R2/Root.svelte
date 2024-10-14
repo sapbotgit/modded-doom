@@ -30,13 +30,13 @@
 
 <MapGeometry />
 
-<!-- {#each renderSectors as renderSector}
+{#each renderSectors as renderSector}
     {@const mo = [...renderSector.mobjs.val].sort((a, b) => a.id - b.id)}
     {#each mo as thing (thing.id)}
         {#if thing.type !== MapObjectIndex.MT_PLAYER}
             <Thing {renderSector} {thing} />
         {/if}
     {/each}
-{/each} -->
+{/each}
 
 <Player />

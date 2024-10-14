@@ -8,9 +8,9 @@
 </script>
 <script lang="ts">
     import { T } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial, DoubleSide, BackSide } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle, MapObjectIndex } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';
@@ -88,6 +88,7 @@
 
     $: if (material instanceof MeshStandardMaterial) {
         material.emissiveIntensity = ($editor.selected === thing) ? 0.1 : 0;
+        material.shadowSide = $cameraMode === 'ortho' ? DoubleSide : BackSide;
     }
 
     $: if (material instanceof ShaderMaterial && $tick) {
@@ -116,9 +117,14 @@
         ev.stopPropagation();
         $editor.selected = thing;
     }
+
+    const castShadow = thing.type !== MapObjectIndex.MT_PLAYER;
+    const receiveShadow = castShadow;
 </script>
 
 <T.Mesh
+    {castShadow}
+    {receiveShadow}
     on:click={hit}
     userData={{ type: 'mobj', moType: thing.type }}
     renderOrder={1}

@@ -67,19 +67,12 @@ export const ScreenColorShader = {
         return 0.2 * flashTiming(radiationTime, 6.0, 2.0);
     }
 
-    // https://gamedev.stackexchange.com/questions/138384/how-do-i-avoid-using-the-wrong-texture2d-function-in-glsl
-    #if __VERSION__ < 130
-    #define TEXTURE2D texture2D
-    #else
-    #define TEXTURE2D texture
-    #endif
-
     void main() {
         vec3 red = vec3( 1.0, 0.0, 0.0 );
         vec3 green = vec3( 0.0, 1.0, 0.0 );
         vec3 gold = vec3( 1.0, 0.843, 0.0 );
 
-        vec4 texel = TEXTURE2D( tDiffuse, vUv );
+        vec4 texel = texture2D( tDiffuse, vUv );
         vec3 invulnC = invulnColor(texel);
         vec3 damageC = red * damageScale();
         vec3 berserkC = red * berserkScale();

@@ -305,7 +305,7 @@ export class MapRenderGeometry {
         geo.attributes.texN.needsUpdate = true;
     }
 
-    changeWallHeight(geoIndex: number, height: number) {
+    changeWallHeight(geoIndex: number, height: number, tname: string) {
         const geo = this.geometry;
         const info = this.geoInfo[geoIndex];
         const offset = info.vertexOffset * 3;
@@ -313,6 +313,6 @@ export class MapRenderGeometry {
         geo.attributes.position.array[offset + 1] = height + geo.attributes.position.array[offset + 7];
         geo.attributes.position.array[offset + 4] = height + geo.attributes.position.array[offset + 10];
         geo.attributes.position.needsUpdate = true;
-        this.applyTexture(geoIndex, info.textureName, 0, 0);
+        this.applyTexture(geoIndex, tname, 0, 0);
     }
 }
