@@ -50,6 +50,7 @@ export const TextureAtlasShader  = () => ({
     void main() {
         // light level
         vec4 light = TEXTURE2D( tLightMap, vec2( (float(dL) + .5) / float(numSectors), 0.5 ) );
+        // vec4 light = vec4(1.0, 1.0, 1.0, 1.0);
 
         // texture dimensions
         vec4 t1 = TEXTURE2D( tAtlas, vec2( ((float(tN)) + .5) / float(numTextures), 0.5 ) );
@@ -60,7 +61,6 @@ export const TextureAtlasShader  = () => ({
         if (texel.a < 1.0) {
             discard;
         }
-        // light = vec4(0.01, 0.01, 0.01, 1.0);
         gl_FragColor = texel * light;
         // gl_FragColor = light;
     }`,

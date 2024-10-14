@@ -1,11 +1,12 @@
 <script lang="ts">
-    import { type MapRuntime } from "../../doom";
+    import { MapObjectIndex, type MapRuntime } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import Stats from "../Debug/Stats.svelte";
     import SkyBox from "../Map/SkyBox.svelte";
     import Player from "../Map/Player.svelte";
     import MapGeometry from "./MapGeometry.svelte";
     import { interactivity } from "@threlte/extras";
+    import Thing from "../Map/Thing.svelte";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
@@ -28,5 +29,14 @@
 <SkyBox />
 
 <MapGeometry />
+
+<!-- {#each renderSectors as renderSector}
+    {@const mo = [...renderSector.mobjs.val].sort((a, b) => a.id - b.id)}
+    {#each mo as thing (thing.id)}
+        {#if thing.type !== MapObjectIndex.MT_PLAYER}
+            <Thing {renderSector} {thing} />
+        {/if}
+    {/each}
+{/each} -->
 
 <Player />
