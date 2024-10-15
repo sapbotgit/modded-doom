@@ -41,6 +41,9 @@ export class MapRenderGeometryBuilder {
     private geoInfo: GeometryInfo[] = [];
     private vertexCount = 0;
 
+    private skyGeo: BufferGeometry;
+    private geo: BufferGeometry;
+
     constructor(private textureAtlas: TextureAtlas) {}
 
     addLinedef(ld: LineDef) {
@@ -148,6 +151,7 @@ export class MapRenderGeometryBuilder {
         geo.rotateX(HALF_PI);
         geo.rotateZ(angle);
         geo.translate(mid.x, mid.y, top - height * .5);
+        this._build();
         return n;
     }
 
@@ -166,11 +170,11 @@ export class MapRenderGeometryBuilder {
         if (ceiling) {
             // flip over triangles for ceiling
             flipWindingOrder(geo);
-            // TODO: also flip normals? We're not doing lighting so maybe not important
         }
         let n = this.addGeometry(geo, renderSector);
         this.applyFlatTexture(geo, textureName, renderSector.sector.num);
         geo.translate(0, 0, vertical);
+        this._build();
         return n;
     }
 
@@ -223,16 +227,37 @@ export class MapRenderGeometryBuilder {
         geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
     }
 
+    private _last: number;
+    private _build(force = false) {
+        clearTimeout(this._last);
+        const build = () => {
+            const skyGeos = this.geos.filter(e => e.userData['skyHack']);
+            if (skyGeos.length === 0) {
+                // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
+                skyGeos.push(new PlaneGeometry(0, 0));
+            }
+            const geos = this.geos.filter(e => !e.userData['skyHack']);
+            this.geo = BufferGeometryUtils.mergeGeometries(geos);
+            this.skyGeo = BufferGeometryUtils.mergeGeometries(skyGeos);
+            }
+            if (force) {
+                build() } else {
+        this._last = setTimeout(build, 20) as any;
+                }
+    }
+
     build() {
-        const skyGeos = this.geos.filter(e => e.userData['skyHack']);
-        if (skyGeos.length === 0) {
-            // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
-            skyGeos.push(new PlaneGeometry(0, 0));
-        }
-        const geos = this.geos.filter(e => !e.userData['skyHack']);
+        // const skyGeos = this.geos.filter(e => e.userData['skyHack']);
+        // if (skyGeos.length === 0) {
+        //     // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
+        //     skyGeos.push(new PlaneGeometry(0, 0));
+        // }
+        // const geos = this.geos.filter(e => !e.userData['skyHack']);
+        this._build(true);
         return new MapRenderGeometry(
-            BufferGeometryUtils.mergeGeometries(geos),
-            BufferGeometryUtils.mergeGeometries(skyGeos),
+            // BufferGeometryUtils.mergeGeometries(geos),
+            // BufferGeometryUtils.mergeGeometries(skyGeos),
+            this.geo,this.skyGeo,
             this.geoInfo, this.textureAtlas);
     }
 }
