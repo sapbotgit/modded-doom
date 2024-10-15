@@ -158,12 +158,12 @@ export class MapRenderGeometryBuilder {
         ceiling = false,
     ) {
         let geo = renderSector.geometry.clone();
+        if (textureName === 'F_SKY1') {
+            // careful: userData is shared between cloned geometries
+            geo.userData = { ...geo.userData };
+            geo.userData['skyHack'] = true;
+        }
         if (ceiling) {
-            if (textureName === 'F_SKY1') {
-                // careful: userData is shared between cloned geometries
-                geo.userData = { ...geo.userData };
-                geo.userData['skyHack'] = true;
-            }
             // flip over triangles for ceiling
             flipWindingOrder(geo);
             // TODO: also flip normals? We're not doing lighting so maybe not important
