@@ -14,7 +14,6 @@
     const vy = linedef.v[1].y - linedef.v[0].y;
     const width = Math.sqrt(vx * vx + vy * vy);
     const angle = Math.atan2(vy, vx);
-    const leftAngle = angle + Math.PI;
 
     const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { middle: middleL }  = linedef.left ?? {};
@@ -53,23 +52,23 @@
 
     {#if linedef.left}
         <!-- two-sided so figure out top and bottom -->
-        {#if $zCeilR !== $zCeilL && !skyHack}
+        {#if true || $zCeilR !== $zCeilL && !skyHack}
             {@const useLeft = $zCeilL > $zCeilR}
             {@const height = useLeft ? $zCeilL - $zCeilR : $zCeilR - $zCeilL}
             {@const top = Math.max($zCeilR, $zCeilL)}
             <WallFragment
                 {linedef} {useLeft}
-                {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
+                {width} {height} {top} {mid} {angle}
                 type={'upper'}
             />
         {/if}
-        {#if $zFloorL !== $zFloorR}
+        {#if true || $zFloorL !== $zFloorR}
             {@const useLeft = $zFloorR > $zFloorL}
             {@const height = useLeft ? $zFloorR - $zFloorL : $zFloorL - $zFloorR}
             {@const top = Math.max($zFloorR, $zFloorL)}
             <WallFragment
                 {linedef} {useLeft}
-                {width} {height} {top} {mid} angle={useLeft ? leftAngle : angle}
+                {width} {height} {top} {mid} {angle}
                 type={'lower'}
             />
         {/if}
@@ -79,7 +78,7 @@
         {#if $middleL}
             <WallFragment
                 {linedef} useLeft doubleSidedMiddle
-                {width} {height} {top} {mid} angle={leftAngle}
+                {width} {height} {top} {mid} {angle}
             />
         {/if}
         {#if $middleR}

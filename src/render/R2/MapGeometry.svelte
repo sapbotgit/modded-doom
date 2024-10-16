@@ -3,6 +3,7 @@
         addWallFragment(geo: BufferGeometry, sectorNum: number): number;
         applyWallTexture(geo: number, textureName: string, width: number, height: number, offsetX: number, offsetY: number): void;
         changeWallHeight(geo: number, top: number, height: number): void;
+        flipZ(geo: number);
 
         addFlat(geo: BufferGeometry, sectorNum: number): number;
         applyFlatTexture(geo: number, textureName: string): void;
@@ -58,7 +59,6 @@
                 numVertex += vertexCount;
             }
 
-            console.log('add wall',[sky,vertexCount,vertexOffset])
             geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
             geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
             geos.push(geo);
@@ -114,6 +114,30 @@
             geo.attributes.position.array[offset + 5] = top;
             geo.attributes.position.array[offset + 8] = top - height;
             geo.attributes.position.array[offset + 11] = top - height;
+            geo.attributes.position.needsUpdate = true;
+        };
+
+        const flipZ = (geoIndex: number) => {
+            if (builtCount < geoIndex) {
+                return pendingUpdates.push(() => flipZ(geoIndex));
+            }
+            const offset = geoInfo[geoIndex].vertexOffset * 3;
+            const geo = geoInfo[geoIndex].sky ? skyGeometry : geometry;
+
+            let x1 = geo.attributes.position.array[offset + 0];
+            let y1 = geo.attributes.position.array[offset + 1];
+            geo.attributes.position.array[offset + 0] = geo.attributes.position.array[offset + 9];
+            geo.attributes.position.array[offset + 1] = geo.attributes.position.array[offset + 10];
+            geo.attributes.position.array[offset + 9] = x1;
+            geo.attributes.position.array[offset + 10] = y1;
+
+            let x2 = geo.attributes.position.array[offset + 3];
+            let y2 = geo.attributes.position.array[offset + 4];
+            geo.attributes.position.array[offset + 3] = geo.attributes.position.array[offset + 6];
+            geo.attributes.position.array[offset + 4] = geo.attributes.position.array[offset + 7];
+            geo.attributes.position.array[offset + 6] = x2;
+            geo.attributes.position.array[offset + 7] = y2;
+
             geo.attributes.position.needsUpdate = true;
         };
 
@@ -202,7 +226,7 @@
         }
 
         return {
-            addFlat, moveFlat, applyFlatTexture,
+            addFlat, moveFlat, applyFlatTexture, flipZ,
             addWallFragment, applyWallTexture, changeWallHeight,
         };
     }

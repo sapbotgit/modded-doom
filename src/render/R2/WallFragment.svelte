@@ -68,6 +68,7 @@
         return offset;
     }
 
+    let lastLeft = useLeft;
     const mapGeo = getContext<GeometryBuilder>('doom-map-geo');
     const geo = new PlaneGeometry(width, height);
     geo.userData['sky'] = skyHack;
@@ -76,13 +77,16 @@
     const wallGeo = wallCache.get(key) ?? mapGeo.addWallFragment(geo, sidedef.sector.num);
     wallCache.set(key, wallGeo);
     geo.rotateX(HALF_PI);
-    geo.rotateZ(angle);
+    geo.rotateZ(angle + (useLeft ? Math.PI : 0));
     geo.translate(mid.x, mid.y, top - height * .5);
 
     $: mapGeo.changeWallHeight(wallGeo, top, height);
     $: mapGeo.applyWallTexture(wallGeo, texture, width, height,
         $xOffset + ($animOffset ?? 0),
         $yOffset + pegging(linedef));
+    $: if (lastLeft !== useLeft) {
+        mapGeo.flipZ(wallGeo);
+    }
 
     // make wall invisible
     onDestroy(() => {
