@@ -28,7 +28,7 @@ const fragmentPars = `
 uniform sampler2D tAtlas;
 uniform uint numTextures;
 uniform sampler2D tLightMap;
-uniform uint numSectors;
+uniform uint tLightMapWidth;
 
 flat in uint dL;
 flat in uint tN;
@@ -59,7 +59,7 @@ export function mapMeshMaterials(ta: TextureAtlas, mapGeo: MapRenderGeometry) {
     });
     material.onBeforeCompile = shader => {
         shader.uniforms.tLightMap = { value: mapGeo.lightMap };
-        shader.uniforms.numSectors = { value: mapGeo.lightMap.image.width };
+        shader.uniforms.tLightMapWidth = { value: mapGeo.lightMap.image.width };
         shader.uniforms.tMap = { value: ta.texture };
         shader.uniforms.tAtlas = { value: ta.atlas };
         shader.uniforms.numTextures = { value: ta.numTextures };
@@ -88,8 +88,13 @@ export function mapMeshMaterials(ta: TextureAtlas, mapGeo: MapRenderGeometry) {
         #endif
 
         // light level
-        vec4 sectorLight = texture2D( tLightMap, vec2( (float(dL) + .5) / float(numSectors), 0.5 ) );
-        diffuseColor *= sectorLight;
+        float dLf = float(dL);
+        float invLightMapWidth = 1.0 / float(tLightMapWidth);
+        vec2 lightUV = vec2(
+            mod(dLf, float(tLightMapWidth)),
+            floor(dLf * invLightMapWidth) );
+        vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
+        diffuseColor.rgb *= sectorLight.rgb;
         `);
     };
 

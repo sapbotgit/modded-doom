@@ -39,9 +39,9 @@
             <Wall {renderSector} {linedef} />
         <!-- {/if} -->
     {/each}
-    {#each mo as thing (thing.id)}
+    <!-- {#each mo as thing (thing.id)}
         {#if thing.type !== MapObjectIndex.MT_PLAYER}
             <Thing {renderSector} {thing} />
         {/if}
-    {/each}
+    {/each} -->
 </div>

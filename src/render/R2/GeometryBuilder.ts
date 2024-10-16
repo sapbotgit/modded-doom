@@ -287,8 +287,9 @@ export class MapRenderGeometry {
             }
         });
 
-        const buff = new Uint8ClampedArray(sectors.size * 4);
-        this.lightMap = new DataTexture(buff, sectors.size);
+        const textureSize = findNearestPower2(Math.sqrt(sectors.size));
+        const buff = new Uint8ClampedArray(textureSize * textureSize * 4);
+        this.lightMap = new DataTexture(buff, textureSize, textureSize);
         sectors.keys().forEach((sector, i) => {
             sector.light.subscribe(light => {
                 const lightVal = this.lightCache.get(Math.max(0, Math.min(255, Math.floor(light))));
@@ -340,4 +341,12 @@ export class MapRenderGeometry {
         geo.attributes.position.needsUpdate = true;
         this.applyTexture(geoIndex, tname, 0, 0);
     }
+}
+
+function findNearestPower2(n: number) {
+    let t = 1;
+    while (t < n) {
+        t *= 2;
+    }
+    return t;
 }
