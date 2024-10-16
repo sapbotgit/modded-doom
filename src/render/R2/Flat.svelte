@@ -24,7 +24,7 @@
         }
         geometry.index.needsUpdate = true;
 
-
+        // flip normals
         for (let i = 0; i < geometry.attributes.normal.array.length; i++) {
             geometry.attributes.normal.array[i] *= -1;
         }

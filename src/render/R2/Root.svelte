@@ -6,7 +6,6 @@
     import Player from "../Map/Player.svelte";
     import MapGeometry from "./MapGeometry.svelte";
     import { interactivity } from "@threlte/extras";
-    import Thing from "../Map/Thing.svelte";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();

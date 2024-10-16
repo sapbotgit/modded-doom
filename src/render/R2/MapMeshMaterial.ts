@@ -1,4 +1,4 @@
-import { FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial } from "three";
+import { DoubleSide, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
 import type { MapRenderGeometry } from "./GeometryBuilder";
 

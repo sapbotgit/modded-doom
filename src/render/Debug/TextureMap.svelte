@@ -97,16 +97,16 @@
         geo.translate(0, wallSize / 2, -wallSize / 2);
 
         // mid front
-        geo = new PlaneGeometry(300, 256);
+        geo = new PlaneGeometry(300, 196);
         mrgBuilder.addGeometry(geo, source);
         mrgBuilder.applyWallTexture(geo, 'BRNSMALC', 0);
-        geo.translate(0, 200, 0);
+        geo.translate(0, 100, 0);
         // mid back
-        geo = new PlaneGeometry(300, 256);
+        geo = new PlaneGeometry(300, 196);
         mrgBuilder.addGeometry(geo, source);
         mrgBuilder.applyWallTexture(geo, 'BRNSMALC', 0);
         geo.rotateX(Math.PI);
-        geo.translate(0, 200, 0);
+        geo.translate(0, 100, 0);
 
         const mapGeo = mrgBuilder.build();
         geometry = mapGeo.geometry;
@@ -153,7 +153,7 @@
     decay={0}
     castShadow
     position.y={-70}
-    position.z={120}
+    position.z={180}
     shadow.bias={-.004}
 >
     <T.Mesh geometry={new SphereGeometry(10)} material={new MeshBasicMaterial({ color: 'white' })} />

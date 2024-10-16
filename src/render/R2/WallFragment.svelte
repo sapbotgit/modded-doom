@@ -1,9 +1,13 @@
+<script lang="ts" context="module">
+    let mapName: string;
+    let wallCache = new Map<string, number>();
+</script>
 <script lang="ts">
     import { PlaneGeometry } from "three";
     import { HALF_PI, type LineDef, type Vertex } from "../../doom";
-    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
+    import { useDoom } from "../DoomContext";
     import type { GeometryBuilder } from "./MapGeometry.svelte";
-    import { getContext } from "svelte";
+    import { getContext, onDestroy } from "svelte";
 
     export let linedef: LineDef;
     export let useLeft = false;
@@ -30,73 +34,58 @@
     const { yOffset, xOffset } = sidedef;
     const { xOffset: animOffset, flags } = linedef;
 
-    const { settings, editor } = useAppContext();
-    const { useTextures, cameraMode, fakeContrast } = settings;
-    const { wad, textures } = useDoom();
-    const { map } = useDoomMap();
+    const { wad } = useDoom();
 
     const { zFloor : zFloorL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR, skyHeight } = linedef.right.sector
 
+    // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
+    $: if (texture && doubleSidedMiddle) {
+        const pic = wad.wallTextureData(texture);
+        // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
+        height = Math.min(height, pic.height);
+        if (linedef.flags & 0x0010) {
+            // see cages in plutonia MAP24
+            top = Math.max(zFloorL.val, zFloorR.val) + height;
+        }
+    }
+    function pegging(linedef: LineDef) {
+        let offset = 0;
+        if (linedef.left) {
+            if (type === 'lower' && (flags & 0x0010)) {
+                // unpegged so subtract higher floor from ceiling to get real offset
+                // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
+                offset = (skyHeight ?? $zCeilR) - Math.max($zFloorL, $zFloorR);
+            } else if (type === 'upper' && !(flags & 0x0008)) {
+                offset = -height;
+            } else if (type === 'middle') {
+                offset = -height;
+            }
+        } else if (linedef.flags & 0x0010) {
+            // peg to floor (bottom left)
+            offset = -height;
+        }
+        return offset;
+    }
+
     const mapGeo = getContext<GeometryBuilder>('doom-map-geo');
     const geo = new PlaneGeometry(width, height);
     geo.userData['sky'] = skyHack;
-    const wallGeo = mapGeo.addWallFragment(geo, sidedef.sector.num);
+    // this cache is a total hack to allow us to add geometry to the map but not really remove it
+    const key = [type, linedef.num, angle, useLeft, skyHack].join(':');
+    const wallGeo = wallCache.get(key) ?? mapGeo.addWallFragment(geo, sidedef.sector.num);
+    wallCache.set(key, wallGeo);
     geo.rotateX(HALF_PI);
     geo.rotateZ(angle);
     geo.translate(mid.x, mid.y, top - height * .5);
 
     $: mapGeo.changeWallHeight(wallGeo, top, height);
-    $: mapGeo.applyWallTexture(wallGeo, texture, width, height, $xOffset, $yOffset);
+    $: mapGeo.applyWallTexture(wallGeo, texture, width, height,
+        $xOffset + ($animOffset ?? 0),
+        $yOffset + pegging(linedef));
 
-    // // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
-    // // and we get a ~25% performance boost. I'd rather keep this and use the BSP to cull walls
-    // $: material = new MeshStandardMaterial({ color: lineStroke() });
-    // $: texture2 = texture ? textures.get(texture, 'wall').clone() : null;
-    // $: if (texture2) {
-    //     if (doubleSidedMiddle) {
-    //         // double sided linedefs (generally for semi-transparent textures) do not repeat vertically
-    //         height = Math.min(height, texture2.userData.height);
-    //     }
-    //     texture2.repeat.x = width * texture2.userData.invWidth;
-    //     texture2.repeat.y = height * texture2.userData.invHeight;
-    //     material.map = $useTextures ? texture2 : null;
-    //     material.transparent = ($cameraMode === 'ortho');
-    //     material.needsUpdate = true;
-    // } else if (linedef.transparentWindowHack) {
-    //     material.transparent = true;
-    //     material.opacity = 0.1;
-    // } else {
-    //     material.map = null;
-    // }
-
-    // $: if (material.map && (flags || $xOffset || $yOffset || ($animOffset ?? 0))) {
-    //     // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
-    //     // threejs uses 0,0 in bottom left but doom uses 0,0 for top left so we by default
-    //     // "peg" the corner to the top left by offsetting by height
-    //     let pegging = -height;
-    //     if (linedef.left) {
-    //         if (type === 'lower' && (flags & 0x0010)) {
-    //             // unpegged so subtract higher floor from ceiling to get real offset
-    //             // NOTE: we use skyheight (if available) instead of zCeil because of the blue wall switch in E3M6.
-    //             pegging -= (skyHeight ?? $zCeilR) - Math.max($zFloorL, $zFloorR);
-    //         } else if (type === 'upper' && !(flags & 0x0008)) {
-    //             pegging = 0;
-    //         } else if (type === 'middle') {
-    //             if (doubleSidedMiddle && (flags & 0x0010)) {
-    //                 // see cages in plutonia MAP24
-    //                 top = Math.max($zFloorL, $zFloorR) + height;
-    //             }
-    //             pegging = 0;
-
-    //             // two-sided segs with a middle texture need alpha test
-    //             material.alphaTest = 1;
-    //         }
-    //     } else if (flags & 0x0010) {
-    //         // peg to floor (bottom left)
-    //         pegging = 0;
-    //     }
-    //     material.map.offset.x = (($animOffset ?? 0) + $xOffset) * texture2.userData.invWidth;
-    //     material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
-    // }
+    // make wall invisible
+    onDestroy(() => {
+        mapGeo.changeWallHeight(wallGeo, 0, 0);
+    })
 </script>

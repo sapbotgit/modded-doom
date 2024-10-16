@@ -58,12 +58,13 @@
                 numVertex += vertexCount;
             }
 
+            console.log('add wall',[sky,vertexCount,vertexOffset])
             geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
             geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
             geos.push(geo);
             geoInfo.push({ vertexCount, vertexOffset, sky });
             scheduleBuild();
-            return geos.length - 1;
+            return geoInfo.length - 1;
         };
 
         const applyWallTexture = (geoIndex: number, textureName: string, width: number, height: number, offsetX: number, offsetY: number) => {
@@ -83,14 +84,15 @@
             const geo = geoInfo[geoIndex].sky ? skyGeometry : geometry;
 
             const invHeight = 1 / tx.height;
-            geo.attributes.uv.array[2 * vertexOffset + 0] = 0;
-            geo.attributes.uv.array[2 * vertexOffset + 1] = ((height % tx.height) - height) * invHeight;
-            geo.attributes.uv.array[2 * vertexOffset + 2] = width / tx.width;
-            geo.attributes.uv.array[2 * vertexOffset + 3] = ((height % tx.height) - height) * invHeight;
-            geo.attributes.uv.array[2 * vertexOffset + 4] = 0;
-            geo.attributes.uv.array[2 * vertexOffset + 5] = (height % tx.height) * invHeight;
-            geo.attributes.uv.array[2 * vertexOffset + 6] = width / tx.width;
-            geo.attributes.uv.array[2 * vertexOffset + 7] = (height % tx.height) * invHeight;
+            const invWidth = 1 / tx.width;
+            geo.attributes.uv.array[2 * vertexOffset + 0] =
+                geo.attributes.uv.array[2 * vertexOffset + 4] = offsetX * invWidth;
+            geo.attributes.uv.array[2 * vertexOffset + 1] =
+                geo.attributes.uv.array[2 * vertexOffset + 3] = ((height % tx.height) - height + offsetY) * invHeight;
+            geo.attributes.uv.array[2 * vertexOffset + 5] =
+                geo.attributes.uv.array[2 * vertexOffset + 7] = ((height % tx.height) + offsetY) * invHeight;
+            geo.attributes.uv.array[2 * vertexOffset + 2] =
+                geo.attributes.uv.array[2 * vertexOffset + 6] = (width + offsetX) * invWidth;
             // set texture index
             geo.attributes.texN.array[vertexOffset + 0] = index;
             geo.attributes.texN.array[vertexOffset + 1] = index;
@@ -133,7 +135,7 @@
             geos.push(geo);
             geoInfo.push({ vertexCount, vertexOffset, sky });
             scheduleBuild();
-            return geos.length - 1;
+            return geoInfo.length - 1;
         };
 
         const applyFlatTexture = (geoIndex: number, textureName: string) => {
@@ -180,15 +182,21 @@
         function scheduleBuild() {
             clearTimeout(timeout);
             timeout = setTimeout(() => {
-                builtCount = geos.length;
+                builtCount = geoInfo.length;
 
                 skyGeometry = mergeGeos(geos.filter(e => e.userData['sky']));
                 skyGeometry.name = 'sky'
+                skyGeometry.userData['sky'] = true;
                 geometry = mergeGeos(geos.filter(e => !e.userData['sky']));
                 geometry.name = 'map'
 
                 pendingUpdates.forEach(fn => fn());
                 pendingUpdates.length = 0;
+                geos.length = 0;
+                numVertex = geometry.attributes.position.count;
+                geos.push(geometry);
+                skyVertex = skyGeometry.attributes.position.count;
+                geos.push(skyGeometry);
                 console.timeEnd('map-geo')
             }, 1);
         }

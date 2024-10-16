@@ -11,7 +11,7 @@
     <Edges thresholdAngle={0} renderOrder={1000}>
         <!-- color doesn't work here... I wonder why? -->
         <T.LineBasicMaterial
-            color={Color.NAMES.red}
+            color={Color.NAMES.yellow}
             depthTest={$wireframe === 'visible'}
         />
     </Edges>

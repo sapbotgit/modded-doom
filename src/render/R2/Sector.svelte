@@ -9,7 +9,7 @@
     export let renderSector: RenderSector;
     const { zFloor, zCeil, floorFlat, ceilFlat } = renderSector.sector;
     const { geometry, zHackCeil, zHackFloor, mobjs } = renderSector;
-    // $: mo = [...$mobjs].sort((a, b) => a.id - b.id);
+    $: mo = [...$mobjs].sort((a, b) => a.id - b.id);
 
     // Why wrap this in a div? It reduces the cost of reflow from adding/removing DOM nodes.
     // From profiling data, we reduce reflow from 20% of the overall time to 1%. Also mark the div
@@ -39,9 +39,9 @@
             <Wall {renderSector} {linedef} />
         <!-- {/if} -->
     {/each}
-    <!-- {#each mo as thing (thing.id)}
+    {#each mo as thing (thing.id)}
         {#if thing.type !== MapObjectIndex.MT_PLAYER}
             <Thing {renderSector} {thing} />
         {/if}
-    {/each} -->
+    {/each}
 </div>

@@ -3,7 +3,7 @@ import { BufferAttribute, DataTexture, IntType, PlaneGeometry, type BufferGeomet
 import type { TextureAtlas } from "./TextureAtlas";
 import { HALF_PI, type LineDef, type Sector, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
-import { cubicIn } from 'svelte/easing';
+import { quartIn } from 'svelte/easing';
 
 interface GeometryInfo {
     width: number;
@@ -276,7 +276,7 @@ export class MapRenderGeometry {
         for (let i = 0; i < maxLight + 1; i++) {
             // scale light using a curve to make it look more like doom
             // TODO: in the old render, I used sineIn but here I need something "stronger". Why?
-            const light = Math.floor(cubicIn(i / maxLight) * maxLight);
+            const light = Math.floor(quartIn(i / maxLight) * maxLight);
             this.lightCache.set(i, light);
         }
 
