@@ -4,8 +4,8 @@ import type { DoomWad, Picture } from "../../doom";
 export class TextureAtlas {
     readonly atlas: DataTexture;
     readonly texture: DataTexture;
-    private textures: [string, Picture][];
-    private flats: [string, Picture][];
+    private textures = new Map<string, [number, Picture]>();
+    private flats = new Map<string, [number, Picture]>();
     private flatStart = 0;
 
     get numTextures() { return this.atlas.image.width; }
@@ -14,13 +14,14 @@ export class TextureAtlas {
         const textures = wad.texturesNames()
             .map<[string, Picture]>(e => [e, wad.wallTextureData(e)])
             .sort((a, b) => b[1].height - a[1].height);
-        this.textures = textures;
+        textures.forEach((e, i) => this.textures.set(e[0], [i, e[1]]));
+        this.flatStart = textures.length;
 
         const atlasTexture = new Uint8ClampedArray(tSize * tSize * 4).fill(0);
         const flats = wad.flatsNames().map<[string, Picture]>(e => [e, wad.flatTextureData(e)]);
-        this.flats = flats;
+        flats.forEach((e, i) => this.flats.set(e[0], [i + this.flatStart, e[1]]));
+
         const atlasMap = new Float32Array((textures.length + flats.length) * 4);
-        this.flatStart = textures.length;
 
         let off = { x: 0, y: 0 };
         let maxH = -Infinity;
@@ -77,18 +78,18 @@ export class TextureAtlas {
     }
 
     wallTexture(name: string): [number, Picture] {
-        let index = this.textures.findIndex(e => e[0] === name);
-        if (index === -1) {
+        let data = this.textures.get(name);
+        if (!data) {
             console.warn('unmapped texture', name);
         }
-        return [index, this.textures[index][1]];
+        return data; // TODO: default texture?
     }
 
     flatTexture(name: string): [number, Picture] {
-        let index = this.flats.findIndex(e => e[0] === name);
-        if (index === -1) {
+        let data = this.flats.get(name);
+        if (!data) {
             console.warn('unmapped flat', name);
         }
-        return [(index + this.flatStart), this.flats[index][1]];
+        return data; // TODO: default texture?
     }
 }

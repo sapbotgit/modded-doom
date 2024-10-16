@@ -52,7 +52,7 @@
 
     {#if linedef.left}
         <!-- two-sided so figure out top and bottom -->
-        {#if true || $zCeilR !== $zCeilL && !skyHack}
+        {#if !skyHack || $zCeilR !== $zCeilL && !skyHack}
             {@const useLeft = $zCeilL > $zCeilR}
             {@const height = useLeft ? $zCeilL - $zCeilR : $zCeilR - $zCeilL}
             {@const top = Math.max($zCeilR, $zCeilL)}
