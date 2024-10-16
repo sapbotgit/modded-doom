@@ -1,7 +1,3 @@
-<script lang="ts" context="module">
-    let mapName: string;
-    let wallCache = new Map<string, number>();
-</script>
 <script lang="ts">
     import { PlaneGeometry } from "three";
     import { HALF_PI, type LineDef, type Vertex } from "../../doom";
@@ -72,10 +68,7 @@
     const mapGeo = getContext<GeometryBuilder>('doom-map-geo');
     const geo = new PlaneGeometry(width, height);
     geo.userData['sky'] = skyHack;
-    // this cache is a total hack to allow us to add geometry to the map but not really remove it
-    const key = [type, linedef.num, angle, useLeft, skyHack].join(':');
-    const wallGeo = wallCache.get(key) ?? mapGeo.addWallFragment(geo, sidedef.sector.num);
-    wallCache.set(key, wallGeo);
+    const wallGeo = mapGeo.addWallFragment(geo, sidedef.sector.num);
     geo.rotateX(HALF_PI);
     geo.rotateZ(angle + (useLeft ? Math.PI : 0));
     geo.translate(mid.x, mid.y, top - height * .5);
