@@ -186,7 +186,6 @@ function blockmapLump(lump: Lump) {
 
 export interface Seg {
     v: Vertex[];
-    angle: number;
     linedef: LineDef;
     direction: number;
 }

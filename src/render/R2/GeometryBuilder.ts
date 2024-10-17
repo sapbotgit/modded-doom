@@ -248,10 +248,9 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                     let top = Math.min(zCeilL.val, zCeilR.val);
                     let height = Math.min(top - Math.max(zFloorL.val, zFloorR.val), pic.height);
                     if (ld.flags & 0x0010) {
-                        // see cages in plutonia MAP24
+                        // double sided linedefs that are lower unpegged stick to the ground, not ceiling. eg. cages in plutonia MAP24
                         top = Math.max(zFloorL.val, zFloorR.val) + height;
-                    }
-                    m.changeWallHeight(idx, top, height);
+                    }                    m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, tx, width, height,
                         ld.left.xOffset.val + (ld.xOffset?.val ?? 0),
                         ld.left.yOffset.val + pegging('middle', height));
@@ -268,7 +267,7 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                     let top = Math.min(zCeilL.val, zCeilR.val);
                     let height = Math.min(top - Math.max(zFloorL.val, zFloorR.val), pic.height);
                     if (ld.flags & 0x0010) {
-                        // see cages in plutonia MAP24
+                        // double sided linedefs that are lower unpegged stick to the ground, not ceiling. eg. cages in plutonia MAP24
                         top = Math.max(zFloorL.val, zFloorR.val) + height;
                     }
                     m.changeWallHeight(idx, top, height);
