@@ -1,7 +1,5 @@
-import { DoubleSide, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial } from "three";
+import { DataTexture, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
-import type { MapRenderGeometry } from "./GeometryBuilder";
-
 
 const lightLevelParams = `
 flat out uint dL;
@@ -47,7 +45,7 @@ diffuseColor *= sampledDiffuseColor;
 #endif
 `;
 
-export function mapMeshMaterials(ta: TextureAtlas, mapGeo: MapRenderGeometry) {
+export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
     // extending threejs standard materials feels like a hack BUT doing it this way
     // allows us to take advantage of all the advanced capabilities there
     // (like lighting and shadows)
@@ -58,8 +56,8 @@ export function mapMeshMaterials(ta: TextureAtlas, mapGeo: MapRenderGeometry) {
         shadowSide: FrontSide,
     });
     material.onBeforeCompile = shader => {
-        shader.uniforms.tLightMap = { value: mapGeo.lightMap };
-        shader.uniforms.tLightMapWidth = { value: mapGeo.lightMap.image.width };
+        shader.uniforms.tLightMap = { value: lightMap };
+        shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
         shader.uniforms.tMap = { value: ta.texture };
         shader.uniforms.tAtlas = { value: ta.atlas };
         shader.uniforms.numTextures = { value: ta.numTextures };

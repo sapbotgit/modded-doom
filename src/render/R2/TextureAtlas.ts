@@ -37,6 +37,9 @@ export class TextureAtlas {
             }
 
             tx.toAtlasBuffer(atlasTexture, tSize, off.x, off.y);
+            if (off.y > tSize) {
+                console.warn('atlas is full', textures[i][0])
+            }
 
             atlasMap[0 + i * 4] = off.x / tSize;
             atlasMap[1 + i * 4] = off.y / tSize;
@@ -55,6 +58,9 @@ export class TextureAtlas {
             }
 
             tx.toAtlasBuffer(atlasTexture, tSize, off.x, off.y);
+            if (off.y > tSize) {
+                console.warn('atlas is full', flats[i][0])
+            }
 
             atlasMap[0 + (i + this.flatStart) * 4] = off.x / tSize;
             atlasMap[1 + (i + this.flatStart) * 4] = off.y / tSize;
