@@ -203,7 +203,7 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'upper', left),
                         width, height,
-                        side.xOffset.val + (ld.xOffset?.val ?? 0),
+                        side.xOffset.val,
                         side.yOffset.val + pegging('upper', height));
                     if (useLeft !== left) {
                         m.flipZ(idx);
@@ -226,7 +226,7 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'lower', left),
                         width, height,
-                        side.xOffset.val + (ld.xOffset?.val ?? 0),
+                        side.xOffset.val,
                         side.yOffset.val + pegging('lower', height));
                     if (useLeft !== left) {
                         m.flipZ(idx);
@@ -252,7 +252,7 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                         top = Math.max(zFloorL.val, zFloorR.val) + height;
                     }                    m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, tx, width, height,
-                        ld.left.xOffset.val + (ld.xOffset?.val ?? 0),
+                        ld.left.xOffset.val,
                         ld.left.yOffset.val + pegging('middle', height));
                 };
             }
@@ -272,7 +272,7 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                     }
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, tx, width, height,
-                        ld.right.xOffset.val + (ld.xOffset?.val ?? 0),
+                        ld.right.xOffset.val,
                         ld.right.yOffset.val + pegging('middle', height));
                 };
             }
@@ -287,7 +287,7 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                 m.changeWallHeight(idx, zCeilR.val, height);
                 m.applyWallTexture(idx, chooseTexture(ld, 'middle'),
                     width, height,
-                    ld.right.xOffset.val + (ld.xOffset?.val ?? 0),
+                    ld.right.xOffset.val,
                     ld.right.yOffset.val + pegging('middle', height));
             };
         }

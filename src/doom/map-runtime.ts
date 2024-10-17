@@ -291,11 +291,15 @@ export class MapRuntime {
         this.stats.totalSecrets = 0;
         for (const wall of this.data.linedefs) {
             if (wall.special === 48) {
-                wall.xOffset = store(0);
-                this.actions.add(() => wall.xOffset.update(n => n += 1));
+                this.actions.add(() => wall.right.xOffset.update(n => n += 1));
             } else if (wall.special === 85) {
-                wall.xOffset = store(0);
-                this.actions.add(() => wall.xOffset.update(n => n -= 1));
+                this.actions.add(() => wall.right.xOffset.update(n => n -= 1));
+            }
+            if (wall.special === 255) {
+                this.actions.add(() => {
+                    wall.right.xOffset.update(n => n += wall.right.xOffset.initial);
+                    wall.right.yOffset.update(n => n += wall.right.yOffset.initial);
+                });
             }
         }
 

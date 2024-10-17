@@ -48,7 +48,6 @@
                 };
                 ld.left.xOffset.subscribe(updateLeft);
                 ld.left.yOffset.subscribe(updateLeft);
-                ld.xOffset?.subscribe(updateLeft);
                 if (updaters.lower) {
                     ld.left.lower.subscribe(() => updaters.lower(mapGeo));
                 }
@@ -67,7 +66,6 @@
             };
             ld.right.xOffset.subscribe(updateRight);
             ld.right.yOffset.subscribe(updateRight);
-            ld.xOffset?.subscribe(updateRight);
             if (updaters.lower) {
                 ld.right.lower.subscribe(() => updaters.lower(mapGeo));
             }

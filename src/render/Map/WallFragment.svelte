@@ -34,7 +34,7 @@
     $: texture = useLeft ? ($textureL ?? $textureR) : ($textureR ?? $textureL);
 
     const { yOffset, xOffset } = sidedef;
-    const { xOffset: animOffset, flags } = linedef;
+    const { flags } = linedef;
 
     const { settings, editor } = useAppContext();
     const { useTextures, cameraMode, fakeContrast } = settings;
@@ -75,7 +75,7 @@
         material.map = null;
     }
 
-    $: if (material.map && (flags || $xOffset || $yOffset || ($animOffset ?? 0))) {
+    $: if (material.map && (flags || $xOffset || $yOffset)) {
         // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
         // threejs uses 0,0 in bottom left but doom uses 0,0 for top left so we by default
         // "peg" the corner to the top left by offsetting by height
@@ -101,7 +101,7 @@
             // peg to floor (bottom left)
             pegging = 0;
         }
-        material.map.offset.x = (($animOffset ?? 0) + $xOffset) * texture2.userData.invWidth;
+        material.map.offset.x = $xOffset * texture2.userData.invWidth;
         material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
     }
     $: if ($light !== undefined) {

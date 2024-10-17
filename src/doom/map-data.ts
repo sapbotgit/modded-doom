@@ -42,8 +42,6 @@ export interface LineDef {
     tag: number;
     right?: SideDef;
     left?: SideDef;
-    // derived
-    xOffset?: Store<number>;
     // used by renderer
     transparentDoorHack: boolean;
     transparentWindowHack: boolean;
