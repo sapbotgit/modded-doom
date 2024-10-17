@@ -253,7 +253,7 @@ export class MapData {
     readonly blockMapBounds: Bounds;
 
     constructor(lumps: Lump[]) {
-        console.time('map-load')
+        console.time('map-bin')
         this.things = thingsLump(lumps[1]);
         this.sectors = sectorsLump(lumps[8]);
         this.vertexes = vertexesLump(lumps[4]);
@@ -337,7 +337,7 @@ export class MapData {
                 return true; // continue to next subsector
             });
         }
-        console.timeEnd('map-load')
+        console.timeEnd('map-bin')
     }
 
     findSubSector(x: number, y: number): SubSector {

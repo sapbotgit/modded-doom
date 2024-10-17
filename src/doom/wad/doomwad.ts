@@ -1,13 +1,14 @@
 import { MapData } from '../map-data.ts';
 import { type Picture, type Palette, PatchPicture, LumpPicture, FlatPicture } from './picture.ts';
 import { Color } from 'three';
-import { pnamesLump, textureLump, type Lump, type Texture, type WadFile } from './wadfile.ts';
+import { dword, int16, lumpString, pnamesLump, textureLump, word, type Lump, type Texture, type WadFile } from './wadfile.ts';
 
 interface SpriteFrame {
     name: string;
     mirror: boolean;
 }
 
+type TextureAnimation = { frames: string[], speed: number };
 type WallTexture = { lump: Texture, pnames: string[] };
 export class DoomWad {
     private spriteFrameTable = new Map<string, SpriteFrame[][]>();
@@ -18,8 +19,8 @@ export class DoomWad {
     private mapLumps = new Map<string, any[]>();
 
     private switchWalls: string[][];
-    private animatedFlats: string[][];
-    private animatedWalls: string[][];
+    private animatedFlats: TextureAnimation[];
+    private animatedWalls: TextureAnimation[];
 
     get mapNames() { return [...this.mapLumps.keys()]; }
     get isIWAD() {
@@ -86,6 +87,7 @@ export class DoomWad {
             }
         }
 
+        const customAnimations = loadCustomAnimations(this.lumpByName('ANIMATED'));
         // list of animated flats https://doomwiki.org/wiki/Animated_flat
         const allFlats = this.flatsNames();
         this.animatedFlats = [
@@ -98,11 +100,12 @@ export class DoomWad {
             { first: 'SLIME01', last: 'SLIME04' },
             { first: 'SLIME05', last: 'SLIME08' },
             { first: 'SLIME09', last: 'SLIME12' },
+            ...customAnimations.filter(anim => anim.isFlat),
         ].map(e => {
             const first = allFlats.indexOf(e.first);
             const last = allFlats.indexOf(e.last);
-            return allFlats.slice(first, last + 1);
-        }).filter(e => e.length);
+            return { frames: allFlats.slice(first, last + 1), speed: e['speed'] ?? 8 };
+        }).filter(e => e.frames.length);
 
         // list of animated walls https://doomwiki.org/wiki/Animated_wall
         const allTextures = this.texturesNames();
@@ -120,14 +123,16 @@ export class DoomWad {
             { first: 'SFALL1', last: 'SFALL4' },
             { first: 'WFALL1', last: 'WFALL4' },
             { first: 'DBRAIN1', last: 'DBRAIN4' },
+            ...customAnimations.filter(anim => anim.isWall),
         ].map(e => {
             const first = allTextures.indexOf(e.first);
             const last = allTextures.indexOf(e.last);
-            return allTextures.slice(first, last + 1);
-        }).filter(e => e.length);
+            return { frames: allTextures.slice(first, last + 1), speed: e['speed'] ?? 8 };
+        }).filter(e => e.frames.length);
 
-        // Wall switches https://doomwiki.org/wiki/Switch
+        const customSwitches = loadCustomSwitches(this.lumpByName('SWITCHES'));
         this.switchWalls = [
+            // Built in wall switches https://doomwiki.org/wiki/Switch
             ['SW1BRCOM', 'SW2BRCOM'],
             ['SW1BRN1', 'SW2BRN1'],
             ['SW1BRN2', 'SW2BRN2'],
@@ -168,6 +173,7 @@ export class DoomWad {
             ['SW1TEK', 'SW2TEK'],
             ['SW1MARB', 'SW2MARB'],
             ['SW1SKULL', 'SW2SKULL'],
+            ...customSwitches,
         ].map(e => {
             const i1 = allTextures.indexOf(e[0]);
             const i2 = allTextures.indexOf(e[1]);
@@ -199,11 +205,11 @@ export class DoomWad {
         return this.filterAnimationInfo(name, this.animatedFlats);
     }
 
-    private filterAnimationInfo(name: string, info: string[][]): [number, string[]] {
-        for (const frames of info) {
-            let index = frames.indexOf(name);
+    private filterAnimationInfo(name: string, info: TextureAnimation[]): [number, TextureAnimation] {
+        for (const anim of info) {
+            let index = anim.frames.indexOf(name);
             if (index !== -1) {
-                return [index, frames];
+                return [index, anim];
             }
         }
         return null;
@@ -328,3 +334,38 @@ export class DoomWad {
 const isMap = (item: Lump) =>
     /^MAP\d\d$/.test(item.name) ||
     /^E\dM\d$/.test(item.name);
+
+function loadCustomAnimations(lump: Lump) {
+    // custom animations https://doomwiki.org/wiki/ANIMATED
+    type AnimInfo = { first: string, last: string, speed: number, isWall: boolean, isFlat: boolean, supportsDecals: boolean };
+    const customAnimations: AnimInfo[] = [];
+    let offset = 0;
+    while (lump && lump.data[offset] < 255) {
+        customAnimations.push({
+            last: lumpString(lump.data, offset + 1, 9),
+            first: lumpString(lump.data, offset + 10, 9),
+            // TODO:
+            speed: dword(lump.data, offset + 19),
+            isFlat: lump.data[offset] === 0,
+            isWall: lump.data[offset] !== 0,
+            // not used but.. maybe someday?
+            supportsDecals: lump.data[offset] === 3,
+        });
+        offset += 23;
+    }
+    return customAnimations;
+}
+
+function loadCustomSwitches(lump: Lump) {
+    // custom switches https://doomwiki.org/wiki/SWITCHES
+    const customSwitches: string[][] = [];
+    let offset = 0;
+    while (lump && int16(word(lump.data, offset + 18))) {
+        customSwitches.push([
+            lumpString(lump.data, offset + 0, 9),
+            lumpString(lump.data, offset + 9, 9),
+        ]);
+        offset += 20;
+    }
+    return customSwitches;
+}

@@ -14,9 +14,13 @@
     let skyGeometry: BufferGeometry = geometry;
 
     const { renderSectors, map } = useDoomMap();
-    const ta = new TextureAtlas(map.game.wad, threlte.renderer.capabilities.maxTextureSize);
 
     console.time('map-geo')
+
+    console.time('map-ta')
+    const ta = new TextureAtlas(map.game.wad, threlte.renderer.capabilities.maxTextureSize);
+    console.timeEnd('map-ta')
+
     console.time('map-geom')
     const mapBuilder = mapGeometryBuilder2(map.game.wad);
     let mapGeo: MapGeometryUpdater & { complete: MapUpdater } = (() => {
@@ -126,11 +130,13 @@
     }
 
     console.timeEnd('map-geom')
+    console.time('map-init')
     const mapData = mapBuilder.build(ta);
     mapGeo.complete(mapData);
     mapGeo = mapData as any;
     geometry = mapGeo.geometry;
     skyGeometry = mapGeo.skyGeometry;
+    console.timeEnd('map-init')
     console.timeEnd('map-geo')
 
     const lightMap = buildLightMap(map.data.sectors);
@@ -165,7 +171,7 @@
     <Wireframe />
 </T.Mesh>
 
-<!-- <T.PointLight
+<T.PointLight
     {castShadow}
     color={0xff0000}
     intensity={50}
@@ -175,4 +181,4 @@
     position.y={$position.y}
     position.z={$position.z + 40}
     shadow.bias={shadowBias}
-/> -->
+/>

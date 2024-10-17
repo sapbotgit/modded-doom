@@ -262,11 +262,11 @@ export class MapRuntime {
         }
         // wall/flat animations are all 8 ticks each
         const animInfoFn = type === 'wall' ? 'animatedWallInfo' : 'animatedFlatInfo';
-        const speed = 8;
         target.subscribe(v => {
             const animInfo = this.game.wad[animInfoFn](v);
             if (animInfo) {
-                this.animatedTextures.push({ frames: animInfo[1], current: animInfo[0], target, speed });
+                const { frames, speed } = animInfo[1]
+                this.animatedTextures.push({ current: animInfo[0], frames, target, speed });
             } else {
                 // remove animation that was applied to this target
                 this.animatedTextures = this.animatedTextures.filter(e => e.target !== target);
