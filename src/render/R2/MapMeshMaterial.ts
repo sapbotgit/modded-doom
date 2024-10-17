@@ -24,7 +24,7 @@ const fragmentPars = `
 #include <common>
 
 uniform sampler2D tAtlas;
-uniform uint numTextures;
+uniform uint tAtlasWidth;
 uniform sampler2D tLightMap;
 uniform uint tLightMapWidth;
 
@@ -35,7 +35,7 @@ const fragmentMap = `
 #ifdef USE_MAP
 
 // texture dimensions
-vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(numTextures), 0.5 ) );
+vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
 vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
 
 vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
@@ -58,9 +58,8 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
     material.onBeforeCompile = shader => {
         shader.uniforms.tLightMap = { value: lightMap };
         shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
-        shader.uniforms.tMap = { value: ta.texture };
-        shader.uniforms.tAtlas = { value: ta.atlas };
-        shader.uniforms.numTextures = { value: ta.numTextures };
+        shader.uniforms.tAtlas = { value: ta.index };
+        shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
 
         shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
         shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain + lightLevelInit);
@@ -70,7 +69,7 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         #ifdef USE_MAP
 
         // texture dimensions
-        vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(numTextures), 0.5 ) );
+        vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
         vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
 
         vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
@@ -98,8 +97,8 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
 
     const depthMaterial = new MeshDepthMaterial();
     depthMaterial.onBeforeCompile = shader => {
-        shader.uniforms.tAtlas = { value: ta.atlas };
-        shader.uniforms.numTextures = { value: ta.numTextures };
+        shader.uniforms.tAtlas = { value: ta.index };
+        shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
 
         shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars);
         shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain);
@@ -110,8 +109,8 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
 
     const distanceMaterial = new MeshDistanceMaterial();
     distanceMaterial.onBeforeCompile = shader => {
-        shader.uniforms.tAtlas = { value: ta.atlas };
-        shader.uniforms.numTextures = { value: ta.numTextures };
+        shader.uniforms.tAtlas = { value: ta.index };
+        shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
 
         shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars);
         shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain);

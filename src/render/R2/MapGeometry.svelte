@@ -3,7 +3,7 @@
     import { MeshBasicMaterial, PlaneGeometry, BufferGeometry } from 'three';
     import { useDoomMap } from '../DoomContext';
     import { TextureAtlas } from './TextureAtlas'
-    import { buildLightMap, mapGeometryBuilder2, type LindefUpdater, type MapGeometryUpdater, type MapUpdater } from './GeometryBuilder';
+    import { buildLightMap, mapGeometryBuilder, type LindefUpdater, type MapGeometryUpdater, type MapUpdater } from './GeometryBuilder';
     import Wireframe from '../Debug/Wireframe.svelte';
     import { mapMeshMaterials } from './MapMeshMaterial';
 
@@ -22,7 +22,7 @@
     console.timeEnd('map-ta')
 
     console.time('map-geom')
-    const mapBuilder = mapGeometryBuilder2(map.game.wad);
+    const mapBuilder = mapGeometryBuilder(map.game.wad);
     let mapGeo: MapGeometryUpdater & { complete: MapUpdater } = (() => {
         let queue: MapUpdater[] = [];
         return {
@@ -133,6 +133,7 @@
     console.time('map-init')
     const mapData = mapBuilder.build(ta);
     mapGeo.complete(mapData);
+    console.log('atlas-time',ta.times)
     mapGeo = mapData as any;
     geometry = mapGeo.geometry;
     skyGeometry = mapGeo.skyGeometry;
@@ -146,7 +147,7 @@
     // magic https://stackoverflow.com/questions/49873459
     const shadowBias = -0.004;
 
-    const receiveShadow = true;
+    const receiveShadow = false;
     const castShadow = receiveShadow;
     const { position } = map.player;
 </script>

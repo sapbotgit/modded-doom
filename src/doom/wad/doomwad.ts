@@ -19,15 +19,15 @@ export class DoomWad {
     private mapLumps = new Map<string, any[]>();
 
     private switchWalls: string[][];
-    private animatedFlats: TextureAnimation[];
-    private animatedWalls: TextureAnimation[];
+    readonly animatedFlats = new Map<string, TextureAnimation>();
+    readonly animatedWalls = new Map<string, TextureAnimation>();
 
     get mapNames() { return [...this.mapLumps.keys()]; }
     get isIWAD() {
         // this is a _very_ cheap (and incorrect) version of the check from https://doomwiki.org/wiki/IWAD.
         // It will probably cause problems and need to be improved
         return Boolean(this.textureData.length && this.spriteLumps.length && this.flatLumps.length
-            && this.palettes.length && this.animatedFlats.length && this.animatedWalls.length && this.switchWalls.length
+            && this.palettes.length && this.animatedFlats.size && this.animatedWalls.size && this.switchWalls.length
             && this.mapNames.length && this.lumpByName('ENDOOM') && this.lumpByName('COLORMAP'));
     }
 
@@ -90,7 +90,7 @@ export class DoomWad {
         const customAnimations = loadCustomAnimations(this.lumpByName('ANIMATED'));
         // list of animated flats https://doomwiki.org/wiki/Animated_flat
         const allFlats = this.flatsNames();
-        this.animatedFlats = [
+        [
             { first: 'NUKAGE1', last: 'NUKAGE3' },
             { first: 'FWATER1', last: 'FWATER4' },
             { first: 'SWATER1', last: 'SWATER4' },
@@ -105,11 +105,12 @@ export class DoomWad {
             const first = allFlats.indexOf(e.first);
             const last = allFlats.indexOf(e.last);
             return { frames: allFlats.slice(first, last + 1), speed: e['speed'] ?? 8 };
-        }).filter(e => e.frames.length);
+        }).filter(e => e.frames.length)
+        .forEach(anim => anim.frames.forEach(frame => this.animatedFlats.set(frame, anim)));
 
         // list of animated walls https://doomwiki.org/wiki/Animated_wall
         const allTextures = this.texturesNames();
-        this.animatedWalls = [
+        [
             { first: 'BLODGR1', last: 'BLODGR4' },
             { first: 'BLODRIP1', last: 'BLODRIP4' },
             { first: 'FIREBLU1', last: 'FIREBLU2' },
@@ -128,7 +129,8 @@ export class DoomWad {
             const first = allTextures.indexOf(e.first);
             const last = allTextures.indexOf(e.last);
             return { frames: allTextures.slice(first, last + 1), speed: e['speed'] ?? 8 };
-        }).filter(e => e.frames.length);
+        }).filter(e => e.frames.length)
+        .forEach(anim => anim.frames.forEach(frame => this.animatedWalls.set(frame, anim)));
 
         const customSwitches = loadCustomSwitches(this.lumpByName('SWITCHES'));
         this.switchWalls = [
@@ -195,24 +197,6 @@ export class DoomWad {
                 return sw1;
             }
         }
-    }
-
-    animatedWallInfo(name: string) {
-        return this.filterAnimationInfo(name, this.animatedWalls);
-    }
-
-    animatedFlatInfo(name: string) {
-        return this.filterAnimationInfo(name, this.animatedFlats);
-    }
-
-    private filterAnimationInfo(name: string, info: TextureAnimation[]): [number, TextureAnimation] {
-        for (const anim of info) {
-            let index = anim.frames.indexOf(name);
-            if (index !== -1) {
-                return [index, anim];
-            }
-        }
-        return null;
     }
 
     texturesNames(): string[] {
@@ -301,6 +285,7 @@ export class DoomWad {
     }
 
     flatTextureData(name: string): Picture {
+        if (!name) debugger;
         const uname = name.toUpperCase();
         const lump = this.flatLumps.find(lump => lump.name === uname);
         if (lump) {
@@ -344,7 +329,7 @@ function loadCustomAnimations(lump: Lump) {
         customAnimations.push({
             last: lumpString(lump.data, offset + 1, 9),
             first: lumpString(lump.data, offset + 10, 9),
-            // TODO:
+            // TODO: speed over 64K is a warping texture, do we care?
             speed: dword(lump.data, offset + 19),
             isFlat: lump.data[offset] === 0,
             isWall: lump.data[offset] !== 0,

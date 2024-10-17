@@ -3,7 +3,6 @@ export class WadFile {
     raw: any[];
     lumps: Lump[];
     type: string;
-    private lumpIndex = new Map<string, Lump>();
 
     constructor(readonly name: string, buffer: ArrayBuffer) {
         const buff = new Uint8Array(buffer);
@@ -18,12 +17,11 @@ export class WadFile {
             const name = lumpString(buff, 8 + directoryLocation + i * 16, 8);
             const lump = { name, data: buff.subarray(offset, offset + size) };
             this.lumps[i] = lump;
-            this.lumpIndex.set(name, lump);
         }
     }
 
     lumpByName(name: string) {
-        return this.lumpIndex.get(name);
+        return this.lumps.find(e => e.name === name);
     }
 }
 

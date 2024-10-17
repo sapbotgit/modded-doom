@@ -65,7 +65,7 @@ export function mapMusicTrack(game: Game, mapName: string) {
 
 interface AnimatedTexture {
     frames: string[];
-    current: number;
+    index: number;
     speed: number;
     target: Store<string>;
 }
@@ -241,8 +241,8 @@ export class MapRuntime {
         // update wall/flat animations
         this.animatedTextures.forEach(anim => {
             if (this.game.time.tick.val % anim.speed === 0) {
-                anim.current = (anim.current + 1) % anim.frames.length;
-                anim.target.set(anim.frames[anim.current]);
+                anim.index = (anim.index + 1) % anim.frames.length;
+                anim.target.set(anim.frames[anim.index]);
             }
         });
 
@@ -261,12 +261,13 @@ export class MapRuntime {
             return;
         }
         // wall/flat animations are all 8 ticks each
-        const animInfoFn = type === 'wall' ? 'animatedWallInfo' : 'animatedFlatInfo';
+        const animations = type === 'wall' ? this.game.wad.animatedWalls : this.game.wad.animatedFlats;
         target.subscribe(v => {
-            const animInfo = this.game.wad[animInfoFn](v);
+            const animInfo = animations.get(v);
             if (animInfo) {
-                const { frames, speed } = animInfo[1]
-                this.animatedTextures.push({ current: animInfo[0], frames, target, speed });
+                const { frames, speed } = animInfo
+                const index = animInfo.frames.indexOf(v);
+                this.animatedTextures.push({ index, frames, target, speed });
             } else {
                 // remove animation that was applied to this target
                 this.animatedTextures = this.animatedTextures.filter(e => e.target !== target);

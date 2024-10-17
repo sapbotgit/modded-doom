@@ -3,7 +3,9 @@
     import TextureMap from './TextureMap.svelte';
     import Stats from './Stats.svelte';
     import { OrbitControls } from '@threlte/extras';
-    import { FogExp2 } from 'three';
+    import { Object3D } from 'three';
+
+    Object3D.DEFAULT_UP.set(0, 0, 1)
 </script>
 <div class="h-screen w-screen">
     <Canvas>
@@ -20,7 +22,7 @@
             <OrbitControls  />
         </T.PerspectiveCamera>
 
-        <!-- <T.AmbientLight color={'white'} intensity={4} /> -->
+        <T.AmbientLight color={'white'} intensity={2} />
 
         <TextureMap />
     </Canvas>

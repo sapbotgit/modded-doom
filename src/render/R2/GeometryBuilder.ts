@@ -64,19 +64,8 @@ export function buildLightMap(sectors: Sector[]) {
 }
 
 type GeoInfo = { vertexOffset: number, vertexCount: number, sky: boolean };
-export type MapGeometryUpdater = ReturnType<typeof mapGeometry>;
-export type MapUpdater = (m: MapGeometryUpdater) => void;
-export interface LindefUpdater{
-    lower: MapUpdater;
-    upper:  MapUpdater;
-    midLeft: MapUpdater;
-    midRight: MapUpdater;
-    single: MapUpdater;
-}
-
-export function mapGeometryBuilder2(wad: DoomWad) {
+export function geometryBuilder() {
     let geos: BufferGeometry[] = [];
-
     let geoInfo: GeoInfo[] = [];
     let numVertex = 0;
     let skyVertex = 0;
@@ -89,7 +78,7 @@ export function mapGeometryBuilder2(wad: DoomWad) {
         return geo;
     }
 
-    const addWallFragment = (geo: BufferGeometry, sectorNum: number) => {
+    const addwallGeometry = (geo: BufferGeometry, sectorNum: number) => {
         const sky = geo.userData['sky'];
         const vertexCount = geo.attributes.position.count;
         const vertexOffset = sky ? skyVertex : numVertex;
@@ -105,6 +94,69 @@ export function mapGeometryBuilder2(wad: DoomWad) {
         geoInfo.push({ vertexCount, vertexOffset, sky });
         return geoInfo.length - 1;
     };
+
+    const addFlatGeometry = (geo: BufferGeometry, sectorNum: number): number => {
+        const sky = geo.userData['sky'];
+        const vertexCount = geo.attributes.position.count;
+        const vertexOffset = sky ? skyVertex : numVertex;
+        if (sky) {
+            skyVertex += vertexCount;
+        } else {
+            numVertex += vertexCount;
+        }
+
+        for (let i = 0; i < geo.attributes.uv.array.length; i++) {
+            geo.attributes.uv.array[i] /= 64;
+        }
+        geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
+        geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
+        geos.push(geo);
+        geoInfo.push({ vertexCount, vertexOffset, sky });
+        return geoInfo.length - 1;
+    };
+
+    const createFlatGeo = (geo: BufferGeometry, textureName: string) => {
+        const geometry = geo.clone();
+        // CAUTION: geometry.clone() re-uses userData so we do a copy but it's not a deep copy
+        geometry.userData = { ...geometry.userData };
+        geometry.userData['sky'] = textureName === 'F_SKY1';
+        return geometry;
+    }
+
+    const emptyPlane = new PlaneGeometry(0, 0);
+    emptyPlane.setAttribute('texN', intBufferAttribute(new Uint16Array(1).fill(0), 1));
+    emptyPlane.setAttribute('doomLight', intBufferAttribute(new Uint16Array(1).fill(0), 1));
+    const mergeGeos = (name: string, geos: BufferGeometry[]) => {
+        if (!geos.length) {
+            // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
+            geos.push(emptyPlane);
+        }
+        const geo = BufferGeometryUtils.mergeGeometries(geos);
+        geo.name = name;
+        return geo;
+    }
+
+    function build() {
+        const skyGeometry = mergeGeos('sky', geos.filter(e => e.userData['sky']));
+        const geometry = mergeGeos('map', geos.filter(e => !e.userData['sky']));
+        return { geometry, skyGeometry, geoInfo };
+    }
+
+    return { createWallGeo, addwallGeometry, addFlatGeometry, createFlatGeo, build };
+}
+
+export type MapGeometryUpdater = ReturnType<typeof mapGeometry>;
+export type MapUpdater = (m: MapGeometryUpdater) => void;
+export interface LindefUpdater{
+    lower: MapUpdater;
+    upper:  MapUpdater;
+    midLeft: MapUpdater;
+    midRight: MapUpdater;
+    single: MapUpdater;
+}
+
+export function mapGeometryBuilder(wad: DoomWad) {
+    const geoBuilder = geometryBuilder();
 
     type TextureType = 'upper' | 'lower' | 'middle';
     const chooseTexture = (ld: LineDef, type: TextureType, useLeft = false) => {
@@ -181,9 +233,9 @@ export function mapGeometryBuilder2(wad: DoomWad) {
         }
 
         if (needSkyWall && !skyHack) {
-            const geo = createWallGeo(width, skyHeight - zCeilR.val, mid, skyHeight, angle);
+            const geo = geoBuilder.createWallGeo(width, skyHeight - zCeilR.val, mid, skyHeight, angle);
             geo.userData['sky'] = true;
-            addWallFragment(geo, ld.right.sector.num);
+            geoBuilder.addwallGeometry(geo, ld.right.sector.num);
         }
 
         if (ld.left) {
@@ -192,8 +244,8 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                 let useLeft = zCeilL.val > zCeilR.val;
                 const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
                 const top = Math.max(zCeilR.val, zCeilL.val);
-                const geo = createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
-                const idx = addWallFragment(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
+                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
+                const idx = geoBuilder.addwallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.upper = m => {
                     let left = zCeilL.val > zCeilR.val;
@@ -215,8 +267,8 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                 let useLeft = zFloorR.val > zFloorL.val;
                 const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
                 const top = Math.max(zFloorR.val, zFloorL.val);
-                const geo = createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
-                const idx = addWallFragment(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
+                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
+                const idx = geoBuilder.addwallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.lower = m => {
                     let left = zFloorR.val > zFloorL.val;
@@ -238,8 +290,8 @@ export function mapGeometryBuilder2(wad: DoomWad) {
             const top = Math.min(zCeilL.val, zCeilR.val);
             const height = top - Math.max(zFloorL.val, zFloorR.val);
             if (middleL.val) {
-                const geo = createWallGeo(width, height, mid, top, angle + Math.PI);
-                const idx = addWallFragment(geo, ld.left.sector.num);
+                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
+                const idx = geoBuilder.addwallGeometry(geo, ld.left.sector.num);
 
                 result.midLeft = m => {
                     const tx = chooseTexture(ld, 'middle', true);
@@ -250,15 +302,16 @@ export function mapGeometryBuilder2(wad: DoomWad) {
                     if (ld.flags & 0x0010) {
                         // double sided linedefs that are lower unpegged stick to the ground, not ceiling. eg. cages in plutonia MAP24
                         top = Math.max(zFloorL.val, zFloorR.val) + height;
-                    }                    m.changeWallHeight(idx, top, height);
+                    }
+                    m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, tx, width, height,
                         ld.left.xOffset.val,
                         ld.left.yOffset.val + pegging('middle', height));
                 };
             }
             if (middleR.val) {
-                const geo = createWallGeo(width, height, mid, top, angle + 0);
-                const idx = addWallFragment(geo, ld.right.sector.num);
+                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + 0);
+                const idx = geoBuilder.addwallGeometry(geo, ld.right.sector.num);
 
                 result.midRight = m => {
                     const tx = chooseTexture(ld, 'middle');
@@ -279,8 +332,8 @@ export function mapGeometryBuilder2(wad: DoomWad) {
 
         } else {
             const height = zCeilR.val - zFloorR.val;
-            const geo = createWallGeo(width, height, mid, zCeilR.val, angle + 0);
-            const idx = addWallFragment(geo, ld.right.sector.num);
+            const geo = geoBuilder.createWallGeo(width, height, mid, zCeilR.val, angle + 0);
+            const idx = geoBuilder.addwallGeometry(geo, ld.right.sector.num);
 
             result.single = m => {
                 const height = zCeilR.val - zFloorR.val;
@@ -294,72 +347,30 @@ export function mapGeometryBuilder2(wad: DoomWad) {
         return result;
     }
 
-    const addFlat = (geo: BufferGeometry, sectorNum: number): number => {
-        const sky = geo.userData['sky'];
-        const vertexCount = geo.attributes.position.count;
-        const vertexOffset = sky ? skyVertex : numVertex;
-        if (sky) {
-            skyVertex += vertexCount;
-        } else {
-            numVertex += vertexCount;
-        }
-
-        for (let i = 0; i < geo.attributes.uv.array.length; i++) {
-            geo.attributes.uv.array[i] /= 64;
-        }
-        geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
-        geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
-        geos.push(geo);
-        geoInfo.push({ vertexCount, vertexOffset, sky });
-        return geoInfo.length - 1;
-    };
-
-    const createFlatGeo = (rs: RenderSector, textureName: string) => {
-        const geometry = rs.geometry.clone();
-        // CAUTION: geometry.clone() re-uses userData so we do a copy but it's not a deep copy
-        geometry.userData = { ...geometry.userData };
-        geometry.userData['sky'] = textureName === 'F_SKY1';
-        return geometry;
-    }
-
     const addSector = (rs: RenderSector) => {
         // TODO: what about hack floor/ceiling? That whole thing is buggy and needs a rewrite anyway
-        const floorGeo = createFlatGeo(rs, rs.sector.floorFlat.val);
+        const floorGeo = geoBuilder.createFlatGeo(rs.geometry, rs.sector.floorFlat.val);
         floorGeo.translate(0, 0, rs.sector.zFloor.val);
-        const floor = addFlat(floorGeo, rs.sector.num);
+        const floor = geoBuilder.addFlatGeometry(floorGeo, rs.sector.num);
 
-        const ceilGeo = createFlatGeo(rs, rs.sector.ceilFlat.val);
+        const ceilGeo = geoBuilder.createFlatGeo(rs.geometry, rs.sector.ceilFlat.val);
         ceilGeo.translate(0, 0, rs.sector.skyHeight ?? rs.sector.zCeil.val);
         // flip over triangles for ceiling
         flipWindingOrder(ceilGeo);
-        const ceil = addFlat(ceilGeo, rs.sector.num) // or rs.flatLighting ??
+        const ceil = geoBuilder.addFlatGeometry(ceilGeo, rs.sector.num) // or rs.flatLighting ??
 
         return [ceil, floor];
     }
 
-    const emptyPlane = new PlaneGeometry(0, 0);
-    emptyPlane.setAttribute('texN', intBufferAttribute(new Uint16Array(1).fill(0), 1));
-    emptyPlane.setAttribute('doomLight', intBufferAttribute(new Uint16Array(1).fill(0), 1));
-    const mergeGeos = (name: string, geos: BufferGeometry[]) => {
-        if (!geos.length) {
-            // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
-            geos.push(emptyPlane);
-        }
-        const geo = BufferGeometryUtils.mergeGeometries(geos);
-        geo.name = name;
-        return geo;
-    }
-
     function build(textureAtlas: TextureAtlas) {
-        const skyGeometry = mergeGeos('sky', geos.filter(e => e.userData['sky']));
-        const geometry = mergeGeos('map', geos.filter(e => !e.userData['sky']));
+        const { skyGeometry, geometry, geoInfo } = geoBuilder.build();
         return mapGeometry(textureAtlas, geometry, skyGeometry, geoInfo);
     }
 
     return { addSector, addLinedef, build };
 }
 
-function mapGeometry(
+export function mapGeometry(
     textures: TextureAtlas,
     geometry: BufferGeometry,
     skyGeometry: BufferGeometry,
@@ -431,6 +442,11 @@ function mapGeometry(
         geo.attributes.position.array[offset + 7] = y2;
 
         geo.attributes.position.needsUpdate = true;
+
+        for (let i = 0; i < geoInfo[geoIndex].vertexCount * 3; i++) {
+            geo.attributes.normal.array[offset + i] *= -1;
+        }
+        geo.attributes.normal.needsUpdate = true;
     };
 
     const applyFlatTexture = (geoIndex: number, textureName: string) => {
