@@ -16,7 +16,7 @@
     $: game = details.finishedMap.game;
 
     const mapName = details.finishedMap.name;
-    let episodeEnd = mapName.endsWith('M8')
+    let episodeEnd = mapName.endsWith('M8');
     let summaryComplete = episodeEnd;
     let textComplete = !hasVictoryText(mapName);
     let artComplete = !episodeEnd;

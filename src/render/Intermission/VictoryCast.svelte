@@ -36,6 +36,7 @@
     let frames = wad.spriteFrames($sprite.name);
     let frame = frames[$sprite.frame][0];
     let allowAttack = false;
+    const deathPauseTicks = 15;
 
     $: if ($tick) {
         mobj.tick();
@@ -52,6 +53,9 @@
         if (mobj.isDead) {
             // This is a hack but I don't have a better idea to tell when the mobj is in a dead state
             if ((mobj as any)._state.ticks === -1) {
+                frameCount += 1;
+            }
+            if (frameCount > deathPauseTicks) {
                 frameCount = 0;
                 castNumber = (castNumber + 1) % cast.length;
                 mobj = map.spawn(cast[castNumber][0], 0, 0);
@@ -60,6 +64,7 @@
                 frames = wad.spriteFrames($sprite.name);
             }
         } else if (attack) {
+            frameCount = 0;
             mobj.damage(mobj.health.val);
         }
     }
