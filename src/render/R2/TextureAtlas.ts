@@ -12,8 +12,6 @@ export class TextureAtlas {
     private count = 0;
     private rows: RowEdge[];
 
-    times = [0, 0, 0];
-
     constructor(private wad: DoomWad, private tSize: number) {
         this.rows = [{ x: 0, y: 0, rowHeight: this.tSize }];
 
@@ -39,7 +37,6 @@ export class TextureAtlas {
     // animations cause jank after map load as the different frames are loaded into the atlas.
     // So we store the texture names that are part of animations and if one is loaded, we load the rest
     wallTexture(name: string): [number, Picture] {
-        const start = new Date();
         let data = this.textures.get(name);
         if (!data) {
             const pic = this.wad.wallTextureData(name);
@@ -57,12 +54,10 @@ export class TextureAtlas {
                 }
             }
         }
-        this.times[0] += new Date().getTime() - start.getTime();
         return data;
     }
 
     private insertTexture(name: string, pic: Picture): [number, Picture] {
-        const start = new Date();
         const row = this.findSpace(pic);
         if (!row) {
             // TODO: default texture?
@@ -81,7 +76,6 @@ export class TextureAtlas {
         this.index.needsUpdate = true;
 
         this.count += 1;
-        this.times[2] += new Date().getTime() - start.getTime();
         return [this.count - 1, pic];
     }
 
@@ -90,6 +84,7 @@ export class TextureAtlas {
     // If we find a row of the exact height, use it.
     // If a texture is 80% the height of a row (like 112 of a 128 tall row) we insert it
     // Else we create a new row
+    // We could do even better but there doesn't seem to be a need to (yet)
     private findSpace(pic: Picture): RowEdge {
         const perfectMatch = this.rows.find(row => row.rowHeight === pic.height && row.x + pic.width < this.tSize);
         if (perfectMatch) {
@@ -122,7 +117,6 @@ export class TextureAtlas {
     }
 
     flatTexture(name: string): [number, Picture] {
-        const start = new Date();
         let data = this.flats.get(name);
         if (!data) {
             const pic = this.wad.flatTextureData(name);
@@ -140,7 +134,6 @@ export class TextureAtlas {
                 }
             }
         }
-        this.times[1] += new Date().getTime() - start.getTime();
         return data;
     }
 }

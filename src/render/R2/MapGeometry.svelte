@@ -133,7 +133,6 @@
     console.time('map-init')
     const mapData = mapBuilder.build(ta);
     mapGeo.complete(mapData);
-    console.log('atlas-time',ta.times)
     mapGeo = mapData as any;
     geometry = mapGeo.geometry;
     skyGeometry = mapGeo.skyGeometry;

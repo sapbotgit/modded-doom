@@ -23,6 +23,7 @@
     import { Bars3BottomLeft } from '@steeze-ui/heroicons'
     import WipeContainer from "./Components/WipeContainer.svelte";
     import { randInt } from "three/src/math/MathUtils";
+    import type { WebGLRendererParameters } from "three";
 
     export let game: Game;
     export let musicGain: GainNode;
@@ -79,6 +80,10 @@
         tscale = $timescale;
     }
 
+    const rendererParameters: WebGLRendererParameters = {
+        // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
+        logarithmicDepthBuffer: true,
+    };
     let viewSize = { width: 1024, height: 600 };
     onMount(() => {
         let lastTickTime = 0;
@@ -144,7 +149,7 @@
                 on:deactivate={() => (showMenu = true)}
             />
             {:else}
-            <Canvas bind:ctx={threlteCtx} renderMode='manual' autoRender={false}>
+            <Canvas bind:ctx={threlteCtx} renderMode='manual' {rendererParameters} autoRender={false}>
                 <MapRoot map={$map} />
             </Canvas>
             {/if}

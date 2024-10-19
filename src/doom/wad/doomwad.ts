@@ -285,7 +285,6 @@ export class DoomWad {
     }
 
     flatTextureData(name: string): Picture {
-        if (!name) debugger;
         const uname = name.toUpperCase();
         const lump = this.flatLumps.find(lump => lump.name === uname);
         if (lump) {
