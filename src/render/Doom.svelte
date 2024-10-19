@@ -47,7 +47,7 @@
     $: settings.compassMove.set($cameraMode === "svg");
     $: if ($map) {
         // Test intermission screens
-        // $map.triggerSpecial({ special: 52 } as any, $map.player, 'W')
+        $map.triggerSpecial({ special: 52 } as any, $map.player, 'W')
     }
     $: mapMusicTrack = $map?.musicTrack;
 

@@ -203,19 +203,31 @@
     const musicPlayback = settings.musicPlayback;
 
     $: musicBuffer = wad.lumpByName(trackName)?.data;
-    $: midi = loadMusic(musicBuffer);
-    function loadMusic(musicBuffer: Uint8Array) {
+    $: isMp3 = musicBuffer && (
+            (musicBuffer[0] === 0xff && [0xfb, 0xf3, 0xf2].includes(musicBuffer[1]))
+            || (musicBuffer[0] === 0x49 && musicBuffer[1] === 0x44 && musicBuffer[2] === 0x33));
+    $: music = toMidi(musicBuffer);
+    function toMidi(musicBuffer: Uint8Array) {
         try {
+            // some wads have mp3 files, not mus
+            if (isMp3) {
+                return buff.from(musicBuffer).buffer;
+            }
+            // some wads have vanilla midi
+            if ('MThd' === String.fromCharCode(...musicBuffer.subarray(0, 4))) {
+                return buff.from(musicBuffer);
+            }
             return mus2midi(buff.from(musicBuffer));
         } catch {
-            console.warn('unabled to play midi :(', trackName)
-            return buff.from([]);
+            console.warn('unabled to play midi', trackName)
         }
+        return buff.from([]);
     }
 
     $: musicStopper =
-        $musicPlayback === 'soundfont' ? soundFontPlayer(midi) :
-        $musicPlayback === 'synth' ? synthPlayer(midi) :
+        isMp3 ? mp3Player(music) :
+        $musicPlayback === 'soundfont' ? soundFontPlayer(music) :
+        $musicPlayback === 'synth' ? synthPlayer(music) :
         noMusic();
     onDestroy(stopTheMusic);
     async function stopTheMusic() {
@@ -229,8 +241,19 @@
         return () => {};
     }
 
+    async function mp3Player(music: ArrayBufferLike) {
+        stopTheMusic();
+
+        const mp3 = audio.createBufferSource();
+        mp3.buffer = await audio.decodeAudioData(music);
+        mp3.connect(audioRoot);
+        mp3.loop = true;
+        mp3.start();
+        return () => mp3.stop();
+    }
+
     const storage = new MidiSampleStore();
-    async function soundFontPlayer(midi: Buffer) {
+    async function soundFontPlayer(midi: ArrayBufferLike) {
         stopTheMusic();
 
         const effects: { pan: StereoPannerNode, bq: BiquadFilterNode }[] = [];
@@ -302,7 +325,7 @@
         return () => midiPlayer.stop();
     }
 
-    async function synthPlayer(midi: Buffer) {
+    async function synthPlayer(midi: ArrayBufferLike) {
         stopTheMusic();
 
         const synth = new WebAudioTinySynth();
