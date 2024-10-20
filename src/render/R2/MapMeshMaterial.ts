@@ -1,11 +1,19 @@
 import { DataTexture, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
 
+export const inspectorAttributeName = 'doomInspect';
+
 const lightLevelParams = `
 flat out uint dL;
 attribute uint doomLight;
+
+flat out uvec2 dI;
+attribute uvec2 ${inspectorAttributeName};
 `
-const lightLevelInit = 'dL = doomLight;\n';
+const lightLevelInit = `
+dL = doomLight;
+dI = ${inspectorAttributeName};
+`;
 
 const vertexPars = `
 #include <common>
@@ -27,9 +35,11 @@ uniform sampler2D tAtlas;
 uniform uint tAtlasWidth;
 uniform sampler2D tLightMap;
 uniform uint tLightMapWidth;
+uniform uvec2 dInspect;
 
 flat in uint dL;
 flat in uint tN;
+flat in uvec2 dI;
 `;
 const fragmentMap = `
 #ifdef USE_MAP
@@ -61,6 +71,11 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         shader.uniforms.tAtlas = { value: ta.index };
         shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
 
+        // this is a bit of a hack and it would be really nice to only supply these values when $editor.active
+        // I'm not sure how to do that yet
+        shader.uniforms.dInspect = { value: [-1, -1] };
+        result.updateInspector = (a, b) => shader.uniforms.dInspect.value = [a, b];
+
         shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
         shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain + lightLevelInit);
 
@@ -75,6 +90,11 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
         vec4 sampledDiffuseColor = texture2D( map, mapUV );
         if (sampledDiffuseColor.a < 1.0) discard;
+
+        if (dInspect == dI) {
+            // faded magenta
+            totalEmissiveRadiance = vec3(1.0, 0.0, 1.0) * .1;
+        }
 
         #ifdef DECODE_VIDEO_TEXTURE
             // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
@@ -119,5 +139,6 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
     };
 
-    return { material, depthMaterial, distanceMaterial };
+    const result = { material, depthMaterial, distanceMaterial, updateInspector: null };
+    return result;
 }

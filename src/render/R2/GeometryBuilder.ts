@@ -1,9 +1,10 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import { BufferAttribute, DataTexture, IntType, PlaneGeometry, type BufferGeometry, type TypedArray } from "three";
+import { BufferAttribute, DataTexture, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
-import { DoomWad, HALF_PI, type LineDef, type Sector, type Vertex } from "../../doom";
+import { HALF_PI, type LineDef, type Sector, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { quartIn } from 'svelte/easing';
+import { inspectorAttributeName } from './MapMeshMaterial';
 
 // https://github.com/mrdoob/three.js/issues/17361
 function flipWindingOrder(geometry: BufferGeometry) {
@@ -22,8 +23,14 @@ function flipWindingOrder(geometry: BufferGeometry) {
     geometry.attributes.normal.needsUpdate = true;
 }
 
-const intBufferAttribute = (array: TypedArray, itemSize: number) => {
-    const attr = new BufferAttribute(array, itemSize);
+const int16BufferFrom = (items: number[], vertexCount: number) => {
+    const array = new Uint16Array(items.length * vertexCount);
+    for (let i = 0; i < vertexCount * items.length; i += items.length) {
+        for (let j = 0; j < items.length; j++) {
+            array[i + j] = items[j];
+        }
+    }
+    const attr = new BufferAttribute(array, items.length);
     attr.gpuType = IntType;
     return attr;
 }
@@ -88,8 +95,8 @@ export function geometryBuilder() {
             numVertex += vertexCount;
         }
 
-        geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
-        geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
+        geo.setAttribute('texN', int16BufferFrom([0], vertexCount));
+        geo.setAttribute('doomLight', int16BufferFrom([sectorNum], vertexCount));
         geos.push(geo);
         geoInfo.push({ vertexCount, vertexOffset, sky });
         return geoInfo.length - 1;
@@ -108,8 +115,8 @@ export function geometryBuilder() {
         for (let i = 0; i < geo.attributes.uv.array.length; i++) {
             geo.attributes.uv.array[i] /= 64;
         }
-        geo.setAttribute('texN', intBufferAttribute(new Uint16Array(vertexCount).fill(0), 1));
-        geo.setAttribute('doomLight', intBufferAttribute(new Uint16Array(vertexCount).fill(sectorNum), 1));
+        geo.setAttribute('texN', int16BufferFrom([0], vertexCount));
+        geo.setAttribute('doomLight', int16BufferFrom([sectorNum], vertexCount));
         geos.push(geo);
         geoInfo.push({ vertexCount, vertexOffset, sky });
         return geoInfo.length - 1;
@@ -124,8 +131,8 @@ export function geometryBuilder() {
     }
 
     const emptyPlane = new PlaneGeometry(0, 0);
-    emptyPlane.setAttribute('texN', intBufferAttribute(new Uint16Array(1).fill(0), 1));
-    emptyPlane.setAttribute('doomLight', intBufferAttribute(new Uint16Array(1).fill(0), 1));
+    emptyPlane.setAttribute('texN', int16BufferFrom([0], 1));
+    emptyPlane.setAttribute('doomLight', int16BufferFrom([0], 0));
     const mergeGeos = (name: string, geos: BufferGeometry[]) => {
         if (!geos.length) {
             // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
@@ -181,6 +188,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             return result;
         }
 
+        const inspectVal = [0, ld.num];
         const mid = {
             x: (ld.v[1].x + ld.v[0].x) * 0.5,
             y: (ld.v[1].y + ld.v[0].y) * 0.5,
@@ -235,6 +243,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
         if (needSkyWall && !skyHack) {
             const geo = geoBuilder.createWallGeo(width, skyHeight - zCeilR.val, mid, skyHeight, angle);
             geo.userData['sky'] = true;
+            geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
             geoBuilder.addWallGeometry(geo, ld.right.sector.num);
         }
 
@@ -245,6 +254,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
                 const top = Math.max(zCeilR.val, zCeilL.val);
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.upper = m => {
@@ -268,6 +278,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
                 const top = Math.max(zFloorR.val, zFloorL.val);
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.lower = m => {
@@ -291,6 +302,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             const height = top - Math.max(zFloorL.val, zFloorR.val);
             if (middleL.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, ld.left.sector.num);
 
                 result.midLeft = m => {
@@ -310,6 +322,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             }
             if (middleR.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + 0);
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
                 result.midRight = m => {
@@ -331,6 +344,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
         } else {
             const height = zCeilR.val - zFloorR.val;
             const geo = geoBuilder.createWallGeo(width, height, mid, zCeilR.val, angle + 0);
+            geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
             const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
             result.single = m => {
@@ -346,13 +360,17 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
     }
 
     const addSector = (rs: RenderSector) => {
+        const inspectVal = [1, rs.sector.num];
+
         // TODO: what about hack floor/ceiling? That whole thing is buggy and needs a rewrite anyway
         const floorGeo = geoBuilder.createFlatGeo(rs.geometry, rs.sector.floorFlat.val);
         floorGeo.translate(0, 0, rs.sector.zFloor.val);
+        floorGeo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, floorGeo.attributes.position.count));
         const floor = geoBuilder.addFlatGeometry(floorGeo, rs.sector.num);
 
         const ceilGeo = geoBuilder.createFlatGeo(rs.geometry, rs.sector.ceilFlat.val);
         ceilGeo.translate(0, 0, rs.sector.skyHeight ?? rs.sector.zCeil.val);
+        ceilGeo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, ceilGeo.attributes.position.count));
         // flip over triangles for ceiling
         flipWindingOrder(ceilGeo);
         const ceil = geoBuilder.addFlatGeometry(ceilGeo, rs.sector.num) // or rs.flatLighting ??

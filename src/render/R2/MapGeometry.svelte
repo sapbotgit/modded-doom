@@ -1,7 +1,7 @@
 <script lang="ts">
     import { T, useThrelte } from '@threlte/core';
     import { MeshBasicMaterial, PlaneGeometry, BufferGeometry } from 'three';
-    import { useDoomMap } from '../DoomContext';
+    import { useAppContext, useDoomMap } from '../DoomContext';
     import { TextureAtlas } from './TextureAtlas'
     import { buildLightMap, mapGeometryBuilder, type LindefUpdater, type MapGeometryUpdater, type MapUpdater } from './GeometryBuilder';
     import Wireframe from '../Debug/Wireframe.svelte';
@@ -13,6 +13,7 @@
     let geometry: BufferGeometry = emptyPlane;
     let skyGeometry: BufferGeometry = geometry;
 
+    const { editor } = useAppContext();
     const { renderSectors, map } = useDoomMap();
 
     console.time('map-geo')
@@ -136,7 +137,8 @@
     console.timeEnd('map-geo')
 
     const lightMap = buildLightMap(map.data.sectors);
-    const { material, distanceMaterial, depthMaterial } = mapMeshMaterials(ta, lightMap);
+    const materials = mapMeshMaterials(ta, lightMap);
+    const { material, distanceMaterial, depthMaterial } = materials;
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
 
     // magic https://stackoverflow.com/questions/49873459
@@ -145,6 +147,16 @@
     const receiveShadow = false;
     const castShadow = receiveShadow;
     const { position } = map.player;
+
+    function hit(ev) {
+        ev.stopPropagation();
+
+        const type = geometry.attributes.doomInspect.array[ev.face.a * 2];
+        const items = type === 0 ? map.data.linedefs : map.data.sectors;
+        const num = geometry.attributes.doomInspect.array[ev.face.a * 2 + 1];
+        $editor.selected = items.find(e => e.num === num);
+        materials.updateInspector(type, num);
+    }
 </script>
 
 <T.Mesh
@@ -156,6 +168,7 @@
 </T.Mesh>
 
 <T.Mesh
+    on:click={hit}
     renderOrder={1}
     {geometry}
     {material}
