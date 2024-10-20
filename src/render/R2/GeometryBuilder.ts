@@ -155,7 +155,7 @@ export interface LindefUpdater{
     single: MapUpdater;
 }
 
-export function mapGeometryBuilder(wad: DoomWad) {
+export function mapGeometryBuilder(textures: TextureAtlas) {
     const geoBuilder = geometryBuilder();
 
     type TextureType = 'upper' | 'lower' | 'middle';
@@ -295,7 +295,7 @@ export function mapGeometryBuilder(wad: DoomWad) {
 
                 result.midLeft = m => {
                     const tx = chooseTexture(ld, 'middle', true);
-                    const pic = wad.wallTextureData(tx);
+                    const pic = textures.wallTexture(tx)[1];
                     // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                     let top = Math.min(zCeilL.val, zCeilR.val);
                     let height = Math.min(top - Math.max(zFloorL.val, zFloorR.val), pic.height);
@@ -315,7 +315,7 @@ export function mapGeometryBuilder(wad: DoomWad) {
 
                 result.midRight = m => {
                     const tx = chooseTexture(ld, 'middle');
-                    const pic = wad.wallTextureData(tx);
+                    const pic = textures.wallTexture(tx)[1];
                     // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                     let top = Math.min(zCeilL.val, zCeilR.val);
                     let height = Math.min(top - Math.max(zFloorL.val, zFloorR.val), pic.height);

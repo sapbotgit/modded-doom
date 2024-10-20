@@ -16,13 +16,9 @@
     const { renderSectors, map } = useDoomMap();
 
     console.time('map-geo')
-
-    console.time('map-ta')
     const ta = new TextureAtlas(map.game.wad, threlte.renderer.capabilities.maxTextureSize);
-    console.timeEnd('map-ta')
-
     console.time('map-geom')
-    const mapBuilder = mapGeometryBuilder(map.game.wad);
+    const mapBuilder = mapGeometryBuilder(ta);
     let mapGeo: MapGeometryUpdater & { complete: MapUpdater } = (() => {
         let queue: MapUpdater[] = [];
         return {
