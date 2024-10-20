@@ -78,7 +78,7 @@ export function geometryBuilder() {
         return geo;
     }
 
-    const addwallGeometry = (geo: BufferGeometry, sectorNum: number) => {
+    const addWallGeometry = (geo: BufferGeometry, sectorNum: number) => {
         const sky = geo.userData['sky'];
         const vertexCount = geo.attributes.position.count;
         const vertexOffset = sky ? skyVertex : numVertex;
@@ -142,7 +142,7 @@ export function geometryBuilder() {
         return { geometry, skyGeometry, geoInfo };
     }
 
-    return { createWallGeo, addwallGeometry, addFlatGeometry, createFlatGeo, build };
+    return { createWallGeo, addWallGeometry, addFlatGeometry, createFlatGeo, build };
 }
 
 export type MapGeometryUpdater = ReturnType<typeof mapGeometry>;
@@ -235,7 +235,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
         if (needSkyWall && !skyHack) {
             const geo = geoBuilder.createWallGeo(width, skyHeight - zCeilR.val, mid, skyHeight, angle);
             geo.userData['sky'] = true;
-            geoBuilder.addwallGeometry(geo, ld.right.sector.num);
+            geoBuilder.addWallGeometry(geo, ld.right.sector.num);
         }
 
         if (ld.left) {
@@ -245,7 +245,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
                 const top = Math.max(zCeilR.val, zCeilL.val);
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
-                const idx = geoBuilder.addwallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
+                const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.upper = m => {
                     let left = zCeilL.val > zCeilR.val;
@@ -268,7 +268,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
                 const top = Math.max(zFloorR.val, zFloorL.val);
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
-                const idx = geoBuilder.addwallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
+                const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.lower = m => {
                     let left = zFloorR.val > zFloorL.val;
@@ -291,13 +291,13 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             const height = top - Math.max(zFloorL.val, zFloorR.val);
             if (middleL.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
-                const idx = geoBuilder.addwallGeometry(geo, ld.left.sector.num);
+                const idx = geoBuilder.addWallGeometry(geo, ld.left.sector.num);
 
                 result.midLeft = m => {
                     const tx = chooseTexture(ld, 'middle', true);
                     const pic = textures.wallTexture(tx)[1];
                     // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
-                    let top = Math.min(zCeilL.val, zCeilR.val);
+                    let top = Math.min(zCeilL.val, zCeilR.val) + ld.left.yOffset.val;
                     let height = Math.min(top - Math.max(zFloorL.val, zFloorR.val), pic.height);
                     if (ld.flags & 0x0010) {
                         // double sided linedefs that are lower unpegged stick to the ground, not ceiling. eg. cages in plutonia MAP24
@@ -305,19 +305,18 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                     }
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, tx, width, height,
-                        ld.left.xOffset.val,
-                        ld.left.yOffset.val + pegging('middle', height));
+                        ld.left.xOffset.val, pegging('middle', height));
                 };
             }
             if (middleR.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + 0);
-                const idx = geoBuilder.addwallGeometry(geo, ld.right.sector.num);
+                const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
                 result.midRight = m => {
                     const tx = chooseTexture(ld, 'middle');
                     const pic = textures.wallTexture(tx)[1];
                     // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
-                    let top = Math.min(zCeilL.val, zCeilR.val);
+                    let top = Math.min(zCeilL.val, zCeilR.val) + ld.right.yOffset.val;
                     let height = Math.min(top - Math.max(zFloorL.val, zFloorR.val), pic.height);
                     if (ld.flags & 0x0010) {
                         // double sided linedefs that are lower unpegged stick to the ground, not ceiling. eg. cages in plutonia MAP24
@@ -325,15 +324,14 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                     }
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, tx, width, height,
-                        ld.right.xOffset.val,
-                        ld.right.yOffset.val + pegging('middle', height));
+                        ld.right.xOffset.val, pegging('middle', height));
                 };
             }
 
         } else {
             const height = zCeilR.val - zFloorR.val;
             const geo = geoBuilder.createWallGeo(width, height, mid, zCeilR.val, angle + 0);
-            const idx = geoBuilder.addwallGeometry(geo, ld.right.sector.num);
+            const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
             result.single = m => {
                 const height = zCeilR.val - zFloorR.val;

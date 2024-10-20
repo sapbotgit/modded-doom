@@ -24,6 +24,7 @@
     export let mid: Vertex;
     export let doubleSidedMiddle = false;
 
+    let actualTop = top;
     const sidedef = useLeft ? linedef.left : linedef.right;
     // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
@@ -60,8 +61,13 @@
     $: texture2 = texture ? textures.get(texture, 'wall').clone() : null;
     $: if (texture2) {
         if (doubleSidedMiddle) {
-            // double sided linedefs (generally for semi-transparent textures) do not repeat vertically
-            height = Math.min(height, texture2.userData.height);
+            // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
+            actualTop = top + $yOffset;
+            height = Math.min(actualTop - Math.max(zFloorL.val, zFloorR.val), texture2.userData.height);
+            if (flags & 0x0010) {
+                // double sided linedefs that are lower unpegged stick to the ground, not ceiling. eg. cages in plutonia MAP24
+                actualTop = Math.max($zFloorL, $zFloorR) + height;
+            }
         }
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;
@@ -88,12 +94,7 @@
             } else if (type === 'upper' && !(flags & 0x0008)) {
                 pegging = 0;
             } else if (type === 'middle') {
-                if (doubleSidedMiddle && (flags & 0x0010)) {
-                    // see cages in plutonia MAP24
-                    top = Math.max($zFloorL, $zFloorR) + height;
-                }
                 pegging = 0;
-
                 // two-sided segs with a middle texture need alpha test
                 material.alphaTest = 1;
             }
@@ -102,7 +103,7 @@
             pegging = 0;
         }
         material.map.offset.x = $xOffset * texture2.userData.invWidth;
-        material.map.offset.y = (-$yOffset + pegging) * texture2.userData.invHeight;
+        material.map.offset.y = doubleSidedMiddle ? 0 : ((-$yOffset + pegging) * texture2.userData.invHeight);
     }
     $: if ($light !== undefined) {
         const col = textures.lightColor(fakeContrastValue + $light + $extraLight);
@@ -143,7 +144,7 @@
         renderOrder={skyHack ? 0 : 1}
         position.x={mid.x}
         position.y={mid.y}
-        position.z={top - height * .5}
+        position.z={actualTop - height * .5}
         rotation.x={HALF_PI}
         rotation.z={angle}
         rotation.order={'ZXY'}

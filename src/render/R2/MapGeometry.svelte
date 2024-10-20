@@ -167,7 +167,7 @@
     <Wireframe />
 </T.Mesh>
 
-<T.PointLight
+<!-- <T.PointLight
     {castShadow}
     color={0xff0000}
     intensity={50}
@@ -177,4 +177,4 @@
     position.y={$position.y}
     position.z={$position.z + 40}
     shadow.bias={shadowBias}
-/>
+/> -->

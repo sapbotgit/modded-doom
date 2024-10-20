@@ -53,7 +53,7 @@
                 Math.random() * wallSize + wallSize * .5,
                 { x: scatter * Math.random(), y: scatter * Math.random() }, scatter * Math.random(),
                 angle);
-            const id = geoBuilder.addwallGeometry(geo, 0);
+            const id = geoBuilder.addWallGeometry(geo, 0);
             stressGeos.push({ id, width, height });
         }
 
@@ -81,19 +81,19 @@
 
         // left
         geo = geoBuilder.createWallGeo(wallSize, wallSize, { x: -wallSize / 2, y: wallSize / 2 }, wallSize / 3, HALF_PI);
-        box.left = ({ id: geoBuilder.addwallGeometry(geo, 0), width: wallSize, height: wallSize });
+        box.left = ({ id: geoBuilder.addWallGeometry(geo, 0), width: wallSize, height: wallSize });
         geo = new PlaneGeometry(wallSize, wallSize);
         // right
         geo = geoBuilder.createWallGeo(wallSize, wallSize, { x: wallSize / 2, y: wallSize / 2 }, wallSize / 3, -HALF_PI);
-        box.right = ({ id: geoBuilder.addwallGeometry(geo, 0), width: wallSize, height: wallSize });
+        box.right = ({ id: geoBuilder.addWallGeometry(geo, 0), width: wallSize, height: wallSize });
         // back
         geo = geoBuilder.createWallGeo(wallSize, wallSize, { x: 0, y: wallSize }, wallSize / 3, 0);
-        box.back = ({ id: geoBuilder.addwallGeometry(geo, 0), width: wallSize, height: wallSize });
+        box.back = ({ id: geoBuilder.addWallGeometry(geo, 0), width: wallSize, height: wallSize });
         // mid
         geo = geoBuilder.createWallGeo(300, 128, { x: 0, y: 200 }, 0, 0);
-        box.midF = ({ id: geoBuilder.addwallGeometry(geo, 0), width: 300, height: 128 });
+        box.midF = ({ id: geoBuilder.addWallGeometry(geo, 0), width: 300, height: 128 });
         geo = geoBuilder.createWallGeo(300, 128, { x: 0, y: 200 }, 0, Math.PI);
-        box.midB = ({ id: geoBuilder.addwallGeometry(geo, 0), width: 300, height: 128 });
+        box.midB = ({ id: geoBuilder.addWallGeometry(geo, 0), width: 300, height: 128 });
 
         // texture atlas wall
         geo = geoBuilder.createWallGeo(atlasSize * .2, atlasSize * .2, { x: 0, y: 200 }, 0, Math.PI);
