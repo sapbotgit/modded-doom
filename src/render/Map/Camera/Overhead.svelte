@@ -1,15 +1,16 @@
 <script lang="ts">
-    import { T, useTask } from "@threlte/core";
+    import { T, useTask, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import { HALF_PI } from "../../../doom";
     import { tweened } from "svelte/motion";
     import { quadOut } from "svelte/easing";
-    import type { Vector3 } from "three";
+    import { type Vector3, FogExp2, Fog } from "three";
+    import { onDestroy } from "svelte";
 
     export let yScale: number;
 
     const fov = useAppContext().settings.fov;
-    const { map, renderSectors, camera, skyColor: skyColor } = useDoomMap();
+    const { map, camera, skyColor: skyColor } = useDoomMap();
     const { position: playerPosition, direction: yaw } = map.player;
 
     let zoom = 200;
@@ -30,6 +31,15 @@
         $position.y = pos.y;
         $position.z = pz + zoom;
     }
+
+    const threlte = useThrelte();
+    const originalFog = threlte.scene.fog;
+    // kind of cheap looking but fun to play with
+    // NOTE: we can't simply use T.Fog because fog isn't an object, it's a property of the scene. Hmmm
+    $: threlte.scene.fog = new FogExp2(skyColor, .00035);
+    onDestroy(() => {
+        threlte.scene.fog = originalFog;
+    })
 </script>
 
 <T.PerspectiveCamera
@@ -44,10 +54,4 @@
     scale.y={yScale}
     far={100000}
     fov={$fov}
-/>
-
-<!-- this effect looks cheap but kind of fun to play with -->
-<T.FogExp2
-    color={skyColor}
-    density={0.001}
 />

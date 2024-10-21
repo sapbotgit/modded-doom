@@ -1,11 +1,11 @@
 <script lang="ts">
     import { T, useTask, useThrelte } from '@threlte/core';
-    import { Vector3, BufferGeometry, Material, PlaneGeometry, SphereGeometry, MeshBasicMaterial } from 'three';
+    import { Vector3, BufferGeometry, Material, PlaneGeometry, SphereGeometry, MeshBasicMaterial, Fog } from 'three';
     import { DoomWad, HALF_PI, store, WadFile } from '../../doom';
     import { WadStore } from '../../WadStore';
     import { TextureAtlas } from '../R2/TextureAtlas';
-    import { mapMeshMaterials } from '../R2/MapMeshMaterial';
-    import { buildLightMap, geometryBuilder, mapGeometry } from '../R2/GeometryBuilder';
+    import { inspectorAttributeName, mapMeshMaterials } from '../R2/MapMeshMaterial';
+    import { buildLightMap, geometryBuilder, int16BufferFrom, mapGeometry } from '../R2/GeometryBuilder';
 
     let geometry: BufferGeometry;
     let material: Material;
@@ -51,7 +51,7 @@
             geo = geoBuilder.createWallGeo(
                 Math.random() * wallSize + wallSize * .5,
                 Math.random() * wallSize + wallSize * .5,
-                { x: scatter * Math.random(), y: scatter * Math.random() }, scatter * Math.random(),
+                { x: scatter * Math.random() + wallSize, y: scatter * Math.random() + wallSize }, scatter * Math.random() + wallSize,
                 angle);
             const id = geoBuilder.addWallGeometry(geo, 0);
             stressGeos.push({ id, width, height });
@@ -100,6 +100,7 @@
 
         const map = geoBuilder.build();
         const mapGeo = mapGeometry(ta, map.geometry, map.skyGeometry, map.geoInfo);
+        mapGeo.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([0, 0], mapGeo.geometry.attributes.position.count));
         geometry = mapGeo.geometry;
 
         mapGeo.applyFlatTexture(box.ceil.id, "CEIL3_2");
@@ -182,4 +183,7 @@
     <T.Mesh geometry={new SphereGeometry(10)} material={new MeshBasicMaterial({ color: 'white' })} />
 </T.PointLight>
 
-<T.Fog args={[0xcccccc, 10, 15]} />
+
+<T.Scene
+    fog={new Fog(0xcc0000, 1, 15_000)}
+/>

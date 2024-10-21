@@ -23,7 +23,7 @@ function flipWindingOrder(geometry: BufferGeometry) {
     geometry.attributes.normal.needsUpdate = true;
 }
 
-const int16BufferFrom = (items: number[], vertexCount: number) => {
+export const int16BufferFrom = (items: number[], vertexCount: number) => {
     const array = new Uint16Array(items.length * vertexCount);
     for (let i = 0; i < vertexCount * items.length; i += items.length) {
         for (let j = 0; j < items.length; j++) {
