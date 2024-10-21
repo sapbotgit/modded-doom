@@ -181,3 +181,5 @@
 >
     <T.Mesh geometry={new SphereGeometry(10)} material={new MeshBasicMaterial({ color: 'white' })} />
 </T.PointLight>
+
+<T.Fog args={[0xcccccc, 10, 15]} />
