@@ -108,16 +108,44 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     // https://www.doomworld.com/vb/thread/103009
     // https://www.doomworld.com/tutorials/regintro.php
     // Not sure how many I actually want to implement...
-
     const map = mapRuntime.data;
+
+    // these maps that sort data by sector make an order of magnitude difference for large maps,
+    // like sunder or map05 of cosmogensis. On my machine, time drops from 5-8s to 300-400ms.
+    const subsectMap = new Map<Sector, SubSector[]>();
+    map.nodes.forEach(node => {
+        if ('segs' in node.childLeft) {
+            const list = subsectMap.get(node.childLeft.sector) ?? [];
+            list.push(node.childLeft);
+            subsectMap.set(node.childLeft.sector, list);
+        }
+        if ('segs' in node.childRight) {
+            const list = subsectMap.get(node.childRight.sector) ?? [];
+            list.push(node.childRight);
+            subsectMap.set(node.childRight.sector, list);
+        }
+    });
+    const sectorRightLindefs = new Map<Sector, LineDef[]>();
+    const sectorLeftLindefs = new Map<Sector, LineDef[]>();
+    map.linedefs.filter(ld => {
+        const right = sectorRightLindefs.get(ld.right.sector) ?? [];
+        right.push(ld);
+        sectorRightLindefs.set(ld.right.sector, right);
+
+        if (ld.left) {
+            const left = sectorLeftLindefs.get(ld.left.sector) ?? [];
+            left.push(ld);
+            sectorLeftLindefs.set(ld.left.sector, left);
+        }
+    })
+
     let selfReferencing: RenderSector[] = [];
     let secMap = new Map<Sector, RenderSector>();
     let rSectors: RenderSector[] = [];
-    const allSubsectors = map.nodes.map(e => [e.childLeft, e.childRight]).flat().filter(e => 'segs' in e) as SubSector[];
     for (const sector of map.sectors) {
-        const subsectors = allSubsectors.filter(subsec => subsec.sector === sector);
+        const subsectors = subsectMap.get(sector);
         const geos = subsectors.map(subsec => createShape(subsec.vertexes)).filter(e => e);
-        const linedefs = map.linedefs.filter(ld => ld.right.sector === sector);
+        const linedefs = sectorRightLindefs.get(sector) ?? [];
         // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
         if (geometry) {
@@ -140,7 +168,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         // MAP28 (brown sewage) and TNT MAP02 where the backpack is in "deep water".
         // https://doomwiki.org/wiki/Making_a_self-referencing_sector
         // https://doomwiki.org/wiki/Making_deep_water
-        const leftlines = map.linedefs.filter(ld => ld.left && ld.left.sector === sector);
+        const leftlines = sectorLeftLindefs.get(sector) ?? [];
         const selfref = leftlines.length === linedefs.length && leftlines.every(ld => ld.right.sector === sector);
         if (selfref && geometry) {
             selfReferencing.push(renderSector);
