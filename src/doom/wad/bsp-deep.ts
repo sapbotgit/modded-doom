@@ -1,21 +1,14 @@
 import type { LineDef, Seg, SubSector, TreeNode } from "../map-data";
 import { type Bounds, type Vertex } from "../math";
-import { int16, word, type Lump } from "./wadfile";
-import { readBspData as readZDoomBspData } from "./bsp-zdoom";
-import { readBspData as readDeepBspData } from "./bsp-deep";
+import { dword, int16, word, type Lump } from "./wadfile";
+
+// Honestly very similar to vanilla bsp but different enough that it felt better
+// to have it's own file. https://doomwiki.org/wiki/Planisphere_2 is the only
+// map I know of that uses this format so hopefully I get it right
 
 export type BSPData = { segs: Seg[], subsectors: SubSector[], nodes: TreeNode[] };
 
 export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: LineDef[]): BSPData {
-    // special bsp nodes like XNOD (or zdoom extended nodes) or DeeP nodes https://doomwiki.org/wiki/Node_builder
-    if ('XNOD' === String.fromCharCode(...mapLumps[7].data.subarray(0, 4))) {
-        // TODO: also ZNOD for compressed nodes?
-        return readZDoomBspData(mapLumps, vertexes, linedefs);
-    }
-    if ('xNd4' === String.fromCharCode(...mapLumps[7].data.subarray(0, 4))) {
-        return readDeepBspData(mapLumps, vertexes, linedefs);
-    }
-
     const segs = segsLump(mapLumps[5], vertexes, linedefs);
     const subsectors = subSectorLump(mapLumps[6], segs);
     const nodes = bspNodesLump(mapLumps[7], vertexes, subsectors);
@@ -23,19 +16,19 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
 }
 
 function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
-    const len = 12;
+    const len = 16;
     const num = Math.trunc(lump.data.length / len);
     if (num * len !== lump.data.length) {
         throw new Error('invalid lump: SEGS');
     }
     let segs = new Array<Seg>(num);
     for (let i = 0; i < num; i++) {
-        const v0 = word(lump.data, 0 + i * len);
-        const v1 = word(lump.data, 2 + i * len);
+        const v0 = dword(lump.data, 0 + i * len);
+        const v1 = dword(lump.data, 4 + i * len);
         const v = [vertexes[v0], vertexes[v1]];
-        const linedefId = word(lump.data, 6 + i * len);
+        const linedefId = word(lump.data, 10 + i * len);
         const linedef = linedefs[linedefId];
-        const direction = int16(word(lump.data, 8 + i * len));
+        const direction = int16(word(lump.data, 12 + i * len));
         segs[i] = { v, linedef, direction };
     }
     return segs;
@@ -46,7 +39,7 @@ function segsLump(lump: Lump, vertexes: Vertex[], linedefs: LineDef[]) {
 export const _invalidBounds: Bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
 
 function subSectorLump(lump: Lump, segs: Seg[]) {
-    const len = 4;
+    const len = 6;
     const num = Math.trunc(lump.data.length / len);
     if (num * len !== lump.data.length) {
         throw new Error('invalid lump: SSECTORS');
@@ -54,7 +47,7 @@ function subSectorLump(lump: Lump, segs: Seg[]) {
     let subsectors = new Array<SubSector>(num);
     for (let i = 0; i < num; i++) {
         const segCount = int16(word(lump.data, 0 + i * len));
-        const segId = int16(word(lump.data, 2 + i * len));
+        const segId = dword(lump.data, 2 + i * len);
         subsectors[i] = {
             num: i,
             sector: segs[segId].direction
@@ -73,19 +66,21 @@ function subSectorLump(lump: Lump, segs: Seg[]) {
 }
 
 function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
-    const len = 28;
-    const num = Math.trunc(lump.data.length / len);
-    if (num * len !== lump.data.length) {
+    const len = 32;
+    let offset = 8; // skip xNd4\0\0\0\0 signature
+    const num = Math.trunc((lump.data.length - offset) / len);
+    if (num * len + offset !== lump.data.length) {
         throw new Error('invalid lump: NODES');
     }
     let nodes = new Array<TreeNode>(num);
     for (let i = 0; i < num; i++) {
-        let xStart = int16(word(lump.data, 0 + i * len));
-        let yStart = int16(word(lump.data, 2 + i * len));
-        let xChange = int16(word(lump.data, 4 + i * len));
-        let yChange = int16(word(lump.data, 6 + i * len));
-        const childRight: any = int16(word(lump.data, 24 + i * len));
-        const childLeft: any = int16(word(lump.data, 26 + i * len));
+        let xStart = int16(word(lump.data, offset)); offset += 2;
+        let yStart = int16(word(lump.data, offset)); offset += 2;
+        let xChange = int16(word(lump.data, offset)); offset += 2;
+        let yChange = int16(word(lump.data, offset)); offset += 2;
+        offset += 4 * 2 * 2 // skip bounds left and right
+        const childRight: any = dword(lump.data, offset); offset += 4;
+        const childLeft: any = dword(lump.data, offset); offset += 4;
         nodes[i] = {
             childRight, childLeft,
             v: [
@@ -105,7 +100,8 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
 
 function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: SubSector[]) {
     let idx = (child as any) as number;
-    return (idx & 0xa000)
-        ? ssector[idx & 0x7fff]
-        : nodes[idx & 0x7fff];
+    // Similar to zdoom bsp, subsector/node reference is 4 bytes
+    return (idx & 0xa000_0000)
+        ? ssector[idx & 0x7fff_ffff]
+        : nodes[idx & 0x7fff_ffff];
 };
