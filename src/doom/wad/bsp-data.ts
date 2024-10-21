@@ -99,7 +99,6 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
     }
 
     nodes.forEach(node => {
-        fixBSPLine(node, qt);
         node.childLeft = assignChild(node.childLeft, nodes, subsectors);
         node.childRight = assignChild(node.childRight, nodes, subsectors);
     });
@@ -113,27 +112,3 @@ function assignChild(child: TreeNode | SubSector, nodes: TreeNode[], ssector: Su
         ? ssector[idx & 0x7fff]
         : nodes[idx & 0x7fff];
 };
-
-function fixBSPLine(node: TreeNode, qt: QuadTree<Vertex>) {
-    // adjust bsp lines based on map vertexes (similar to map-data fixVertexes())
-    let closest = closestVertex(node.v[0], qt);
-    node.v[0].x = closest.x;
-    node.v[0].y = closest.y;
-
-    closest = closestVertex(node.v[1], qt);
-    node.v[1].x = closest.x;
-    node.v[1].y = closest.y;
-}
-
-function closestVertex(p: Vertex, qt: QuadTree<Vertex>) {
-    let dist = Infinity;
-    let closest = p;
-    qt.query(p, v => {
-        let d = xyDistSqr(p, v);
-        if (d < dist) {
-            dist = d;
-            closest = v;
-        }
-    });
-    return closest;
-}

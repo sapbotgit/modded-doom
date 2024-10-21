@@ -35,7 +35,7 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * Sounds for crushers and moving floors (door sounds work!)
 * Crackling/popping sounds
 * ~~Sound playback, in general, doesn't feel quite right (sounds are too soft or interrupted too often)~~
-* Holes in floor/ceiling geometry in some maps (eg. Doom2 MAP25, Plutonia MAP25 and MAP29)
+* Holes in floor/ceiling geometry in some maps (eg. Doom2 MAP25~~, Plutonia MAP25 and MAP29~~)
 * Load/Save games
 * Lighting effects (like ~~[fake contrast](https://doomwiki.org/wiki/Fake_contrast)~~ and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
 * Automap

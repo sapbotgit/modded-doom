@@ -36,11 +36,10 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
         const v0 = dword(buff, offset); offset += 4;
         const v1 = dword(buff, offset); offset += 4;
         const v = [fetchVert(v0), fetchVert(v1)];
-        const angle = Math.atan2(v[1].y - v[0].y, v[1].x - v[0].x);
         const linedefId = word(buff, offset); offset += 2;
         const linedef = linedefs[linedefId];
         const direction = buff[offset]; offset += 1;
-        segs[i] = { v, angle, linedef, direction };
+        segs[i] = { v, linedef, direction };
     }
 
     // subsectors (based on segs and subsectorRefs collected above)
