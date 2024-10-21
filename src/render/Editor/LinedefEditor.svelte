@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { LineDef, MapRuntime } from "../../doom";
+    import { HALF_PI, type LineDef, type MapRuntime } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import FlagList from "./FlagList.svelte";
     import NumberChooser from "./NumberChooser.svelte";
@@ -27,6 +27,15 @@
         $editor.selected = renderSectors.find(e => e.sector.tag === linedef.tag);
     }
 
+    function goto() {
+        const vx = linedef.v[1].x - linedef.v[0].x;
+        const vy = linedef.v[1].y - linedef.v[0].y;
+        const angle = Math.atan2(vy, vx) - HALF_PI;
+        map.player.position.update(vec => vec.set(linedef.v[0].x, linedef.v[0].y, linedef.right.sector.zFloor.val - 41));
+        map.player.pitch.set(0);
+        map.player.direction.set(angle + Math.PI);
+    }
+
     function changeLinedef(ev) {
         const linedef = map.data.linedefs.find(e => e.num === ev.detail)
         if (linedef) {
@@ -39,6 +48,7 @@
 <div>
     <FlagList info={flagInfo} bind:flags={linedef.flags} />
 </div>
+<div class="text-xs">{JSON.stringify(linedef.v)} <button class="btn" on:click={goto}>Goto</button></div>
 <div>
     Special {linedef.special}
     {#if linedef.special}

@@ -7,7 +7,8 @@
 
     export let player: PlayerMapObject;
     export let interactive = true;
-    const { timescale } = useAppContext().settings;
+    const { settings, editor } = useAppContext();
+    const timescale = settings.timescale;
     const { position, direction, sector, inventory, viewHeight } = player;
     const tick = player.map.game.time.tick;
 
@@ -43,9 +44,9 @@
     const velocityPerTick = (vel: number) => vel * tickTime * 60 / $timescale;
 </script>
 
-<div class="root">
+<div class="root" style="right: {$editor.active ? '25em' : '0'}">
     <div
-        class="settings bg-base-100 bg-honeycomb shadow-xl"
+        class="settings bg-base-100 bg-honeycomb shadow-2xl"
         class:sloped={!interactive}
         transition:fly={{ y: 200}}
     >

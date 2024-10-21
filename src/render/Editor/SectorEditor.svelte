@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { Vector3 } from "three";
     import type { MapRuntime, Sector } from "../../doom";
     import { useAppContext, useDoom } from "../DoomContext";
     import NumberChooser from "./NumberChooser.svelte";
@@ -14,6 +15,10 @@
     let showSelector = false;
     function toggleSelector() {
         showSelector = !showSelector;
+    }
+
+    function vecPrint(v: Vector3) {
+        return `${v.x.toFixed(2)},${v.y.toFixed(2)},${v.z.toFixed(2)}`
     }
 
     // https://doomwiki.org/wiki/Sector
@@ -46,6 +51,10 @@
         $editor.selected = map.data.linedefs.find(e => e.tag === sector.tag)
     }
 
+    function goto() {
+        map.player.position.update(vec => vec.copy(sector.center));
+    }
+
     function changeSector(ev) {
         const sector = map.data.sectors.find(e => e.num === ev.detail)
         if (sector) {
@@ -55,7 +64,11 @@
 </script>
 
 <h3>Sector <NumberChooser num={sector.num} on:select={changeSector} /></h3>
-<button class="btn" on:click={tagLinedef}>Tag: {sector.tag}</button>
+<div class="text-xs">
+    <span>{vecPrint(sector.center)}</span>
+    <button class="btn" on:click={goto}>Goto</button>
+    <button class="btn" on:click={tagLinedef}>Tag: {sector.tag}</button>
+</div>
 <div>
     <button class="btn" on:click={toggleSelector}>{types[sector.type]}</button>
     {#if showSelector}

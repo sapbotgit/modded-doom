@@ -137,8 +137,7 @@
     console.timeEnd('map-geo')
 
     const lightMap = buildLightMap(map.data.sectors);
-    const materials = mapMeshMaterials(ta, lightMap);
-    const { material, distanceMaterial, depthMaterial } = materials;
+    const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lightMap);
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
 
     // magic https://stackoverflow.com/questions/49873459
@@ -155,7 +154,11 @@
         const items = type === 0 ? map.data.linedefs : map.data.sectors;
         const num = geometry.attributes.doomInspect.array[ev.face.a * 2 + 1];
         $editor.selected = items.find(e => e.num === num);
-        materials.updateInspector(type, num);
+    }
+
+    $: if ($editor.selected) {
+        const type = 'special' in $editor.selected ? 0 : 1;
+        $uniforms.dInspect.value = [type, $editor.selected.num];
     }
 </script>
 

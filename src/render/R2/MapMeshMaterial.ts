@@ -1,5 +1,6 @@
-import { DataTexture, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial } from "three";
+import { DataTexture, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, type IUniform } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
+import { store } from "../../doom";
 
 export const inspectorAttributeName = 'doomInspect';
 
@@ -55,11 +56,18 @@ diffuseColor *= sampledDiffuseColor;
 #endif
 `;
 
+interface MapMaterialUniforms {
+    dInspect: IUniform;
+}
+
 export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
     // extending threejs standard materials feels like a hack BUT doing it this way
     // allows us to take advantage of all the advanced capabilities there
     // (like lighting and shadows)
 
+    const uniforms = store<MapMaterialUniforms>({
+        dInspect: { value: [-1, -1] },
+    });
     const material = new MeshStandardMaterial({
         map: ta.texture,
         alphaTest: 1.0,
@@ -71,10 +79,11 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         shader.uniforms.tAtlas = { value: ta.index };
         shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
 
-        // this is a bit of a hack and it would be really nice to only supply these values when $editor.active
+        // this is a bit of a hack to allow the code to change material uniforms. We currently
+        // only use it for the inspector but perhaps it could be useful elsewhere
         // I'm not sure how to do that yet
         shader.uniforms.dInspect = { value: [-1, -1] };
-        result.updateInspector = (a, b) => shader.uniforms.dInspect.value = [a, b];
+        uniforms.set(shader.uniforms as any);
 
         shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
         shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain + lightLevelInit);
@@ -139,6 +148,5 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
     };
 
-    const result = { material, depthMaterial, distanceMaterial, updateInspector: null };
-    return result;
+    return { material, depthMaterial, distanceMaterial, uniforms };
 }
