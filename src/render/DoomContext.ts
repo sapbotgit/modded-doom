@@ -109,6 +109,7 @@ export const createDefaultSettings = () => {
         wireframe: writable<'off' | 'visible' | 'all'>('off'),
         showBlockMap: writable(false),
         fakeContrast: writable<'classic' | 'gradual' | 'off'>('classic'),
+        renderMode: writable<'r1' | 'r2'>('r2'),
     };
 }
 export type KeyMap = Pick<ReturnType<typeof createDefaultSettings>, 'keymap'>['keymap']['initial'];
@@ -171,6 +172,7 @@ export const createAppContext = () => {
         range('debug', settings.shotTraceSeconds, 'Shot tracer duration (seconds)', 0, 20, .25),
         option('debug', settings.monsterAI, 'AI mode', ['enabled', 'disabled', 'move-only', 'fast']),
         option('debug', settings.wireframe, 'Show geometry', ['off', 'visible', 'all']),
+        option('debug', settings.renderMode, 'Render engine', ['r1', 'r2']),
         // experimental
         toggle('experimental', settings.experimentalSoundHacks, 'Room accoustics (experimental)'),
     ];

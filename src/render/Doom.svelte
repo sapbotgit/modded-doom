@@ -7,8 +7,8 @@
     import { buildRenderSectors } from "./RenderData";
     import { Canvas, type ThrelteContext } from "@threlte/core";
     import HUD from "./HUD/HUD.svelte";
-    // import MapRoot from "./Map/Root.svelte";
-    import MapRoot from "./R2/Root.svelte";
+    import R1 from "./Map/Root.svelte";
+    import R2 from "./R2/Root.svelte";
     import SvgMapRoot from "./Svg/Root.svelte";
     import MapContext from "./Map/Context.svelte";
     import Intermission from "./Intermission/Intermission.svelte";
@@ -32,7 +32,7 @@
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
     const { settings, pointerLock } = useAppContext();
-    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons, showPlayerInfo } = settings;
+    const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons, showPlayerInfo, renderMode } = settings;
     const { map, intermission } = game;
     // TODO: having a separate WipeContainer component is messy and so is tracking two screen states. I wonder if we could
     // move to a single "screen" variable and manage it somehow in App.svelte?
@@ -150,7 +150,11 @@
             />
             {:else}
             <Canvas bind:ctx={threlteCtx} renderMode='manual' {rendererParameters} autoRender={false}>
-                <MapRoot map={$map} />
+                {#if $renderMode === 'r2'}
+                    <R2 map={$map} />
+                {:else}
+                    <R1 map={$map} />
+                {/if}
             </Canvas>
             {/if}
             <HUD size={viewSize} player={$map.player} />
