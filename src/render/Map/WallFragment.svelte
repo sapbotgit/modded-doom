@@ -52,7 +52,7 @@
         0;
     const extraLight = map.player.extraLight;
     const { light } = sidedef.sector;
-    const { zFloor : zFloorL } = linedef.left?.sector ?? {};
+    const { zFloor : zFloorL, zCeil : zCeilL } = linedef.left?.sector ?? {};
     const { zFloor : zFloorR, zCeil : zCeilR, skyHeight } = linedef.right.sector
 
     // TODO: We could actually use MeshBasic here (and in Thing and Flat) because we don't have any dynamic lighting
@@ -61,13 +61,13 @@
     $: texture2 = texture ? textures.get(texture, 'wall').clone() : null;
     $: if (texture2) {
         if (doubleSidedMiddle) {
+            const zFloor = Math.max($zFloorL, $zFloorR);
+            const zCeil = Math.min($zCeilL, $zCeilR);
             // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
-            actualTop = top + $yOffset;
-            height = Math.min(actualTop - Math.max(zFloorL.val, zFloorR.val), texture2.userData.height);
-            if (flags & 0x0010) {
-                // double sided linedefs that are lower unpegged stick to the ground, not ceiling. eg. cages in plutonia MAP24
-                actualTop = Math.max($zFloorL, $zFloorR) + height;
-            }
+            // and lower unpegged sticks to the ground
+            actualTop = ((flags & 0x0010) ? zFloor + texture2.userData.height : zCeil) + $yOffset;
+            // don't repeat so clip by height or floor/ceiling gap
+            height = Math.min(texture2.userData.height, zCeil - zFloor + actualTop);
         }
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;
@@ -94,7 +94,6 @@
             } else if (type === 'upper' && !(flags & 0x0008)) {
                 pegging = 0;
             } else if (type === 'middle') {
-                pegging = 0;
                 // two-sided segs with a middle texture need alpha test
                 material.alphaTest = 1;
             }
