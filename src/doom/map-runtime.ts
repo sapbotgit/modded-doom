@@ -257,11 +257,14 @@ export class MapRuntime {
     }
 
     initializeTextureAnimation(target: Store<string>, type: 'wall' | 'flat') {
-        if (!target) {
+        if (!target || !target.val) {
             return;
         }
         // wall/flat animations are all 8 ticks each
         const animations = type === 'wall' ? this.game.wad.animatedWalls : this.game.wad.animatedFlats;
+        if (!animations.get(target.val)) {
+            return;
+        }
         target.subscribe(v => {
             const animInfo = animations.get(v);
             if (animInfo) {
