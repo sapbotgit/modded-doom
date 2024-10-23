@@ -201,7 +201,7 @@ export class MapObject {
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 
     tick() {
-        if (this._state.index !== this.info.spawnstate) {
+        if (!this.class || this._state.index !== this.info.spawnstate) {
             this.applyFriction();
             this.updatePosition();
         }
