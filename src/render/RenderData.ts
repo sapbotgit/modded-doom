@@ -143,7 +143,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     let secMap = new Map<Sector, RenderSector>();
     let rSectors: RenderSector[] = [];
     for (const sector of map.sectors) {
-        const subsectors = subsectMap.get(sector);
+        const subsectors = subsectMap.get(sector) ?? [];
         const geos = subsectors.map(subsec => createShape(subsec.vertexes)).filter(e => e);
         const linedefs = sectorRightLindefs.get(sector) ?? [];
         // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.

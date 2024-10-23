@@ -248,7 +248,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
         if (ld.left) {
             // two-sided so figure out top and bottom
             if (!skyHack) {
-                let useLeft = zCeilL.val > zCeilR.val;
+                let useLeft = zCeilL.val >= zCeilR.val;
                 const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
                 const top = Math.max(zCeilR.val, zCeilL.val);
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
@@ -256,7 +256,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.upper = m => {
-                    let left = zCeilL.val > zCeilR.val;
+                    let left = zCeilL.val >= zCeilR.val;
                     const height = left ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
                     const top = Math.max(zCeilR.val, zCeilL.val);
                     const side = left ? ld.left : ld.right;
@@ -272,7 +272,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 };
             }
             if (true) {
-                let useLeft = zFloorR.val > zFloorL.val;
+                let useLeft = zFloorR.val >= zFloorL.val;
                 const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
                 const top = Math.max(zFloorR.val, zFloorL.val);
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
@@ -280,7 +280,9 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
                 result.lower = m => {
-                    let left = zFloorR.val > zFloorL.val;
+                    // NB: use >= here, see lowering wall at the start of E1M8. If we only use > then there is a
+                    // slight flicker when switching from right side to left side
+                    let left = zFloorR.val >= zFloorL.val;
                     const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
                     const top = Math.max(zFloorR.val, zFloorL.val);
                     const side = left ? ld.left : ld.right;
