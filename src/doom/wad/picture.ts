@@ -114,20 +114,18 @@ export class LumpPicture implements Picture {
 
     private pixels(fn: (col: Color, x: number, y: number) => void) {
         // Based on the "Converting from a doom picture" of https://doomwiki.org/wiki/Picture_format
-        for (let i = 0; i < this.width; i++) {
-            let seek = dword(this.lump, 8 + i * 4);
+        for (let x = 0; x < this.width; x++) {
+            let seek = dword(this.lump, 8 + x * 4);
 
-            let lastRowStart = -1;
             let topOffset = 0;
             for (let rowStart = this.lump[seek]; rowStart !== undefined && rowStart !== 255; rowStart = this.lump[seek]) {
                 // tall patch support https://doomwiki.org/wiki/Picture_format#Tall_patches
-                topOffset += (rowStart <= lastRowStart) ? lastRowStart : 0;
-                lastRowStart = rowStart;
+                topOffset = (rowStart <= topOffset) ? topOffset + rowStart : rowStart;
 
                 let pixelCount = this.lump[seek + 1];
                 seek += 3; // 2 + 1 dummy byte
-                for (let j = 0; j < pixelCount; j++) {
-                    fn(this.palette[this.lump[seek]], i, j + rowStart + topOffset);
+                for (let y = 0; y < pixelCount; y++) {
+                    fn(this.palette[this.lump[seek]], x, y + topOffset);
                     seek += 1;
                 }
                 seek += 1; // dummy byte

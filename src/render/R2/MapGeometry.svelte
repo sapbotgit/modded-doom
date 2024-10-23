@@ -9,10 +9,6 @@
 
     const threlte = useThrelte();
 
-    const emptyPlane = new PlaneGeometry(0, 0);
-    let geometry: BufferGeometry = emptyPlane;
-    let skyGeometry: BufferGeometry = geometry;
-
     const { editor } = useAppContext();
     const { renderSectors, map } = useDoomMap();
 
@@ -131,8 +127,8 @@
     const mapData = mapBuilder.build(ta);
     mapGeo.complete(mapData);
     mapGeo = mapData as any;
-    geometry = mapGeo.geometry;
-    skyGeometry = mapGeo.skyGeometry;
+    const geometry = mapGeo.geometry;
+    const skyGeometry = mapGeo.skyGeometry;
     console.timeEnd('map-init')
     console.timeEnd('map-geo')
 

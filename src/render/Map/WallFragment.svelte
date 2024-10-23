@@ -24,7 +24,6 @@
     export let mid: Vertex;
     export let doubleSidedMiddle = false;
 
-    let actualTop = top;
     const sidedef = useLeft ? linedef.left : linedef.right;
     // In MAP29 in Doom2, the teleports in the blood only have right texture but seg.direction 1 so we get nothing.
     // https://doomwiki.org/wiki/MAP29:_The_Living_End_(Doom_II)#Bugs
@@ -65,9 +64,9 @@
             const zCeil = Math.min($zCeilL, $zCeilR);
             // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
             // and lower unpegged sticks to the ground
-            actualTop = ((flags & 0x0010) ? zFloor + texture2.userData.height : zCeil) + $yOffset;
+            top = ((flags & 0x0010) ? zFloor + texture2.userData.height : zCeil) + $yOffset;
             // don't repeat so clip by height or floor/ceiling gap
-            height = Math.min(texture2.userData.height, zCeil - zFloor + actualTop);
+            height = Math.min(texture2.userData.height, zCeil - zFloor + top);
         }
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;
@@ -143,7 +142,7 @@
         renderOrder={skyHack ? 0 : 1}
         position.x={mid.x}
         position.y={mid.y}
-        position.z={actualTop - height * .5}
+        position.z={top - height * .5}
         rotation.x={HALF_PI}
         rotation.z={angle}
         rotation.order={'ZXY'}

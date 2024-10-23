@@ -10,14 +10,22 @@ export const ShadowsShader = () => ({
     },
 
     vertexShader: /* glsl */`
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
 
     void main() {
         vUv = uv;
         gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+        #include <logdepthbuf_vertex>
     }`,
 
     fragmentShader: /* glsl */`
+    #include <common>
+    #include <logdepthbuf_pars_fragment>
+
     uniform vec3 light;
     uniform float time;
     uniform float alphaTest;
@@ -37,6 +45,9 @@ export const ShadowsShader = () => ({
         if (texel.a < 1.0) {
             discard;
         }
+
+        #include <logdepthbuf_fragment>
+
         vec2 ipos = floor(vUv * 200.0);
         float n = fract( time * noise(ipos) );
         gl_FragColor = vec4( vec3(0.0), n );

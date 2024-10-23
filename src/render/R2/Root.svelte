@@ -7,6 +7,7 @@
     import MapGeometry from "./MapGeometry.svelte";
     import { interactivity } from "@threlte/extras";
     import SectorThings from "./SectorThings.svelte";
+    import EditorTagLink from "../Editor/EditorTagLink.svelte";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
@@ -35,3 +36,5 @@
 {/each}
 
 <Player />
+
+<EditorTagLink {map} />
