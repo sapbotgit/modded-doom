@@ -136,8 +136,11 @@ export class MapRuntime {
         this.input = new GameInput(this, game.input);
 
         this.players.push(this.player);
-        this.objs.push(this.player);
-        this.data.things.forEach(e => this.initialThingSpawn(e));
+        this.disposables.push(this.game.settings.skipInitialSpawn.subscribe(() => {
+            this.objs = [this.player];
+            this.rev.update(rev => rev + 1);
+            this.data.things.forEach(e => this.initialThingSpawn(e));
+        }));
 
         this.synchronizeSpecials();
 
@@ -171,6 +174,7 @@ export class MapRuntime {
             || thing.type === 3
             || thing.type === 4
             || thing.type === 11
+            || this.game.settings.skipInitialSpawn.val
         );
         if (noSpawn) {
             return;

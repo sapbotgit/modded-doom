@@ -183,7 +183,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             midLeft: null,
             midRight: null,
             single: null,
-        }
+        };
         if (width === 0) {
             return result;
         }
@@ -246,7 +246,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
         }
 
         if (ld.left) {
-            // two-sided so figure out top and bottom
+            // two-sided so figure out top
             if (!skyHack) {
                 let useLeft = zCeilL.val >= zCeilR.val;
                 const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
@@ -271,6 +271,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                     }
                 };
             }
+            // And bottom
             if (true) {
                 let useLeft = zFloorR.val >= zFloorL.val;
                 const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
@@ -284,8 +285,11 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                     // slight flicker when switching from right side to left side
                     let left = zFloorR.val >= zFloorL.val;
                     const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
-                    const top = Math.max(zFloorR.val, zFloorL.val);
+                    // FIXME: LD#40780 in Sunder MAP20 has zfighting. I think it's from big negative yoffset which pushes
+                    // the middle wall down and perhaps it should push the top of this wall down too. I'm not sure.
+                    // The sector floors also have problems in that area so something isn't right. (special 242)
                     const side = left ? ld.left : ld.right;
+                    const top = Math.max(zFloorR.val, zFloorL.val);
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'lower', left),
                         width, height,
@@ -308,13 +312,14 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 // and lower unpegged sticks to the ground
                 let top = ((ld.flags & 0x0010) ? zFloor + pic.height : zCeil) + side.yOffset.val;
                 // don't repeat so clip by height or floor/ceiling gap
-                let height = Math.min(pic.height, zCeil - zFloor + top);
+                let height = Math.min(pic.height, zCeil - zFloor + side.yOffset.val);
                 m.changeWallHeight(idx, top, height);
                 m.applyWallTexture(idx, tx, width, height,
                     side.xOffset.val, pegging('middle', height));
             };
-            const top = Math.min(zCeilL.val, zCeilR.val);
-            const height = top - Math.max(zFloorL.val, zFloorR.val);
+            // these values don't matter because they get reset by the middleUpdater before being rendered
+            const top = 1;
+            const height = 1;
             if (middleL.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));

@@ -18,6 +18,7 @@ export interface GameTime {
 export interface GameSettings {
     timescale: Store<number>;
     freelook: Store<boolean>;
+    skipInitialSpawn: Store<boolean>;
     xyAimAssist: Store<boolean>;
     zAimAssist: Store<boolean>;
     noclip: Store<boolean>;

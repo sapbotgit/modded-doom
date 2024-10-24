@@ -39,6 +39,7 @@ export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {
         freeFly: store(false),
         freelook: store(false),
+        skipInitialSpawn: store(false),
         zAimAssist: store(true),
         xyAimAssist: store(false),
         invicibility: store(false),
@@ -171,6 +172,7 @@ export const createAppContext = () => {
         toggle('debug', settings.useTextures, 'Show textures'),
         range('debug', settings.shotTraceSeconds, 'Shot tracer duration (seconds)', 0, 20, .25),
         option('debug', settings.monsterAI, 'AI mode', ['enabled', 'disabled', 'move-only', 'fast']),
+        toggle('debug', settings.skipInitialSpawn, 'No items/monsters (will reset progress)'),
         option('debug', settings.wireframe, 'Show geometry', ['off', 'visible', 'all']),
         option('debug', settings.renderMode, 'Render engine', ['r1', 'r2']),
         // experimental

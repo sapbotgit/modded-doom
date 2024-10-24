@@ -137,7 +137,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             left.push(ld);
             sectorLeftLindefs.set(ld.left.sector, left);
         }
-    })
+    });
 
     let selfReferencing: RenderSector[] = [];
     let secMap = new Map<Sector, RenderSector>();
