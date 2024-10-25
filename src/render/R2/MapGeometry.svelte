@@ -10,7 +10,8 @@
 
     const threlte = useThrelte();
 
-    const { editor } = useAppContext();
+    const { editor, settings } = useAppContext();
+    const { fakeContrast, playerLight } = settings;
     const { renderSectors, map } = useDoomMap();
 
     console.time('map-geo')
@@ -19,8 +20,8 @@
     onDestroy(() => dispose());
     console.timeEnd('map-geo')
 
-    const { lightMap } = buildLightMap(map.data.sectors);
-    const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lightMap);
+    const { lightMap, lightLevels } = buildLightMap(map.data.sectors);
+    const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lightMap, lightLevels);
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
 
     // magic https://stackoverflow.com/questions/49873459
@@ -38,15 +39,20 @@
         const num = geometry.attributes.doomInspect.array[ev.face.a * 2 + 1];
         $editor.selected = items.find(e => e.num === num);
     }
-
-    $: $uniforms.doomExtraLight.value = $extraLight / 255;
-    $: $uniforms.dInspect.value = $editor.selected
-        ? [
-            'special' in $editor.selected ? 0 : 1,
-            $editor.selected.num,
-        ]
-        // clear selection
-        : [-1, -1];
+    $: $uniforms.doomFakeContrast.value =
+        $fakeContrast === 'off' ? 0 :
+        $fakeContrast === 'classic' ? 1 :
+        2;
+    $: $uniforms.doomExtraLight.value = $extraLight / 256;
+    $: ((edit) => {
+        $uniforms.dInspect.value = edit.selected
+            ? [
+                'special' in edit.selected ? 0 : 1,
+                edit.selected.num,
+            ]
+            // clear selection
+            : [-1, -1];
+    })($editor);
 </script>
 
 <T.Mesh
@@ -70,7 +76,7 @@
     <Wireframe />
 </T.Mesh>
 
-<!-- <T.PointLight
+<T.PointLight
     {castShadow}
     color={0xff0000}
     intensity={50}
@@ -80,4 +86,4 @@
     position.y={$position.y}
     position.z={$position.z + 40}
     shadow.bias={shadowBias}
-/> -->
+/>

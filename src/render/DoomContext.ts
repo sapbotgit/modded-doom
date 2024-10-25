@@ -111,6 +111,7 @@ export const createDefaultSettings = () => {
         showBlockMap: writable(false),
         fakeContrast: writable<'classic' | 'gradual' | 'off'>('classic'),
         renderMode: writable<'r1' | 'r2'>('r2'),
+        playerLight: writable("#000000"),
     };
 }
 export type KeyMap = Pick<ReturnType<typeof createDefaultSettings>, 'keymap'>['keymap']['initial'];
@@ -166,6 +167,7 @@ export const createAppContext = () => {
         range('advanced', settings.fpsLimit, 'Target FPS', 5, 200, 5),
         range('advanced', settings.pixelScale, 'Pixel scale', .1, window.devicePixelRatio, .1),
         option('advanced', settings.randomNumbers, 'Random numbers', ['table', 'computed']),
+        option('advanced', settings.playerLight, 'Random numbers', ['table', 'computed']),
         // toggle($editor.active, 'Inspector'),
         toggle('debug', settings.showStats, 'Show render stats'),
         toggle('debug', settings.showBlockMap, 'Show blockmap'),

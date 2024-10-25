@@ -1,9 +1,9 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import { BufferAttribute, DataTexture, IntType, PlaneGeometry, type BufferGeometry } from "three";
+import { BufferAttribute, DataTexture, IntType, PlaneGeometry, SRGBColorSpace, type BufferGeometry } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
 import { HALF_PI, type LineDef, type Sector, type SideDef, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
-import { quartIn } from 'svelte/easing';
+import { sineIn } from 'svelte/easing';
 import { inspectorAttributeName } from './MapMeshMaterial';
 
 // https://github.com/mrdoob/three.js/issues/17361
@@ -45,29 +45,35 @@ function findNearestPower2(n: number) {
 
 // TODO: Should we use sectors or render sector (because of renderSector.flatLighting)?
 export function buildLightMap(sectors: Sector[]) {
-    const lightCache = new Map<number, number>();
+    // NB: only use SRGBColorSpace for one texture because otherwise we apply it twice
     const maxLight = 255;
+    const scaledLight = new Uint8ClampedArray(16 * 16 * 4);
+    const lightLevels = new DataTexture(scaledLight, 16, 16);
     for (let i = 0; i < maxLight + 1; i++) {
         // scale light using a curve to make it look more like doom
-        // TODO: in the old render, I used sineIn but here I need something "stronger". Why?
-        const light = Math.floor(quartIn(i / maxLight) * maxLight);
-        lightCache.set(i, light);
+        const light = Math.floor(sineIn(i / maxLight) * maxLight);
+        scaledLight[i * 4 + 0] = light;
+        scaledLight[i * 4 + 1] = light;
+        scaledLight[i * 4 + 2] = light;
+        scaledLight[i * 4 + 3] = 255;
     }
+    lightLevels.needsUpdate = true;
 
     const textureSize = findNearestPower2(Math.sqrt(sectors.length));
-    const buff = new Uint8ClampedArray(textureSize * textureSize * 4);
-    const lightMap = new DataTexture(buff, textureSize, textureSize);
+    const sectorLights = new Uint8ClampedArray(textureSize * textureSize * 4);
+    const lightMap = new DataTexture(sectorLights, textureSize, textureSize);
+    lightMap.colorSpace = SRGBColorSpace;
     sectors.forEach((sector, i) => {
         sector.light.subscribe(light => {
-            const lightVal = lightCache.get(Math.max(0, Math.min(255, Math.floor(light))));
-            buff[i * 4 + 0] = lightVal;
-            buff[i * 4 + 1] = lightVal;
-            buff[i * 4 + 2] = lightVal;
-            buff[i * 4 + 3] = 255;
+            const lightVal = Math.max(0, Math.min(maxLight, light));
+            sectorLights[i * 4 + 0] = lightVal;
+            sectorLights[i * 4 + 1] = lightVal;
+            sectorLights[i * 4 + 2] = lightVal;
+            sectorLights[i * 4 + 3] = 255;
             lightMap.needsUpdate = true;
         });
     });
-    return { lightMap, lightCache };
+    return { lightMap, lightLevels };
 }
 
 type GeoInfo = { vertexOffset: number, vertexCount: number, sky: boolean };
@@ -579,8 +585,8 @@ export function mapGeometry(
         geo.attributes.position.needsUpdate = true;
 
         // flip normals so lighting works
-        for (let i = 0; i < geoInfo[geoIndex].vertexCount * 3; i++) {
-            geo.attributes.normal.array[offset + i] *= -1;
+        for (let i = geoInfo[geoIndex].vertexOffset * 3, end = (geoInfo[geoIndex].vertexOffset + geoInfo[geoIndex].vertexCount) * 3; i < end; i++) {
+            geo.attributes.normal.array[i] *= -1;
         }
         geo.attributes.normal.needsUpdate = true;
     };

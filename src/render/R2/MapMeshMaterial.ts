@@ -1,4 +1,4 @@
-import { DataTexture, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, type IUniform } from "three";
+import { DataTexture, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, UniformsUtils, type IUniform } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
 import { store } from "../../doom";
 
@@ -19,12 +19,14 @@ dI = ${inspectorAttributeName};
 const vertexPars = `
 #include <common>
 
+flat out vec3 normal_;
 // texture index
 flat out uint tN;
 attribute uint texN;
 `;
 const vertexMain = `
 tN = texN;
+normal_ = normal;
 
 #include <uv_vertex>
 `;
@@ -34,14 +36,42 @@ const fragmentPars = `
 
 uniform sampler2D tAtlas;
 uniform uint tAtlasWidth;
+uniform sampler2D tLightLevels;
 uniform sampler2D tLightMap;
 uniform uint tLightMapWidth;
 uniform uvec2 dInspect;
 uniform float doomExtraLight;
+uniform int doomFakeContrast;
 
+flat in vec3 normal_;
 flat in uint dL;
 flat in uint tN;
 flat in uvec2 dI;
+
+const float oneSixteenth = 1.0 / 16.0;
+float doomLightLevel(float level) {
+    float light = level * 256.0;
+    vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
+    vec4 sectorLightLevel = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
+    return sectorLightLevel.g;
+}
+
+const float fakeContrastStep = 16.0 / 256.0;
+float fakeContrast(vec3 normal) {
+    vec3 absNormal = abs(normal);
+    if (doomFakeContrast == 2) {
+        // gradual contrast
+        return (smoothstep(0.0, 1.0, absNormal.x) * fakeContrastStep) -
+            (smoothstep(0.0, 1.0, absNormal.y) * fakeContrastStep);
+    } else if (doomFakeContrast == 1) {
+        // "classic" contrast that only impacts east-west are darker and north-south walls are brighter
+        return
+            absNormal.y == 1.0 ? -fakeContrastStep
+            : absNormal.x == 1.0 ? fakeContrastStep
+            : 0.0;
+    }
+    return 0.0;
+}
 `;
 const fragmentMap = `
 #ifdef USE_MAP
@@ -60,9 +90,10 @@ diffuseColor *= sampledDiffuseColor;
 interface MapMaterialUniforms {
     dInspect: IUniform;
     doomExtraLight: IUniform;
+    doomFakeContrast: IUniform;
 }
 
-export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
+export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightLevels: DataTexture) {
     // extending threejs standard materials feels like a hack BUT doing it this way
     // allows us to take advantage of all the advanced capabilities there
     // (like lighting and shadows)
@@ -70,23 +101,22 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
     const uniforms = store<MapMaterialUniforms>({
         dInspect: { value: [-1, -1] },
         doomExtraLight: { value: 0 },
+        doomFakeContrast: { value: 0 },
     });
+
     const material = new MeshStandardMaterial({
         map: ta.texture,
+        flatShading: false, // to get normals for fake contrast
         alphaTest: 1.0,
         shadowSide: FrontSide,
     });
     material.onBeforeCompile = shader => {
+        shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
+        shader.uniforms.tLightLevels = { value: lightLevels };
         shader.uniforms.tLightMap = { value: lightMap };
         shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
         shader.uniforms.tAtlas = { value: ta.index };
         shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
-
-        // this is a bit of a hack to allow the code to change material uniforms. We currently
-        // only use it for the inspector but perhaps it could be useful elsewhere
-        // I'm not sure how to do that yet
-        shader.uniforms.dInspect = { value: [-1, -1] };
-        shader.uniforms.doomExtraLight = { value: 0 };
         uniforms.set(shader.uniforms as any);
 
         shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
@@ -116,15 +146,26 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         diffuseColor *= sampledDiffuseColor;
 
         #endif
+        `);
+        shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', `
+            #include <lights_fragment_begin>
 
-        // light level
-        float dLf = float(dL);
-        float invLightMapWidth = 1.0 / float(tLightMapWidth);
-        vec2 lightUV = vec2(
-            mod(dLf, float(tLightMapWidth)),
-            floor(dLf * invLightMapWidth) );
-        vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
-        diffuseColor.rgb *= clamp(sectorLight.rgb + vec3(doomExtraLight), 0.0, 1.0);
+            // sector light level
+            float dLf = float(dL);
+            float invLightMapWidth = 1.0 / float(tLightMapWidth);
+            vec2 lightUV = vec2(
+                mod(dLf, float(tLightMapWidth)),
+                floor(dLf * invLightMapWidth) );
+            vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
+
+            sectorLight.rgb += fakeContrast(normal_);
+            float scaledLightLevel = doomLightLevel(sectorLight.g + doomExtraLight);
+
+            // apply lighting
+            material.diffuseColor.rgb *= clamp(scaledLightLevel, 0.0, 1.0);
+            // material.diffuseColor.rgb = vec3(scaledLightLevel);
+            // material.diffuseColor.rgb = vec3(fakeContrast(normal_) * 4.0 + .5);
+            // material.diffuseColor.rgb = abs(normal_);
         `);
     };
 

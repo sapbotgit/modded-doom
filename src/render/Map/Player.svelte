@@ -43,7 +43,7 @@
 
     const setupEffectComposer = (camera: Camera, hudScene: Scene) => {
         composer.passes.length = 0;
-        composer.addPass(new RenderPass(scene, camera))
+        composer.addPass(new RenderPass(scene, camera));
         if (hudScene) {
             const p = new RenderPass(hudScene, hudCam);
             p.clear = false;
