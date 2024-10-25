@@ -37,6 +37,7 @@ uniform uint tAtlasWidth;
 uniform sampler2D tLightMap;
 uniform uint tLightMapWidth;
 uniform uvec2 dInspect;
+uniform float doomExtraLight;
 
 flat in uint dL;
 flat in uint tN;
@@ -58,6 +59,7 @@ diffuseColor *= sampledDiffuseColor;
 
 interface MapMaterialUniforms {
     dInspect: IUniform;
+    doomExtraLight: IUniform;
 }
 
 export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
@@ -67,6 +69,7 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
 
     const uniforms = store<MapMaterialUniforms>({
         dInspect: { value: [-1, -1] },
+        doomExtraLight: { value: 0 },
     });
     const material = new MeshStandardMaterial({
         map: ta.texture,
@@ -83,6 +86,7 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
         // only use it for the inspector but perhaps it could be useful elsewhere
         // I'm not sure how to do that yet
         shader.uniforms.dInspect = { value: [-1, -1] };
+        shader.uniforms.doomExtraLight = { value: 0 };
         uniforms.set(shader.uniforms as any);
 
         shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
@@ -120,7 +124,7 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture) {
             mod(dLf, float(tLightMapWidth)),
             floor(dLf * invLightMapWidth) );
         vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
-        diffuseColor.rgb *= sectorLight.rgb;
+        diffuseColor.rgb *= clamp(sectorLight.rgb + vec3(doomExtraLight), 0.0, 1.0);
         `);
     };
 

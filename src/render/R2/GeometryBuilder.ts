@@ -67,7 +67,7 @@ export function buildLightMap(sectors: Sector[]) {
             lightMap.needsUpdate = true;
         });
     });
-    return lightMap;
+    return { lightMap, lightCache };
 }
 
 type GeoInfo = { vertexOffset: number, vertexCount: number, sky: boolean };

@@ -132,7 +132,7 @@
     console.timeEnd('map-init')
     console.timeEnd('map-geo')
 
-    const lightMap = buildLightMap(map.data.sectors);
+    const { lightMap, lightCache } = buildLightMap(map.data.sectors);
     const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lightMap);
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
 
@@ -141,7 +141,7 @@
 
     const receiveShadow = false;
     const castShadow = receiveShadow;
-    const { position } = map.player;
+    const { position, extraLight } = map.player;
 
     function hit(ev) {
         ev.stopPropagation();
@@ -152,9 +152,14 @@
         $editor.selected = items.find(e => e.num === num);
     }
 
+    $: $uniforms.doomExtraLight.value = $extraLight / 255;
+    $: console.log('extra light', $uniforms.doomExtraLight.value)
     $: if ($editor.selected) {
         const type = 'special' in $editor.selected ? 0 : 1;
         $uniforms.dInspect.value = [type, $editor.selected.num];
+    } else {
+        // clear selection
+        $uniforms.dInspect.value = [-1, -1];
     }
 </script>
 
