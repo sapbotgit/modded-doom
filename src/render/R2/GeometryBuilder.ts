@@ -152,9 +152,9 @@ export function geometryBuilder() {
     return { createWallGeo, addWallGeometry, addFlatGeometry, createFlatGeo, build };
 }
 
-export type MapGeometryUpdater = ReturnType<typeof mapGeometry>;
-export type MapUpdater = (m: MapGeometryUpdater) => void;
-export interface LindefUpdater{
+type MapGeometryUpdater = ReturnType<typeof mapGeometry>;
+type MapUpdater = (m: MapGeometryUpdater) => void;
+interface LindefUpdater{
     lower: MapUpdater;
     upper:  MapUpdater;
     midLeft: MapUpdater;
@@ -162,7 +162,7 @@ export interface LindefUpdater{
     single: MapUpdater;
 }
 
-export function mapGeometryBuilder(textures: TextureAtlas) {
+function mapGeometryBuilder(textures: TextureAtlas) {
     const geoBuilder = geometryBuilder();
 
     type TextureType = 'upper' | 'lower' | 'middle';
@@ -199,6 +199,10 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
         const { middle: middleL }  = ld.left ?? {};
         const { zFloor : zFloorR, zCeil : zCeilR } = ld.right.sector
         const { middle: middleR }  = ld.right;
+
+        // these values don't matter because they get reset by the linedef updaters before being rendered
+        const top = 1;
+        const height = 1;
 
         // Sky Hack! https://doomwiki.org/wiki/Sky_hack
         // Detect the skyhack is simple but how it's handled is... messy. How it
@@ -251,9 +255,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             // two-sided so figure out top
             if (!skyHack) {
                 let useLeft = zCeilL.val >= zCeilR.val;
-                const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
-                const top = Math.max(zCeilR.val, zCeilL.val);
-                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
+                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
@@ -276,9 +278,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             // And bottom
             if (true) {
                 let useLeft = zFloorR.val >= zFloorL.val;
-                const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
-                const top = Math.max(zFloorR.val, zFloorL.val);
-                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + (useLeft ? Math.PI : 0));
+                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
 
@@ -319,9 +319,6 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 m.applyWallTexture(idx, tx, width, height,
                     side.xOffset.val, pegging('middle', height));
             };
-            // these values don't matter because they get reset by the middleUpdater before being rendered
-            const top = 1;
-            const height = 1;
             if (middleL.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
@@ -330,7 +327,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 result.midLeft = middleUpdater(idx, ld.left);
             }
             if (middleR.val) {
-                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + 0);
+                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
@@ -338,8 +335,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
             }
 
         } else {
-            const height = zCeilR.val - zFloorR.val;
-            const geo = geoBuilder.createWallGeo(width, height, mid, zCeilR.val, angle + 0);
+            const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
             geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
             const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
@@ -374,15 +370,136 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
         return [ceil, floor];
     }
 
-    function build(textureAtlas: TextureAtlas) {
+    function build() {
         const { skyGeometry, geometry, geoInfo } = geoBuilder.build();
-        return mapGeometry(textureAtlas, geometry, skyGeometry, geoInfo);
+        return mapGeometry(textures, geometry, skyGeometry, geoInfo);
     }
 
     return { addSector, addLinedef, build };
 }
 
-export function mapGeometry(
+export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: RenderSector[]) {
+    // Geometry updates happen on the merged geometry but it's more efficient to merge the geometries
+    // once. With this little structure, we keep track of all the pending changes to apply them when
+    // the geometry has been created.
+    let pendingUpdates: MapUpdater[] = [];
+    let mapGeo: MapGeometryUpdater = (() => {
+        return {
+            geometry: undefined,
+            skyGeometry: undefined,
+            moveFlat: (idx, z) => pendingUpdates.push(m => m.moveFlat(idx, z)),
+            applyFlatTexture: (idx, tx) => pendingUpdates.push(m => m.applyFlatTexture(idx, tx)),
+            applyWallTexture: (idx, tx, w, h, ox, oy) => pendingUpdates.push(m => m.applyWallTexture(idx, tx, w, h, ox, oy)),
+            changeWallHeight: (idx, top, height) => pendingUpdates.push(m => m.changeWallHeight(idx, top, height)),
+            flipZ: (idx) => pendingUpdates.push(m => m.flipZ(idx)),
+        };
+    })();
+
+    const mapBuilder = mapGeometryBuilder(textureAtlas);
+
+    // We're going to subscribe to a whole bunch of property change events so we better keep track of
+    // the unsubscribes so we don't leak memory in HMR situation (or when reloading a map)
+    let disposables: (() => void)[] = [];
+    let linedefUpdaters = new Map<number, LindefUpdater>();
+    for (const rs of renderSectors) {
+        rs.linedefs.map(ld => {
+            const updaters = mapBuilder.addLinedef(ld);
+            linedefUpdaters.set(ld.num, updaters);
+
+            if (ld.left) {
+                const updateLeft = () => {
+                    updaters.lower?.(mapGeo);
+                    updaters.upper?.(mapGeo);
+                    updaters.midLeft?.(mapGeo);
+                };
+                disposables.push(ld.left.xOffset.subscribe(updateLeft));
+                disposables.push(ld.left.yOffset.subscribe(updateLeft));
+                if (updaters.lower) {
+                    disposables.push(ld.left.lower.subscribe(() => updaters.lower(mapGeo)));
+                }
+                if (updaters.upper) {
+                    disposables.push(ld.left.upper.subscribe(() => updaters.upper(mapGeo)));
+                }
+                if (updaters.midLeft) {
+                    disposables.push(ld.left.middle.subscribe(() => updaters.midLeft(mapGeo)));
+                }
+            }
+            const updateRight = () => {
+                updaters.lower?.(mapGeo);
+                updaters.upper?.(mapGeo);
+                updaters.midRight?.(mapGeo);
+                updaters.single?.(mapGeo);
+            };
+            disposables.push(ld.right.xOffset.subscribe(updateRight));
+            disposables.push(ld.right.yOffset.subscribe(updateRight));
+            if (updaters.lower) {
+                disposables.push(ld.right.lower.subscribe(() => updaters.lower(mapGeo)));
+            }
+            if (updaters.upper) {
+                disposables.push(ld.right.upper.subscribe(() => updaters.upper(mapGeo)));
+            }
+            disposables.push(ld.right.middle.subscribe(() =>{
+                updaters.midRight?.(mapGeo);
+                updaters.single?.(mapGeo);
+            }));
+        });
+        if (!rs.geometry) {
+            // Plutonia MAP29?
+            continue;
+        }
+
+        let [ceil, floor] = mapBuilder.addSector(rs);
+
+        // subscribe for changes and update map geometry
+        // update sector z
+        disposables.push(rs.sector.zFloor.subscribe(z => mapGeo.moveFlat(floor, z)));
+        disposables.push(rs.sector.zCeil.subscribe(z => mapGeo.moveFlat(ceil, rs.sector.skyHeight ?? z)));
+        // update sector textures
+        disposables.push(rs.sector.ceilFlat.subscribe(name => mapGeo.applyFlatTexture(ceil, name)));
+        disposables.push(rs.sector.floorFlat.subscribe(name => mapGeo.applyFlatTexture(floor, name)));
+    }
+
+    // try to minimize subscriptions by grouping lindefs that listen to a sector change
+    // and only subscribing to that sector once. I'm not sure it's worth it. Actually, I'm
+    // not sure using svelte store makes sense anymore at all and I'll probably remove it
+    // which should make this all simpler (I hope)
+    for (const rs of renderSectors) {
+        const updaters = [...new Set([
+            ...rs.sector.portalSegs?.map(seg => seg.linedef) ?? [],
+            ...rs.linedefs.map(ld => ld)
+        ])];
+
+        const lowers = updaters.map(e => linedefUpdaters.get(e.num).lower).filter(e => e);
+        const uppers = updaters.map(e => linedefUpdaters.get(e.num).upper).filter(e => e);
+        const midLefts = updaters.map(e => linedefUpdaters.get(e.num).midLeft).filter(e => e);
+        const midRights = updaters.map(e => linedefUpdaters.get(e.num).midRight).filter(e => e);
+        const singles = updaters.map(e => linedefUpdaters.get(e.num).single).filter(e => e);
+
+        disposables.push(rs.sector.zFloor.subscribe(() => {
+            lowers.forEach(fn => fn(mapGeo));
+            uppers.forEach(fn => fn(mapGeo));
+            midLefts.forEach(fn => fn(mapGeo));
+            midRights.forEach(fn => fn(mapGeo));
+            singles.forEach(fn => fn(mapGeo));
+        }));
+        disposables.push(rs.sector.zCeil.subscribe(() => {
+            lowers.forEach(fn => fn(mapGeo));
+            uppers.forEach(fn => fn(mapGeo));
+            midLefts.forEach(fn => fn(mapGeo));
+            midRights.forEach(fn => fn(mapGeo));
+            singles.forEach(fn => fn(mapGeo));
+        }));
+    }
+
+    mapGeo = mapBuilder.build();
+    pendingUpdates.forEach(fn => fn(mapGeo));
+
+    const { geometry, skyGeometry } = mapGeo;
+    const dispose = () => disposables.forEach(fn => fn());
+    return { geometry, skyGeometry, dispose };
+}
+
+function mapGeometry(
     textures: TextureAtlas,
     geometry: BufferGeometry,
     skyGeometry: BufferGeometry,
