@@ -64,9 +64,9 @@
             const zCeil = Math.min($zCeilL, $zCeilR);
             // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
             // and lower unpegged sticks to the ground
-            top = ((flags & 0x0010) ? zFloor + texture2.userData.height : zCeil) + $yOffset;
+            top = ((flags & 0x0010) ? Math.min(zFloor + texture2.userData.height, zCeil) : zCeil) + $yOffset;
             // don't repeat so clip by height or floor/ceiling gap
-            height = Math.min(texture2.userData.height, zCeil - zFloor + top);
+            height = Math.min(texture2.userData.height, zCeil - zFloor + $yOffset);
         }
         texture2.repeat.x = width * texture2.userData.invWidth;
         texture2.repeat.y = height * texture2.userData.invHeight;

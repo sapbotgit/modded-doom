@@ -230,6 +230,8 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                     offset = (skyHeight ?? zCeilR.val) - Math.max(zFloorL.val, zFloorR.val);
                 } else if (type === 'upper' && !(ld.flags & 0x0008)) {
                     offset = -height;
+                } else if (type === 'middle' && (ld.flags & 0x0010)) {
+                    offset = -height;
                 }
             } else if (ld.flags & 0x0010) {
                 // peg to floor (bottom left)
@@ -310,7 +312,7 @@ export function mapGeometryBuilder(textures: TextureAtlas) {
                 const zCeil = Math.min(zCeilL.val, zCeilR.val);
                 // double sided linedefs (generally for semi-transparent textures like gates/fences) do not repeat vertically
                 // and lower unpegged sticks to the ground
-                let top = ((ld.flags & 0x0010) ? zFloor + pic.height : zCeil) + side.yOffset.val;
+                let top = ((ld.flags & 0x0010) ? Math.min(zFloor + pic.height, zCeil) : zCeil) + side.yOffset.val;
                 // don't repeat so clip by height or floor/ceiling gap
                 let height = Math.min(pic.height, zCeil - zFloor + side.yOffset.val);
                 m.changeWallHeight(idx, top, height);
