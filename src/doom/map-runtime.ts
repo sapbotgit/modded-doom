@@ -137,6 +137,14 @@ export class MapRuntime {
 
         this.players.push(this.player);
         this.disposables.push(this.game.settings.skipInitialSpawn.subscribe(() => {
+            this.data.nodes.map(n => {
+                if ('mobjs' in n.childLeft) {
+                    n.childLeft.mobjs.clear()
+                }
+                if ('mobjs' in n.childRight) {
+                    n.childRight.mobjs.clear()
+                }
+            });
             this.objs = [this.player];
             this.rev.update(rev => rev + 1);
             this.data.things.forEach(e => this.initialThingSpawn(e));
