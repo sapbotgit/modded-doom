@@ -153,7 +153,6 @@
     }
 
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
-    $: console.log('extra light', $uniforms.doomExtraLight.value)
     $: if ($editor.selected) {
         const type = 'special' in $editor.selected ? 0 : 1;
         $uniforms.dInspect.value = [type, $editor.selected.num];

@@ -1,3 +1,34 @@
+<script lang="ts" context="module">
+    export function loadOptionalUrlParams(game: Game, params: URLSearchParams) {
+        const player = game.map.val.player;
+
+        const x = params.has('player-x') ? parseFloat(params.get('player-x')) : player.position.val.x;
+        const y = params.has('player-y') ? parseFloat(params.get('player-y')) : player.position.val.y;
+        const z = params.has('player-z') ? parseFloat(params.get('player-z')) : player.position.val.z;
+        player.position.update(pos => pos.set(x, y, z));
+
+        const yaw = params.has('player-dir') ? parseFloat(params.get('player-dir')) : player.direction.val;
+        player.direction.set(yaw);
+        const pitch = params.has('player-aim') ? parseFloat(params.get('player-aim')) : player.pitch.val;
+        player.pitch.set(pitch);
+    }
+
+    function createShareUrl(game: Game) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const player = game.map.val.player;
+
+        const pos = player.position.val;
+        params.set('player-x', pos.x.toFixed(2));
+        params.set('player-y', pos.y.toFixed(2));
+        params.set('player-z', pos.z.toFixed(2));
+        params.set('player-aim', player.pitch.val.toFixed(2));
+        params.set('player-dir', player.direction.val.toFixed(2));
+
+        window.location.hash = '#' + params.toString();
+        navigator.clipboard.writeText(window.location.href);
+        return window.location.href;
+    }
+</script>
 <script lang="ts">
     import { fade, fly } from "svelte/transition";
     import { useAppContext, useDoom } from "../DoomContext";
@@ -5,7 +36,7 @@
     import AppInfo from "../Components/AppInfo.svelte";
     import MapNamePic from "../Components/MapNamePic.svelte";
     import Picture from "../Components/Picture.svelte";
-    import { MapRuntime, data } from "../../doom";
+    import { Game, MapRuntime, data } from "../../doom";
     import MapStats from "./MapStats.svelte";
     import CheatsMenu from "./CheatsMenu.svelte";
     import KeyboardControlsMenu from "./KeyboardControlsMenu.svelte";
@@ -36,6 +67,12 @@
         game.resetInventory();
         game.startMap(new MapRuntime(nextEpisodeMap, game));
         pointerLock.requestLock();
+    }
+
+    let shared = false;
+    function share() {
+        location.href = createShareUrl(game);
+        shared = true;
     }
 
     const settings = {
@@ -93,9 +130,14 @@
         {#if hasNextEpisode}
         <button on:click={startNextEpisode} class="btn btn-secondary">Next episode</button>
         {/if}
+        {#if !shared}
+            <button class="btn" on:click={share}>Share</button>
+        {:else}
+            <span class="text-center" transition:fly>Url copied to clipboard</span>
+        {/if}
         <!-- TODO: someday... get save/load working-->
-        <button class="btn" disabled>Load</button>
-        <button class="btn" disabled>Save</button>
+        <!-- <button class="btn" disabled>Load</button>
+        <button class="btn" disabled>Save</button> -->
 
 
         <div class="divider" />

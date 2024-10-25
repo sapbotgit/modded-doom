@@ -10,6 +10,7 @@
     import WipeContainer from './render/Components/WipeContainer.svelte';
     import { fly } from 'svelte/transition';
     import TextureMapScene from './render/Debug/TextureMapScene.svelte';
+    import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
 
     const wadStore = new WadStore();
     const context = createAppContext();
@@ -66,6 +67,7 @@
         if (urlMapName && validUrlSkill && (!game || game.map.val?.name !== urlMapName)) {
             game = new Game(wad, difficulty, context.settings);
             game.startMap(new MapRuntime(urlMapName, game));
+            loadOptionalUrlParams(game, params);
         }
     }
     parseUrlParams();
