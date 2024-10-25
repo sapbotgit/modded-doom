@@ -254,52 +254,52 @@ function mapGeometryBuilder(textures: TextureAtlas) {
         if (ld.left) {
             // two-sided so figure out top
             if (!skyHack) {
-                let useLeft = zCeilL.val >= zCeilR.val;
+                let left = false;
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
-                const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
+                const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
                 result.upper = m => {
-                    let left = zCeilL.val >= zCeilR.val;
-                    const height = left ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
+                    let useLeft = zCeilL.val >= zCeilR.val;
+                    const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
                     const top = Math.max(zCeilR.val, zCeilL.val);
-                    const side = left ? ld.left : ld.right;
+                    const side = useLeft ? ld.left : ld.right;
                     m.changeWallHeight(idx, top, height);
-                    m.applyWallTexture(idx, chooseTexture(ld, 'upper', left),
+                    m.applyWallTexture(idx, chooseTexture(ld, 'upper', useLeft),
                         width, height,
                         side.xOffset.val,
                         side.yOffset.val + pegging('upper', height));
-                    if (useLeft !== left) {
-                        m.flipZ(idx);
-                        useLeft = left;
+                    if (left !== useLeft) {
+                        m.flipWallFace(idx, side.sector.num);
+                        left = useLeft;
                     }
                 };
             }
             // And bottom
             if (true) {
-                let useLeft = zFloorR.val >= zFloorL.val;
+                let left = false;
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
-                const idx = geoBuilder.addWallGeometry(geo, useLeft ? ld.left.sector.num: ld.right.sector.num);
+                const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
 
                 result.lower = m => {
                     // NB: use >= here, see lowering wall at the start of E1M8. If we only use > then there is a
                     // slight flicker when switching from right side to left side
-                    let left = zFloorR.val >= zFloorL.val;
-                    const height = useLeft ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
+                    let useLeft = zFloorR.val >= zFloorL.val;
+                    const height = left ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
                     // FIXME: LD#40780 in Sunder MAP20 has zfighting. I think it's from big negative yoffset which pushes
                     // the middle wall down and perhaps it should push the top of this wall down too. I'm not sure.
                     // The sector floors also have problems in that area so something isn't right. (special 242)
-                    const side = left ? ld.left : ld.right;
+                    const side = useLeft ? ld.left : ld.right;
                     const top = Math.max(zFloorR.val, zFloorL.val);
                     m.changeWallHeight(idx, top, height);
-                    m.applyWallTexture(idx, chooseTexture(ld, 'lower', left),
+                    m.applyWallTexture(idx, chooseTexture(ld, 'lower', useLeft),
                         width, height,
                         side.xOffset.val,
                         side.yOffset.val + pegging('lower', height));
-                    if (useLeft !== left) {
-                        m.flipZ(idx);
-                        useLeft = left;
+                    if (left !== useLeft) {
+                        m.flipWallFace(idx, side.sector.num);
+                        left = useLeft;
                     }
                 };
             }
@@ -391,7 +391,7 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
             applyFlatTexture: (idx, tx) => pendingUpdates.push(m => m.applyFlatTexture(idx, tx)),
             applyWallTexture: (idx, tx, w, h, ox, oy) => pendingUpdates.push(m => m.applyWallTexture(idx, tx, w, h, ox, oy)),
             changeWallHeight: (idx, top, height) => pendingUpdates.push(m => m.changeWallHeight(idx, top, height)),
-            flipZ: (idx) => pendingUpdates.push(m => m.flipZ(idx)),
+            flipWallFace: (idx, n) => pendingUpdates.push(m => m.flipWallFace(idx, n)),
         };
     })();
 
@@ -499,7 +499,7 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
     return { geometry, skyGeometry, dispose };
 }
 
-function mapGeometry(
+export function mapGeometry(
     textures: TextureAtlas,
     geometry: BufferGeometry,
     skyGeometry: BufferGeometry,
@@ -551,11 +551,17 @@ function mapGeometry(
         geo.attributes.position.needsUpdate = true;
     };
 
-    const flipZ = (geoIndex: number) => {
-        // TODO: change sector for lighting
+    const flipWallFace = (geoIndex: number, sectorNum: number) => {
         const offset = geoInfo[geoIndex].vertexOffset * 3;
         const geo = geoInfo[geoIndex].sky ? skyGeometry : geometry;
 
+        // apply new sector light
+        for (let i = geoInfo[geoIndex].vertexOffset, end = geoInfo[geoIndex].vertexOffset + geoInfo[geoIndex].vertexCount; i < end; i++) {
+            geo.attributes.doomLight.array[i] = sectorNum;
+        }
+        geo.attributes.doomLight.needsUpdate = true;
+
+        // rotate wall by 180
         let x1 = geo.attributes.position.array[offset + 0];
         let y1 = geo.attributes.position.array[offset + 1];
         geo.attributes.position.array[offset + 0] = geo.attributes.position.array[offset + 9];
@@ -572,6 +578,7 @@ function mapGeometry(
 
         geo.attributes.position.needsUpdate = true;
 
+        // flip normals so lighting works
         for (let i = 0; i < geoInfo[geoIndex].vertexCount * 3; i++) {
             geo.attributes.normal.array[offset + i] *= -1;
         }
@@ -609,6 +616,6 @@ function mapGeometry(
         applyFlatTexture,
         applyWallTexture,
         changeWallHeight,
-        flipZ,
+        flipWallFace,
     }
 }

@@ -118,7 +118,7 @@
                 0, 0);
         }
 
-        const lightMap = buildLightMap([{ light: store(255) } as any]);
+        const { lightMap } = buildLightMap([{ light: store(255) } as any]);
         let m = mapMeshMaterials(ta, lightMap);
         material = m.material;
         depthMaterial = m.depthMaterial;
