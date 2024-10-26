@@ -31,7 +31,6 @@
     $: receiveShadow = usePlayerLight;
     $: castShadow = receiveShadow;
     const { position, extraLight } = map.player;
-    $: console.log('use light?',usePlayerLight)
 
     function hit(ev) {
         ev.stopPropagation();
