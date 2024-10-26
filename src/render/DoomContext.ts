@@ -22,6 +22,11 @@ interface OptionSetting extends BaseSetting<string> {
 }
 const option = (cat: MenuSettingCategory, val: Writable<string>, text: string, options: string[]): OptionSetting => ({ type: 'option', cat, options, val, text });
 
+interface ColorSetting extends BaseSetting<string> {
+    type: 'color';
+}
+const color = (cat: MenuSettingCategory, val: Writable<string>, text: string): ColorSetting => ({ type: 'color', cat, val, text });
+
 interface ToggleSetting extends BaseSetting<boolean> {
     type: 'toggle';
 }
@@ -33,7 +38,7 @@ interface BaseSetting<T> {
     cat: MenuSettingCategory;
     val: Writable<T>;
 }
-export type MenuSetting = RangeSetting | OptionSetting | ToggleSetting;
+export type MenuSetting = RangeSetting | OptionSetting | ToggleSetting | ColorSetting;
 
 export const createDefaultSettings = () => {
     const gameSettings: GameSettings = {
@@ -167,7 +172,7 @@ export const createAppContext = () => {
         range('advanced', settings.fpsLimit, 'Target FPS', 5, 200, 5),
         range('advanced', settings.pixelScale, 'Pixel scale', .1, window.devicePixelRatio, .1),
         option('advanced', settings.randomNumbers, 'Random numbers', ['table', 'computed']),
-        option('advanced', settings.playerLight, 'Random numbers', ['table', 'computed']),
+        color('advanced', settings.playerLight, 'Player light'),
         // toggle($editor.active, 'Inspector'),
         toggle('debug', settings.showStats, 'Show render stats'),
         toggle('debug', settings.showBlockMap, 'Show blockmap'),

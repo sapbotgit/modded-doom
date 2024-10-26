@@ -27,9 +27,11 @@
     // magic https://stackoverflow.com/questions/49873459
     const shadowBias = -0.004;
 
-    const receiveShadow = false;
-    const castShadow = receiveShadow;
+    $: usePlayerLight = $playerLight !== '#000000';
+    $: receiveShadow = usePlayerLight;
+    $: castShadow = receiveShadow;
     const { position, extraLight } = map.player;
+    $: console.log('use light?',usePlayerLight)
 
     function hit(ev) {
         ev.stopPropagation();
@@ -76,14 +78,16 @@
     <Wireframe />
 </T.Mesh>
 
-<T.PointLight
-    {castShadow}
-    color={0xff0000}
-    intensity={50}
-    distance={400}
-    decay={0.2}
-    position.x={$position.x}
-    position.y={$position.y}
-    position.z={$position.z + 40}
-    shadow.bias={shadowBias}
-/>
+{#if usePlayerLight}
+    <T.PointLight
+        {castShadow}
+        color={$playerLight}
+        intensity={10}
+        distance={400}
+        decay={0.2}
+        position.x={$position.x}
+        position.y={$position.y}
+        position.z={$position.z + 40}
+        shadow.bias={shadowBias}
+    />
+{/if}

@@ -57,7 +57,7 @@
     // else the mobj jumps to the new position every 1/35s.
     // It's still not perfect if you watch closely. mobj.movecount can mess it up and so can collisions but it's pretty good.
     const ppos = { x: 0, y: 0, z: 0 };
-    $: if ($interpolateMovement) {
+    $: if ($interpolateMovement && thing.type !== MapObjectIndex.MT_PLAYER) {
         const floating = thing.info.flags & MFFlags.MF_INFLOAT;
         if (!floating) {
             const partialMove = ($partialTick * thing.spriteTime + thing.spriteCompletion) * thing.info.speed;

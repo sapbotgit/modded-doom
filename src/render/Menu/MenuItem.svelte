@@ -19,6 +19,11 @@
             {/each}
         </select>
     </label>
+{:else if item.type === 'color'}
+    <label class="label cursor-pointer">
+        <span class="label-text">{item.text}</span>
+        <input type="color" bind:value={$val} />
+    </label>
 {:else if item.type === 'toggle'}
     <label class="label cursor-pointer">
         <span class="label-text">{item.text}</span>
