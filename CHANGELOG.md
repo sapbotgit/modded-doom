@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- Url parameters to setup player position and direction (for sharing)
+- Setting to turn off monsters/things when loading a map
+- Tall patch support for wall textures taller than 256px
+- MP3 and MIDI music playback
+- Handle custom wall animations and switches ([ANIMATED](https://doomwiki.org/wiki/ANIMATED) and [SWITCHES](https://doomwiki.org/wiki/SWITCHES) lumps)
+- Vertical texture scrolling
+- Point light that follows the player and casts shadows
+
+### Changed
+- Added new renderer (R2) with significantly better performance for map geometry. Monsters/items still needs work.
+- Add short pause after monster death in Doom2 victory screen
+
+### Fixed
+- yOffset on middle textures wasn't applied properly in some cases
+- Use [logarithmic depth buffer](https://threejs.org/docs/#api/en/renderers/WebGLRenderer.logarithmicDepthBuffer) to avoid z-fighting in large maps (Sunder)
+- Fix fog on overhead camera view
+- Fix several holes in map floors/ceilings
+- Reduce animated wall texture init on large maps from 2s to 50ms
+- Reduce map render data init by 5-8s for large maps
+
 ## [0.7.1] - 2024-10-08
 
 ### Fixed
