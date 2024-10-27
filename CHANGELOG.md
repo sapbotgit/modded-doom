@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2024-10-26
+
 ### Added
 - Url parameters to setup player position and direction (for sharing)
 - Setting to turn off monsters/things when loading a map
