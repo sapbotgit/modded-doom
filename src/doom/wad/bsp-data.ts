@@ -18,7 +18,7 @@ export function readBspData(mapLumps: Lump[], vertexes: Vertex[], linedefs: Line
 
     const segs = segsLump(mapLumps[5], vertexes, linedefs);
     const subsectors = subSectorLump(mapLumps[6], segs);
-    const nodes = bspNodesLump(mapLumps[7], vertexes, subsectors);
+    const nodes = bspNodesLump(mapLumps[7], subsectors);
     return { segs, nodes, subsectors };
 }
 
@@ -54,7 +54,7 @@ function subSectorLump(lump: Lump, segs: Seg[]) {
     let subsectors = new Array<SubSector>(num);
     for (let i = 0; i < num; i++) {
         const segCount = int16(word(lump.data, 0 + i * len));
-        const segId = int16(word(lump.data, 2 + i * len));
+        const segId = word(lump.data, 2 + i * len);
         subsectors[i] = {
             num: i,
             sector: segs[segId].direction
@@ -72,7 +72,7 @@ function subSectorLump(lump: Lump, segs: Seg[]) {
     return subsectors;
 }
 
-function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
+function bspNodesLump(lump: Lump, subsectors: SubSector[]) {
     const len = 28;
     const num = Math.trunc(lump.data.length / len);
     if (num * len !== lump.data.length) {
@@ -84,8 +84,8 @@ function bspNodesLump(lump: Lump, vertexes: Vertex[], subsectors: SubSector[]) {
         let yStart = int16(word(lump.data, 2 + i * len));
         let xChange = int16(word(lump.data, 4 + i * len));
         let yChange = int16(word(lump.data, 6 + i * len));
-        const childRight: any = int16(word(lump.data, 24 + i * len));
-        const childLeft: any = int16(word(lump.data, 26 + i * len));
+        const childRight: any = word(lump.data, 24 + i * len);
+        const childLeft: any = word(lump.data, 26 + i * len);
         nodes[i] = {
             childRight, childLeft,
             v: [
