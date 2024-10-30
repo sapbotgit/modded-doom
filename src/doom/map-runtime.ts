@@ -80,7 +80,7 @@ interface ShotTrace {
 export class MapRuntime {
     readonly data: MapData; // TODO: make this non-public?
     private actions = new Set<Action>();
-    private animatedTextures: AnimatedTexture[] = [];
+    private animatedTextures = new Map<Store<string>, AnimatedTexture>();
 
     readonly player: PlayerMapObject;
     readonly input: GameInput;
@@ -274,20 +274,15 @@ export class MapRuntime {
         }
         // wall/flat animations are all 8 ticks each
         const animations = type === 'wall' ? this.game.wad.animatedWalls : this.game.wad.animatedFlats;
-        if (!animations.get(target.val)) {
+        const animInfo = animations.get(target.val);
+        if (!animInfo) {
+                // remove animation that was applied to this target
+                this.animatedTextures.delete(target);
             return;
         }
-        target.subscribe(v => {
-            const animInfo = animations.get(v);
-            if (animInfo) {
-                const { frames, speed } = animInfo
-                const index = animInfo.frames.indexOf(v);
-                this.animatedTextures.push({ index, frames, target, speed });
-            } else {
-                // remove animation that was applied to this target
-                this.animatedTextures = this.animatedTextures.filter(e => e.target !== target);
-            }
-        })();
+        const { frames, speed } = animInfo
+        const index = animInfo.frames.indexOf(target.val);
+        this.animatedTextures.set(target, { index, frames, target, speed });
     }
 
     addAction(action: Action) {
