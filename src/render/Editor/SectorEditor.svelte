@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { Vector3 } from "three";
-    import type { MapRuntime, Sector } from "../../doom";
+    import type { MapRuntime, Sector, SideDef } from "../../doom";
     import { useAppContext, useDoom } from "../DoomContext";
     import NumberChooser from "./NumberChooser.svelte";
     import TextureChooser from "./TextureChooser.svelte";
@@ -61,6 +61,10 @@
             $editor.selected = sector;
         }
     }
+
+    $: linedefs = map.data.linedefs.filter(ld => ld.right.sector === sector || ld.left?.sector === sector);
+    const sidedefBrief = (side: SideDef) =>
+        `z[${side.sector.zFloor.val}:${side.sector.zCeil.val}], [${[side.lower.val, side.middle.val, side.upper.val]}]`;
 </script>
 
 <h3>Sector <NumberChooser num={sector.num} on:select={changeSector} /></h3>
@@ -114,3 +118,26 @@ There are lots of possibilities.
 </div>
 <TextureChooser {wad} label="Ceiling" type="flat" bind:value={$ceilFlat} on:change={() => map.initializeTextureAnimation(ceilFlat, 'flat')} />
 <TextureChooser {wad} label="Floor" type="flat" bind:value={$floorFlat} on:change={() => map.initializeTextureAnimation(floorFlat, 'flat')} />
+
+<div class="collapse bg-neutral collapse-arrow">
+    <input type="checkbox" />
+    <div class="collapse-title text-xl font-medium">Linedef summary</div>
+    <div class="collapse-content">
+        <ul>
+            {#each linedefs as ld}
+            <li class="flex flex-row gap-2 pb-2">
+                <button class="link flex-1" on:click={() => $editor.selected = ld}>LD:{ld.num}</button>
+                <div>R:
+                    <button class="link" on:click={() => $editor.selected = ld.right.sector}>S:{ld.right.sector.num}</button>
+                    {sidedefBrief(ld.right)}
+                </div>
+                {#if ld.left}
+                    <div>L: <button class="link" on:click={() => $editor.selected = ld.right.sector}>S:{ld.left.sector.num}</button>
+                        {sidedefBrief(ld.left)}
+                    </div>
+                {/if}
+            </li>
+            {/each}
+        </ul>
+    </div>
+</div>

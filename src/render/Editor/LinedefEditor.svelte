@@ -44,9 +44,11 @@
     }
 </script>
 
-<h3 class="text-2xl">Linedef <NumberChooser num={linedef.num} on:select={changeLinedef} /></h3>
+<h3 class="text-2xl">
+    Linedef <NumberChooser num={linedef.num} on:select={changeLinedef} />
+</h3>
 <div>
-    <FlagList info={flagInfo} bind:flags={linedef.flags} />
+<FlagList info={flagInfo} bind:flags={linedef.flags} />
 </div>
 <div class="text-xs">{JSON.stringify(linedef.v)} <button class="btn" on:click={goto}>Goto</button></div>
 <div>
@@ -61,7 +63,9 @@
     {/if}
     <SidedefEditor {map} sidedef={linedef.right} />
 </div>
-{#if linedef.left}
+{#if linedef.left && linedef.left.sector === linedef.right.sector}
+    <div class="alert alert-warning">SELF-REF</div>
+{:else if linedef.left}
     <div>
         <h4>Left sidedef</h4>
         <SidedefEditor {map} sidedef={linedef.left} />

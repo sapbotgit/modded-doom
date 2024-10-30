@@ -12,7 +12,7 @@
     }
 </script>
 
-<span contenteditable on:blur={change}>{num}</span>
+<span class="text-primary" contenteditable on:blur={change}>{num}</span>
 
 <style>
     span::before {

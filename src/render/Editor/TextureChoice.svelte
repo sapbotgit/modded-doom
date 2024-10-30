@@ -9,5 +9,9 @@
     const tx = type === 'flat' ? wad.flatTextureData(name) : wad.wallTextureData(name);
 </script>
 
-<div class="absolute bottom-0 text-xs">{name} ({tx.width}x{tx.height})</div>
-<Picture {name} {type} />
+{#if tx}
+    <div class="absolute bottom-0 text-xs">{name} ({tx.width}x{tx.height})</div>
+    <Picture {name} {type} />
+{:else}
+    <div class="absolute bottom-0 text-xs">{name} (MISSING)</div>
+{/if}
