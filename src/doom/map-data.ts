@@ -109,7 +109,10 @@ function sideDefsLump(lump: Lump, sectors: Sector[]) {
 }
 
 function fixTextureName(name: string) {
-    return !name || name.startsWith('-') ? undefined : name.toUpperCase();
+    const uname = name?.toUpperCase();
+    // Some maps (pirate doom 2) use this texture but it's not supposed to be
+    // rendered (https://doomwiki.org/wiki/AASTINKY) so we remove it
+    return !name || name.startsWith('-') || uname === 'AASTINKY' || uname === 'AASHITTY' ? undefined : name.toUpperCase();
 }
 
 export interface Sector {
