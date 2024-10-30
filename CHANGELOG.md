@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Limit texture atlas to 8K so we don't crash webviews on iOS
+- Fix animated textures not being removed
 
 ## [0.8.0] - 2024-10-26
 
