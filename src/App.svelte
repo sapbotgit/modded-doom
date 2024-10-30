@@ -50,6 +50,7 @@
                 const wadResolvers = wadNames.map(name => wadStore.fetchWad(name).then(buff => new WadFile(name, buff)));
                 const wads = await Promise.all(wadResolvers);
                 wad = new DoomWad(urlWads, wads);
+                game = null;
             } else {
                 wad = null;
             }
