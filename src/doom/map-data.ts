@@ -283,7 +283,7 @@ export class MapData {
         this.bspTracer = createBspTracer(rootNode);
         this.subsectorTrace = createSubsectorTrace(rootNode);
 
-        let portalSegsBySector = new Map<Sector, Seg[]>();
+        const portalSegsBySector = new Map<Sector, Seg[]>();
         for (const seg of segs) {
             if (!seg.linedef.left) {
                 continue;
@@ -298,18 +298,18 @@ export class MapData {
             portalSegsBySector.set(seg.linedef.right.sector, list);
         }
         for (const sector of this.sectors) {
-            sector.portalSegs = portalSegsBySector.get(sector);
-            // figure out any sectors that need sky height adjustment
-            if (sector.ceilFlat.val === 'F_SKY1') {
-                const skyHeight = this.sectorNeighbours(sector)
-                    .filter(e => e.ceilFlat.val === 'F_SKY1')
-                    .reduce((val, sec) => Math.max(val, sec.zCeil.val), sector.zCeil.val);
-                sector.skyHeight = skyHeight;
-            }
+            sector.portalSegs = portalSegsBySector.get(sector) ?? [];
             // compute sector centers which is used for sector sound origin
             const mid = sectorMiddle(sector, subsectors);
             sector.center.set(mid.x, mid.y, (sector.zCeil.val + sector.zFloor.val) * .5);
         }
+
+        // figure out any sectors that need sky height adjustment
+        const skyGroups = groupSkySectors(this.sectors.filter(e => e.ceilFlat.val === 'F_SKY1'));
+        skyGroups.forEach(sectors => {
+            const skyHeight = Math.max(...sectors.map(sec => sec.zCeil.val));
+            sectors.forEach(sector => sector.skyHeight = skyHeight);
+        });
 
         // really? linedefs without segs? I've only found this in a few final doom maps (plutonia29, tnt20, tnt21, tnt27)
         // and all of them are two-sided, most have special flags which is a particular problem. Because we are detection
@@ -378,6 +378,32 @@ export class MapData {
     traceSubsectors(start: Vector3, move: Vector3, radius: number, onHit: HandleTraceHit<SubSector>) {
         this.subsectorTrace(start, move, radius, onHit);
     }
+}
+
+function groupSkySectors(sectors: Sector[]): Sector[][] {
+    const toVisit = new Set(sectors.map(s => s.num));
+    const visitSector = (sector: Sector, group: Set<Sector>) => {
+        if (sector.ceilFlat.val !== 'F_SKY1' || group.has(sector)) {
+            return group;
+        }
+
+        group.add(sector);
+        toVisit.delete(sector.num);
+        for (const seg of sector.portalSegs) {
+            visitSector(seg.linedef.right.sector, group);
+            visitSector(seg.linedef.left.sector, group);
+        }
+        return group;
+    }
+
+    const groups: Sector[][] = [];
+    while (toVisit.size) {
+        const sector = sectors.pop();
+        if (toVisit.has(sector.num)) {
+            groups.push([...visitSector(sector, new Set())]);
+        }
+    }
+    return groups;
 }
 
 function aabbLineOverlap(pos: Vector3, radius: number, line: LineDef) {
