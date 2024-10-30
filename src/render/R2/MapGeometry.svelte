@@ -11,7 +11,7 @@
     const threlte = useThrelte();
 
     const { editor, settings } = useAppContext();
-    const { fakeContrast, playerLight } = settings;
+    const { fakeContrast, playerLight, useTextures } = settings;
     const { renderSectors, map } = useDoomMap();
 
     console.time('map-geo')
@@ -27,6 +27,26 @@
     const { lightMap, lightLevels } = buildLightMap(map.data.sectors);
     const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lightMap, lightLevels);
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
+
+    // set material props
+    $: (() => {
+        material.map = $useTextures ? ta.texture : null;
+        material.needsUpdate = true;
+    })();
+    $: $uniforms.doomFakeContrast.value =
+        $fakeContrast === 'off' ? 0 :
+        $fakeContrast === 'classic' ? 1 :
+        2;
+    $: $uniforms.doomExtraLight.value = $extraLight / 256;
+    $: ((edit) => {
+        $uniforms.dInspect.value = edit.selected
+            ? [
+                'special' in edit.selected ? 0 : 1,
+                edit.selected.num,
+            ]
+            // clear selection
+            : [-1, -1];
+    })($editor);
 
     // magic https://stackoverflow.com/questions/49873459
     const shadowBias = -0.004;
@@ -44,20 +64,6 @@
         const num = geometry.attributes.doomInspect.array[ev.face.a * 2 + 1];
         $editor.selected = items.find(e => e.num === num);
     }
-    $: $uniforms.doomFakeContrast.value =
-        $fakeContrast === 'off' ? 0 :
-        $fakeContrast === 'classic' ? 1 :
-        2;
-    $: $uniforms.doomExtraLight.value = $extraLight / 256;
-    $: ((edit) => {
-        $uniforms.dInspect.value = edit.selected
-            ? [
-                'special' in edit.selected ? 0 : 1,
-                edit.selected.num,
-            ]
-            // clear selection
-            : [-1, -1];
-    })($editor);
 </script>
 
 <T.Mesh
