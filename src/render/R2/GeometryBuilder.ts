@@ -1,5 +1,5 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import { BufferAttribute, DataTexture, IntType, PlaneGeometry, SRGBColorSpace, type BufferGeometry } from "three";
+import { BufferAttribute, DataTexture, IntType, LinearSRGBColorSpace, PlaneGeometry, SRGBColorSpace, type BufferGeometry } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
 import { HALF_PI, type LineDef, type Sector, type SideDef, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
@@ -45,7 +45,8 @@ function findNearestPower2(n: number) {
 
 // TODO: Should we use sectors or render sector (because of renderSector.flatLighting)?
 export function buildLightMap(sectors: Sector[]) {
-    // NB: only use SRGBColorSpace for one texture because otherwise we apply it twice
+    // NB: only use SRGBColorSpace for one texture because otherwise we apply it twice.
+    // Also, applying to lightLevels seems to look a little brighter than applying to lightMap
     const maxLight = 255;
     const scaledLight = new Uint8ClampedArray(16 * 16 * 4);
     const lightLevels = new DataTexture(scaledLight, 16, 16);
@@ -57,12 +58,12 @@ export function buildLightMap(sectors: Sector[]) {
         scaledLight[i * 4 + 2] = light;
         scaledLight[i * 4 + 3] = 255;
     }
+    lightLevels.colorSpace = SRGBColorSpace;
     lightLevels.needsUpdate = true;
 
     const textureSize = findNearestPower2(Math.sqrt(sectors.length));
     const sectorLights = new Uint8ClampedArray(textureSize * textureSize * 4);
     const lightMap = new DataTexture(sectorLights, textureSize, textureSize);
-    lightMap.colorSpace = SRGBColorSpace;
     sectors.forEach((sector, i) => {
         sector.light.subscribe(light => {
             const lightVal = Math.max(0, Math.min(maxLight, light));
@@ -357,23 +358,30 @@ function mapGeometryBuilder(textures: TextureAtlas) {
         return result;
     }
 
-    const addSector = (rs: RenderSector) => {
+    const addSector = (rs: RenderSector): [number, number, number[]] => {
         const inspectVal = [1, rs.sector.num];
 
         // TODO: what about hack floor/ceiling? That whole thing is buggy and needs a rewrite anyway
         const floorGeo = geoBuilder.createFlatGeo(rs.geometry, rs.sector.floorFlat.val);
-        floorGeo.translate(0, 0, rs.sector.zFloor.val);
         floorGeo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, floorGeo.attributes.position.count));
         const floor = geoBuilder.addFlatGeometry(floorGeo, rs.sector.num);
 
         const ceilGeo = geoBuilder.createFlatGeo(rs.geometry, rs.sector.ceilFlat.val);
-        ceilGeo.translate(0, 0, rs.sector.skyHeight ?? rs.sector.zCeil.val);
         ceilGeo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, ceilGeo.attributes.position.count));
         // flip over triangles for ceiling
         flipWindingOrder(ceilGeo);
-        const ceil = geoBuilder.addFlatGeometry(ceilGeo, rs.sector.num) // or rs.flatLighting ??
+        const ceil = geoBuilder.addFlatGeometry(ceilGeo, rs.sector.num);
 
-        return [ceil, floor];
+        let extras = [];
+        for (const extra of rs.extraFlats) {
+            const geo = geoBuilder.createFlatGeo(extra.geometry, extra.flat.val);
+            if (extra.ceil) {
+                flipWindingOrder(geo);
+            }
+            geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
+            extras.push(geoBuilder.addFlatGeometry(geo, extra.lightSector.num));
+        }
+        return [ceil, floor, extras];
     }
 
     function build() {
@@ -454,7 +462,7 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
             continue;
         }
 
-        let [ceil, floor] = mapBuilder.addSector(rs);
+        let [ceil, floor, extras] = mapBuilder.addSector(rs);
 
         // subscribe for changes and update map geometry
         // update sector z
@@ -463,6 +471,17 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
         // update sector textures
         disposables.push(rs.sector.ceilFlat.subscribe(name => mapGeo.applyFlatTexture(ceil, name)));
         disposables.push(rs.sector.floorFlat.subscribe(name => mapGeo.applyFlatTexture(floor, name)));
+
+        for (let i = 0; i < extras.length; i++) {
+            let extra = rs.extraFlats[i];
+            let idx = extras[i];
+            // add a tiny offset to z to make sure extra flat is rendered below (floor) or above) ceil) the actual
+            // flat to avoid z-fighting. We can use a small offset because doom z values are integers except when the
+            // platform is moving but we can tolerate a small error for moving platforms.
+            let zOffset = extra.ceil ? 0.01 : -0.01;
+            disposables.push(extra.z.subscribe(z => mapGeo.moveFlat(idx, z + zOffset)));
+            disposables.push(extra.flat.subscribe(name => mapGeo.applyFlatTexture(idx, name)));
+        }
     }
 
     // try to minimize subscriptions by grouping lindefs that listen to a sector change
@@ -475,11 +494,11 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
             ...rs.linedefs.map(ld => ld)
         ])];
 
-        const lowers = updaters.map(e => linedefUpdaters.get(e.num).lower).filter(e => e);
-        const uppers = updaters.map(e => linedefUpdaters.get(e.num).upper).filter(e => e);
-        const midLefts = updaters.map(e => linedefUpdaters.get(e.num).midLeft).filter(e => e);
-        const midRights = updaters.map(e => linedefUpdaters.get(e.num).midRight).filter(e => e);
-        const singles = updaters.map(e => linedefUpdaters.get(e.num).single).filter(e => e);
+        const lowers = updaters.map(e => linedefUpdaters.get(e.num)?.lower).filter(e => e);
+        const uppers = updaters.map(e => linedefUpdaters.get(e.num)?.upper).filter(e => e);
+        const midLefts = updaters.map(e => linedefUpdaters.get(e.num)?.midLeft).filter(e => e);
+        const midRights = updaters.map(e => linedefUpdaters.get(e.num)?.midRight).filter(e => e);
+        const singles = updaters.map(e => linedefUpdaters.get(e.num)?.single).filter(e => e);
 
         disposables.push(rs.sector.zFloor.subscribe(() => {
             lowers.forEach(fn => fn(mapGeo));

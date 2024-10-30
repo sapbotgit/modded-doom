@@ -8,6 +8,7 @@
     export let renderSector: RenderSector;
     export let textureName: string;
     export let vertical: number;
+    export let light: number;
     export let ceiling = false;
 
     const { map } = useDoomMap();
@@ -19,7 +20,6 @@
     const vis = renderSector.visible;
 
     $: visible = $vis;
-    const light = renderSector.flatLighting;
 
     $: material = new MeshStandardMaterial({ emissive: 'magenta', side: ceiling ? BackSide : FrontSide });
     $: material.emissiveIntensity = ($editor.selected === renderSector.sector) ? 0.1 : 0;
@@ -28,8 +28,8 @@
         material.transparent = ($cameraMode === 'ortho');
         material.needsUpdate = true;
     }
-    $: if ($light !== undefined) {
-        const col = textures.lightColor($light + $extraLight);
+    $: if (light !== undefined) {
+        const col = textures.lightColor(light + $extraLight);
         material.color = $useTextures ? col : new Color(namedColor(renderSector.sector.num)).lerp(col, .5);
     }
 

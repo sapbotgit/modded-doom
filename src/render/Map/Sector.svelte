@@ -5,10 +5,11 @@
     import Thing from "./Thing.svelte";
     import { MapObjectIndex } from "../../doom";
     import Wall from "./Wall.svelte";
+    import ExtraFlat from "./ExtraFlat.svelte";
 
     export let renderSector: RenderSector;
-    const { zFloor, zCeil, floorFlat, ceilFlat } = renderSector.sector;
-    const { geometry, zHackCeil, zHackFloor, mobjs } = renderSector;
+    const { zFloor, zCeil, floorFlat, ceilFlat, light } = renderSector.sector;
+    const { geometry, zHackCeil, zHackFloor, mobjs, extraFlats } = renderSector;
     $: mo = [...$mobjs].sort((a, b) => a.id - b.id);
 
     // Why wrap this in a div? It reduces the cost of reflow from adding/removing DOM nodes.
@@ -20,6 +21,7 @@
     {#if geometry}
         <Flat
             {renderSector}
+            light={$light}
             vertical={$zFloor + $zHackFloor}
             textureName={$floorFlat}
         />
@@ -27,9 +29,14 @@
         <Flat
             ceiling
             {renderSector}
+            light={$light}
             vertical={(renderSector.sector.skyHeight ?? $zCeil) + $zHackCeil}
             textureName={$ceilFlat}
         />
+
+        {#each extraFlats as flat}
+            <ExtraFlat {renderSector} {flat} />
+        {/each}
     {/if}
 
     {#each renderSector.linedefs as linedef}

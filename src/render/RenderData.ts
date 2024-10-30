@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, LinearEncoding, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
@@ -88,12 +88,20 @@ export class MapTextures {
     }
 }
 
+export interface ExtraFlat {
+    flat: Store<string>;
+    lightSector: Sector;
+    z: Store<number>;
+    ceil: boolean;
+    geometry: BufferGeometry;
+}
 export interface RenderSector {
     visible: Store<boolean>;
     sector: Sector;
     subsectors: SubSector[];
     linedefs: LineDef[];
     geometry: BufferGeometry;
+    extraFlats: ExtraFlat[];
     zHackFloor: Readable<number>;
     zHackCeil: Readable<number>;
     flatLighting: Store<number>;
@@ -145,7 +153,6 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     for (const sector of map.sectors) {
         const subsectors = subsectMap.get(sector) ?? [];
         const geos = subsectors.map(subsec => createShape(subsec.vertexes)).filter(e => e);
-        const linedefs = sectorRightLindefs.get(sector) ?? [];
         // E3M2 (maybe other maps) have sectors with no subsectors and therefore no vertexes. Odd.
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : null;
         if (geometry) {
@@ -153,12 +160,14 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             sector.zFloor.subscribe(floor => geometry.boundingBox.min.z = floor);
             sector.zCeil.subscribe(ceil => geometry.boundingBox.max.z = ceil);
         }
+        const linedefs = sectorRightLindefs.get(sector) ?? [];
         const zHackCeil = readable(0);
         const zHackFloor = readable(0);
         const flatLighting = sector.light;
         const visible = store(true)
         const mobjs = store(new Set<MapObject>());
-        const renderSector: RenderSector = { visible, sector, subsectors, geometry, linedefs, zHackFloor, zHackCeil, flatLighting, mobjs };
+        const extraFlats = [];
+        const renderSector: RenderSector = { visible, sector, subsectors, geometry, linedefs, zHackFloor, zHackCeil, flatLighting, mobjs, extraFlats };
         rSectors.push(renderSector);
         secMap.set(renderSector.sector, renderSector);
 
@@ -174,31 +183,36 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             selfReferencing.push(renderSector);
         }
 
-        // floor hack (TNT MAP18): if only left lines face this sector and have no lower texture (and floor is not equal)
-        // then we want to draw the floor at the height of the outer sector (like deep water). We can see this in the room
-        // where revenants are in the floor or the cyberdemon room with the brown sludge below the floating marble slabs
-        const floorHack =
-            leftlines.length > 0 && linedefs.length === 0
-            && leftlines[0].right.sector.zFloor.val !== sector.zFloor.val
-            && leftlines.every(ld => !ld.right.lower.val && !ld.left.lower.val);
-        if (floorHack) {
-            renderSector.zHackFloor = derived(
-                [sector.zFloor, leftlines[0].right.sector.zFloor],
-                ([left, right]) => right - left);
+        // floor hack (TNT MAP18): if the floors are unequal and all lines have no lower textures, then we want to draw
+        // a floor at the height of the higher sector (like deep water). We can see this in the room where revenants
+        // are in the floor or the exit room with the cyberdemon and brown sludge below the floating marble slabs
+        const bothLindefs = [...leftlines, ...linedefs];
+        const unequalFloorNoLowerTexture = (ld: LineDef) => ld.left
+                && ld.right.sector.zFloor.val !== ld.left.sector.zFloor.val
+                && !ld.left.lower.val && !ld.right.lower.val;
+        const floorHacks = bothLindefs.every(unequalFloorNoLowerTexture) && bothLindefs.length;
+        if (floorHacks) {
+            const line = bothLindefs[0];
+            renderSector.extraFlats.push({
+                geometry,
+                z: line.right.sector === sector ? line.left.sector.zFloor : line.right.sector.zFloor,
+                flat: sector.floorFlat,
+                lightSector: sector,
+                ceil: false,
+            });
         }
-        // TODO: are there cases were we want the ceiling to do this too?
     }
 
     // copy render properties from the outer/containing sector
     for (const rs of selfReferencing) {
-        // find the sector with the smallest bounds that completely contains this sector. It's a little hack but seems to
-        // be good enough(tm) as far as I can tell
+        // find the sector with the smallest bounds that completely contains this sector. It's crude and works
+        // for plutonia and tnt except plutonia map29. I'd prefer to render grass texture on sector 231 but instead
+        // we get brick because sectors 0 and 1 are so huge. Hmmm.
         let outerRS = smallestSectorContaining(rs, rSectors);
         if (!outerRS) {
             console.warn('no outer sector for self-referencing sector', rs.sector.num);
             continue;
         }
-        rs.flatLighting = outerRS.flatLighting;
         rs.sector = outerRS.sector;
     }
 
