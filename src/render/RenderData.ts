@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, LinearEncoding, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
@@ -108,6 +108,7 @@ export interface RenderSector {
     mobjs: Store<Set<MapObject>>;
 }
 
+// Hmm... if we get rid of R1, perhaps we could merge this logic into GeometryBuilder? It seems related.
 export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     console.time('b-rs')
     // WOW! There are so many nifty rendering (and gameplay) tricks out there:
@@ -205,10 +206,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
 
     // copy render properties from the outer/containing sector
     for (const rs of selfReferencing) {
-        // find the sector with the smallest bounds that completely contains this sector. It's crude and works
-        // for plutonia and tnt except plutonia map29. I'd prefer to render grass texture on sector 231 but instead
-        // we get brick because sectors 0 and 1 are so huge. Hmmm.
-        let outerRS = smallestSectorContaining(rs, rSectors);
+        let outerRS = surroundingSector(mapRuntime, rs, secMap);
         if (!outerRS) {
             console.warn('no outer sector for self-referencing sector', rs.sector.num);
             continue;
@@ -309,30 +307,57 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     return rSectors;
 }
 
-function smallestSectorContaining(rs: RenderSector, renderSectors: RenderSector[]) {
-    let outerRS: RenderSector;
-    let smallestArea = Infinity;
-    let innerBound = rs.geometry.boundingBox;
-    for (const candidate of renderSectors) {
-        if (candidate === rs || !candidate.geometry) {
-            continue;
+function surroundingSector(map: MapRuntime, rs: RenderSector, secMap: Map<Sector, RenderSector>) {
+    let candidates = new Map<number, number>();
+    let frequency = -1;
+    const countResult = (sec: Sector) => {
+        if (sec !== rs.sector) {
+            let hits = (candidates.get(sec.num) ?? 0) + 1;
+            candidates.set(sec.num, hits);
+            if (hits > frequency) {
+                frequency = hits;
+                return sec;
+            }
         }
+        return null;
+    };
 
-        const outerBounds = candidate.geometry.boundingBox;
-        const contained = outerBounds.min.x <= innerBound.min.x && outerBounds.max.x >= innerBound.max.x
-            && outerBounds.min.y <= innerBound.min.y && outerBounds.max.y >= innerBound.max.y;
-        if (!contained) {
-            continue;
-        }
-
-        const area = (outerBounds.max.x - outerBounds.min.x) * (outerBounds.max.y - outerBounds.min.y)
-        if (area < smallestArea) {
-            smallestArea = area;
-            outerRS = candidate;
+    // For each lindef, go slightly left and right (based on line normal) and see what sector is there
+    // and then choose the most frequently hit sector. It's crude but seems to cover all cases that I know
+    // in TNT and Plutonia. I'm not confident it covers all cases out there.
+    // NOTE: ideally we only check 1px away but sector38 in Plutonia MAP24 didn't work so we needed to check
+    // further from the lines (hence dist)
+    let result: Sector = null;
+    for (let dist = 1; dist < 16 && !result; dist += 3) {
+        for (const ld of rs.linedefs) {
+            const sectors = searchNeighbourSector(ld.v, map, dist);
+            result = countResult(sectors[0]) ?? countResult(sectors[1]) ?? result;
         }
     }
-    return outerRS;
+    return secMap.get(result);
 }
+
+const searchNeighbourSector = (() => {
+    const mid = { x: 0, y: 0 };
+    const norm = { x: 0, y: 0 };
+    const result: Sector[] = [null, null];
+    return (line: Vertex[], map: MapRuntime, dist: number) => {
+        // compute linedef normal
+        const dx = line[1].x - line[0].x;
+        const dy = line[1].y - line[0].y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        norm.y = (-dx / len) * dist;
+        norm.x = (dy / len) * dist;
+        // and linedef midpoint
+        mid.x = (line[0].x + line[1].x) * .5;
+        mid.y = (line[0].y + line[1].y) * .5;
+
+        result[0] = map.data.findSector(mid.x + norm.x, mid.y + norm.y);
+        result[1] = map.data.findSector(mid.x - norm.x, mid.y - norm.y);
+
+        return result;
+    }
+})();
 
 function createShape(verts: Vertex[]) {
     if (!verts.length) {
