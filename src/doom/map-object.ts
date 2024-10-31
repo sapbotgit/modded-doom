@@ -201,11 +201,11 @@ export class MapObject {
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 
     tick() {
-        this.applyFriction();
-        this.updatePosition();
-        this.applyGravity();
+        // this.applyFriction();
+        // this.updatePosition();
+        // this.applyGravity();
 
-        this._state.tick();
+        // this._state.tick();
         // TODO: update movecount (+other nightmare-only handling)
     }
 
