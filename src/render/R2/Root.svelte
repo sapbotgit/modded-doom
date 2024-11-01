@@ -22,7 +22,8 @@
         tracers = map.tracers;
     }
 
-    const { editor } = useAppContext();
+    const { editor, settings } = useAppContext();
+    const { playerLight } = settings;
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);
 
@@ -32,18 +33,6 @@
 
         const id = ev.object.geometry.attributes.doomInspect.array[ev.instanceId];
         $editor.selected = map.objs.find(e => e.id === id);
-    }
-
-    const int16BufferFrom = (items: number[], vertexCount: number) => {
-        const array = new Uint16Array(items.length * vertexCount);
-        for (let i = 0; i < vertexCount * items.length; i += items.length) {
-            for (let j = 0; j < items.length; j++) {
-                array[i + j] = items[j];
-            }
-        }
-        const attr = new InstancedBufferAttribute(array, items.length);
-        attr.gpuType = IntType;
-        return attr;
     }
 
     const inspectorAttributeName = 'doomInspect';
@@ -275,6 +264,8 @@
     $: $uniforms.camQ.value.copy(updateCamera($threlteCam, $position, $angle));
     function updateCamera(cam: Camera, p: Vector3, a: Euler) {
         cam.getWorldDirection(_z1);
+        // _z1.set(0, 0, -1);
+        // _z1.applyEuler(a);
         _z1.setZ(0).negate().normalize();
         _q.setFromUnitVectors(_z0, _z1);
         return _q;
@@ -299,7 +290,19 @@
     // const geometry = new BoxGeometry();
     const geometry = new PlaneGeometry();
     geometry.rotateY(HALF_PI);
+
     let thingsMeshes: InstancedMesh[] = [];
+    const int16BufferFrom = (items: number[], vertexCount: number) => {
+        const array = new Uint16Array(items.length * vertexCount);
+        for (let i = 0; i < vertexCount * items.length; i += items.length) {
+            for (let j = 0; j < items.length; j++) {
+                array[i + j] = items[j];
+            }
+        }
+        const attr = new InstancedBufferAttribute(array, items.length);
+        attr.gpuType = IntType;
+        return attr;
+    }
     const createChunk = () => {
         const mesh = new InstancedMesh(geometry, material, chunkSize);
         mesh.customDepthMaterial = depthMaterial;
@@ -309,11 +312,13 @@
         mesh.geometry.setAttribute('texN', int16BufferFrom([0], chunkSize));
         mesh.count = 0;
         // mesh.frustumCulled = false;
-        // TODO: use setting.playerLight like MapGeometry?
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
         return mesh;
     }
+    $: usePlayerLight = $playerLight !== '#000000';
+    $: thingsMeshes.forEach(m => {
+        m.castShadow = usePlayerLight;
+        m.receiveShadow = usePlayerLight;
+    });
 
     interface RenderInfo {
         idx: number;
