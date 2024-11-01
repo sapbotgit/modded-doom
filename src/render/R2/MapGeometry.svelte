@@ -37,7 +37,7 @@
         $fakeContrast === 'off' ? 0 :
         $fakeContrast === 'classic' ? 1 :
         2;
-    $: $uniforms.doomExtraLight.value = $extraLight / 256;
+    $: $uniforms.doomExtraLight.value = $extraLight / 255;
     $: ((edit) => {
         $uniforms.dInspect.value = edit.selected
             ? [

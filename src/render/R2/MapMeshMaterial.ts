@@ -106,7 +106,6 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightL
 
     const material = new MeshStandardMaterial({
         map: ta.texture,
-        flatShading: false, // to get normals for fake contrast
         alphaTest: 1.0,
         shadowSide: FrontSide,
     });

@@ -617,6 +617,7 @@ export function mapGeometry(
         let index = textures.flatTexture(textureName)[0];
         const vertexCount = geoInfo[geoIndex].vertexCount;
         const vertexOffset = geoInfo[geoIndex].vertexOffset;
+        // geometry.attributes.texN.array.fill(index, vertexOffset, vertexOffset + vertexCount);
         for (let i = 0; i < vertexCount; i++) {
             geometry.attributes.texN.array[vertexOffset + i] = index;
         }
