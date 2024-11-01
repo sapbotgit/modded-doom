@@ -39,7 +39,8 @@
         2;
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
     $: ((edit) => {
-        $uniforms.dInspect.value = edit.selected
+        // map objects have 'health' so ignore those
+        $uniforms.dInspect.value = edit.selected && !('health' in edit.selected)
             ? [
                 'special' in edit.selected ? 0 : 1,
                 edit.selected.num,

@@ -9,10 +9,9 @@
     import { interactivity } from "@threlte/extras";
     import SectorThings from "./SectorThings.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
-    import { BoxGeometry, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, BufferAttribute, IntType, InstancedBufferAttribute } from "three";
+    import { BoxGeometry, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry } from "three";
     import { buildLightMap } from "./GeometryBuilder";
     import { TextureAtlas } from "./TextureAtlas";
-    import { derived } from "svelte/store";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
@@ -28,6 +27,12 @@
     $: interact.enabled.set($editor.active);
 
     // beware of hacking below...
+    function hit(ev) {
+        ev.stopPropagation();
+
+        const id = ev.object.geometry.attributes.doomInspect.array[ev.instanceId];
+        $editor.selected = map.objs.find(e => e.id === id);
+    }
 
     const int16BufferFrom = (items: number[], vertexCount: number) => {
         const array = new Uint16Array(items.length * vertexCount);
@@ -48,8 +53,8 @@
         flat out uint dL;
         attribute uint doomLight;
 
-        flat out uvec2 dI;
-        attribute uvec2 ${inspectorAttributeName};
+        flat out uint dI;
+        attribute uint ${inspectorAttributeName};
         `
         const lightLevelInit = `
         dL = doomLight;
@@ -79,14 +84,14 @@
         uniform sampler2D tLightLevels;
         uniform sampler2D tLightMap;
         uniform uint tLightMapWidth;
-        uniform uvec2 dInspect;
+        uniform uint dInspect;
         uniform float doomExtraLight;
         uniform int doomFakeContrast;
 
         flat in vec3 normal_;
         flat in uint dL;
         flat in uint tN;
-        flat in uvec2 dI;
+        flat in uint dI;
 
         const float oneSixteenth = 1.0 / 16.0;
         float doomLightLevel(float level) {
@@ -94,23 +99,6 @@
             vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
             vec4 sectorLightLevel = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
             return sectorLightLevel.g;
-        }
-
-        const float fakeContrastStep = 16.0 / 256.0;
-        float fakeContrast(vec3 normal) {
-            vec3 absNormal = abs(normal);
-            if (doomFakeContrast == 2) {
-                // gradual contrast
-                return (smoothstep(0.0, 1.0, absNormal.x) * fakeContrastStep) -
-                    (smoothstep(0.0, 1.0, absNormal.y) * fakeContrastStep);
-            } else if (doomFakeContrast == 1) {
-                // "classic" contrast that only impacts east-west are darker and north-south walls are brighter
-                return
-                    absNormal.y == 1.0 ? -fakeContrastStep
-                    : absNormal.x == 1.0 ? fakeContrastStep
-                    : 0.0;
-            }
-            return 0.0;
         }
         `;
         const fragmentMap = `
@@ -133,7 +121,7 @@
             doomFakeContrast: IUniform;
         }
         const uniforms = store<MapMaterialUniforms>({
-            dInspect: { value: [-1, -1] },
+            dInspect: { value: -1 },
             doomExtraLight: { value: 0 },
             doomFakeContrast: { value: 0 },
         });
@@ -193,7 +181,6 @@
                     floor(dLf * invLightMapWidth) );
                 vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
 
-                // sectorLight.rgb += fakeContrast(normal_);
                 float scaledLightLevel = doomLightLevel(sectorLight.g + doomExtraLight);
 
                 // apply lighting
@@ -213,19 +200,23 @@
     const ta = new TextureAtlas(map.game.wad, maxTextureSize);
     const { material, uniforms } = createMaterial(ta, lightMap, lightLevels);
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
+    $: ((edit) => {
+        // map objects have 'health' so only handle those
+        $uniforms.dInspect.value = edit.selected && 'health' in edit.selected
+            ? edit.selected.id
+            // clear selection
+            : -1;
+    })($editor);
 
     // Are chunks actually beneficial? It's probably better than resizing/re-initializing a large array
     // but maybe worth experimenting with sometime.
     const chunkSize = 5_000;
+    const geometry = new BoxGeometry();
     let thingsMeshes: InstancedMesh[] = [];
     const createChunk = () => {
-        const mesh = new InstancedMesh(
-            new BoxGeometry(),
-            material,
-            chunkSize,
-        );
+        const mesh = new InstancedMesh(geometry, material, chunkSize);
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
-        mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1, -1], chunkSize));
+        mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
         mesh.geometry.setAttribute('texN', int16BufferFrom([0], chunkSize));
         mesh.count = 0;
         // mesh.frustumCulled = false;
@@ -283,9 +274,9 @@
         };
         subs.push(mo.direction.subscribe(dir => updatePos(mo.position.val, dir)));
         subs.push(mo.position.subscribe(pos => updatePos(pos, mo.direction.val)));
-    //     thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n * 2 + 0] = 2;
-    //     thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n * 2 + 1] = mo.id;
-        // thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
+
+        thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;
+        thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
     }
     function destroy(mo: MapObject) {
         const info = rmobjs.get(mo.id);
@@ -345,7 +336,7 @@
 <MapGeometry />
 
 {#each thingsMeshes as mesh}
-    <T is={mesh} />
+    <T is={mesh} on:click={hit} />
 {/each}
 
 <!-- {#each renderSectors as renderSector}
