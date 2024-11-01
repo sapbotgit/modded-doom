@@ -1,6 +1,6 @@
 <script lang="ts">
     import { HALF_PI, MapObject, PlayerMapObject, store, type MapRuntime } from "../../doom";
-    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
+    import { useAppContext, useDoomMap } from "../DoomContext";
     import Stats from "../Debug/Stats.svelte";
     import SkyBox from "../Map/SkyBox.svelte";
     import Player from "../Map/Player.svelte";
@@ -9,7 +9,7 @@
     import { interactivity } from "@threlte/extras";
     import SectorThings from "./SectorThings.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
-    import { BoxGeometry, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry, Vector4, Euler, CameraHelper, Camera, DoubleSide } from "three";
+    import { BackSide, BoxGeometry, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry, Vector4, Euler, Camera, DoubleSide, MeshDepthMaterial, MeshDistanceMaterial } from "three";
     import { buildLightMap } from "./GeometryBuilder";
     import { TextureAtlas } from "./TextureAtlas";
 
@@ -63,6 +63,13 @@
 
         const vertexPars = `
         #include <common>
+
+        uniform vec4 camQ;
+
+        // https://discourse.threejs.org/t/instanced-geometry-vertex-shader-question/2694/3
+        vec3 applyQuaternionToVector( vec4 q, vec3 v ){
+            return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+        }
 
         flat out vec3 normal_;
         // texture index
@@ -131,8 +138,8 @@
         const material = new MeshStandardMaterial({
             map: ta.texture,
             alphaTest: 1.0,
-            side: DoubleSide,
-            shadowSide: FrontSide,
+            side: FrontSide,
+            shadowSide: DoubleSide,
         });
         material.onBeforeCompile = shader => {
             shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
@@ -143,53 +150,47 @@
             shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
             uniforms.set(shader.uniforms as any);
 
-            shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
-            shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain + lightLevelInit);
-            shader.vertexShader = `
-                uniform vec4 camQ;
-
-                // https://discourse.threejs.org/t/instanced-geometry-vertex-shader-question/2694/3
-                vec3 applyQuaternionToVector( vec4 q, vec3 v ){
-                    return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
-                }
-                ${shader.vertexShader}`
+            shader.vertexShader = shader.vertexShader
+                .replace('#include <common>', vertexPars + lightLevelParams)
+                .replace('#include <uv_vertex>', vertexMain + lightLevelInit)
                 .replace(`#include <beginnormal_vertex>`,`
                 #include <beginnormal_vertex>
-                objectNormal = vec3(0, 1, 0); //normalize(applyQuaternionToVector(camQ, objectNormal));
+                objectNormal = normalize(applyQuaternionToVector(camQ, objectNormal));
                 `)
                 .replace(`#include <begin_vertex>`,`
                 #include <begin_vertex>
                 transformed = applyQuaternionToVector(camQ, transformed);
                 `);
 
-            shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
-            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-            #ifdef USE_MAP
+            shader.fragmentShader = shader.fragmentShader
+                .replace('#include <common>', fragmentPars)
+                .replace('#include <map_fragment>', `
+                #ifdef USE_MAP
 
-            // texture dimensions
-            vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
-            vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
+                // texture dimensions
+                vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
+                vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
 
-            vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
-            vec4 sampledDiffuseColor = texture2D( map, mapUV );
-            sampledDiffuseColor.rgb = vColor.xyz;
-            sampledDiffuseColor.a = 1.0;
-            // if (sampledDiffuseColor.a < 1.0) discard;
+                vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
+                vec4 sampledDiffuseColor = texture2D( map, mapUV );
+                sampledDiffuseColor.rgb = vColor.xyz;
+                sampledDiffuseColor.a = 1.0;
+                // if (sampledDiffuseColor.a < 1.0) discard;
 
-            #ifdef DECODE_VIDEO_TEXTURE
-                // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
-                sampledDiffuseColor = vec4( mix( pow( sampledDiffuseColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), sampledDiffuseColor.rgb * 0.0773993808, vec3( lessThanEqual( sampledDiffuseColor.rgb, vec3( 0.04045 ) ) ) ), sampledDiffuseColor.w );
-            #endif
-            diffuseColor *= sampledDiffuseColor;
+                #ifdef DECODE_VIDEO_TEXTURE
+                    // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
+                    sampledDiffuseColor = vec4( mix( pow( sampledDiffuseColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), sampledDiffuseColor.rgb * 0.0773993808, vec3( lessThanEqual( sampledDiffuseColor.rgb, vec3( 0.04045 ) ) ) ), sampledDiffuseColor.w );
+                #endif
+                diffuseColor *= sampledDiffuseColor;
 
-            #endif
+                #endif
 
-            if (dInspect == dI) {
-                // faded magenta
-                totalEmissiveRadiance = vec3(1.0, 0.0, 1.0) * .1;
-            }
-            `);
-            shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', `
+                if (dInspect == dI) {
+                    // faded magenta
+                    totalEmissiveRadiance = vec3(1.0, 0.0, 1.0) * .1;
+                }
+                `)
+                .replace('#include <lights_fragment_begin>', `
                 #include <lights_fragment_begin>
 
                 // sector light level
@@ -208,9 +209,60 @@
                 // material.diffuseColor.rgb = vec3(fakeContrast(normal_) * 4.0 + .5);
                 // material.diffuseColor.rgb = abs(normal_);
                 // material.diffuseColor.rgb = vColor.xyz;
-            `);
+                `);
         };
-        return { material, uniforms };
+
+        const depthMaterial = new MeshDepthMaterial();
+        depthMaterial.onBeforeCompile = shader => {
+            shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
+            shader.uniforms.tAtlas = { value: ta.index };
+            shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
+            uniforms.subscribe(u => {
+                shader.uniforms.camQ.value = u.camQ.value;
+            })
+
+            shader.vertexShader = shader.vertexShader
+                .replace('#include <common>', vertexPars)
+                .replace('#include <uv_vertex>', vertexMain)
+                // .replace(`#include <beginnormal_vertex>`,
+                // `#include <beginnormal_vertex>
+                // // objectNormal = vec3(0, 1, 0);
+                // objectNormal = normalize(applyQuaternionToVector(camQ, objectNormal));
+                // `)
+                .replace(`#include <begin_vertex>`,
+                `#include <begin_vertex>
+                transformed = applyQuaternionToVector(camQ, transformed);
+                `);
+
+            shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
+            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
+        };
+
+        const distanceMaterial = new MeshDistanceMaterial();
+        distanceMaterial.onBeforeCompile = shader => {
+            shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
+            shader.uniforms.tAtlas = { value: ta.index };
+            shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
+            // TODO: when do we unsubscribe? Can we avoid this subscription?
+            uniforms.subscribe(u => {
+                shader.uniforms.camQ.value = u.camQ.value;
+            })
+
+            shader.vertexShader = shader.vertexShader
+                .replace('#include <common>', vertexPars)
+                .replace('#include <uv_vertex>', vertexMain)
+                // ideally we would "face" the light, not the camera but I don't fully understand the threejs shadow code
+                // so I'm not quite sure how to do that. For now, this makes the shadow match the rendered sprite.
+                // Perhaps rendering sprites as BoxGeometry would be slightly better?
+                .replace(`#include <begin_vertex>`,
+                `#include <begin_vertex>
+                transformed = applyQuaternionToVector(camQ, transformed);
+                `);
+
+            shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
+            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
+        };
+        return { material, distanceMaterial, depthMaterial, uniforms };
     }
 
     const threlte = useThrelte();
@@ -231,7 +283,7 @@
     const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
     const maxTextureSize = Math.min(8192, threlte.renderer.capabilities.maxTextureSize);
     const ta = new TextureAtlas(map.game.wad, maxTextureSize);
-    const { material, uniforms } = createMaterial(ta, lightMap, lightLevels);
+    const { material, depthMaterial, distanceMaterial, uniforms } = createMaterial(ta, lightMap, lightLevels);
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
     $: ((edit) => {
         // map objects have 'health' so only handle those
@@ -250,6 +302,8 @@
     let thingsMeshes: InstancedMesh[] = [];
     const createChunk = () => {
         const mesh = new InstancedMesh(geometry, material, chunkSize);
+        mesh.customDepthMaterial = depthMaterial;
+        mesh.customDistanceMaterial = distanceMaterial;
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
         mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
         mesh.geometry.setAttribute('texN', int16BufferFrom([0], chunkSize));
@@ -301,7 +355,7 @@
         }));
         const updatePos = (pos: Vector3) => {
             q.setFromAxisAngle(up, HALF_PI);
-            s.set(mo.info.radius, mo.info.radius, mo.info.height);
+            s.set(mo.info.radius * 2, mo.info.radius * 2, mo.info.height);
             if (mo instanceof PlayerMapObject) {
                 s.set(0, 0, 0);
             }
