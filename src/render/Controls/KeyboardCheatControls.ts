@@ -89,6 +89,7 @@ const idbehold = (powerup: (inv: PlayerInventory) => void) => (game: Game) => {
         return inv;
     });
 }
+
 export const idbeholdBerserk = idbehold(inv => {
     inv.items.berserk = !inv.items.berserk;
     inv.items.berserkTicks = inv.items.berserk ? 30 * ticksPerSecond : 0;

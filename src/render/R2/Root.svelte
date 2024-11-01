@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { MapObject, store, type MapRuntime } from "../../doom";
-    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { HALF_PI, MapObject, PlayerMapObject, store, type MapRuntime } from "../../doom";
+    import { useAppContext, useDoom, useDoomMap } from "../DoomContext";
     import Stats from "../Debug/Stats.svelte";
     import SkyBox from "../Map/SkyBox.svelte";
     import Player from "../Map/Player.svelte";
@@ -9,12 +9,12 @@
     import { interactivity } from "@threlte/extras";
     import SectorThings from "./SectorThings.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
-    import { BoxGeometry, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry } from "three";
+    import { BoxGeometry, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry, Vector4, Euler, CameraHelper, Camera, DoubleSide } from "three";
     import { buildLightMap } from "./GeometryBuilder";
     import { TextureAtlas } from "./TextureAtlas";
 
     export let map: MapRuntime;
-    const { renderSectors } = useDoomMap();
+    const { renderSectors, camera } = useDoomMap();
     const { rev, trev } = map;
     const { extraLight } = map.player;
     let tracers: typeof map.tracers;
@@ -119,16 +119,19 @@
             dInspect: IUniform;
             doomExtraLight: IUniform;
             doomFakeContrast: IUniform;
+            camQ: IUniform;
         }
         const uniforms = store<MapMaterialUniforms>({
             dInspect: { value: -1 },
             doomExtraLight: { value: 0 },
             doomFakeContrast: { value: 0 },
+            camQ: { value: new Vector4() },
         });
 
         const material = new MeshStandardMaterial({
             map: ta.texture,
             alphaTest: 1.0,
+            side: DoubleSide,
             shadowSide: FrontSide,
         });
         material.onBeforeCompile = shader => {
@@ -142,6 +145,22 @@
 
             shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
             shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain + lightLevelInit);
+            shader.vertexShader = `
+                uniform vec4 camQ;
+
+                // https://discourse.threejs.org/t/instanced-geometry-vertex-shader-question/2694/3
+                vec3 applyQuaternionToVector( vec4 q, vec3 v ){
+                    return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+                }
+                ${shader.vertexShader}`
+                .replace(`#include <beginnormal_vertex>`,`
+                #include <beginnormal_vertex>
+                objectNormal = vec3(0, 1, 0); //normalize(applyQuaternionToVector(camQ, objectNormal));
+                `)
+                .replace(`#include <begin_vertex>`,`
+                #include <begin_vertex>
+                transformed = applyQuaternionToVector(camQ, transformed);
+                `);
 
             shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
             shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
@@ -195,6 +214,20 @@
     }
 
     const threlte = useThrelte();
+    // https://discourse.threejs.org/t/mesh-points-to-the-camera-on-only-2-axis-with-shaders/21555/7
+    const threlteCam = threlte.camera;
+    const { position, angle } = camera;
+    const _q = new Quaternion();
+    const _z0 = new Vector3(0, 1, 0);
+    const _z1 = new Vector3();
+    $: $uniforms.camQ.value.copy(updateCamera($threlteCam, $position, $angle));
+    function updateCamera(cam: Camera, p: Vector3, a: Euler) {
+        cam.getWorldDirection(_z1);
+        _z1.setZ(0).negate().normalize();
+        _q.setFromUnitVectors(_z0, _z1);
+        return _q;
+    }
+
     const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
     const maxTextureSize = Math.min(8192, threlte.renderer.capabilities.maxTextureSize);
     const ta = new TextureAtlas(map.game.wad, maxTextureSize);
@@ -211,7 +244,9 @@
     // Are chunks actually beneficial? It's probably better than resizing/re-initializing a large array
     // but maybe worth experimenting with sometime.
     const chunkSize = 5_000;
-    const geometry = new BoxGeometry();
+    // const geometry = new BoxGeometry();
+    const geometry = new PlaneGeometry();
+    geometry.rotateY(HALF_PI);
     let thingsMeshes: InstancedMesh[] = [];
     const createChunk = () => {
         const mesh = new InstancedMesh(geometry, material, chunkSize);
@@ -264,16 +299,19 @@
             thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
-        const updatePos = (pos: Vector3, dir: number) => {
-            q.setFromAxisAngle(up, dir);
+        const updatePos = (pos: Vector3) => {
+            q.setFromAxisAngle(up, HALF_PI);
             s.set(mo.info.radius, mo.info.radius, mo.info.height);
+            if (mo instanceof PlayerMapObject) {
+                s.set(0, 0, 0);
+            }
             p.copy(pos);
             p.z += mo.info.height * .5;
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
         };
-        subs.push(mo.direction.subscribe(dir => updatePos(mo.position.val, dir)));
-        subs.push(mo.position.subscribe(pos => updatePos(pos, mo.direction.val)));
+        // subs.push(mo.direction.subscribe(dir => updatePos(mo.position.val, dir)));
+        subs.push(mo.position.subscribe(pos => updatePos(pos)));
 
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;

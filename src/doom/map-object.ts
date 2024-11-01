@@ -637,7 +637,6 @@ export class PlayerMapObject extends MapObject {
 
             const nightVisionTime = inv.items.nightVisionTicks / ticksPerSecond;
             const invunlTime = inv.items.invincibilityTicks / ticksPerSecond;
-            // invulnTime is partly coordinated with ScreenColorShader.ts
             const lightOverride =
                 invunlTime > 1.0 ? 255 :
                 invunlTime > 0.0 ? 0 :
