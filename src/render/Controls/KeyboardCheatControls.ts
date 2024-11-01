@@ -90,6 +90,7 @@ const idbehold = (powerup: (inv: PlayerInventory) => void) => (game: Game) => {
     });
 }
 
+// TODO: can't we use the pickup item function so we don't duplicate times and behaviour?
 export const idbeholdBerserk = idbehold(inv => {
     inv.items.berserk = !inv.items.berserk;
     inv.items.berserkTicks = inv.items.berserk ? 30 * ticksPerSecond : 0;
@@ -98,7 +99,7 @@ export const idbeholdInvisible = idbehold(inv => inv.items.invisibilityTicks = (
 export const idbeholdRadiation = idbehold(inv => inv.items.radiationSuitTicks = (1 - Math.sign(inv.items.radiationSuitTicks)) * 30 * ticksPerSecond);
 export const idbeholdAllMap = idbehold(inv => inv.items.computerMap = !inv.items.computerMap);
 // NB: we don't go to zero here but 1 (see how light override is done in inventory up in MapObject)
-export const idbeholdLiteAmp = idbehold(inv => inv.items.nightVisionTicks = 1 + (1 - Math.sign(inv.items.nightVisionTicks)) * 30 * ticksPerSecond);
+export const idbeholdLiteAmp = idbehold(inv => inv.items.nightVisionTicks = 1 + (1 - Math.sign(inv.items.nightVisionTicks)) * 60 * ticksPerSecond);
 export const idbeholdInvulnerable = idbehold(inv => inv.items.invincibilityTicks = 1 + (1 - Math.sign(inv.items.invincibilityTicks)) * 30 * ticksPerSecond);
 
 export function idkfa(game: Game) {

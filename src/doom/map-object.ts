@@ -642,8 +642,8 @@ export class PlayerMapObject extends MapObject {
                 invunlTime > 0.0 ? 0 :
                 // first 2 seconds we go from 0->255 then stay at 255 until last 5 seconds where we pulse a few times from 0 to 255
                 nightVisionTime ? (
-                    nightVisionTime > 30 ? 255 :
-                    nightVisionTime > 28 ? 255 * Math.sin(HALF_PI * Math.max(0, (30 - nightVisionTime) / 2)) :
+                    nightVisionTime > 60 ? 255 :
+                    nightVisionTime > 58 ? 255 * Math.sin(HALF_PI * Math.max(0, (60 - nightVisionTime) / 2)) :
                     nightVisionTime > 4.5 ? 255 :
                     255 * (Math.sin(Math.PI * 2 * nightVisionTime - HALF_PI) * .5 + .5)
                 ) :
