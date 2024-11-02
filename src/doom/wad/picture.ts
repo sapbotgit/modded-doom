@@ -1,4 +1,5 @@
 import type { Color } from "three";
+import { dword, int16, word } from "./wadfile";
 
 export type Palette = Color[];
 
@@ -55,8 +56,8 @@ export class LumpPicture implements Picture {
     constructor(private lump: Uint8Array, readonly palette: Palette) {
         this.width = word(this.lump, 0);
         this.height = word(this.lump, 2);
-        this.xOffset = toInt16(word(this.lump, 4));
-        this.yOffset = toInt16(word(this.lump, 6));
+        this.xOffset = int16(word(this.lump, 4));
+        this.yOffset = int16(word(this.lump, 6));
         if (this.lump.length !== 4096 && (this.width > 2048 || this.height > 2048)) {
             console.warn('bad pic?', lump, this.width, this.height)
         }
@@ -64,7 +65,7 @@ export class LumpPicture implements Picture {
 
     toAtlasBuffer(buffer: Uint8ClampedArray, width: number, ax: number, ay: number) {
         this.pixels((col, x, y) => {
-            let i = 4 * (ay + y * width + x + ax);
+            let i = 4 * ((ay + y) * width + x + ax);
             buffer[i + 0] = col.r;
             buffer[i + 1] = col.g;
             buffer[i + 2] = col.b;
@@ -161,8 +162,3 @@ export class PatchPicture implements Picture {
         }
     }
 }
-
-// Nifty little hack! https://stackoverflow.com/questions/50179214
-const toInt16 = (num: number) => (num << 16) >> 16;
-const word = (buff: Uint8Array, offset: number) => buff[offset + 1] << 8 | buff[offset];
-const dword = (buff: Uint8Array, offset: number) => word(buff, offset + 2) << 16 | word(buff, offset);

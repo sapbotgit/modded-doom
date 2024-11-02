@@ -19,7 +19,7 @@ export class TextureAtlas {
         const flats = wad.flatsNames();
         // TODO: make this 2D like lightMap in case we have more than tSize textures?
         const indexData = new Float32Array((textures.length + flats.length) * 4);
-        // TPDP" probably should be nearest power of two width
+        // TODO: probably should be nearest power of two width
         const tAtlas = new DataTexture(indexData, flats.length + textures.length);
         tAtlas.type = FloatType;
         tAtlas.needsUpdate = true;

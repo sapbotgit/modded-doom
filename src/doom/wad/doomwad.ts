@@ -6,6 +6,8 @@ import { dword, int16, lumpString, pnamesLump, textureLump, word, type Lump, typ
 interface SpriteFrame {
     name: string;
     mirror: boolean;
+    frame: number;
+    rotation: number;
 }
 
 type TextureAnimation = { frames: string[], speed: number };
@@ -248,7 +250,7 @@ export class DoomWad {
         }
 
         const sprites = this.spriteLumps.filter(lump => lump.name.startsWith(uname));
-        const frames: (SpriteFrame & { frame: number, rotation: number })[] = [];
+        const frames: SpriteFrame[] = [];
         for (const lump of sprites) {
             const spriteName = lump.name;
             let frame = spriteName.charCodeAt(4) - 65;
