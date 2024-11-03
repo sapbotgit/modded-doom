@@ -605,7 +605,9 @@
         // it would be nice if this was moved into MapRuntime and we just get notification on add/remove/update
         for (const mo of map.objs) {
             const set = rmobjs.has(mo.id) ? updated : added;
-            set.add(mo);
+            if (!(mo.info.flags & MFFlags.MF_NOSECTOR)) {
+                set.add(mo);
+            }
         }
         for (const mo of rmobjs) {
             if (!added.has(mo[1].mo) && !updated.has(mo[1].mo)) {
