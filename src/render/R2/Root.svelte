@@ -194,18 +194,6 @@
     const inspectorAttributeName = 'doomInspect';
     function createMaterial(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
 
-        const lightLevelParams = `
-        flat out uint dL;
-        attribute uint doomLight;
-
-        flat out uint dI;
-        attribute uint ${inspectorAttributeName};
-        `
-        const lightLevelInit = `
-        dL = doomLight;
-        dI = ${inspectorAttributeName};
-        `;
-
         const vertexPars = `
         #include <common>
 
@@ -213,66 +201,78 @@
         uniform sampler2D tSpriteUVs;
         uniform float tSpritesWidth;
         uniform uint tSpriteUVsWidth;
+        uniform sampler2D tLightLevels;
+        uniform sampler2D tLightMap;
+        uniform uint tLightMapWidth;
+        uniform float doomExtraLight;
+        uniform uint dInspect;
+
+        attribute uint texN;
+        attribute uint doomLight;
+        attribute uint ${inspectorAttributeName};
+
         flat out vec4 vT1;
         flat out vec2 vDim;
+        flat out vec3 normal_;
+        varying float doomLightLevel;
+        varying vec3 doomInspectorEmissive;
+
+        const float oneSixteenth = 1.0 / 16.0;
+        float scaleLightLevel(float level) {
+            float light = level * 256.0;
+            vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
+            vec4 scaledLight = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
+            return scaledLight.g;
+        }
 
         // https://discourse.threejs.org/t/instanced-geometry-vertex-shader-question/2694/3
         vec3 applyQuaternionToVector( vec4 q, vec3 v ){
             return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
         }
-
-        flat out vec3 normal_;
-        // texture index
-        flat out uint tN;
-        attribute uint texN;
         `;
-        const vertexMain = `
-        tN = texN;
+
+        const uv_vertex = `
+        #include <uv_vertex>
+
+        // sprite dimensions
+        vec2 tUV = vec2( ((float(texN)) + .5) / float(tSpriteUVsWidth), 0.5 );
+        vT1 = texture2D( tSpriteUVs, tUV );
+        vDim = vec2( vT1.z - vT1.x, vT1.w - vT1.y );
+        // Would be really nice to do this and use vanilla map_fragment but it won't work for some reason.
+        // perhaps there is a precision loss?
+        // vMapUv = mod(vMapUv * vDim, vDim) + vT1.xy;
+        `
+        const begin_vertex = `
+        #include <begin_vertex>
+
         normal_ = normal;
 
-        #include <uv_vertex>
+        transformed = applyQuaternionToVector(camQ, transformed);
+
+        // scale based on texture size (vDim)
+        mat4 scaleMat4 = mat4(
+            vDim.x * tSpritesWidth, 0.0, 0.0, 0.0,
+            0.0, vDim.x * tSpritesWidth, 0.0, 0.0,
+            0.0, 0.0, vDim.y * tSpritesWidth, (vDim.y * tSpritesWidth) * .5,
+            0.0, 0.0, 0.0, 1.0);
+        transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
         `;
 
         const fragmentPars = `
         #include <common>
 
-        uniform sampler2D tSpriteUVs;
-        uniform uint tSpriteUVsWidth;
-        uniform sampler2D tLightLevels;
-        uniform sampler2D tLightMap;
-        uniform uint tLightMapWidth;
-        uniform uint dInspect;
-        uniform float doomExtraLight;
-
         flat in vec4 vT1;
         flat in vec2 vDim;
+        varying float doomLightLevel;
+        varying vec3 doomInspectorEmissive;
 
         flat in vec3 normal_;
-        flat in uint dL;
-        flat in uint tN;
-        flat in uint dI;
-
-        const float oneSixteenth = 1.0 / 16.0;
-        float doomLightLevel(float level) {
-            float light = level * 256.0;
-            vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
-            vec4 sectorLightLevel = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
-            return sectorLightLevel.g;
-        }
         `;
-        const fragmentMap = `
+        const depthDist_uv_frag = `
         #ifdef USE_MAP
-
-        // texture dimensions
-        vec2 tUV = vec2( ((float(tN)) + .5) / float(tSpriteUVsWidth), 0.5 )
-        vec4 t1 = texture2D( tSpriteUVs, tUV );
-        vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
-
-        vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
+        vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
         vec4 sampledDiffuseColor = texture2D( map, mapUV );
-        sampledDiffuseColor = vec4(1.0);
-        diffuseColor *= sampledDiffuseColor;
-
+        if (sampledDiffuseColor.a < 1.0) discard;
         #endif
         `;
         interface MapMaterialUniforms {
@@ -303,41 +303,34 @@
             uniforms.set(shader.uniforms as any);
 
             shader.vertexShader = shader.vertexShader
-                .replace('#include <common>', vertexPars + lightLevelParams)
-                .replace('#include <uv_vertex>', vertexMain + lightLevelInit + `
-
-                // sprite dimensions
-                vec2 tUV = vec2( ((float(tN)) + .5) / float(tSpriteUVsWidth), 0.5 );
-                vT1 = texture2D( tSpriteUVs, tUV );
-                vDim = vec2( vT1.z - vT1.x, vT1.w - vT1.y );
-                `)
+                .replace('#include <common>', vertexPars)
+                .replace('#include <uv_vertex>', uv_vertex)
                 .replace(`#include <beginnormal_vertex>`,`
                 #include <beginnormal_vertex>
                 objectNormal = normalize(applyQuaternionToVector(camQ, objectNormal));
                 `)
-                .replace(`#include <begin_vertex>`,`
-                #include <begin_vertex>
-                transformed = applyQuaternionToVector(camQ, transformed);
+                .replace(`#include <begin_vertex>`,begin_vertex + `
+                // faded magenta if selected for inspection
+                doomInspectorEmissive = step(float(${inspectorAttributeName} - dInspect), 0.0) * vec3(1.0, 0.0, 1.0) * .1;
 
-                // scale based on texture size (vDim)
-                mat4 scaleMat4 = mat4(
-                    vDim.x * tSpritesWidth, 0.0, 0.0, 0.0,
-                    0.0, vDim.x * tSpritesWidth, 0.0, 0.0,
-                    0.0, 0.0, vDim.y * tSpritesWidth, (vDim.y * tSpritesWidth) * .5,
-                    0.0, 0.0, 0.0, 1.0);
-                transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
+                // sector light level
+                float dLf = float(doomLight);
+                float invLightMapWidth = 1.0 / float(tLightMapWidth);
+                vec2 lightUV = vec2(
+                    mod(dLf, float(tLightMapWidth)),
+                    floor(dLf * invLightMapWidth) );
+                vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
+                doomLightLevel = clamp(scaleLightLevel(sectorLight.g + doomExtraLight), 0.0, 1.0);
                 `);
 
             shader.fragmentShader = shader.fragmentShader
                 .replace('#include <common>', fragmentPars)
                 .replace('#include <map_fragment>', `
+                // #include <map_fragment>
                 #ifdef USE_MAP
 
                 vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
                 vec4 sampledDiffuseColor = texture2D( map, mapUV );
-                // sampledDiffuseColor.rgb = vColor.xyz;
-                // sampledDiffuseColor.a = 1.0;
-                if (sampledDiffuseColor.a < 1.0) discard;
 
                 #ifdef DECODE_VIDEO_TEXTURE
                     // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
@@ -347,26 +340,13 @@
 
                 #endif
 
-                if (dInspect == dI) {
-                    // faded magenta
-                    totalEmissiveRadiance = vec3(1.0, 0.0, 1.0) * .1;
-                }
+                totalEmissiveRadiance += doomInspectorEmissive;
                 `)
                 .replace('#include <lights_fragment_begin>', `
                 #include <lights_fragment_begin>
 
-                // sector light level
-                float dLf = float(dL);
-                float invLightMapWidth = 1.0 / float(tLightMapWidth);
-                vec2 lightUV = vec2(
-                    mod(dLf, float(tLightMapWidth)),
-                    floor(dLf * invLightMapWidth) );
-                vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
-
-                float scaledLightLevel = doomLightLevel(sectorLight.g + doomExtraLight);
-
                 // apply lighting
-                material.diffuseColor.rgb *= clamp(scaledLightLevel, 0.0, 1.0);
+                material.diffuseColor.rgb *= doomLightLevel;
                 // material.diffuseColor.rgb = vec3(scaledLightLevel);
                 // material.diffuseColor.rgb = abs(normal_);
                 // material.diffuseColor.rgb = vColor.xyz;
@@ -384,19 +364,12 @@
 
             shader.vertexShader = shader.vertexShader
                 .replace('#include <common>', vertexPars)
-                .replace('#include <uv_vertex>', vertexMain)
-                // .replace(`#include <beginnormal_vertex>`,
-                // `#include <beginnormal_vertex>
-                // // objectNormal = vec3(0, 1, 0);
-                // objectNormal = normalize(applyQuaternionToVector(camQ, objectNormal));
-                // `)
-                .replace(`#include <begin_vertex>`,
-                `#include <begin_vertex>
-                transformed = applyQuaternionToVector(camQ, transformed);
-                `);
+                .replace('#include <uv_vertex>', uv_vertex)
+                .replace(`#include <begin_vertex>`, begin_vertex);
 
-            shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
-            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
+            shader.fragmentShader = shader.fragmentShader
+                .replace('#include <common>', fragmentPars)
+                .replace('#include <map_fragment>', depthDist_uv_frag);
         };
 
         const distanceMaterial = new MeshDistanceMaterial();
@@ -409,19 +382,17 @@
                 shader.uniforms.camQ.value = u.camQ.value;
             })
 
+            // ideally we would "face" the light, not the camera but I don't fully understand the threejs shadow code
+            // so I'm not quite sure how to do that. For now, this makes the shadow match the rendered sprite.
+            // Perhaps rendering sprites as BoxGeometry would be slightly better?
             shader.vertexShader = shader.vertexShader
                 .replace('#include <common>', vertexPars)
-                .replace('#include <uv_vertex>', vertexMain)
-                // ideally we would "face" the light, not the camera but I don't fully understand the threejs shadow code
-                // so I'm not quite sure how to do that. For now, this makes the shadow match the rendered sprite.
-                // Perhaps rendering sprites as BoxGeometry would be slightly better?
-                .replace(`#include <begin_vertex>`,
-                `#include <begin_vertex>
-                transformed = applyQuaternionToVector(camQ, transformed);
-                `);
+                .replace('#include <uv_vertex>', uv_vertex)
+                .replace(`#include <begin_vertex>`, begin_vertex);
 
-            shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
-            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
+            shader.fragmentShader = shader.fragmentShader
+                .replace('#include <common>', fragmentPars)
+                .replace('#include <map_fragment>', depthDist_uv_frag);
         };
         return { material, distanceMaterial, depthMaterial, uniforms };
     }
@@ -456,9 +427,6 @@
     // Are chunks actually beneficial? It's probably better than resizing/re-initializing a large array
     // but maybe worth experimenting with sometime.
     const chunkSize = 5_000;
-    // const geometry = new BoxGeometry();
-    const geometry = new PlaneGeometry();
-    geometry.rotateX(-HALF_PI);
 
     let thingsMeshes: InstancedMesh[] = [];
     const int16BufferFrom = (items: number[], vertexCount: number) => {
@@ -473,6 +441,9 @@
         return attr;
     }
     const createChunk = () => {
+        // const geometry = new BoxGeometry();
+        const geometry = new PlaneGeometry();
+        geometry.rotateX(-HALF_PI);
         const mesh = new InstancedMesh(geometry, material, chunkSize);
         mesh.customDepthMaterial = depthMaterial;
         mesh.customDistanceMaterial = distanceMaterial;
@@ -529,6 +500,7 @@
         }));
         const updatePos = (pos: Vector3) => {
             q.setFromAxisAngle(up, HALF_PI);
+            // FIXME: this breaks inspect but it makes it easier to scale sprites. Hmm
             s.set(1, 1, 1);
             if (mo instanceof PlayerMapObject) {
                 s.set(0, 0, 0);
