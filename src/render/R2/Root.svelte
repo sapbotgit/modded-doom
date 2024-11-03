@@ -86,7 +86,15 @@
                     // TODO: fix rotations
                     continue;
                 }
-                const idx = this.insert(frame.name, frame.mirror, gfx);
+                const idx = this.insert(frame.name, gfx);
+
+                this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
+                this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
+                this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
+                this.spriteInfo.image.data[3 + idx * 4] = 0;
+                this.spriteInfo.needsUpdate = true;
+
+                // TODO: also offset and if there are rotations/mirrors?
 
                 let frames = this.spriteFrames.get(frame.sprite);
                 if (!frames) {
@@ -98,10 +106,11 @@
         }
 
         indexOf(sprite: string, frame: number) {
+            // are maps the best lookup here or can use use arrays (or arrays of integers?)
             return this.spriteFrames.get(sprite).get(frame);
         }
 
-        private insert(sprite: string, mirror: boolean, pic: Picture) {
+        private insert(sprite: string, pic: Picture) {
             const row = this.findSpace(pic);
             if (!row) {
                 // TODO: default texture?
@@ -118,14 +127,6 @@
             this.uvIndex.image.data[2 + this.count * 4] = row.x / this.tSize;
             this.uvIndex.image.data[3 + this.count * 4] = (row.y + pic.height) / this.tSize;
             this.uvIndex.needsUpdate = true;
-
-            this.spriteInfo.image.data[0 + this.count * 4] = pic.xOffset;
-            this.spriteInfo.image.data[1 + this.count * 4] = pic.yOffset;
-            this.spriteInfo.image.data[2 + this.count * 4] = mirror ? -1 : 1;
-            this.spriteInfo.image.data[3 + this.count * 4] = 0;
-            this.spriteInfo.needsUpdate = true;
-
-            // TODO: also offset and if there are rotations/mirrors?
 
             this.count += 1;
             return this.count - 1;
@@ -267,22 +268,21 @@
 
         transformed = applyQuaternionToVector(camQ, transformed);
 
-        // // scale and position based on texture size (vDim) and offsets
-        // vec2 dim = vDim * tSpritesWidth;
-        // // sprite info (offsets, mirrored, etc)
-        // ivec4 info = texture2D( tSpriteInfo, tUV );
-        // float offXY = float(info.x) - dim.x * .5;
-        // float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
-        // float offZ = float(info.y) - dim.y;
-        // float missileOffset = flagBit(texN.y, flag_isMissile) * offZ;
-        // offZ = max(offZ, 0.0) + (dim.y * .5) * invertZ + missileOffset;
-        // float pXY = float(info.z) * dim.x;
-        // mat4 scaleMat4 = mat4(
-        //     pXY, 0.0, 0.0, offXY,
-        //     0.0, pXY, 0.0, offXY,
-        //     0.0, 0.0, dim.y, offZ,
-        //     0.0, 0.0, 0.0, 1.0);
-        // transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
+        // scale and position based on texture size (vDim) and offsets
+        vec2 dim = vDim * tSpritesWidth;
+        // sprite info (offsets, mirrored, etc)
+        ivec4 info = texture2D( tSpriteInfo, tUV );
+        float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
+        float offZ = float(info.y) - dim.y;
+        offZ = max(offZ, 0.0) + (dim.y * .5 * invertZ) + (flagBit(texN.y, flag_isMissile) * offZ);
+        float pXY = float(info.z) * dim.x;
+        float offXY = float(info.x) - dim.x * .5;
+        mat4 scaleMat4 = mat4(
+            pXY, 0.0, 0.0, offXY,
+            0.0, pXY, 0.0, offXY,
+            0.0, 0.0, dim.y, offZ,
+            0.0, 0.0, 0.0, 1.0);
+        transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
         `;
 
         const fragmentPars = `
@@ -350,22 +350,6 @@
                 vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
                 float fullBright = flagBit(texN.y, flag_fullBright);
                 doomLightLevel = clamp(scaleLightLevel(sectorLight.g + doomExtraLight + fullBright), 0.0, 1.0);
-
-                // scale and position based on texture size (vDim) and offsets
-                vec2 dim = vDim * tSpritesWidth;
-                // sprite info (offsets, mirrored, etc)
-                ivec4 info = texture2D( tSpriteInfo, tUV );
-                float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
-                float offZ = float(info.y) - dim.y;
-                offZ = max(offZ, 0.0) + (dim.y * .5 * invertZ) + (flagBit(texN.y, flag_isMissile) * offZ);
-                float pXY = float(info.z) * dim.x;
-                float offXY = float(info.x) - dim.x * .5;
-                mat4 scaleMat4 = mat4(
-                    pXY, 0.0, 0.0, offXY,
-                    0.0, pXY, 0.0, offXY,
-                    0.0, 0.0, dim.y, offZ,
-                    0.0, 0.0, 0.0, 1.0);
-                transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
                 `);
 
             shader.fragmentShader = shader.fragmentShader
@@ -522,7 +506,6 @@
     const p = new Vector3( 1, 1, 1 );
     const q = new Quaternion();
     const s = new Vector3( 1, 1, 1 );
-    const up = new Vector3(0, 0, 1);
     function add(mo: MapObject, idx: number) {
         let m = Math.floor(idx / chunkSize);
         let n = idx % chunkSize;
@@ -552,7 +535,6 @@
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
         const updatePos = (pos: Vector3) => {
-            // q.setFromAxisAngle(up, HALF_PI);
             // FIXME: this breaks inspector but it makes it easier to scale sprites. Hmm
             s.set(1, 1, 1);
             if (mo instanceof PlayerMapObject) {
@@ -595,6 +577,10 @@
         thingsMeshes[m].instanceMatrix.needsUpdate = true;
         return info.idx;
     }
+
+    onDestroy(() => {
+        rmobjs.values().forEach(r => destroy(r.mo));
+    })
 
     const freeSlots: number[] = [];
     $: (n => {
@@ -641,7 +627,7 @@
 <MapGeometry />
 
 {#each thingsMeshes as mesh}
-    <T is={mesh} on:click={hit} />
+    <T is={mesh} on:click={hit} renderOrder={1} />
 {/each}
 
 <!-- {#each renderSectors as renderSector}
