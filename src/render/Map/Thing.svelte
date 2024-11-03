@@ -46,10 +46,10 @@
     // https://www.doomworld.com/forum/topic/110008-what-is-this-bs-with-gl-hardware-mode
     // and https://www.doomworld.com/forum/topic/68145-source-port-sprites-through-the-floor
     $: vOffset =
-        Math.max(texture.userData.yOffset - texture.userData.height, 0) + (texture.userData.height * .5)
-        * (invertYOffset ? -1 : 1)
+        Math.max(texture.userData.yOffset - texture.userData.height, 0)
+        + (texture.userData.height * .5) * (invertYOffset ? -1 : 1)
         + (isMissile ? texture.userData.yOffset - texture.userData.height : 0);
-    $: hOffset = (texture.userData.xOffset - texture.userData.width) + (texture.userData.width * .5);
+    $: hOffset = texture.userData.xOffset - texture.userData.width * .5;
 
     // Position is interpolated based on partial tick time, velocity, and move direction. Move direction is more
     // complicated because objects don't move every tick so we need to know how close they are to their next move.

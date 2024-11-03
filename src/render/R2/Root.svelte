@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { DoomWad, HALF_PI, MapObject, PlayerMapObject, SpriteNames, store, type MapRuntime, type Picture } from "../../doom";
+    import { DoomWad, HALF_PI, MapObject, MFFlags, PlayerMapObject, SpriteNames, store, type MapRuntime, type Picture } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import Stats from "../Debug/Stats.svelte";
     import SkyBox from "../Map/SkyBox.svelte";
@@ -9,7 +9,7 @@
     import { interactivity } from "@threlte/extras";
     import SectorThings from "./SectorThings.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
-    import { BackSide, BoxGeometry, FloatType, RepeatWrapping, NearestFilter, SRGBColorSpace, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry, Vector4, Euler, Camera, DoubleSide, MeshDepthMaterial, MeshDistanceMaterial } from "three";
+    import { BackSide, BoxGeometry, ShortType, RGBAIntegerFormat, FloatType, RepeatWrapping, NearestFilter, SRGBColorSpace, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry, Vector4, Euler, Camera, DoubleSide, MeshDepthMaterial, MeshDistanceMaterial } from "three";
     import { buildLightMap } from "./GeometryBuilder";
     import { TextureAtlas } from "./TextureAtlas";
     import { onDestroy, onMount } from "svelte";
@@ -61,24 +61,23 @@
 
             // TODO: make this 2D like lightMap in case we have more than tSize textures?
             // TODO: probably should be nearest power of two width and height
-            const uvIndexSize = sprites.length;
-            const tAtlas = new DataTexture(new Float32Array(uvIndexSize * 4), uvIndexSize);
+            const tAtlas = new DataTexture(new Float32Array(sprites.length * 4), sprites.length);
             tAtlas.type = FloatType;
-            tAtlas.needsUpdate = true;
             this.uvIndex = tAtlas;
 
-            const tSprintInfo = new DataTexture(new Int16Array(sprites.length * 4), sprites.length);
-            tSprintInfo.type = IntType;
-            tSprintInfo.needsUpdate = true;
-            this.spriteInfo = tSprintInfo;
+            const tSpriteInfo = new DataTexture(new Int16Array(sprites.length * 4), sprites.length);
+            tSpriteInfo.type = ShortType;
+            tSpriteInfo.format = RGBAIntegerFormat;
+            tSpriteInfo.internalFormat = 'RGBA16I';
+            tSpriteInfo.magFilter = tSpriteInfo.minFilter = NearestFilter;
+            tSpriteInfo.wrapT = tSpriteInfo.wrapS = RepeatWrapping;
+            this.spriteInfo = tSpriteInfo;
 
             const textureData = new Uint8ClampedArray(tSize * tSize * 4).fill(0);
             const texture = new DataTexture(textureData, tSize, tSize)
-            texture.wrapS = RepeatWrapping;
-            texture.wrapT = RepeatWrapping;
-            texture.magFilter = NearestFilter;
+            texture.wrapT = texture.wrapS = RepeatWrapping;
+            texture.magFilter = texture.minFilter = NearestFilter;
             texture.colorSpace = SRGBColorSpace;
-            texture.needsUpdate = true;
             this.sheet = texture;
 
             for (const frame of sprites) {
@@ -87,7 +86,7 @@
                     // TODO: fix rotations
                     continue;
                 }
-                const idx = this.insert(frame.name, gfx);
+                const idx = this.insert(frame.name, frame.mirror, gfx);
 
                 let frames = this.spriteFrames.get(frame.sprite);
                 if (!frames) {
@@ -102,7 +101,7 @@
             return this.spriteFrames.get(sprite).get(frame);
         }
 
-        private insert(sprite: string, pic: Picture) {
+        private insert(sprite: string, mirror: boolean, pic: Picture) {
             const row = this.findSpace(pic);
             if (!row) {
                 // TODO: default texture?
@@ -119,6 +118,12 @@
             this.uvIndex.image.data[2 + this.count * 4] = row.x / this.tSize;
             this.uvIndex.image.data[3 + this.count * 4] = (row.y + pic.height) / this.tSize;
             this.uvIndex.needsUpdate = true;
+
+            this.spriteInfo.image.data[0 + this.count * 4] = pic.xOffset;
+            this.spriteInfo.image.data[1 + this.count * 4] = pic.yOffset;
+            this.spriteInfo.image.data[2 + this.count * 4] = mirror ? -1 : 1;
+            this.spriteInfo.image.data[3 + this.count * 4] = 0;
+            this.spriteInfo.needsUpdate = true;
 
             // TODO: also offset and if there are rotations/mirrors?
 
@@ -191,6 +196,9 @@
     //     document.body.removeChild(img)
     // });
 
+    // sprite offset test:
+    // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=299.19&player-y=-2463.11&player-z=358.96&player-aim=-0.14&player-dir=-1.54
+
     const inspectorAttributeName = 'doomInspect';
     function createMaterial(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
 
@@ -199,15 +207,16 @@
 
         uniform vec4 camQ;
         uniform sampler2D tSpriteUVs;
-        uniform float tSpritesWidth;
         uniform uint tSpriteUVsWidth;
+        uniform isampler2D tSpriteInfo;
+        uniform float tSpritesWidth;
         uniform sampler2D tLightLevels;
         uniform sampler2D tLightMap;
         uniform uint tLightMapWidth;
         uniform float doomExtraLight;
         uniform uint dInspect;
 
-        attribute uint texN;
+        attribute uvec2 texN;
         attribute uint doomLight;
         attribute uint ${inspectorAttributeName};
 
@@ -216,6 +225,15 @@
         flat out vec3 normal_;
         varying float doomLightLevel;
         varying vec3 doomInspectorEmissive;
+
+        const uint flag_fullBright = uint(0);
+        const uint flag_isMissile = uint(1);
+        const uint flag_invertZOffset = uint(2);
+        const uint flag_Shadows = uint(3);
+        // returns 1.0 if flag is set or else 0.0
+        float flagBit(uint val, uint bit) {
+            return float((val >> bit) & uint(1));
+        }
 
         const float oneSixteenth = 1.0 / 16.0;
         float scaleLightLevel(float level) {
@@ -234,8 +252,8 @@
         const uv_vertex = `
         #include <uv_vertex>
 
+        vec2 tUV = vec2( ((float(texN.x)) + .5) / float(tSpriteUVsWidth), 0.5 );
         // sprite dimensions
-        vec2 tUV = vec2( ((float(texN)) + .5) / float(tSpriteUVsWidth), 0.5 );
         vT1 = texture2D( tSpriteUVs, tUV );
         vDim = vec2( vT1.z - vT1.x, vT1.w - vT1.y );
         // Would be really nice to do this and use vanilla map_fragment but it won't work for some reason.
@@ -249,13 +267,22 @@
 
         transformed = applyQuaternionToVector(camQ, transformed);
 
-        // scale based on texture size (vDim)
-        mat4 scaleMat4 = mat4(
-            vDim.x * tSpritesWidth, 0.0, 0.0, 0.0,
-            0.0, vDim.x * tSpritesWidth, 0.0, 0.0,
-            0.0, 0.0, vDim.y * tSpritesWidth, (vDim.y * tSpritesWidth) * .5,
-            0.0, 0.0, 0.0, 1.0);
-        transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
+        // // scale and position based on texture size (vDim) and offsets
+        // vec2 dim = vDim * tSpritesWidth;
+        // // sprite info (offsets, mirrored, etc)
+        // ivec4 info = texture2D( tSpriteInfo, tUV );
+        // float offXY = float(info.x) - dim.x * .5;
+        // float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
+        // float offZ = float(info.y) - dim.y;
+        // float missileOffset = flagBit(texN.y, flag_isMissile) * offZ;
+        // offZ = max(offZ, 0.0) + (dim.y * .5) * invertZ + missileOffset;
+        // float pXY = float(info.z) * dim.x;
+        // mat4 scaleMat4 = mat4(
+        //     pXY, 0.0, 0.0, offXY,
+        //     0.0, pXY, 0.0, offXY,
+        //     0.0, 0.0, dim.y, offZ,
+        //     0.0, 0.0, 0.0, 1.0);
+        // transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
         `;
 
         const fragmentPars = `
@@ -297,6 +324,7 @@
             shader.uniforms.tLightLevels = { value: lightLevels };
             shader.uniforms.tLightMap = { value: lightMap };
             shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
+            shader.uniforms.tSpriteInfo = { value: sprites.spriteInfo };
             shader.uniforms.tSpritesWidth = { value: sprites.sheet.image.width };
             shader.uniforms.tSpriteUVs = { value: sprites.uvIndex };
             shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
@@ -320,7 +348,24 @@
                     mod(dLf, float(tLightMapWidth)),
                     floor(dLf * invLightMapWidth) );
                 vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
-                doomLightLevel = clamp(scaleLightLevel(sectorLight.g + doomExtraLight), 0.0, 1.0);
+                float fullBright = flagBit(texN.y, flag_fullBright);
+                doomLightLevel = clamp(scaleLightLevel(sectorLight.g + doomExtraLight + fullBright), 0.0, 1.0);
+
+                // scale and position based on texture size (vDim) and offsets
+                vec2 dim = vDim * tSpritesWidth;
+                // sprite info (offsets, mirrored, etc)
+                ivec4 info = texture2D( tSpriteInfo, tUV );
+                float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
+                float offZ = float(info.y) - dim.y;
+                offZ = max(offZ, 0.0) + (dim.y * .5 * invertZ) + (flagBit(texN.y, flag_isMissile) * offZ);
+                float pXY = float(info.z) * dim.x;
+                float offXY = float(info.x) - dim.x * .5;
+                mat4 scaleMat4 = mat4(
+                    pXY, 0.0, 0.0, offXY,
+                    0.0, pXY, 0.0, offXY,
+                    0.0, 0.0, dim.y, offZ,
+                    0.0, 0.0, 0.0, 1.0);
+                transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
                 `);
 
             shader.fragmentShader = shader.fragmentShader
@@ -401,7 +446,7 @@
     const threlteCam = threlte.camera;
     const { position, angle } = camera;
     const _q = new Quaternion();
-    const _z0 = new Vector3(1, 0, 0);
+    const _z0 = new Vector3(0, -1, 0);
     const _z1 = new Vector3();
     $: $uniforms.camQ.value.copy(updateCamera($threlteCam, $position, $angle));
     function updateCamera(cam: Camera, p: Vector3, a: Euler) {
@@ -449,8 +494,14 @@
         mesh.customDistanceMaterial = distanceMaterial;
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
         mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
-        mesh.geometry.setAttribute('texN', int16BufferFrom([0], chunkSize));
-        mesh.count = 0;
+        mesh.geometry.setAttribute('texN', int16BufferFrom([0, 0], chunkSize));
+        // FIXME: it would be nice to adjust count automatically but it doesn't seem to work
+        // As a quick hack to hide objects, set scale to 0 for everything
+        s.set(0, 0, 0);
+        for (let i = 0; i < chunkSize; i++) {
+            mesh.setMatrixAt(i, mat.compose(p, q, s));
+        }
+        // mesh.count = 0;
         // mesh.frustumCulled = false;
         return mesh;
     }
@@ -492,6 +543,8 @@
         // thingsMeshes[m].instanceColor.needsUpdate = true;
 
         const subs = [];
+        // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
+        const isMissile = mo.info.flags & MFFlags.MF_MISSILE;
         rmobjs.set(mo.id, { mo, idx, subs });
         // custom attributes
         subs.push(mo.sector.subscribe(sec => {
@@ -499,14 +552,13 @@
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
         const updatePos = (pos: Vector3) => {
-            q.setFromAxisAngle(up, HALF_PI);
-            // FIXME: this breaks inspect but it makes it easier to scale sprites. Hmm
+            // q.setFromAxisAngle(up, HALF_PI);
+            // FIXME: this breaks inspector but it makes it easier to scale sprites. Hmm
             s.set(1, 1, 1);
             if (mo instanceof PlayerMapObject) {
                 s.set(0, 0, 0);
             }
             p.copy(pos);
-            p.z += .5;
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
         };
@@ -515,7 +567,14 @@
         subs.push(mo.sprite.subscribe(sprite => {
             if (!sprite) return;
             const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
-            thingsMeshes[m].geometry.attributes.texN.array[n] = spriteIndex;
+            thingsMeshes[m].geometry.attributes.texN.array[n * 2] = spriteIndex;
+            // rendering flags
+            thingsMeshes[m].geometry.attributes.texN.array[n * 2 + 1] = (
+                (sprite.fullbright ? 1 : 0) |
+                (isMissile ? 2 : 0) |
+                ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0) |
+                ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0)
+            );
             thingsMeshes[m].geometry.attributes.texN.needsUpdate = true;
         }));
 
