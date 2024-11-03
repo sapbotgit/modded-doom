@@ -5,7 +5,6 @@ export const ShadowsShader = () => ({
     uniforms: {
         'light': { value: new Color('white') },
         'map': { value: null },
-        'tBack': { value: null },
         'time': { value: 1.0 },
     },
 
@@ -30,7 +29,6 @@ export const ShadowsShader = () => ({
     uniform float time;
     uniform float alphaTest;
     uniform sampler2D map;
-    uniform sampler2D tBack;
 
     varying vec2 vUv;
 

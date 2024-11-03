@@ -13,11 +13,13 @@
     import { buildLightMap } from "./GeometryBuilder";
     import { TextureAtlas } from "./TextureAtlas";
     import { onDestroy, onMount } from "svelte";
+    import { createSpriteGeometry } from "./SpriteGeometry";
 
     export let map: MapRuntime;
     const { renderSectors, camera } = useDoomMap();
     const { rev, trev } = map;
     const { extraLight } = map.player;
+    const { tick, partialTick } = map.game.time;
     let tracers: typeof map.tracers;
     $: if ($trev) {
         tracers = map.tracers;
@@ -216,21 +218,22 @@
         uniform uint tLightMapWidth;
         uniform float doomExtraLight;
         uniform uint dInspect;
+        uniform float time;
 
         attribute uvec2 texN;
         attribute uint doomLight;
         attribute uint ${inspectorAttributeName};
 
-        flat out vec4 vT1;
-        flat out vec2 vDim;
-        flat out vec3 normal_;
+        varying vec4 vT1;
+        varying vec2 vDim;
+        varying float renderShadows;
         varying float doomLightLevel;
         varying vec3 doomInspectorEmissive;
 
         const uint flag_fullBright = uint(0);
         const uint flag_isMissile = uint(1);
         const uint flag_invertZOffset = uint(2);
-        const uint flag_Shadows = uint(3);
+        const uint flag_shadows = uint(3);
         // returns 1.0 if flag is set or else 0.0
         float flagBit(uint val, uint bit) {
             return float((val >> bit) & uint(1));
@@ -264,9 +267,9 @@
         const begin_vertex = `
         #include <begin_vertex>
 
-        normal_ = normal;
-
         transformed = applyQuaternionToVector(camQ, transformed);
+
+        renderShadows = flagBit(texN.y, flag_shadows);
 
         // scale and position based on texture size (vDim) and offsets
         vec2 dim = vDim * tSpritesWidth;
@@ -288,34 +291,56 @@
         const fragmentPars = `
         #include <common>
 
-        flat in vec4 vT1;
-        flat in vec2 vDim;
+        uniform float time;
+
+        // noise for objects with "shadows" flag (like spectres)
+        float noise( vec2 st ) {
+            // vec2 v2 = vec2(12.9898,78.233);
+            vec2 v2 = vec2(0.39, 0.41);
+            return fract( sin( dot( st.xy, v2 ) ) * 43758.5453123);
+        }
+
+        varying vec4 vT1;
+        varying vec2 vDim;
+        varying float renderShadows;
         varying float doomLightLevel;
         varying vec3 doomInspectorEmissive;
-
-        flat in vec3 normal_;
         `;
         const depthDist_uv_frag = `
         #ifdef USE_MAP
+
         vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
         vec4 sampledDiffuseColor = texture2D( map, mapUV );
-        if (sampledDiffuseColor.a < 1.0) discard;
+
+        sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderShadows);
+        vec2 ipos = floor(vMapUv * 200.0);
+        float n = fract( time * noise(ipos) );
+        sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderShadows);
+        // I'm not sure I like how the shadows look from this but it's interesting at least
+        if (sampledDiffuseColor.a < 0.5) discard;
+
         #endif
         `;
         interface MapMaterialUniforms {
             dInspect: IUniform;
             doomExtraLight: IUniform;
+            time: IUniform;
             camQ: IUniform;
         }
         const uniforms = store<MapMaterialUniforms>({
             dInspect: { value: -1 },
             doomExtraLight: { value: 0 },
+            time: { value: 0 },
             camQ: { value: new Vector4() },
         });
 
         const material = new MeshStandardMaterial({
             map: sprites.sheet,
-            alphaTest: 1.0,
+            // alphaTest: 1.0,
+            // Hmmm... we need transparent for shadows creatures but most things only need alphaTest which is (I think) faster.
+            // Perhaps we can create different thing meshes for shadows vs non-shadows and use different materials too?
+            // Also, depthWrite/depthTest is weird with transparent :(
+            transparent: true,
             side: DoubleSide, // we only need FrontSide for rendering but inspector seems to need DoubleSide
             shadowSide: DoubleSide,
         });
@@ -361,6 +386,13 @@
                 vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
                 vec4 sampledDiffuseColor = texture2D( map, mapUV );
 
+                // render sprite as shadows
+                // TODO: how do we handle light shadows from these things?
+                sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderShadows);
+                vec2 ipos = floor(vMapUv * 200.0);
+                float n = fract( time * noise(ipos) );
+                sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderShadows);
+
                 #ifdef DECODE_VIDEO_TEXTURE
                     // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
                     sampledDiffuseColor = vec4( mix( pow( sampledDiffuseColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), sampledDiffuseColor.rgb * 0.0773993808, vec3( lessThanEqual( sampledDiffuseColor.rgb, vec3( 0.04045 ) ) ) ), sampledDiffuseColor.w );
@@ -389,7 +421,8 @@
             shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
             uniforms.subscribe(u => {
                 shader.uniforms.camQ.value = u.camQ.value;
-            })
+                shader.uniforms.time.value = u.time.value;
+            });
 
             shader.vertexShader = shader.vertexShader
                 .replace('#include <common>', vertexPars)
@@ -409,7 +442,8 @@
             // TODO: when do we unsubscribe? Can we avoid this subscription?
             uniforms.subscribe(u => {
                 shader.uniforms.camQ.value = u.camQ.value;
-            })
+                shader.uniforms.time.value = u.time.value;
+            });
 
             // ideally we would "face" the light, not the camera but I don't fully understand the threejs shadow code
             // so I'm not quite sure how to do that. For now, this makes the shadow match the rendered sprite.
@@ -445,6 +479,7 @@
     const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
     const { material, depthMaterial, distanceMaterial, uniforms } = createMaterial(spriteSheet, lightMap, lightLevels);
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
+    $: if ($tick || $partialTick) $uniforms.time.value = map.game.time.elapsed;
     $: ((edit) => {
         // map objects have 'health' so only handle those
         $uniforms.dInspect.value = edit.selected && 'health' in edit.selected
@@ -453,136 +488,18 @@
             : -1;
     })($editor);
 
-    // Are chunks actually beneficial? It's probably better than resizing/re-initializing a large array
-    // but maybe worth experimenting with sometime.
-    const chunkSize = 5_000;
-
-    let thingsMeshes: InstancedMesh[] = [];
-    const int16BufferFrom = (items: number[], vertexCount: number) => {
-        const array = new Uint16Array(items.length * vertexCount);
-        for (let i = 0; i < vertexCount * items.length; i += items.length) {
-            for (let j = 0; j < items.length; j++) {
-                array[i + j] = items[j];
-            }
-        }
-        const attr = new InstancedBufferAttribute(array, items.length);
-        attr.gpuType = IntType;
-        return attr;
-    }
-    const createChunk = () => {
-        // const geometry = new BoxGeometry();
-        const geometry = new PlaneGeometry();
-        geometry.rotateX(-HALF_PI);
-        const mesh = new InstancedMesh(geometry, material, chunkSize);
-        mesh.customDepthMaterial = depthMaterial;
-        mesh.customDistanceMaterial = distanceMaterial;
-        mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
-        mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
-        mesh.geometry.setAttribute('texN', int16BufferFrom([0, 0], chunkSize));
-        // FIXME: it would be nice to adjust count automatically but it doesn't seem to work
-        // As a quick hack to hide objects, set scale to 0 for everything
-        s.set(0, 0, 0);
-        for (let i = 0; i < chunkSize; i++) {
-            mesh.setMatrixAt(i, mat.compose(p, q, s));
-        }
-        // mesh.count = 0;
-        // mesh.frustumCulled = false;
-        return mesh;
-    }
-    $: usePlayerLight = $playerLight !== '#000000';
-    $: thingsMeshes.forEach(m => {
-        m.castShadow = usePlayerLight;
-        m.receiveShadow = usePlayerLight;
-    });
-
-    interface RenderInfo {
-        idx: number;
-        mo: MapObject;
-        subs: (() => void)[];
-    }
-    const rmobjs = new Map<number, RenderInfo>();
-
-    const mat = new Matrix4();
-    const p = new Vector3( 1, 1, 1 );
-    const q = new Quaternion();
-    const s = new Vector3( 1, 1, 1 );
-    function add(mo: MapObject, idx: number) {
-        let m = Math.floor(idx / chunkSize);
-        let n = idx % chunkSize;
-        if (n === 0 && idx > 0) {
-            // this chunk is full
-            thingsMeshes[m - 1].count = chunkSize;
-        }
-        // create new chunk if needed
-        if (thingsMeshes.length === m) {
-            thingsMeshes.push(createChunk());
-            thingsMeshes = thingsMeshes;
-        }
-        // set count on last chunk (assume everything else stays at chunkSize)
-        // NB: count will not decrease because removed items may not be at the end of the list
-        thingsMeshes[m].count = Math.max(n, thingsMeshes[m].count);
-
-        // thingsMeshes[m].setColorAt(n, new Color(Math.floor(Math.random() * 0xffffff)))
-        // thingsMeshes[m].instanceColor.needsUpdate = true;
-
-        const subs = [];
-        // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
-        const isMissile = mo.info.flags & MFFlags.MF_MISSILE;
-        rmobjs.set(mo.id, { mo, idx, subs });
-        // custom attributes
-        subs.push(mo.sector.subscribe(sec => {
-            thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
-            thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
-        }));
-        const updatePos = (pos: Vector3) => {
-            // FIXME: this breaks inspector but it makes it easier to scale sprites. Hmm
-            s.set(1, 1, 1);
-            if (mo instanceof PlayerMapObject) {
-                s.set(0, 0, 0);
-            }
-            p.copy(pos);
-            thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
-            thingsMeshes[m].instanceMatrix.needsUpdate = true;
-        };
-        // subs.push(mo.direction.subscribe(dir => updatePos(mo.position.val, dir)));
-        subs.push(mo.position.subscribe(pos => updatePos(pos)));
-        subs.push(mo.sprite.subscribe(sprite => {
-            if (!sprite) return;
-            const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
-            thingsMeshes[m].geometry.attributes.texN.array[n * 2] = spriteIndex;
-            // rendering flags
-            thingsMeshes[m].geometry.attributes.texN.array[n * 2 + 1] = (
-                (sprite.fullbright ? 1 : 0) |
-                (isMissile ? 2 : 0) |
-                ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0) |
-                ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0)
-            );
-            thingsMeshes[m].geometry.attributes.texN.needsUpdate = true;
-        }));
-
-        thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;
-        thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
-    }
-    function destroy(mo: MapObject) {
-        const info = rmobjs.get(mo.id);
-        info.subs.forEach(fn => fn());
-        rmobjs.delete(mo.id);
-
-        let m = Math.floor(info.idx / chunkSize);
-        let n = info.idx % chunkSize;
-        // We can't actually remove an instanced geometry but we can hide it until something else uses the free slot.
-        // We hide by moving it far away or scaling it very tiny (making it effectively invisible)
-        s.set(0, 0, 0);
-        thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
-        thingsMeshes[m].instanceMatrix.needsUpdate = true;
-        return info.idx;
-    }
+    // TODO: re-enable these
+    // $: usePlayerLight = $playerLight !== '#000000';
+    // $: thingsMeshes.forEach(m => {
+    //     m.castShadow = usePlayerLight;
+    //     m.receiveShadow = usePlayerLight;
+    // });
 
     onDestroy(() => {
-        rmobjs.values().forEach(r => destroy(r.mo));
+        geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
     })
 
-    const freeSlots: number[] = [];
+    const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
     $: (n => {
         let added = new Set<MapObject>();
         let updated = new Set<MapObject>();
@@ -590,32 +507,22 @@
 
         // it would be nice if this was moved into MapRuntime and we just get notification on add/remove/update
         for (const mo of map.objs) {
-            const set = rmobjs.has(mo.id) ? updated : added;
+            const set = geo.rmobjs.has(mo.id) ? updated : added;
             if (!(mo.info.flags & MFFlags.MF_NOSECTOR)) {
                 set.add(mo);
             }
         }
-        for (const mo of rmobjs) {
+        for (const mo of geo.rmobjs) {
             if (!added.has(mo[1].mo) && !updated.has(mo[1].mo)) {
                 removed.add(mo[1].mo);
             }
         }
 
-        let idx = 0;
-        for (const mo of updated) {
-            // TBD?
-            idx += 1;
-        }
         for (const mo of removed) {
-            const id = destroy(mo);
-            freeSlots.push(id);
+            geo.destroy(mo);
         }
         for (const mo of added) {
-            let slot = freeSlots.pop() ?? idx;
-            if (slot === idx) {
-                idx += 1;
-            }
-            add(mo, slot);
+            geo.add(mo);
         }
     })($rev);
 </script>
@@ -626,9 +533,11 @@
 
 <MapGeometry />
 
-{#each thingsMeshes as mesh}
+<T is={geo.root} renderOrder={1} />
+
+<!-- {#each thingsMeshes as mesh}
     <T is={mesh} on:click={hit} renderOrder={1} />
-{/each}
+{/each} -->
 
 <!-- {#each renderSectors as renderSector}
     <SectorThings {renderSector} />
