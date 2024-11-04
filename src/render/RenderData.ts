@@ -188,15 +188,15 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         // a floor at the height of the higher sector (like deep water). We can see this in the room where revenants
         // are in the floor or the exit room with the cyberdemon and brown sludge below the floating marble slabs
         const bothLindefs = [...leftlines, ...linedefs];
-        const unequalFloorNoLowerTexture = (ld: LineDef) => ld.left
-                && ld.right.sector.zFloor.val !== ld.left.sector.zFloor.val
-                && !ld.left.lower.val && !ld.right.lower.val;
+        const unequalFloorNoLowerTexture = (ld: LineDef) => !ld.left ||
+                (ld.right.sector.zFloor.val !== ld.left.sector.zFloor.val
+                && !ld.left.lower.val && !ld.right.lower.val);
         const floorHacks = bothLindefs.every(unequalFloorNoLowerTexture) && bothLindefs.length;
         if (floorHacks) {
             const line = bothLindefs[0];
             renderSector.extraFlats.push({
                 geometry,
-                z: line.right.sector === sector ? line.left.sector.zFloor : line.right.sector.zFloor,
+                z: line.right.sector === sector && line.left ? line.left.sector.zFloor : line.right.sector.zFloor,
                 flat: sector.floorFlat,
                 lightSector: sector,
                 ceil: false,

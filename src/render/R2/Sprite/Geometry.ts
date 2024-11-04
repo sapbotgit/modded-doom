@@ -69,9 +69,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         // NB: count will not decrease because removed items may not be at the end of the list
         thingsMeshes[m].count = Math.max(n + 1, thingsMeshes[m].count);
 
-        // thingsMeshes[m].setColorAt(n, new Color(Math.floor(Math.random() * 0xffffff)))
-        // thingsMeshes[m].instanceColor.needsUpdate = true;
-
         const subs = [];
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
         const isMissile = mo.info.flags & MFFlags.MF_MISSILE;
@@ -81,7 +78,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
             thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
-        const updatePos = (pos: Vector3) => {
+        subs.push(mo.position.subscribe(pos => {
             // FIXME: this breaks inspector but it makes it easier to scale sprites. Hmm
             s.set(1, 1, 1);
             if (mo instanceof PlayerMapObject) {
@@ -90,9 +87,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
             p.copy(pos);
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
-        };
-        // subs.push(mo.direction.subscribe(dir => updatePos(mo.position.val, dir)));
-        subs.push(mo.position.subscribe(pos => updatePos(pos)));
+        }));
         subs.push(mo.sprite.subscribe(sprite => {
             if (!sprite) return;
             const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
