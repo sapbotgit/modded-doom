@@ -23,7 +23,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
     }
 
     const createChunk = () => {
-        // const geometry = new BoxGeometry();
         const geometry = new PlaneGeometry();
         geometry.rotateX(-HALF_PI);
         const mesh = new InstancedMesh(geometry, material, chunkSize);
@@ -32,16 +31,12 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
         mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
         mesh.geometry.setAttribute('texN', int16BufferFrom([0, 0], chunkSize));
+        mesh.receiveShadow = mesh.castShadow = castShadows;
         mesh.count = 0;
         // mesh.frustumCulled = false;
         root.add(mesh);
         return mesh;
     }
-    // $: usePlayerLight = $playerLight !== '#000000';
-    // $: thingsMeshes.forEach(m => {
-    //     m.castShadow = usePlayerLight;
-    //     m.receiveShadow = usePlayerLight;
-    // });
 
     interface RenderInfo {
         idx: number;
@@ -134,6 +129,12 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         thingsMeshes[m].instanceMatrix.needsUpdate = true;
     }
 
+    let castShadows = false;
+    const shadowState = (val: boolean) => {
+        castShadows = val;
+        thingsMeshes.forEach(m => m.castShadow = m.receiveShadow = castShadows);
+    };
+
     const root = new Object3D();
-    return { add, destroy, root, rmobjs };
+    return { add, destroy, root, rmobjs, shadowState };
 }

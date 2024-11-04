@@ -11,7 +11,7 @@
     import { Vector3, Quaternion, Euler, Camera } from "three";
     import { buildLightMap } from "./GeometryBuilder";
     import { onDestroy } from "svelte";
-    import { createSpriteGeometry, createSpriteMaterial, SpriteSheet } from "./Sprite";
+    import { createShadowsSpriteMaterial, createSpriteGeometry, createSpriteMaterial, SpriteSheet } from "./Sprite";
 
     export let map: MapRuntime;
     const { renderSectors, camera } = useDoomMap();
@@ -68,6 +68,8 @@
 
     const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
     const { material, depthMaterial, distanceMaterial, uniforms } = createSpriteMaterial(spriteSheet, lightMap, lightLevels);
+    const shadows = createShadowsSpriteMaterial(spriteSheet, lightMap, lightLevels);
+    const shadowsUniform = shadows.uniforms;
 
     // https://discourse.threejs.org/t/mesh-points-to-the-camera-on-only-2-axis-with-shaders/21555/7
     const threlteCam = threlte.camera;
@@ -75,7 +77,9 @@
     const _q = new Quaternion();
     const _z0 = new Vector3(0, -1, 0);
     const _z1 = new Vector3();
-    $: $uniforms.camQ.value.copy(updateCamera($threlteCam, $position, $angle));
+    $: quat = updateCamera($threlteCam, $position, $angle);
+    $: $uniforms.camQ.value.copy(quat);
+    $: $shadowsUniform.camQ.value.copy(quat);
     function updateCamera(cam: Camera, p: Vector3, a: Euler) {
         cam.getWorldDirection(_z1);
         // _z1.set(0, 0, -1);
@@ -85,7 +89,10 @@
         return _q;
     }
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
-    $: if ($tick || $partialTick) $uniforms.time.value = map.game.time.elapsed;
+    $: if ($tick || $partialTick) {
+        $uniforms.time.value = map.game.time.elapsed;
+        $shadowsUniform.time.value = map.game.time.elapsed;
+    }
     $: ((edit) => {
         // map objects have 'health' so only handle those
         $uniforms.dInspect.value = edit.selected && 'health' in edit.selected
@@ -94,17 +101,17 @@
             : -1;
     })($editor);
 
-    // TODO: re-enable these
-    // $: usePlayerLight = $playerLight !== '#000000';
-    // $: thingsMeshes.forEach(m => {
-    //     m.castShadow = usePlayerLight;
-    //     m.receiveShadow = usePlayerLight;
-    // });
-
     const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
+    const shadowsGeo = createSpriteGeometry(spriteSheet, shadows.material, shadows.depthMaterial, shadows.distanceMaterial);
+
     onDestroy(() => {
         geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
+        shadowsGeo.rmobjs.values().forEach(r => geo.destroy(r.mo));
     })
+
+    $: usePlayerLight = $playerLight !== '#000000';
+    $: geo.shadowState(usePlayerLight);
+    $: shadowsGeo.shadowState(usePlayerLight);
 
     $: (n => {
         let added = new Set<MapObject>();
@@ -113,14 +120,19 @@
 
         // it would be nice if this was moved into MapRuntime and we just get notification on add/remove/update
         for (const mo of map.objs) {
-            const set = geo.rmobjs.has(mo.id) ? updated : added;
+            const set = (geo.rmobjs.has(mo.id) || shadowsGeo.rmobjs.has(mo.id)) ? updated : added;
             if (!(mo.info.flags & MFFlags.MF_NOSECTOR)) {
                 set.add(mo);
             }
         }
-        for (const mo of geo.rmobjs) {
-            if (!added.has(mo[1].mo) && !updated.has(mo[1].mo)) {
-                removed.add(mo[1].mo);
+        for (const r of geo.rmobjs.values()) {
+            if (!added.has(r.mo) && !updated.has(r.mo)) {
+                removed.add(r.mo);
+            }
+        }
+        for (const r of shadowsGeo.rmobjs.values()) {
+            if (!added.has(r.mo) && !updated.has(r.mo)) {
+                removed.add(r.mo);
             }
         }
 
@@ -128,7 +140,11 @@
             geo.destroy(mo);
         }
         for (const mo of added) {
-            geo.add(mo);
+            if (mo.info.flags & MFFlags.MF_SHADOW) {
+                shadowsGeo.add(mo);
+            } else {
+               geo.add(mo);
+            }
         }
     })($rev);
 </script>
@@ -139,7 +155,8 @@
 
 <MapGeometry />
 
-<T is={geo.root} renderOrder={1} />
+<T is={geo.root} on:click={hit} renderOrder={1} />
+<T is={shadowsGeo.root} on:click={hit} renderOrder={1} />
 
 <Player />
 
