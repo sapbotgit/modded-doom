@@ -8,6 +8,11 @@ const lightLevelParams = `
 flat out uint dL;
 attribute uint doomLight;
 
+uniform float time;
+uniform uint tWidth;
+attribute ivec2 doomOffset;
+varying vec2 vOff;
+
 flat out uvec2 dI;
 attribute uvec2 ${inspectorAttributeName};
 `
@@ -28,6 +33,7 @@ const vertexMain = `
 tN = texN;
 normal_ = normal;
 
+vOff = vec2( float(doomOffset.x), float(doomOffset.y) ) * time / float(tWidth);
 #include <uv_vertex>
 `;
 
@@ -47,6 +53,7 @@ flat in vec3 normal_;
 flat in uint dL;
 flat in uint tN;
 flat in uvec2 dI;
+varying vec2 vOff;
 
 const float oneSixteenth = 1.0 / 16.0;
 float doomLightLevel(float level) {
@@ -80,7 +87,7 @@ const fragmentMap = `
 vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
 vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
 
-vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
+vec2 mapUV = mod( vMapUv * dim + vOff, dim) + t1.xy;
 vec4 sampledDiffuseColor = texture2D( map, mapUV );
 diffuseColor *= sampledDiffuseColor;
 
@@ -91,6 +98,7 @@ interface MapMaterialUniforms {
     dInspect: IUniform;
     doomExtraLight: IUniform;
     doomFakeContrast: IUniform;
+    time: IUniform;
 }
 
 export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightLevels: DataTexture) {
@@ -102,6 +110,7 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightL
         dInspect: { value: [-1, -1] },
         doomExtraLight: { value: 0 },
         doomFakeContrast: { value: 0 },
+        time: { value: 0 },
     });
 
     const material = new MeshStandardMaterial({
@@ -114,6 +123,7 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightL
         shader.uniforms.tLightLevels = { value: lightLevels };
         shader.uniforms.tLightMap = { value: lightMap };
         shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
+        shader.uniforms.tWidth = { value: ta.texture.image.width };
         shader.uniforms.tAtlas = { value: ta.index };
         shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
         uniforms.set(shader.uniforms as any);
@@ -129,7 +139,7 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightL
         vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
         vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
 
-        vec2 mapUV = mod(vMapUv * dim, dim) + t1.xy;
+        vec2 mapUV = mod( vMapUv * dim + vOff, dim) + t1.xy;
         vec4 sampledDiffuseColor = texture2D( map, mapUV );
         if (sampledDiffuseColor.a < 1.0) discard;
 

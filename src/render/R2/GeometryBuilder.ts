@@ -23,6 +23,17 @@ function flipWindingOrder(geometry: BufferGeometry) {
     geometry.attributes.normal.needsUpdate = true;
 }
 
+const sInt16BufferFrom = (items: number[], vertexCount: number) => {
+    const array = new Int16Array(items.length * vertexCount);
+    for (let i = 0; i < vertexCount * items.length; i += items.length) {
+        for (let j = 0; j < items.length; j++) {
+            array[i + j] = items[j];
+        }
+    }
+    const attr = new BufferAttribute(array, items.length);
+    attr.gpuType = IntType;
+    return attr;
+}
 export const int16BufferFrom = (items: number[], vertexCount: number) => {
     const array = new Uint16Array(items.length * vertexCount);
     for (let i = 0; i < vertexCount * items.length; i += items.length) {
@@ -104,6 +115,7 @@ export function geometryBuilder() {
 
         geo.setAttribute('texN', int16BufferFrom([0], vertexCount));
         geo.setAttribute('doomLight', int16BufferFrom([sectorNum], vertexCount));
+        geo.setAttribute('doomOffset', sInt16BufferFrom([0, 0], vertexCount));
         geos.push(geo);
         geoInfo.push({ vertexCount, vertexOffset, sky });
         return geoInfo.length - 1;
@@ -124,6 +136,7 @@ export function geometryBuilder() {
         }
         geo.setAttribute('texN', int16BufferFrom([0], vertexCount));
         geo.setAttribute('doomLight', int16BufferFrom([sectorNum], vertexCount));
+        geo.setAttribute('doomOffset', sInt16BufferFrom([0, 0], vertexCount));
         geos.push(geo);
         geoInfo.push({ vertexCount, vertexOffset, sky });
         return geoInfo.length - 1;
@@ -140,6 +153,7 @@ export function geometryBuilder() {
     const emptyPlane = new PlaneGeometry(0, 0);
     emptyPlane.setAttribute('texN', int16BufferFrom([0], 1));
     emptyPlane.setAttribute('doomLight', int16BufferFrom([0], 0));
+    emptyPlane.setAttribute('doomOffset', sInt16BufferFrom([0, 0], 0));
     const mergeGeos = (name: string, geos: BufferGeometry[]) => {
         if (!geos.length) {
             // BufferGeometryUtils.mergeGeometries() fails if array is empty so add a placeholder geometry
@@ -231,6 +245,24 @@ function mapGeometryBuilder(textures: TextureAtlas) {
         const skyHack = (ceilFlatL === 'F_SKY1' && needSkyWall);
         const skyHeight = ld.right.sector.skyHeight;
 
+        function applySpecials(geo: BufferGeometry) {
+            if (ld.special === 48) {
+                for (let i = 0; i < geo.attributes.position.count; i++) {
+                    geo.attributes.doomOffset.array[i * 2] = 1;
+                }
+            } else if (ld.special === 85) {
+                for (let i = 0; i < geo.attributes.position.count; i++) {
+                    geo.attributes.doomOffset.array[i * 2] = -1;
+                }
+            }
+            if (ld.special === 255) {
+                for (let i = 0; i < geo.attributes.position.count; i++) {
+                    geo.attributes.doomOffset.array[i * 2] = ld.right.xOffset.initial;
+                    geo.attributes.doomOffset.array[i * 2 + 1] = ld.right.yOffset.initial;
+                }
+            }
+        }
+
         // texture alignment is complex https://doomwiki.org/wiki/Texture_alignment
         function pegging(type: TextureType, height: number) {
             let offset = 0;
@@ -263,8 +295,9 @@ function mapGeometryBuilder(textures: TextureAtlas) {
             if (!skyHack) {
                 let left = false;
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
+                applySpecials(geo);
 
                 result.upper = m => {
                     let useLeft = zCeilL.val >= zCeilR.val;
@@ -274,8 +307,7 @@ function mapGeometryBuilder(textures: TextureAtlas) {
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'upper', useLeft),
                         width, height,
-                        side.xOffset.val,
-                        side.yOffset.val + pegging('upper', height));
+                        side.xOffset.initial, side.yOffset.initial + pegging('upper', height));
                     if (left !== useLeft) {
                         m.flipWallFace(idx, side.sector.num);
                         left = useLeft;
@@ -286,8 +318,9 @@ function mapGeometryBuilder(textures: TextureAtlas) {
             if (true) {
                 let left = false;
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
+                applySpecials(geo);
 
                 result.lower = m => {
                     // NB: use >= here, see lowering wall at the start of E1M8. If we only use > then there is a
@@ -302,8 +335,7 @@ function mapGeometryBuilder(textures: TextureAtlas) {
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'lower', useLeft),
                         width, height,
-                        side.xOffset.val,
-                        side.yOffset.val + pegging('lower', height));
+                        side.xOffset.initial, side.yOffset.initial + pegging('lower', height));
                     if (left !== useLeft) {
                         m.flipWallFace(idx, side.sector.num);
                         left = useLeft;
@@ -324,35 +356,37 @@ function mapGeometryBuilder(textures: TextureAtlas) {
                 let height = Math.min(pic.height, zCeil - zFloor + side.yOffset.val);
                 m.changeWallHeight(idx, top, height);
                 m.applyWallTexture(idx, tx, width, height,
-                    side.xOffset.val, pegging('middle', height));
+                    side.xOffset.initial, side.yOffset.initial + pegging('middle', height));
             };
             if (middleL.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
-                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, ld.left.sector.num);
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
+                applySpecials(geo);
 
                 result.midLeft = middleUpdater(idx, ld.left);
             }
             if (middleR.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+                geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
+                applySpecials(geo);
 
                 result.midRight = middleUpdater(idx, ld.right);
             }
 
         } else {
             const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-            geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
             const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+            geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
+            applySpecials(geo);
 
             result.single = m => {
                 const height = zCeilR.val - zFloorR.val;
                 m.changeWallHeight(idx, zCeilR.val, height);
                 m.applyWallTexture(idx, chooseTexture(ld, 'middle'),
                     width, height,
-                    ld.right.xOffset.val,
-                    ld.right.yOffset.val + pegging('middle', height));
+                    ld.right.xOffset.initial, ld.right.yOffset.initial + pegging('middle', height));
             };
         }
         return result;
@@ -421,13 +455,6 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
             linedefUpdaters.set(ld.num, updaters);
 
             if (ld.left) {
-                const updateLeft = () => {
-                    updaters.lower?.(mapGeo);
-                    updaters.upper?.(mapGeo);
-                    updaters.midLeft?.(mapGeo);
-                };
-                disposables.push(ld.left.xOffset.subscribe(updateLeft));
-                disposables.push(ld.left.yOffset.subscribe(updateLeft));
                 if (updaters.lower) {
                     disposables.push(ld.left.lower.subscribe(() => updaters.lower(mapGeo)));
                 }
@@ -438,14 +465,6 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
                     disposables.push(ld.left.middle.subscribe(() => updaters.midLeft(mapGeo)));
                 }
             }
-            const updateRight = () => {
-                updaters.lower?.(mapGeo);
-                updaters.upper?.(mapGeo);
-                updaters.midRight?.(mapGeo);
-                updaters.single?.(mapGeo);
-            };
-            disposables.push(ld.right.xOffset.subscribe(updateRight));
-            disposables.push(ld.right.yOffset.subscribe(updateRight));
             if (updaters.lower) {
                 disposables.push(ld.right.lower.subscribe(() => updaters.lower(mapGeo)));
             }
@@ -617,10 +636,7 @@ export function mapGeometry(
         let index = textures.flatTexture(textureName)[0];
         const vertexCount = geoInfo[geoIndex].vertexCount;
         const vertexOffset = geoInfo[geoIndex].vertexOffset;
-        // geometry.attributes.texN.array.fill(index, vertexOffset, vertexOffset + vertexCount);
-        for (let i = 0; i < vertexCount; i++) {
-            geometry.attributes.texN.array[vertexOffset + i] = index;
-        }
+        geometry.attributes.texN.array.fill(index, vertexOffset, vertexOffset + vertexCount);
         geometry.attributes.texN.needsUpdate = true;
     };
 

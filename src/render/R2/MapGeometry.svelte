@@ -16,6 +16,7 @@
     const { editor, settings } = useAppContext();
     const { fakeContrast, playerLight, useTextures } = settings;
     const { renderSectors } = useDoomMap();
+    const { tick, partialTick } = map.game.time;
 
     console.time('map-geo')
     // My iPhone XR says max texture size is 16K but if I do that, the webview uses 1GB of RAM and immediately crashes.
@@ -30,6 +31,7 @@
     const { lightMap, lightLevels } = buildLightMap(map.data.sectors);
     const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lightMap, lightLevels);
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
+    const interpolateMovement = settings.interpolateMovement;
 
     // set material props
     $: (() => {
@@ -40,6 +42,7 @@
         $fakeContrast === 'off' ? 0 :
         $fakeContrast === 'classic' ? 1 :
         2;
+    $: if ($tick || $partialTick) $uniforms.time.value = $tick + ($interpolateMovement ? $partialTick : 0);
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
     $: ((edit) => {
         // map objects have 'health' so ignore those

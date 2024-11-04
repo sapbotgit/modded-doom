@@ -9,6 +9,7 @@
     import Sector from "./Sector.svelte";
     import { interactivity } from "@threlte/extras";
     import ShotTrace from "./ShotTrace.svelte";
+    import { onDestroy } from "svelte";
 
     export let map: MapRuntime;
     const { renderSectors } = useDoomMap();
@@ -25,7 +26,10 @@
     // This is a hack to re-enable the $sprite readable for R1.
     map.events.on('mobj-updated-sprite', (mo, sprite) => {
         mo.sprite.set(sprite);
-    })
+    });
+    // Another similar hack
+    $: map.synchronizeSpecials('r1');
+    onDestroy(() => map.synchronizeSpecials());
 
     // TODO: to actually improve performance here, I think we'll have to implement some kind of PVS
     // based on the bsp tree https://cs.gmu.edu/~jchen/cs662/lecture5-2007.pdf
