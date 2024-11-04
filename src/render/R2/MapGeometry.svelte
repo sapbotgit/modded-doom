@@ -7,12 +7,15 @@
     import Wireframe from '../Debug/Wireframe.svelte';
     import { mapMeshMaterials } from './MapMeshMaterial';
     import { onDestroy } from 'svelte';
+    import type { MapRuntime } from '../../doom';
+
+    export let map: MapRuntime;
 
     const threlte = useThrelte();
 
     const { editor, settings } = useAppContext();
     const { fakeContrast, playerLight, useTextures } = settings;
-    const { renderSectors, map } = useDoomMap();
+    const { renderSectors } = useDoomMap();
 
     console.time('map-geo')
     // My iPhone XR says max texture size is 16K but if I do that, the webview uses 1GB of RAM and immediately crashes.
