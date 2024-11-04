@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { DoomWad, HALF_PI, MapObject, MFFlags, PlayerMapObject, SpriteNames, store, type MapRuntime, type Picture } from "../../doom";
+    import { MapObject, MFFlags, type MapRuntime } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import Stats from "../Debug/Stats.svelte";
     import SkyBox from "../Map/SkyBox.svelte";
@@ -7,13 +7,11 @@
     import MapGeometry from "./MapGeometry.svelte";
     import { T, useThrelte } from "@threlte/core";
     import { interactivity } from "@threlte/extras";
-    import SectorThings from "./SectorThings.svelte";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
-    import { BackSide, BoxGeometry, ShortType, RGBAIntegerFormat, FloatType, RepeatWrapping, NearestFilter, SRGBColorSpace, InstancedMesh, MeshStandardMaterial, Matrix4, Vector3, Quaternion, Color, FrontSide, UniformsUtils, DataTexture, type IUniform, IntType, InstancedBufferAttribute, PlaneGeometry, Vector4, Euler, Camera, DoubleSide, MeshDepthMaterial, MeshDistanceMaterial } from "three";
+    import { Vector3, Quaternion, Euler, Camera } from "three";
     import { buildLightMap } from "./GeometryBuilder";
-    import { TextureAtlas } from "./TextureAtlas";
-    import { onDestroy, onMount } from "svelte";
-    import { createSpriteGeometry } from "./SpriteGeometry";
+    import { onDestroy } from "svelte";
+    import { createSpriteGeometry, createSpriteMaterial, SpriteSheet } from "./Sprite";
 
     export let map: MapRuntime;
     const { renderSectors, camera } = useDoomMap();
@@ -36,140 +34,6 @@
 
         const id = ev.object.geometry.attributes.doomInspect.array[ev.instanceId];
         $editor.selected = map.objs.find(e => e.id === id);
-    }
-
-    function findNearestPower2(n: number) {
-        let t = 1;
-        while (t < n) {
-            t *= 2;
-        }
-        return t;
-    }
-
-    type RowEdge = { x: number, y: number, rowHeight: number };
-    class SpriteSheet {
-        readonly uvIndex: DataTexture;
-        readonly spriteInfo: DataTexture;
-        readonly sheet: DataTexture;
-        private spriteFrames = new Map<string, Map<number, number>>;
-
-        private count = 0;
-        private rows: RowEdge[];
-
-        constructor(wad: DoomWad, private tSize: number) {
-            this.rows = [{ x: 0, y: 0, rowHeight: this.tSize }];
-
-            const sprites = SpriteNames.map(sprite => wad.spriteFrames(sprite).flat().flat().map(f => ({ ...f, sprite }))).flat();
-
-            // TODO: make this 2D like lightMap in case we have more than tSize textures?
-            // TODO: probably should be nearest power of two width and height
-            const tAtlas = new DataTexture(new Float32Array(sprites.length * 4), sprites.length);
-            tAtlas.type = FloatType;
-            this.uvIndex = tAtlas;
-
-            const tSpriteInfo = new DataTexture(new Int16Array(sprites.length * 4), sprites.length);
-            tSpriteInfo.type = ShortType;
-            tSpriteInfo.format = RGBAIntegerFormat;
-            tSpriteInfo.internalFormat = 'RGBA16I';
-            tSpriteInfo.magFilter = tSpriteInfo.minFilter = NearestFilter;
-            tSpriteInfo.wrapT = tSpriteInfo.wrapS = RepeatWrapping;
-            this.spriteInfo = tSpriteInfo;
-
-            const textureData = new Uint8ClampedArray(tSize * tSize * 4).fill(0);
-            const texture = new DataTexture(textureData, tSize, tSize)
-            texture.wrapT = texture.wrapS = RepeatWrapping;
-            texture.magFilter = texture.minFilter = NearestFilter;
-            texture.colorSpace = SRGBColorSpace;
-            this.sheet = texture;
-
-            for (const frame of sprites) {
-                const gfx = wad.spriteTextureData(frame.name);
-                if (frame.rotation !== 0 && frame.rotation !== 1) {
-                    // TODO: fix rotations
-                    continue;
-                }
-                const idx = this.insert(frame.name, gfx);
-
-                this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
-                this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
-                this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
-                this.spriteInfo.image.data[3 + idx * 4] = 0;
-                this.spriteInfo.needsUpdate = true;
-
-                // TODO: also offset and if there are rotations/mirrors?
-
-                let frames = this.spriteFrames.get(frame.sprite);
-                if (!frames) {
-                    frames = new Map<number, number>();
-                    this.spriteFrames.set(frame.sprite, frames);
-                }
-                frames.set(frame.frame, idx);
-            }
-        }
-
-        indexOf(sprite: string, frame: number) {
-            // are maps the best lookup here or can use use arrays (or arrays of integers?)
-            return this.spriteFrames.get(sprite).get(frame);
-        }
-
-        private insert(sprite: string, pic: Picture) {
-            const row = this.findSpace(pic);
-            if (!row) {
-                // TODO: default texture?
-                console.warn('texture atlas out of space', sprite);
-                return null;
-            }
-
-            pic.toAtlasBuffer(this.sheet.image.data, this.tSize, row.x, row.y);
-            this.sheet.needsUpdate = true;
-
-            this.uvIndex.image.data[0 + this.count * 4] = row.x / this.tSize;
-            this.uvIndex.image.data[1 + this.count * 4] = row.y / this.tSize;
-            row.x += pic.width;
-            this.uvIndex.image.data[2 + this.count * 4] = row.x / this.tSize;
-            this.uvIndex.image.data[3 + this.count * 4] = (row.y + pic.height) / this.tSize;
-            this.uvIndex.needsUpdate = true;
-
-            this.count += 1;
-            return this.count - 1;
-        }
-
-        // To create on demand we'll need a map of rows with their starting height and xoffset
-        // On each insert, we move the row pointer forward by width. If full, we shift down by height.
-        // If we find a row of the exact height, use it.
-        // If a texture is 80% the height of a row (like 112 of a 128 tall row) we insert it
-        // Else we create a new row
-        // We could do even better but there doesn't seem to be a need to (yet)
-        private findSpace(pic: Picture): RowEdge {
-            const perfectMatch = this.rows.find(row => row.rowHeight === pic.height && row.x + pic.width < this.tSize);
-            if (perfectMatch) {
-                return perfectMatch;
-            }
-
-            const noSplit = this.rows.find(row => pic.height < row.rowHeight && pic.height / row.rowHeight > .8 && row.x + pic.width < this.tSize);
-            if (noSplit) {
-                return noSplit;
-            }
-
-            // const smallFit = this.rows.find(row => pic.height < row.rowHeight && pic.height / row.rowHeight <= .3 && row.x + pic.width < this.tSize);
-            // if (smallFit) {
-            //     // split the row so insert a new row with the remainder of the space
-            //     this.rows.push({ x: smallFit.x, y: smallFit.y + pic.height, rowHeight: smallFit.rowHeight - pic.height });
-            //     // and change the row height to match the picture we're inserting
-            //     smallFit.rowHeight = pic.height;
-            //     return smallFit;
-            // }
-
-            const end = this.rows[this.rows.length - 1];
-            if (end.rowHeight >= pic.height) {
-                // split
-                this.rows.push({ x: end.x, y: end.y + pic.height, rowHeight: end.rowHeight - pic.height });
-                end.rowHeight = pic.height;
-                return end;
-            }
-            // no space!
-            return null;
-        }
     }
 
     const threlte = useThrelte();
@@ -202,263 +66,8 @@
     // sprite offset test:
     // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=299.19&player-y=-2463.11&player-z=358.96&player-aim=-0.14&player-dir=-1.54
 
-    const inspectorAttributeName = 'doomInspect';
-    function createMaterial(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
-
-        const vertexPars = `
-        #include <common>
-
-        uniform vec4 camQ;
-        uniform sampler2D tSpriteUVs;
-        uniform uint tSpriteUVsWidth;
-        uniform isampler2D tSpriteInfo;
-        uniform float tSpritesWidth;
-        uniform sampler2D tLightLevels;
-        uniform sampler2D tLightMap;
-        uniform uint tLightMapWidth;
-        uniform float doomExtraLight;
-        uniform uint dInspect;
-        uniform float time;
-
-        attribute uvec2 texN;
-        attribute uint doomLight;
-        attribute uint ${inspectorAttributeName};
-
-        varying vec4 vT1;
-        varying vec2 vDim;
-        varying float renderShadows;
-        varying float doomLightLevel;
-        varying vec3 doomInspectorEmissive;
-
-        const uint flag_fullBright = uint(0);
-        const uint flag_isMissile = uint(1);
-        const uint flag_invertZOffset = uint(2);
-        const uint flag_shadows = uint(3);
-        // returns 1.0 if flag is set or else 0.0
-        float flagBit(uint val, uint bit) {
-            return float((val >> bit) & uint(1));
-        }
-
-        const float oneSixteenth = 1.0 / 16.0;
-        float scaleLightLevel(float level) {
-            float light = level * 256.0;
-            vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
-            vec4 scaledLight = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
-            return scaledLight.g;
-        }
-
-        // https://discourse.threejs.org/t/instanced-geometry-vertex-shader-question/2694/3
-        vec3 applyQuaternionToVector( vec4 q, vec3 v ){
-            return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
-        }
-        `;
-
-        const uv_vertex = `
-        #include <uv_vertex>
-
-        vec2 tUV = vec2( ((float(texN.x)) + .5) / float(tSpriteUVsWidth), 0.5 );
-        // sprite dimensions
-        vT1 = texture2D( tSpriteUVs, tUV );
-        vDim = vec2( vT1.z - vT1.x, vT1.w - vT1.y );
-        // Would be really nice to do this and use vanilla map_fragment but it won't work for some reason.
-        // perhaps there is a precision loss?
-        // vMapUv = mod(vMapUv * vDim, vDim) + vT1.xy;
-        `
-        const begin_vertex = `
-        #include <begin_vertex>
-
-        transformed = applyQuaternionToVector(camQ, transformed);
-
-        renderShadows = flagBit(texN.y, flag_shadows);
-
-        // scale and position based on texture size (vDim) and offsets
-        vec2 dim = vDim * tSpritesWidth;
-        // sprite info (offsets, mirrored, etc)
-        ivec4 info = texture2D( tSpriteInfo, tUV );
-        float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
-        float offZ = float(info.y) - dim.y;
-        offZ = max(offZ, 0.0) + (dim.y * .5 * invertZ) + (flagBit(texN.y, flag_isMissile) * offZ);
-        float pXY = float(info.z) * dim.x;
-        float offXY = float(info.x) - dim.x * .5;
-        mat4 scaleMat4 = mat4(
-            pXY, 0.0, 0.0, offXY,
-            0.0, pXY, 0.0, offXY,
-            0.0, 0.0, dim.y, offZ,
-            0.0, 0.0, 0.0, 1.0);
-        transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
-        `;
-
-        const fragmentPars = `
-        #include <common>
-
-        uniform float time;
-
-        // noise for objects with "shadows" flag (like spectres)
-        float noise( vec2 st ) {
-            // vec2 v2 = vec2(12.9898,78.233);
-            vec2 v2 = vec2(0.39, 0.41);
-            return fract( sin( dot( st.xy, v2 ) ) * 43758.5453123);
-        }
-
-        varying vec4 vT1;
-        varying vec2 vDim;
-        varying float renderShadows;
-        varying float doomLightLevel;
-        varying vec3 doomInspectorEmissive;
-        `;
-        const depthDist_uv_frag = `
-        #ifdef USE_MAP
-
-        vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
-        vec4 sampledDiffuseColor = texture2D( map, mapUV );
-
-        sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderShadows);
-        vec2 ipos = floor(vMapUv * 200.0);
-        float n = fract( time * noise(ipos) );
-        sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderShadows);
-        // I'm not sure I like how the shadows look from this but it's interesting at least
-        if (sampledDiffuseColor.a < 0.5) discard;
-
-        #endif
-        `;
-        interface MapMaterialUniforms {
-            dInspect: IUniform;
-            doomExtraLight: IUniform;
-            time: IUniform;
-            camQ: IUniform;
-        }
-        const uniforms = store<MapMaterialUniforms>({
-            dInspect: { value: -1 },
-            doomExtraLight: { value: 0 },
-            time: { value: 0 },
-            camQ: { value: new Vector4() },
-        });
-
-        const material = new MeshStandardMaterial({
-            map: sprites.sheet,
-            // alphaTest: 1.0,
-            // Hmmm... we need transparent for shadows creatures but most things only need alphaTest which is (I think) faster.
-            // Perhaps we can create different thing meshes for shadows vs non-shadows and use different materials too?
-            // Also, depthWrite/depthTest is weird with transparent :(
-            transparent: true,
-            side: DoubleSide, // we only need FrontSide for rendering but inspector seems to need DoubleSide
-            shadowSide: DoubleSide,
-        });
-        material.onBeforeCompile = shader => {
-            shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
-            shader.uniforms.tLightLevels = { value: lightLevels };
-            shader.uniforms.tLightMap = { value: lightMap };
-            shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
-            shader.uniforms.tSpriteInfo = { value: sprites.spriteInfo };
-            shader.uniforms.tSpritesWidth = { value: sprites.sheet.image.width };
-            shader.uniforms.tSpriteUVs = { value: sprites.uvIndex };
-            shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
-            uniforms.set(shader.uniforms as any);
-
-            shader.vertexShader = shader.vertexShader
-                .replace('#include <common>', vertexPars)
-                .replace('#include <uv_vertex>', uv_vertex)
-                .replace(`#include <beginnormal_vertex>`,`
-                #include <beginnormal_vertex>
-                objectNormal = normalize(applyQuaternionToVector(camQ, objectNormal));
-                `)
-                .replace(`#include <begin_vertex>`,begin_vertex + `
-                // faded magenta if selected for inspection
-                doomInspectorEmissive = step(float(${inspectorAttributeName} - dInspect), 0.0) * vec3(1.0, 0.0, 1.0) * .1;
-
-                // sector light level
-                float dLf = float(doomLight);
-                float invLightMapWidth = 1.0 / float(tLightMapWidth);
-                vec2 lightUV = vec2(
-                    mod(dLf, float(tLightMapWidth)),
-                    floor(dLf * invLightMapWidth) );
-                vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
-                float fullBright = flagBit(texN.y, flag_fullBright);
-                doomLightLevel = clamp(scaleLightLevel(sectorLight.g + doomExtraLight + fullBright), 0.0, 1.0);
-                `);
-
-            shader.fragmentShader = shader.fragmentShader
-                .replace('#include <common>', fragmentPars)
-                .replace('#include <map_fragment>', `
-                // #include <map_fragment>
-                #ifdef USE_MAP
-
-                vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
-                vec4 sampledDiffuseColor = texture2D( map, mapUV );
-
-                // render sprite as shadows
-                // TODO: how do we handle light shadows from these things?
-                sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderShadows);
-                vec2 ipos = floor(vMapUv * 200.0);
-                float n = fract( time * noise(ipos) );
-                sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderShadows);
-
-                #ifdef DECODE_VIDEO_TEXTURE
-                    // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
-                    sampledDiffuseColor = vec4( mix( pow( sampledDiffuseColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), sampledDiffuseColor.rgb * 0.0773993808, vec3( lessThanEqual( sampledDiffuseColor.rgb, vec3( 0.04045 ) ) ) ), sampledDiffuseColor.w );
-                #endif
-                diffuseColor *= sampledDiffuseColor;
-
-                #endif
-
-                totalEmissiveRadiance += doomInspectorEmissive;
-                `)
-                .replace('#include <lights_fragment_begin>', `
-                #include <lights_fragment_begin>
-
-                // apply lighting
-                material.diffuseColor.rgb *= doomLightLevel;
-                // material.diffuseColor.rgb = vec3(scaledLightLevel);
-                // material.diffuseColor.rgb = abs(normal_);
-                // material.diffuseColor.rgb = vColor.xyz;
-                `);
-        };
-
-        const depthMaterial = new MeshDepthMaterial();
-        depthMaterial.onBeforeCompile = shader => {
-            shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
-            shader.uniforms.tSpriteUVs = { value: sprites.uvIndex };
-            shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
-            uniforms.subscribe(u => {
-                shader.uniforms.camQ.value = u.camQ.value;
-                shader.uniforms.time.value = u.time.value;
-            });
-
-            shader.vertexShader = shader.vertexShader
-                .replace('#include <common>', vertexPars)
-                .replace('#include <uv_vertex>', uv_vertex)
-                .replace(`#include <begin_vertex>`, begin_vertex);
-
-            shader.fragmentShader = shader.fragmentShader
-                .replace('#include <common>', fragmentPars)
-                .replace('#include <map_fragment>', depthDist_uv_frag);
-        };
-
-        const distanceMaterial = new MeshDistanceMaterial();
-        distanceMaterial.onBeforeCompile = shader => {
-            shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
-            shader.uniforms.tSpriteUVs = { value: sprites.uvIndex };
-            shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
-            // TODO: when do we unsubscribe? Can we avoid this subscription?
-            uniforms.subscribe(u => {
-                shader.uniforms.camQ.value = u.camQ.value;
-                shader.uniforms.time.value = u.time.value;
-            });
-
-            // ideally we would "face" the light, not the camera but I don't fully understand the threejs shadow code
-            // so I'm not quite sure how to do that. For now, this makes the shadow match the rendered sprite.
-            // Perhaps rendering sprites as BoxGeometry would be slightly better?
-            shader.vertexShader = shader.vertexShader
-                .replace('#include <common>', vertexPars)
-                .replace('#include <uv_vertex>', uv_vertex)
-                .replace(`#include <begin_vertex>`, begin_vertex);
-
-            shader.fragmentShader = shader.fragmentShader
-                .replace('#include <common>', fragmentPars)
-                .replace('#include <map_fragment>', depthDist_uv_frag);
-        };
-        return { material, distanceMaterial, depthMaterial, uniforms };
-    }
+    const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
+    const { material, depthMaterial, distanceMaterial, uniforms } = createSpriteMaterial(spriteSheet, lightMap, lightLevels);
 
     // https://discourse.threejs.org/t/mesh-points-to-the-camera-on-only-2-axis-with-shaders/21555/7
     const threlteCam = threlte.camera;
@@ -475,9 +84,6 @@
         _q.setFromUnitVectors(_z0, _z1);
         return _q;
     }
-
-    const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
-    const { material, depthMaterial, distanceMaterial, uniforms } = createMaterial(spriteSheet, lightMap, lightLevels);
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
     $: if ($tick || $partialTick) $uniforms.time.value = map.game.time.elapsed;
     $: ((edit) => {
@@ -495,11 +101,11 @@
     //     m.receiveShadow = usePlayerLight;
     // });
 
+    const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
     onDestroy(() => {
         geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
     })
 
-    const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
     $: (n => {
         let added = new Set<MapObject>();
         let updated = new Set<MapObject>();
@@ -534,14 +140,6 @@
 <MapGeometry />
 
 <T is={geo.root} renderOrder={1} />
-
-<!-- {#each thingsMeshes as mesh}
-    <T is={mesh} on:click={hit} renderOrder={1} />
-{/each} -->
-
-<!-- {#each renderSectors as renderSector}
-    <SectorThings {renderSector} />
-{/each} -->
 
 <Player />
 
