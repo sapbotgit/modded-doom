@@ -197,6 +197,7 @@ export class MapObject {
         this._state.randomizeTicks(map.game.rng);
     }
 
+    get spriteTics() { return states[this._state.index].tics; }
     get spriteTime() { return 1 / states[this._state.index].tics; }
     get spriteCompletion() { return 1 - this._state.ticsRemaining * this.spriteTime; }
 

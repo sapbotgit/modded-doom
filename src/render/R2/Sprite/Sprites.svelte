@@ -7,7 +7,7 @@
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy } from "svelte";
-    import { MapRuntime, MFFlags, type MapObject } from "../../../doom";
+    import { MapRuntime, MFFlags, tickTime, type MapObject } from "../../../doom";
 
     export let map: MapRuntime;
 
@@ -22,7 +22,7 @@
     // }
 
     const { editor, settings } = useAppContext();
-    const { playerLight } = settings;
+    const { playerLight, interpolateMovement } = settings;
 
     function hit(ev) {
         ev.stopPropagation();
@@ -85,8 +85,12 @@
     }
     $: $uniforms.doomExtraLight.value = $extraLight / 255;
     $: if ($tick || $partialTick) {
-        $uniforms.time.value = map.game.time.elapsed;
-        $shadowsUniform.time.value = map.game.time.elapsed;
+        const t1 = ($tick + $partialTick);
+        const t2 = t1 * tickTime
+        $uniforms.time.value = t2;
+        $uniforms.tics.value = $interpolateMovement ? t1 : 0;
+        $shadowsUniform.time.value = t2;
+        $shadowsUniform.tics.value =  $interpolateMovement ? t1 : 0;
     }
     $: ((edit) => {
         // map objects have 'health' so only handle those
@@ -96,6 +100,7 @@
             : -1;
     })($editor);
 
+    // test interp: http://localhost:5173/#wad=doom&skill=4&map=E1M1&player-x=2875.60&player-y=-2984.92&player-z=82.96&player-aim=-0.20&player-dir=-1.08
     const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
     const shadowsGeo = createSpriteGeometry(spriteSheet, shadows.material, shadows.depthMaterial, shadows.distanceMaterial);
 

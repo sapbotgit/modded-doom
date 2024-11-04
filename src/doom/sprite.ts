@@ -9,6 +9,7 @@ export interface Sprite {
     name: string;
     frame: number;
     fullbright: boolean;
+    ticks: number;
 }
 
 export class SpriteStateMachine {
@@ -52,14 +53,17 @@ export class SpriteStateMachine {
         } while (!this.ticks)
 
         this.ticks = Math.max(0, this.ticks + tickOffset);
-        if (this.state === lastState) {
-            // don't change sprite if the state hasn't changed
-            return;
-        }
+        // FIXME: this will impact performance but the whole subscription thing falls apart on large maps anyway so
+        // we need a different solution
+        // if (this.state === lastState) {
+        //     // don't change sprite if the state hasn't changed
+        //     return;
+        // }
         this.sprite.update(sprite => {
             if (!sprite) {
-                sprite = { name: '', frame: 0, fullbright: false };
+                sprite = { name: '', frame: 0, fullbright: false, ticks: 0 };
             }
+            sprite.ticks = this.ticks;
             sprite.name = SpriteNames[this.state.sprite];
             sprite.frame = this.state.frame & FF_FRAMEMASK;
             sprite.fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;

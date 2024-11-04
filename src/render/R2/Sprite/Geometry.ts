@@ -1,4 +1,4 @@
-import { InstancedBufferAttribute, InstancedMesh, IntType, Material, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
+import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Material, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
 import { HALF_PI, MFFlags, PlayerMapObject, type MapObject } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
@@ -22,6 +22,18 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         return attr;
     }
 
+    const floatBufferFrom = (items: number[], vertexCount: number) => {
+        const array = new Float32Array(items.length * vertexCount);
+        for (let i = 0; i < vertexCount * items.length; i += items.length) {
+            for (let j = 0; j < items.length; j++) {
+                array[i + j] = items[j];
+            }
+        }
+        const attr = new InstancedBufferAttribute(array, items.length);
+        attr.gpuType = FloatType;
+        return attr;
+    }
+
     const createChunk = () => {
         const geometry = new PlaneGeometry();
         geometry.rotateX(-HALF_PI);
@@ -30,6 +42,9 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         mesh.customDistanceMaterial = distanceMaterial;
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
         mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
+        mesh.geometry.setAttribute('vel', floatBufferFrom([0, 0, 0], chunkSize));
+        // [speed/tic, movedir, start tics]
+        mesh.geometry.setAttribute('motion', floatBufferFrom([0, 0, 0], chunkSize));
         mesh.geometry.setAttribute('texN', int16BufferFrom([0, 0], chunkSize));
         mesh.receiveShadow = mesh.castShadow = castShadows;
         mesh.count = 0;
@@ -87,19 +102,32 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
             p.copy(pos);
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
+            // velocity for interpolation
+            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
+            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
+            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
+            thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
         }));
         subs.push(mo.sprite.subscribe(sprite => {
             if (!sprite) return;
             const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
             thingsMeshes[m].geometry.attributes.texN.array[n * 2] = spriteIndex;
+
             // rendering flags
             thingsMeshes[m].geometry.attributes.texN.array[n * 2 + 1] = (
                 (sprite.fullbright ? 1 : 0) |
                 (isMissile ? 2 : 0) |
                 ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0) |
-                ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0)
+                ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0) |
+                ((mo.info.flags & MFFlags.MF_INFLOAT) ? 16 : 0)
             );
             thingsMeshes[m].geometry.attributes.texN.needsUpdate = true;
+
+            // movement info for interpolation
+            thingsMeshes[m].geometry.attributes.motion.array[n * 3 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;
+            thingsMeshes[m].geometry.attributes.motion.array[n * 3 + 1] = mo.movedir;
+            thingsMeshes[m].geometry.attributes.motion.array[n * 3 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
+            thingsMeshes[m].geometry.attributes.motion.needsUpdate = true;
         }));
 
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;

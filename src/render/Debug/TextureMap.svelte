@@ -17,7 +17,7 @@
 
     type TestGeom = { id: number, width: number, height: number };
     let stressTestSize = 400_000;
-    stressTestSize = 1000;
+    // stressTestSize = 1000;
     const animate = true;
     const wallSize = 300;
     const atlasSize = threlte.renderer.capabilities.maxTextureSize / 2;
@@ -118,8 +118,8 @@
                 0, 0);
         }
 
-        const { lightMap } = buildLightMap([{ light: store(255) } as any]);
-        let m = mapMeshMaterials(ta, lightMap);
+        const { lightMap, lightLevels } = buildLightMap([{ light: store(255) } as any]);
+        let m = mapMeshMaterials(ta, lightMap, lightLevels);
         material = m.material;
         depthMaterial = m.depthMaterial;
         distanceMaterial = m.distanceMaterial;
