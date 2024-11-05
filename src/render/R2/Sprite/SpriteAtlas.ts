@@ -1,4 +1,4 @@
-import { DataTexture, FloatType, NearestFilter, RepeatWrapping, RGBAIntegerFormat, ShortType, SRGBColorSpace } from "three";
+import { DataTexture, FloatType, NearestFilter, RGBAIntegerFormat, ShortType, SRGBColorSpace } from "three";
 import { DoomWad, SpriteNames, type Picture } from "../../../doom";
 
 function findNearestPower2(n: number) {
@@ -19,7 +19,6 @@ export class SpriteSheet {
     readonly sheet: DataTexture;
     private spriteFrames = new Map<string, Map<number, number>>;
 
-    private count = 0;
     private rows: RowEdge[];
 
     constructor(wad: DoomWad, private tSize: number) {
@@ -27,50 +26,65 @@ export class SpriteSheet {
 
         const sprites = SpriteNames.map(sprite => wad.spriteFrames(sprite).flat().flat().map(f => ({ ...f, sprite }))).flat();
 
-        // TODO: make this 2D like lightMap in case we have more than tSize textures?
-        // TODO: probably should be nearest power of two width and height
-        const tAtlas = new DataTexture(new Float32Array(sprites.length * 4), sprites.length);
+        const sz = findNearestPower2(Math.sqrt(sprites.length));
+        const tAtlas = new DataTexture(new Float32Array(sz * sz * 4), sz, sz);
         tAtlas.type = FloatType;
         this.uvIndex = tAtlas;
 
-        const tSpriteInfo = new DataTexture(new Int16Array(sprites.length * 4), sprites.length);
+        const tSpriteInfo = new DataTexture(new Int16Array(sz * sz * 4), sz, sz);
         tSpriteInfo.type = ShortType;
         tSpriteInfo.format = RGBAIntegerFormat;
         tSpriteInfo.internalFormat = 'RGBA16I';
         tSpriteInfo.magFilter = tSpriteInfo.minFilter = NearestFilter;
-        tSpriteInfo.wrapT = tSpriteInfo.wrapS = RepeatWrapping;
+        tSpriteInfo.generateMipmaps = false;
         this.spriteInfo = tSpriteInfo;
 
         const textureData = new Uint8ClampedArray(tSize * tSize * 4).fill(0);
         const texture = new DataTexture(textureData, tSize, tSize)
-        texture.wrapT = texture.wrapS = RepeatWrapping;
-        texture.magFilter = texture.minFilter = NearestFilter;
         texture.colorSpace = SRGBColorSpace;
         this.sheet = texture;
 
-        for (const frame of sprites) {
+        let spriteGfx = new Map<string, number>();
+        for (let idx = 0; idx < sprites.length; idx++) {
+            const frame = sprites[idx];
             const gfx = wad.spriteTextureData(frame.name);
-            if (frame.rotation !== 0 && frame.rotation !== 1) {
-                // TODO: fix rotations
+
+            let orig = spriteGfx.get(frame.name);
+            if (orig) {
+                // copy uv coordinates
+                this.uvIndex.image.data[0 + idx * 4] = this.uvIndex.image.data[0 + orig * 4];
+                this.uvIndex.image.data[1 + idx * 4] = this.uvIndex.image.data[1 + orig * 4];
+                this.uvIndex.image.data[2 + idx * 4] = this.uvIndex.image.data[2 + orig * 4];
+                this.uvIndex.image.data[3 + idx * 4] = this.uvIndex.image.data[3 + orig * 4];
+
+                // set sprite info
+                this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
+                this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
+                this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
+                this.spriteInfo.image.data[3 + idx * 4] = frame.rotation;
                 continue;
             }
-            const idx = this.insert(frame.name, gfx);
 
-            this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
-            this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
-            this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
-            this.spriteInfo.image.data[3 + idx * 4] = 0;
-            this.spriteInfo.needsUpdate = true;
-
-            // TODO: also offset and if there are rotations/mirrors?
-
+            // insert and index frame
+            this.insert(idx, frame.name, gfx);
+            spriteGfx.set(frame.name, idx);
+            // index frame
             let frames = this.spriteFrames.get(frame.sprite);
             if (!frames) {
                 frames = new Map<number, number>();
                 this.spriteFrames.set(frame.sprite, frames);
             }
-            frames.set(frame.frame, idx);
+            if (!frames.has(frame.frame)) {
+                frames.set(frame.frame, idx);
+            }
+
+            this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
+            this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
+            this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
+            this.spriteInfo.image.data[3 + idx * 4] = frame.rotation;
         }
+        this.uvIndex.needsUpdate = true;
+        this.spriteInfo.needsUpdate = true;
     }
 
     indexOf(sprite: string, frame: number) {
@@ -78,26 +92,23 @@ export class SpriteSheet {
         return this.spriteFrames.get(sprite).get(frame);
     }
 
-    private insert(sprite: string, pic: Picture) {
+    private insert(idx: number, key: string, pic: Picture) {
         const row = this.findSpace(pic);
         if (!row) {
             // TODO: default texture?
-            console.warn('texture atlas out of space', sprite);
+            console.warn('texture atlas out of space', key);
             return null;
         }
 
         pic.toAtlasBuffer(this.sheet.image.data, this.tSize, row.x, row.y);
         this.sheet.needsUpdate = true;
 
-        this.uvIndex.image.data[0 + this.count * 4] = row.x / this.tSize;
-        this.uvIndex.image.data[1 + this.count * 4] = row.y / this.tSize;
+        this.uvIndex.image.data[0 + idx * 4] = row.x / this.tSize;
+        this.uvIndex.image.data[1 + idx * 4] = row.y / this.tSize;
         row.x += pic.width;
-        this.uvIndex.image.data[2 + this.count * 4] = row.x / this.tSize;
-        this.uvIndex.image.data[3 + this.count * 4] = (row.y + pic.height) / this.tSize;
+        this.uvIndex.image.data[2 + idx * 4] = row.x / this.tSize;
+        this.uvIndex.image.data[3 + idx * 4] = (row.y + pic.height) / this.tSize;
         this.uvIndex.needsUpdate = true;
-
-        this.count += 1;
-        return this.count - 1;
     }
 
     // To create on demand we'll need a map of rows with their starting height and xoffset

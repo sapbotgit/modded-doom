@@ -43,8 +43,8 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
         mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
         mesh.geometry.setAttribute('vel', floatBufferFrom([0, 0, 0], chunkSize));
-        // [speed/tic, movedir, start tics]
-        mesh.geometry.setAttribute('motion', floatBufferFrom([0, 0, 0], chunkSize));
+        // [speed/tic, movedir, start tics, direction]
+        mesh.geometry.setAttribute('motion', floatBufferFrom([0, 0, 0, 0], chunkSize));
         mesh.geometry.setAttribute('texN', int16BufferFrom([0, 0], chunkSize));
         mesh.receiveShadow = mesh.castShadow = castShadows;
         mesh.count = 0;
@@ -124,9 +124,10 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
             thingsMeshes[m].geometry.attributes.texN.needsUpdate = true;
 
             // movement info for interpolation
-            thingsMeshes[m].geometry.attributes.motion.array[n * 3 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;
-            thingsMeshes[m].geometry.attributes.motion.array[n * 3 + 1] = mo.movedir;
-            thingsMeshes[m].geometry.attributes.motion.array[n * 3 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
+            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 0] = sprite.ticks ? mo.info.speed / sprite.ticks : 0;
+            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 1] = mo.movedir;
+            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
+            thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 3] = mo.direction.val;
             thingsMeshes[m].geometry.attributes.motion.needsUpdate = true;
         }));
 

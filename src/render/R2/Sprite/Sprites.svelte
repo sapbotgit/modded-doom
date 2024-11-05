@@ -59,7 +59,7 @@
     // });
 
     // sprite offset test:
-    // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=299.19&player-y=-2463.11&player-z=358.96&player-aim=-0.14&player-dir=-1.54
+    // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=321.09&player-y=-2486.21&player-z=343.17&player-aim=-0.00&player-dir=-1.57
 
     const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
     const { material, depthMaterial, distanceMaterial, uniforms } = createSpriteMaterial(spriteSheet, lightMap, lightLevels);
@@ -74,7 +74,9 @@
     const _z1 = new Vector3();
     $: quat = updateCamera($threlteCam, $position, $angle);
     $: $uniforms.camQ.value.copy(quat);
+    $: $uniforms.camP.value.copy($position);
     $: $shadowsUniform.camQ.value.copy(quat);
+    $: $shadowsUniform.camP.value.copy($position);
     function updateCamera(cam: Camera, p: Vector3, a: Euler) {
         cam.getWorldDirection(_z1);
         // _z1.set(0, 0, -1);
@@ -100,7 +102,6 @@
             : -1;
     })($editor);
 
-    // test interp: http://localhost:5173/#wad=doom&skill=4&map=E1M1&player-x=2875.60&player-y=-2984.92&player-z=82.96&player-aim=-0.20&player-dir=-1.08
     const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
     const shadowsGeo = createSpriteGeometry(spriteSheet, shadows.material, shadows.depthMaterial, shadows.distanceMaterial);
 

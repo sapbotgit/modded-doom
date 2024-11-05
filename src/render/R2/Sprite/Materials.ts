@@ -1,4 +1,4 @@
-import { DoubleSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, UniformsUtils, Vector4, type DataTexture, type IUniform } from "three";
+import { DoubleSide, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, UniformsUtils, Vector2, Vector3, Vector4, type DataTexture, type IUniform } from "three";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { store } from "../../../doom";
 
@@ -12,6 +12,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     #include <common>
 
     uniform vec4 camQ;
+    uniform vec3 camP;
     uniform sampler2D tSpriteUVs;
     uniform uint tSpriteUVsWidth;
     uniform isampler2D tSpriteInfo;
@@ -28,10 +29,13 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     attribute uint doomLight;
     attribute uint ${inspectorAttributeName};
     attribute vec3 vel;
-    attribute vec3 motion;
+    attribute vec4 motion;
 
-    varying vec4 vT1;
-    varying vec2 vDim;
+    // NB: need to be flat due to sprite rotations. If we don't use flat, then one
+    // side of the triangle will use one rotation and the other side another and
+    // we get interpolation between two sprites and it looks terrible.
+    flat out vec4 sUV;
+    flat out vec2 vDim;
     varying float doomLightLevel;
     varying vec3 doomInspectorEmissive;
     varying float renderShadows;
@@ -44,6 +48,26 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     // returns 1.0 if flag is set or else 0.0
     float flagBit(uint val, uint bit) {
         return float((val >> bit) & uint(1));
+    }
+
+    const float split1 = 0.9238795325112867; //cos(PI/8);
+    const float split2 = 0.38268343236508984; //cos(PI/8 * 3);
+    float spriteRotation(vec4 tpos, float tdir, vec3 camP) {
+        vec2 cdir = normalize( tpos.xy - camP.xy );
+        vec2 vdir = vec2( cos(tdir), sin(tdir) );
+
+        // dot and dot of a normal to figure out quadrant
+        float dot1 = dot( cdir, vdir );
+        float dot2 = dot( cdir, vec2(-vdir.y, vdir.x) );
+
+        // WOW... there has got to be a better way to compute this.
+        int rot =
+            dot1 > split1 ? 4 :
+            dot1 > split2 ? (dot2 > 0.0 ? 5 : 3) :
+            dot1 < -split1 ? 0 :
+            dot1 < -split2 ? (dot2 > 0.0 ? 7 : 1) :
+            dot2 < split2 ? (dot1 > split1 ? 5 : 2) : 6;
+        return float(rot);
     }
 
     const float oneSixteenth = 1.0 / 16.0;
@@ -63,20 +87,58 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     const uv_vertex = `
     #include <uv_vertex>
 
-    vec2 tUV = vec2( ((float(texN.x)) + .5) / float(tSpriteUVsWidth), 0.5 );
+    float fSpriteUVWidth = float(tSpriteUVsWidth);
+    float invSpriteUVsWidth = 1.0 / fSpriteUVWidth;
+    float spriteN = float(texN.x);
+    vec2 tUV = vec2( mod(spriteN, fSpriteUVWidth), floor(spriteN * invSpriteUVsWidth));
+    tUV = (tUV + .5) * invSpriteUVsWidth;
+    // sprite info (offsets, mirrored, etc)
+    ivec4 info = texture2D( tSpriteInfo, tUV );
+
+    float rot = 0.0;
+    if (info.w > 0) {
+        // sprite has rotations so figure out which one to use
+        // NB: don't use actual position here but use origin because we are rendering planes from (-.5,0,-.5)-(.5,0,.5)
+        // so we really just choose one point otherwise some vertices may use a different rotation.
+        vec4 pos = instanceMatrix * vec4( 0, 0, 0, 1 );
+        rot = spriteRotation( pos, float(motion.w), camP );
+
+        spriteN += rot;
+        tUV = vec2( mod(spriteN, fSpriteUVWidth), floor(spriteN * invSpriteUVsWidth));
+        tUV = (tUV + .5) * invSpriteUVsWidth;
+        info = texture2D( tSpriteInfo, tUV );
+    }
+
     // sprite dimensions
-    vT1 = texture2D( tSpriteUVs, tUV );
-    vDim = vec2( vT1.z - vT1.x, vT1.w - vT1.y );
+    sUV = texture2D( tSpriteUVs, tUV );
+    vDim = vec2( sUV.z - sUV.x, sUV.w - sUV.y );
     // Would be really nice to do this and use vanilla map_fragment but it won't work for some reason.
     // perhaps there is a precision loss?
-    // vMapUv = mod(vMapUv * vDim, vDim) + vT1.xy;
+    // vMapUv = mod(vMapUv * vDim, vDim) + sUV.xy;
     `
     const begin_vertex = `
     #include <begin_vertex>
 
-    transformed = applyQuaternionToVector(camQ, transformed);
-
     renderShadows = flagBit(texN.y, flag_shadows);
+
+    // scale and position based on texture size (vDim) and offsets
+    vec2 dim = vDim * tSpritesWidth;
+    float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
+    float offZ = float(info.y) - dim.y;
+    offZ = max(offZ, 0.0) + (dim.y * .5 * invertZ) + (flagBit(texN.y, flag_isMissile) * offZ);
+    float sXY = dim.x * float(info.z);
+    // only apply sprite offset on x-axis otherwise we're applying it twice and things won't look right
+    // this fixes that pesky sprite wiggle on the burning barrel in Doom2's MAP23
+    float offX = dim.x * .5 - float(info.x);
+    mat4 scaleMat4 = mat4(
+        sXY, 0.0,   0.0, offX,
+        0.0, sXY,   0.0, 0.0,
+        0.0, 0.0, dim.y, offZ,
+        0.0, 0.0,   0.0, 1.0);
+
+    transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
+    // must apply after scale and offset otherwise offsets don't look right
+    transformed = applyQuaternionToVector(camQ, transformed);
 
     // motion interpolation (motion = [speed/tic, direction, startTimeTics])
     const float notMoving = -0.01;
@@ -85,23 +147,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     vec3 vMotion = vel * fract(tics);
     vMotion.x += cos(motion.y) * partialMove;
     vMotion.y += sin(motion.y) * partialMove;
-    // vMotion = vec3(0.0);
-
-    // scale and position based on texture size (vDim) and offsets
-    vec2 dim = vDim * tSpritesWidth;
-    // sprite info (offsets, mirrored, etc)
-    ivec4 info = texture2D( tSpriteInfo, tUV );
-    float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
-    float offZ = float(info.y) - dim.y;
-    offZ = max(offZ, 0.0) + (dim.y * .5 * invertZ) + (flagBit(texN.y, flag_isMissile) * offZ);
-    float pXY = float(info.z) * dim.x;
-    float offXY = float(info.x) - dim.x * .5;
-    mat4 scaleMat4 = mat4(
-        pXY, 0.0, 0.0, offXY + vMotion.x,
-        0.0, pXY, 0.0, offXY + vMotion.y,
-        0.0, 0.0, dim.y, offZ + vMotion.z,
-        0.0, 0.0, 0.0, 1.0);
-    transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
+    transformed += vMotion;
     `;
 
     const fragmentPars = `
@@ -116,8 +162,8 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     uniform float time;
 
-    varying vec4 vT1;
-    varying vec2 vDim;
+    flat in vec4 sUV;
+    flat in vec2 vDim;
     varying float doomLightLevel;
     varying vec3 doomInspectorEmissive;
     varying float renderShadows;
@@ -125,7 +171,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     const depthDist_map_fragment = `
     #ifdef USE_MAP
 
-    vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
+    vec2 mapUV = mod(vMapUv * vDim, vDim) + sUV.xy;
     vec4 sampledDiffuseColor = texture2D( map, mapUV );
     if (sampledDiffuseColor.a < 1.0) discard;
 
@@ -143,6 +189,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         time: IUniform;
         tics: IUniform;
         camQ: IUniform;
+        camP: IUniform;
     }
     const uniforms = store<MapMaterialUniforms>({
         dInspect: { value: -1 },
@@ -150,6 +197,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         time: { value: 0 },
         tics: { value: 0 },
         camQ: { value: new Vector4() },
+        camP: { value: new Vector3() },
     });
 
     const material = new MeshStandardMaterial({
@@ -197,7 +245,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
             // #include <map_fragment>
             #ifdef USE_MAP
 
-            vec2 mapUV = mod(vMapUv * vDim, vDim) + vT1.xy;
+            vec2 mapUV = mod(vMapUv * vDim, vDim) + sUV.xy;
             vec4 sampledDiffuseColor = texture2D( map, mapUV );
 
             // render shadows (optional)
