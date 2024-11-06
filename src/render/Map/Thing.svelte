@@ -8,9 +8,9 @@
 </script>
 <script lang="ts">
     import { T } from '@threlte/core';
-    import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial, DoubleSide, BackSide } from 'three';
+    import { MeshStandardMaterial, PlaneGeometry, ShaderMaterial, DoubleSide, BackSide, Vector2, Vector3 } from 'three';
     import { useAppContext, useDoom, useDoomMap } from '../DoomContext';
-    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle, MapObjectIndex } from '../../doom';
+    import { EIGHTH_PI, QUARTER_PI, type MapObject, HALF_PI, MFFlags, normalizeAngle, MapObjectIndex, signedLineDistance } from '../../doom';
     import { ShadowsShader } from '../Shaders/ShadowsShader';
     import Wireframe from '../Debug/Wireframe.svelte';
     import type { RenderSector } from '../RenderData';

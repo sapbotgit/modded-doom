@@ -60,14 +60,18 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         float dot1 = dot( cdir, vdir );
         float dot2 = dot( cdir, vec2(-vdir.y, vdir.x) );
 
-        // WOW... there has got to be a better way to compute this.
-        int rot =
-            dot1 > split1 ? 4 :
-            dot1 > split2 ? (dot2 > 0.0 ? 5 : 3) :
-            dot1 < -split1 ? 0 :
-            dot1 < -split2 ? (dot2 > 0.0 ? 7 : 1) :
-            dot2 < split2 ? (dot1 > split1 ? 5 : 2) : 6;
-        return float(rot);
+        // It took a while to work this out but... NO BRANCHING! :)
+        float h2 = step(split2 - dot2, 0.0) + step(split1 - dot1, 0.0);
+        float rot =
+            (1.0 - h2) * (
+                step(-dot1 - split1, 0.0)
+                + step(-dot1 - split2, 0.0)
+                + step(-dot1 + split2, 0.0))
+            + h2 * (4.0
+                + step(dot1 - split1, 0.0)
+                + step(dot1 - split2, 0.0)
+                + step(dot1 + split2, 0.0));
+        return rot;
     }
 
     const float oneSixteenth = 1.0 / 16.0;

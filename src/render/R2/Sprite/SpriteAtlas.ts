@@ -17,7 +17,7 @@ export class SpriteSheet {
     readonly uvIndex: DataTexture;
     readonly spriteInfo: DataTexture;
     readonly sheet: DataTexture;
-    private spriteFrames = new Map<string, Map<number, number>>;
+    private spriteFrames = {};
 
     private rows: RowEdge[];
 
@@ -44,6 +44,13 @@ export class SpriteSheet {
         texture.colorSpace = SRGBColorSpace;
         this.sheet = texture;
 
+        const storeSpriteInfo = (idx: number, gfx: Picture, frame: { mirror: boolean, rotation: number }) => {
+            this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
+            this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
+            this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
+            this.spriteInfo.image.data[3 + idx * 4] = frame.rotation;
+        }
+
         let spriteGfx = new Map<string, number>();
         for (let idx = 0; idx < sprites.length; idx++) {
             const frame = sprites[idx];
@@ -57,39 +64,30 @@ export class SpriteSheet {
                 this.uvIndex.image.data[2 + idx * 4] = this.uvIndex.image.data[2 + orig * 4];
                 this.uvIndex.image.data[3 + idx * 4] = this.uvIndex.image.data[3 + orig * 4];
 
-                // set sprite info
-                this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
-                this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
-                this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
-                this.spriteInfo.image.data[3 + idx * 4] = frame.rotation;
+                storeSpriteInfo(idx, gfx, frame);
                 continue;
             }
 
-            // insert and index frame
+            // insert image, index frame, and store info
             this.insert(idx, frame.name, gfx);
             spriteGfx.set(frame.name, idx);
+            storeSpriteInfo(idx, gfx, frame);
             // index frame
-            let frames = this.spriteFrames.get(frame.sprite);
+            let frames = this.spriteFrames[frame.sprite];
             if (!frames) {
-                frames = new Map<number, number>();
-                this.spriteFrames.set(frame.sprite, frames);
+                frames = [];
+                this.spriteFrames[frame.sprite] = frames;
             }
-            if (!frames.has(frame.frame)) {
-                frames.set(frame.frame, idx);
+            if (frames[frame.frame] === undefined) {
+                frames[frame.frame] = idx;
             }
-
-            this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
-            this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
-            this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
-            this.spriteInfo.image.data[3 + idx * 4] = frame.rotation;
         }
         this.uvIndex.needsUpdate = true;
         this.spriteInfo.needsUpdate = true;
     }
 
     indexOf(sprite: string, frame: number) {
-        // are maps the best lookup here or can use use arrays (or arrays of integers?)
-        return this.spriteFrames.get(sprite).get(frame);
+        return this.spriteFrames[sprite][frame];
     }
 
     private insert(idx: number, key: string, pic: Picture) {
