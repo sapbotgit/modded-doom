@@ -3,7 +3,7 @@
     import { useAppContext, useDoomMap } from "../../DoomContext";
     import { SpriteSheet } from "./SpriteAtlas";
     import { buildLightMap } from "../GeometryBuilder";
-    import { createShadowsSpriteMaterial, createSpriteMaterial } from "./Materials";
+    import { createSpriteMaterialTransparent, createSpriteMaterial } from "./Materials";
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy } from "svelte";
@@ -35,65 +35,48 @@
     const maxTextureSize = Math.min(8192, threlte.renderer.capabilities.maxTextureSize);
     const spriteSheet = new SpriteSheet(map.game.wad, maxTextureSize);
 
-    // function imageUrl(tx: DataTexture) {
-    //     const canvas = document.createElement('canvas');
-    //     canvas.width = tx.image.width;
-    //     canvas.height = tx.image.height;
-    //     const ctx = canvas.getContext('2d');
-    //     const img = ctx.createImageData(canvas.width, canvas.height);
-    //     img.data.set(tx.image.data);
-    //     ctx.putImageData(img, 0, 0);
-
-    //     // convert to data url
-    //     const dataUrl = canvas.toDataURL('image/png');
-    //     return dataUrl;
-    // }
-
-    // const img = document.createElement('img')
-    // img.src = imageUrl(spriteSheet.sheet)
-    // img.style.position = 'absolute';
-    // img.style.right = '0px';
-    // onMount(() => document.body.appendChild(img));
-    // onDestroy(() => {
-    //     document.body.removeChild(img)
-    // });
-
     // sprite offset test:
     // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=321.09&player-y=-2486.21&player-z=343.17&player-aim=-0.00&player-dir=-1.57
 
     const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
     const { material, depthMaterial, distanceMaterial, uniforms } = createSpriteMaterial(spriteSheet, lightMap, lightLevels);
-    const shadows = createShadowsSpriteMaterial(spriteSheet, lightMap, lightLevels);
-    const shadowsUniform = shadows.uniforms;
+    const tranMaterial = createSpriteMaterialTransparent(spriteSheet, lightMap, lightLevels);
+    const tranUniforms = tranMaterial.uniforms;
 
-    // https://discourse.threejs.org/t/mesh-points-to-the-camera-on-only-2-axis-with-shaders/21555/7
     const threlteCam = threlte.camera;
     const { position, angle } = camera;
-    const _q = new Quaternion();
-    const _z0 = new Vector3(0, -1, 0);
-    const _z1 = new Vector3();
-    $: quat = updateCamera($threlteCam, $position, $angle);
-    $: $uniforms.camQ.value.copy(quat);
-    $: $uniforms.camP.value.copy($position);
-    $: $shadowsUniform.camQ.value.copy(quat);
-    $: $shadowsUniform.camP.value.copy($position);
-    function updateCamera(cam: Camera, p: Vector3, a: Euler) {
-        cam.getWorldDirection(_z1);
-        // _z1.set(0, 0, -1);
-        // _z1.applyEuler(a);
-        _z1.setZ(0).negate().normalize();
-        _q.setFromUnitVectors(_z0, _z1);
-        return _q;
-    }
-    $: $uniforms.doomExtraLight.value = $extraLight / 255;
-    $: if ($tick || $partialTick) {
-        const t1 = ($tick + $partialTick);
-        const t2 = t1 * tickTime
+    const updateCameraUniforms = (() => {
+        // https://discourse.threejs.org/t/mesh-points-to-the-camera-on-only-2-axis-with-shaders/21555/7
+        const q = new Quaternion();
+        const z0 = new Vector3(0, -1, 0);
+        const z1 = new Vector3();
+        return (cam: Camera, p: Vector3, a: Euler) => {
+            cam.getWorldDirection(z1);
+            // if we want to remove a dependency on $threlteCamera, we could use:
+            // z1.set(0, 0, -1);
+            // z1.applyEuler(a);
+            z1.setZ(0).negate().normalize();
+            q.setFromUnitVectors(z0, z1);
+
+            $uniforms.camQ.value.copy(q);
+            $tranUniforms.camQ.value.copy(q);
+
+            $uniforms.camP.value.copy(p);
+            $tranUniforms.camP.value.copy(p);
+        }
+    })();
+
+    function updateTimeUniforms(time: number) {
+        const t2 = time * tickTime
         $uniforms.time.value = t2;
-        $uniforms.tics.value = $interpolateMovement ? t1 : 0;
-        $shadowsUniform.time.value = t2;
-        $shadowsUniform.tics.value =  $interpolateMovement ? t1 : 0;
+        $uniforms.tics.value = $interpolateMovement ? time : 0;
+        $tranUniforms.time.value = t2;
+        $tranUniforms.tics.value =  $interpolateMovement ? time : 0;
     }
+
+    $: updateCameraUniforms($threlteCam, $position, $angle);
+    $: $uniforms.doomExtraLight.value = $extraLight / 255;
+    $: updateTimeUniforms($tick + $partialTick);
     $: ((edit) => {
         // map objects have 'health' so only handle those
         $uniforms.dInspect.value = edit.selected && 'health' in edit.selected
@@ -103,16 +86,15 @@
     })($editor);
 
     const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
-    const shadowsGeo = createSpriteGeometry(spriteSheet, shadows.material, shadows.depthMaterial, shadows.distanceMaterial);
-
+    const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial.material, tranMaterial.depthMaterial, tranMaterial.distanceMaterial);
     onDestroy(() => {
         geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
-        shadowsGeo.rmobjs.values().forEach(r => geo.destroy(r.mo));
+        tranGeo.rmobjs.values().forEach(r => geo.destroy(r.mo));
     })
 
     $: usePlayerLight = $playerLight !== '#000000';
     $: geo.shadowState(usePlayerLight);
-    $: shadowsGeo.shadowState(usePlayerLight);
+    $: tranGeo.shadowState(usePlayerLight);
 
     $: (n => {
         let added = new Set<MapObject>();
@@ -121,7 +103,7 @@
 
         // it would be nice if this was moved into MapRuntime and we just get notification on add/remove/update
         for (const mo of map.objs) {
-            const set = (geo.rmobjs.has(mo.id) || shadowsGeo.rmobjs.has(mo.id)) ? updated : added;
+            const set = (geo.rmobjs.has(mo.id) || tranGeo.rmobjs.has(mo.id)) ? updated : added;
             if (!(mo.info.flags & MFFlags.MF_NOSECTOR)) {
                 set.add(mo);
             }
@@ -131,7 +113,7 @@
                 removed.add(r.mo);
             }
         }
-        for (const r of shadowsGeo.rmobjs.values()) {
+        for (const r of tranGeo.rmobjs.values()) {
             if (!added.has(r.mo) && !updated.has(r.mo)) {
                 removed.add(r.mo);
             }
@@ -142,7 +124,7 @@
         }
         for (const mo of added) {
             if (mo.info.flags & MFFlags.MF_SHADOW) {
-                shadowsGeo.add(mo);
+                tranGeo.add(mo);
             } else {
                geo.add(mo);
             }
@@ -151,4 +133,4 @@
 </script>
 
 <T is={geo.root} on:click={hit} renderOrder={1} />
-<T is={shadowsGeo.root} on:click={hit} renderOrder={1} />
+<T is={tranGeo.root} on:click={hit} renderOrder={1} />

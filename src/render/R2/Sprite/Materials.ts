@@ -31,11 +31,8 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     attribute vec3 vel;
     attribute vec4 motion;
 
-    // NB: need to be flat due to sprite rotations. If we don't use flat, then one
-    // side of the triangle will use one rotation and the other side another and
-    // we get interpolation between two sprites and it looks terrible.
-    flat out vec4 sUV;
-    flat out vec2 vDim;
+    varying vec4 sUV;
+    varying vec2 vDim;
     varying float doomLightLevel;
     varying vec3 doomInspectorEmissive;
     varying float renderShadows;
@@ -125,23 +122,21 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     renderShadows = flagBit(texN.y, flag_shadows);
 
-    // scale and position based on texture size (vDim) and offsets
+    // scale based on texture size (vDim) and mirror (info.z)
     vec2 dim = vDim * tSpritesWidth;
+    float sXY = dim.x * float(info.z);
+    transformed *= vec3(sXY, sXY, dim.y);
+
+    // and position based on texture size and offsets (info.xy)
     float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
     float offZ = float(info.y) - dim.y;
     offZ = max(offZ, 0.0) + (dim.y * .5 * invertZ) + (flagBit(texN.y, flag_isMissile) * offZ);
-    float sXY = dim.x * float(info.z);
-    // only apply sprite offset on x-axis otherwise we're applying it twice and things won't look right
-    // this fixes that pesky sprite wiggle on the burning barrel in Doom2's MAP23
+    // only apply sprite offset on x-axis because that's the one facing the camera after applying the camera quaternion
     float offX = dim.x * .5 - float(info.x);
-    mat4 scaleMat4 = mat4(
-        sXY, 0.0,   0.0, offX,
-        0.0, sXY,   0.0, 0.0,
-        0.0, 0.0, dim.y, offZ,
-        0.0, 0.0,   0.0, 1.0);
+    transformed += vec3(offX, 0.0, offZ);
 
-    transformed.xyz = (vec4(transformed, 1.0) * scaleMat4).xyz;
-    // must apply after scale and offset otherwise offsets don't look right
+    // apply camera angle quaternion after scale and offset otherwise offsets won't look right
+    // (Doom2's burning barrels wiggle if we apply the quaternion before applying sprite offsets)
     transformed = applyQuaternionToVector(camQ, transformed);
 
     // motion interpolation (motion = [speed/tic, direction, startTimeTics])
@@ -166,8 +161,8 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     uniform float time;
 
-    flat in vec4 sUV;
-    flat in vec2 vDim;
+    varying vec4 sUV;
+    varying vec2 vDim;
     varying float doomLightLevel;
     varying vec3 doomInspectorEmissive;
     varying float renderShadows;
@@ -207,7 +202,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     const material = new MeshStandardMaterial({
         map: sprites.sheet,
         alphaTest: 1.0,
-        side: DoubleSide, // we only need FrontSide for rendering but inspector seems to need DoubleSide
+        side: DoubleSide, // to mirror, we scale by -1 so we need both front and back side
         shadowSide: DoubleSide,
     });
     material.onBeforeCompile = shader => {
@@ -330,7 +325,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     return { material, distanceMaterial, depthMaterial, uniforms };
 }
 
-export function createShadowsSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
+export function createSpriteMaterialTransparent(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
     const mat = createSpriteMaterial(sprites, lightMap, lightLevels);
     mat.material.alphaTest = 0;
     mat.material.depthWrite = false;

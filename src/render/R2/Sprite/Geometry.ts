@@ -40,11 +40,13 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         const mesh = new InstancedMesh(geometry, material, chunkSize);
         mesh.customDepthMaterial = depthMaterial;
         mesh.customDistanceMaterial = distanceMaterial;
+        // sector number that lights this object
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
         mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
         mesh.geometry.setAttribute('vel', floatBufferFrom([0, 0, 0], chunkSize));
         // [speed/tic, movedir, start tics, direction]
         mesh.geometry.setAttribute('motion', floatBufferFrom([0, 0, 0, 0], chunkSize));
+        // texture index and fullbright
         mesh.geometry.setAttribute('texN', int16BufferFrom([0, 0], chunkSize));
         mesh.receiveShadow = mesh.castShadow = castShadows;
         mesh.count = 0;
