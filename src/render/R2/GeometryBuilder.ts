@@ -478,7 +478,7 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
             // add a tiny offset to z to make sure extra flat is rendered below (floor) or above) ceil) the actual
             // flat to avoid z-fighting. We can use a small offset because doom z values are integers except when the
             // platform is moving but we can tolerate a small error for moving platforms.
-            let zOffset = extra.ceil ? 0.01 : -0.01;
+            let zOffset = extra.ceil ? 0.0001 : -0.0001;
             disposables.push(extra.z.subscribe(z => mapGeo.moveFlat(idx, z + zOffset)));
             disposables.push(extra.flat.subscribe(name => mapGeo.applyFlatTexture(idx, name)));
         }

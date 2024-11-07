@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, PCFShadowMap, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
@@ -184,34 +184,40 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             selfReferencing.push(renderSector);
         }
 
-        // floor hack (TNT MAP18): if the floors are unequal and all lines have no lower textures, then we want to draw
-        // a floor at the height of the higher sector (like deep water). We can see this in the room where revenants
-        // are in the floor or the exit room with the cyberdemon and brown sludge below the floating marble slabs
+        // floor hack (TNT MAP18): if the floors are unequal, and it's not a closed door/lift, and no front/back lower textures,
+        // then we want to draw a floor at the height of the higher sector (like deep water). We can see this in the room
+        // where revenants are in the floor or the exit room with the cyberdemon and brown sludge below the floating marble slabs
         const bothLindefs = [...leftlines, ...linedefs];
-        const unequalFloorNoLowerTexture = (ld: LineDef) => !ld.left ||
+        const unequalFloorNoLowerTexture = (ld: LineDef) => ld.left &&
                 (ld.right.sector.zFloor.val !== ld.left.sector.zFloor.val
-                && !ld.left.lower.val && !ld.right.lower.val);
-        const floorHacks = bothLindefs.every(unequalFloorNoLowerTexture) && bothLindefs.length;
-        if (floorHacks) {
-            const line = bothLindefs[0];
-            renderSector.extraFlats.push({
-                geometry,
-                z: line.right.sector === sector && line.left ? line.left.sector.zFloor : line.right.sector.zFloor,
-                flat: sector.floorFlat,
-                lightSector: sector,
-                ceil: false,
-            });
+                && !ld.left.lower.val && !ld.right.lower.val
+                // skip over closed doors and raised platforms
+                && ld.right.sector.zFloor.val !== ld.right.sector.zCeil.val
+                && ld.left.sector.zFloor.val !== ld.left.sector.zCeil.val);
+        const fakeFloorLines = bothLindefs.filter(unequalFloorNoLowerTexture);
+        if (fakeFloorLines.length > 1) {
+            for (const line of fakeFloorLines) {
+                let zSec = line.right.sector === sector ? line.left.sector : line.right.sector;
+                renderSector.extraFlats.push({
+                    geometry,
+                    z: zSec.zFloor,
+                    flat: sector.floorFlat,
+                    lightSector: sector,
+                    ceil: false,
+                });
+                break;
+            }
         }
     }
 
     // copy render properties from the outer/containing sector
     for (const rs of selfReferencing) {
-        let outerRS = surroundingSector(mapRuntime, rs, secMap);
-        if (!outerRS) {
-            console.warn('no outer sector for self-referencing sector', rs.sector.num);
+        let outerSector = surroundingSector(mapRuntime, rs);
+        if (!outerSector) {
+            console.warn('no outer sector for self-referencing sectors', rs.sector.num);
             continue;
         }
-        rs.sector = outerRS.sector;
+        rs.sector = outerSector;
     }
 
     // transparent door and window hack (https://www.doomworld.com/tutorials/fx5.php)
@@ -307,7 +313,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     return rSectors;
 }
 
-function surroundingSector(map: MapRuntime, rs: RenderSector, secMap: Map<Sector, RenderSector>) {
+function surroundingSector(map: MapRuntime, rs: RenderSector) {
     let candidates = new Map<number, number>();
     let frequency = -1;
     const countResult = (sec: Sector) => {
@@ -322,7 +328,8 @@ function surroundingSector(map: MapRuntime, rs: RenderSector, secMap: Map<Sector
         return null;
     };
 
-    // For each lindef, go slightly left and right (based on line normal) and see what sector is there
+    // For each lindef, go slightly left and right (based on line normal) and see what sectors are there. For everyIf the sector
+    // there is self-referencing, we'll need to recurse. If not, then
     // and then choose the most frequently hit sector. It's crude but seems to cover all cases that I know
     // in TNT and Plutonia. I'm not confident it covers all cases out there.
     // NOTE: ideally we only check 1px away but sector38 in Plutonia MAP24 didn't work so we needed to check
@@ -334,13 +341,13 @@ function surroundingSector(map: MapRuntime, rs: RenderSector, secMap: Map<Sector
             result = countResult(sectors[0]) ?? countResult(sectors[1]) ?? result;
         }
     }
-    return secMap.get(result);
+    return result;
 }
 
 const searchNeighbourSector = (() => {
     const mid = { x: 0, y: 0 };
     const norm = { x: 0, y: 0 };
-    const result: Sector[] = [null, null];
+    const result = new Array<Sector>(2);
     return (line: Vertex[], map: MapRuntime, dist: number) => {
         // compute linedef normal
         const dx = line[1].x - line[0].x;
