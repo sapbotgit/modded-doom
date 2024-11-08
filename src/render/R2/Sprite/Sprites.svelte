@@ -96,6 +96,9 @@
     $: tranGeo.shadowState(usePlayerLight);
 
     const addMobj = (mo: MapObject) => {
+        if (mo.info.flags & MFFlags.MF_NOSECTOR) {
+            return;
+        }
         if (mo.info.flags & MFFlags.MF_SHADOW) {
             tranGeo.add(mo);
         } else {

@@ -9,8 +9,8 @@ import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-thing
 import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
 import { derived } from "svelte/store";
-import { Emitter } from 'strict-event-emitter';
 import type { Sprite } from "./sprite";
+import { EventEmitter } from "./events";
 
 type MapEvents = {
     ['mobj-added']: [MapObject];
@@ -99,9 +99,9 @@ export class MapRuntime {
         elapsedTime: 0,
     };
 
-    // Random: It's nice to have a typed event emitter but on/off or add/remove always feels a little clunky.
+    // Random: It's nice to have a typed event emitter but on/off always feels a little clunky.
     // I don't know of a better option now (and I just now saw svelte5 is released though I don't think it would help)
-    readonly events = new Emitter<MapEvents>();
+    readonly events = new EventEmitter<MapEvents>();
 
     tracers: ShotTrace[] = [];
     readonly trev = store(1);

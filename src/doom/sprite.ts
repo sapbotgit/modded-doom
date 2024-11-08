@@ -1,6 +1,4 @@
 import { ActionIndex, SpriteNames, StateIndex, states, type State } from "./doom-things-info";
-import type { MapObject } from "./map-object";
-import type { MapRuntime } from "./map-runtime";
 import type { RNG } from "./math";
 import { store } from "./store";
 
@@ -72,7 +70,6 @@ export class SpriteStateMachine {
         sprite.frame = this.state.frame & FF_FRAMEMASK;
         sprite.fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
         this.notify(sprite);
-        // this.sprite.set(sprite);
     }
 
     randomizeTicks(rng: RNG) {

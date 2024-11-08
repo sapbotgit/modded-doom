@@ -56,6 +56,15 @@
     $: setupEffectComposer($camera, hudScene);
     $: composer.setSize($size.width, $size.height);
 
+    // This is a hack to re-enable the $sprite readable for weapons and player sprite
+    player.map.events.on('mobj-updated-sprite', (mo, sprite) => {
+        if (mo === player) {
+            player.sprite.set(player.sprite.val);
+            player.weapon.val.sprite.set(player.weapon.val.sprite.val);
+            player.weapon.val.flashSprite.set(player.weapon.val.flashSprite.val);
+        }
+    });
+
     useTask(delta => {
         composer.render(delta);
     }, { stage: renderStage });
