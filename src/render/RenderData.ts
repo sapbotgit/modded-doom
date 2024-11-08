@@ -195,6 +195,8 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
                 && ld.right.sector.zFloor.val !== ld.right.sector.zCeil.val
                 && ld.left.sector.zFloor.val !== ld.left.sector.zCeil.val);
         const fakeFloorLines = bothLindefs.filter(unequalFloorNoLowerTexture);
+        // If there is only one linedef... we'll just not add the fake floor and hope it's okay.
+        // I've seen this done as a mapping trick to reference an unreachable sector
         if (fakeFloorLines.length > 1) {
             for (const line of fakeFloorLines) {
                 let zSec = line.right.sector === sector ? line.left.sector : line.right.sector;
@@ -281,12 +283,9 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
     // very often therefore it is cheaper to maintain the list this way rather than filtering the mobj list when
     // rendering the sector. On the other hand, we are updating lists when most sectors aren't even visible so...
     // TODO: Need some profiler input here,
-    let visitNum = 0;
-    let visited = new Map<MapObject, number>();
     let mobjMap = new Map<MapObject, RenderSector>();
     const monitor = (mobj: MapObject) => {
-        visited.set(mobj, visitNum);
-        if (mobjMap.has(mobj) || mobj.info.flags & MFFlags.MF_NOSECTOR) {
+        if (mobj.info.flags & MFFlags.MF_NOSECTOR) {
             return;
         }
         mobj.sector.subscribe(sec => {
@@ -297,17 +296,16 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             nextRS.mobjs.update(s => s.add(mobj));
         });
     }
-    mapRuntime.rev.subscribe(() => {
-        visitNum += 1;
-        mapRuntime.objs.forEach(monitor);
-        visited.forEach((num, mobj) => {
-            if (num !== visitNum) {
-                const lastRS = mobjMap.get(mobj);
-                lastRS?.mobjs.update(s => { s.delete(mobj); return s });
-                mobjMap.delete(mobj);
-            }
-        });
-    });
+    const unmonitor = (mobj: MapObject) => {
+        const lastRS = mobjMap.get(mobj);
+        lastRS?.mobjs.update(s => { s.delete(mobj); return s });
+        mobjMap.delete(mobj);
+    }
+    // for HMR, this seems like a good place to do this
+    mapRuntime.events.removeAllListeners();
+    mapRuntime.objs.forEach(monitor);
+    mapRuntime.events.on('mobj-added', monitor);
+    mapRuntime.events.on('mobj-removed', unmonitor);
 
     console.timeEnd('b-rs')
     return rSectors;

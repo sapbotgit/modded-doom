@@ -6,14 +6,13 @@
     import { useAppContext, useDoomMap } from "../DoomContext";
     import { AlwaysStencilFunc, Color } from "three";
     import type { RenderSector } from "../RenderData";
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, onDestroy } from "svelte";
 
     const dispatch = createEventDispatcher();
     export let size: Size;
     export let map: MapRuntime;
 
     let active = false;
-    const rev = map.rev;
     const { position, direction } = map.player;
     const showBlockmap = useAppContext().settings.showBlockMap;
 
@@ -59,10 +58,14 @@
         direction.set(ang);
     }
 
-    let mobjs: MObj[] = [];
-    $: if ($rev) {
-        mobjs = map.objs;
-    }
+    let mobjs = map.objs;
+    const updateMobjs = (mo: MObj) => mobjs = map.objs;
+    map.events.on('mobj-added', updateMobjs);
+    map.events.on('mobj-removed', updateMobjs);
+    onDestroy(() => {
+        map.events.off('mobj-added', updateMobjs);
+        map.events.off('mobj-removed', updateMobjs);
+    });
 
     let selRS: RenderSector;
     let selSubSec: SubSector;

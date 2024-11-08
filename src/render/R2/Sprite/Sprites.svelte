@@ -12,7 +12,6 @@
     export let map: MapRuntime;
 
     const { renderSectors, camera } = useDoomMap();
-    const { rev } = map;
     const { extraLight } = map.player;
     const { tick, partialTick } = map.game.time;
     // TODO: draw tracers?
@@ -96,40 +95,25 @@
     $: geo.shadowState(usePlayerLight);
     $: tranGeo.shadowState(usePlayerLight);
 
-    $: (n => {
-        let added = new Set<MapObject>();
-        let updated = new Set<MapObject>();
-        let removed = new Set<MapObject>();
 
-        // it would be nice if this was moved into MapRuntime and we just get notification on add/remove/update
-        for (const mo of map.objs) {
-            const set = (geo.rmobjs.has(mo.id) || tranGeo.rmobjs.has(mo.id)) ? updated : added;
-            if (!(mo.info.flags & MFFlags.MF_NOSECTOR)) {
-                set.add(mo);
-            }
+    const addMobj = (mo: MapObject) => {
+        if (mo.info.flags & MFFlags.MF_SHADOW) {
+            tranGeo.add(mo);
+        } else {
+            geo.add(mo);
         }
-        for (const r of geo.rmobjs.values()) {
-            if (!added.has(r.mo) && !updated.has(r.mo)) {
-                removed.add(r.mo);
-            }
-        }
-        for (const r of tranGeo.rmobjs.values()) {
-            if (!added.has(r.mo) && !updated.has(r.mo)) {
-                removed.add(r.mo);
-            }
-        }
-
-        for (const mo of removed) {
-            geo.destroy(mo);
-        }
-        for (const mo of added) {
-            if (mo.info.flags & MFFlags.MF_SHADOW) {
-                tranGeo.add(mo);
-            } else {
-               geo.add(mo);
-            }
-        }
-    })($rev);
+    }
+    const removeMobjs = (mo: MapObject) => {
+        geo.destroy(mo);
+        tranGeo.destroy(mo);
+    }
+    map.objs.forEach(addMobj);
+    map.events.on('mobj-added', addMobj);
+    map.events.on('mobj-removed', removeMobjs);
+    onDestroy(() => {
+        map.events.off('mobj-added', addMobj);
+        map.events.off('mobj-removed', removeMobjs);
+    });
 </script>
 
 <T is={geo.root} on:click={hit} renderOrder={1} />

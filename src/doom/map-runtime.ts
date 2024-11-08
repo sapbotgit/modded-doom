@@ -9,6 +9,12 @@ import { mapObjectInfo, MapObjectIndex, MFFlags, SoundIndex } from "./doom-thing
 import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
 import { derived } from "svelte/store";
+import { Emitter } from 'strict-event-emitter';
+
+type MapEvents = {
+    ['mobj-added']: [MapObject];
+    ['mobj-removed']: [MapObject];
+}
 
 const episode4MusicMap = [
     'D_E3M4',
@@ -91,12 +97,14 @@ export class MapRuntime {
         elapsedTime: 0,
     };
 
+    // Random: It's nice to have a typed event emitter but on/off or add/remove always feels a little clunky.
+    // I don't know of a better option now (and I just now saw svelte5 is released though I don't think it would help)
+    readonly events = new Emitter<MapEvents>();
+
     tracers: ShotTrace[] = [];
     readonly trev = store(1);
     players: MapObject[] = [];
     objs: MapObject[] = []; // TODO: make this readonly?
-    // don't love this rev hack... we need a list with a subscribe method
-    readonly rev = store(1);
     // for things that subscribe to game state (like settings) but are tied to the lifecycle of a map should push themselves here
     readonly disposables: (() => void)[] = [];
     readonly musicTrack: Store<string>;
@@ -137,16 +145,8 @@ export class MapRuntime {
 
         this.players.push(this.player);
         this.disposables.push(this.game.settings.skipInitialSpawn.subscribe(() => {
-            this.data.nodes.map(n => {
-                if ('mobjs' in n.childLeft) {
-                    n.childLeft.mobjs.clear()
-                }
-                if ('mobjs' in n.childRight) {
-                    n.childRight.mobjs.clear()
-                }
-            });
+            this.objs.forEach(mo => this.destroy(mo));
             this.objs = [this.player];
-            this.rev.update(rev => rev + 1);
             this.data.things.forEach(e => this.initialThingSpawn(e));
         }));
 
@@ -226,7 +226,7 @@ export class MapRuntime {
             this.players.push(mobj);
         }
         this.objs.push(mobj);
-        this.rev.update(v => v + 1);
+        this.events.emit('mobj-added', mobj);
         return mobj;
     }
 
@@ -234,7 +234,7 @@ export class MapRuntime {
         mobj.subsectors(subsector => subsector.mobjs.delete(mobj));
         // TODO: perf?
         this.objs = this.objs.filter(e => e !== mobj);
-        this.rev.update(rev => rev += 1);
+        this.events.emit('mobj-removed', mobj);
     }
 
     timeStep(time: GameTime) {
