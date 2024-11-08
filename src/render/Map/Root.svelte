@@ -22,6 +22,11 @@
     const interact = interactivity({ enabled: $editor.active });
     $: interact.enabled.set($editor.active);
 
+    // This is a hack to re-enable the $sprite readable for R1.
+    map.events.on('mobj-updated-sprite', (mo, sprite) => {
+        mo.sprite.set(sprite);
+    })
+
     // TODO: to actually improve performance here, I think we'll have to implement some kind of PVS
     // based on the bsp tree https://cs.gmu.edu/~jchen/cs662/lecture5-2007.pdf
 </script>

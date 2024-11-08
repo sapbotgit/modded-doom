@@ -1,10 +1,11 @@
 import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Material, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
-import { HALF_PI, MFFlags, PlayerMapObject, type MapObject } from "../../../doom";
+import { HALF_PI, MapRuntime, MFFlags, PlayerMapObject, type MapObject } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
+import type { Sprite } from "../../../doom/sprite";
 
 // TODO: tidy up parameters here...
-export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Material, depthMaterial: Material, distanceMaterial: Material) {
+export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, material: Material, depthMaterial: Material, distanceMaterial: Material) {
     // Are chunks actually beneficial? It's probably better than resizing/re-initializing a large array
     // but maybe worth experimenting with sometime.
     const chunkSize = 5_000;
@@ -58,6 +59,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
     interface RenderInfo {
         idx: number;
         mo: MapObject;
+        updateSprite: (sprite: Sprite) => void;
         subs: (() => void)[];
     }
     const rmobjs = new Map<number, RenderInfo>();
@@ -86,31 +88,11 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         // NB: count will not decrease because removed items may not be at the end of the list
         thingsMeshes[m].count = Math.max(n + 1, thingsMeshes[m].count);
 
-        const subs = [];
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
         const isMissile = mo.info.flags & MFFlags.MF_MISSILE;
-        rmobjs.set(mo.id, { mo, idx, subs });
-        // custom attributes
-        subs.push(mo.sector.subscribe(sec => {
-            thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
-            thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
-        }));
-        subs.push(mo.position.subscribe(pos => {
-            // FIXME: this breaks inspector but it makes it easier to scale sprites. Hmm
-            s.set(1, 1, 1);
-            if (mo instanceof PlayerMapObject) {
-                s.set(0, 0, 0);
-            }
-            p.copy(pos);
-            thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
-            thingsMeshes[m].instanceMatrix.needsUpdate = true;
-            // velocity for interpolation
-            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
-            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
-            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
-            thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
-        }));
-        subs.push(mo.sprite.subscribe(sprite => {
+        const subs = [];
+
+        const updateSprite = sprite => {
             if (!sprite) return;
             const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
             thingsMeshes[m].geometry.attributes.texN.array[n * 2] = spriteIndex;
@@ -131,7 +113,30 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
             thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
             thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 3] = mo.direction.val;
             thingsMeshes[m].geometry.attributes.motion.needsUpdate = true;
+        }
+        rmobjs.set(mo.id, { mo, idx, subs, updateSprite });
+
+        // custom attributes
+        subs.push(mo.sector.subscribe(sec => {
+            thingsMeshes[m].geometry.attributes.doomLight.array[n] = sec.num;
+            thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
+        subs.push(mo.position.subscribe(pos => {
+            // FIXME: this breaks inspector but it makes it easier to scale sprites. Hmm
+            s.set(1, 1, 1);
+            if (mo instanceof PlayerMapObject) {
+                s.set(0, 0, 0);
+            }
+            p.copy(pos);
+            thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
+            thingsMeshes[m].instanceMatrix.needsUpdate = true;
+            // velocity for interpolation
+            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
+            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
+            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
+            thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
+        }));
+        updateSprite(mo.sprite.val);
 
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].array[n] = mo.id;
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
@@ -160,6 +165,11 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: Materia
         castShadows = val;
         thingsMeshes.forEach(m => m.castShadow = m.receiveShadow = castShadows);
     };
+
+    map.events.on('mobj-updated-sprite', (mo, sprite) => {
+        const info = rmobjs.get(mo.id);
+        info?.updateSprite(sprite);
+    });
 
     const root = new Object3D();
     return { add, destroy, root, rmobjs, shadowState };

@@ -44,6 +44,7 @@ export class MapObject {
     private subsectorMap = new Map<SubSector, number>();
 
     protected _state = new SpriteStateMachine(
+        sprite => this.map.events.emit('mobj-updated-sprite', this, sprite),
         action => stateChangeAction(action, this.map.game.time, this),
         () => this.map.destroy(this));
     protected _zFloor = -Infinity;

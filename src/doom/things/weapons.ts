@@ -28,9 +28,11 @@ export interface InventoryWeapon {
 export class PlayerWeapon {
     private player: PlayerMapObject;
     private _sprite = new SpriteStateMachine(
+        sprite => this.player.map.events.emit('mobj-updated-sprite', this.player, sprite),
         action => weaponActions[action]?.(this.player.map.game.time, this.player, this),
         self => self.sprite.set(null));
     private _flashSprite = new SpriteStateMachine(
+        sprite => this.player.map.events.emit('mobj-updated-sprite', this.player, sprite),
         action => weaponActions[action]?.(this.player.map.game.time, this.player, this),
         self => self.sprite.set(null));
     readonly position = store<Vector2>(new Vector2(0, weaponBottom));

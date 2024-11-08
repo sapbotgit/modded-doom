@@ -1,4 +1,6 @@
 import { ActionIndex, SpriteNames, StateIndex, states, type State } from "./doom-things-info";
+import type { MapObject } from "./map-object";
+import type { MapRuntime } from "./map-runtime";
 import type { RNG } from "./math";
 import { store } from "./store";
 
@@ -21,6 +23,7 @@ export class SpriteStateMachine {
     get index() { return this.stateIndex; }
 
     constructor(
+        private notify: (sprite: Sprite) => void,
         private stateAction: (action: ActionIndex) => void,
         // TODO: it would be nice not to need an action where state is null but weapons have one behaviour and monsters
         // have another and I'm not sure how to express them
@@ -59,16 +62,17 @@ export class SpriteStateMachine {
         //     // don't change sprite if the state hasn't changed
         //     return;
         // }
-        this.sprite.update(sprite => {
-            if (!sprite) {
-                sprite = { name: '', frame: 0, fullbright: false, ticks: 0 };
-            }
-            sprite.ticks = this.ticks;
-            sprite.name = SpriteNames[this.state.sprite];
-            sprite.frame = this.state.frame & FF_FRAMEMASK;
-            sprite.fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
-            return sprite;
-        });
+        let sprite = this.sprite.val;
+        if (!sprite) {
+            sprite = { name: '', frame: 0, fullbright: false, ticks: 0 };
+            this.sprite.set(sprite);
+        }
+        sprite.ticks = this.ticks;
+        sprite.name = SpriteNames[this.state.sprite];
+        sprite.frame = this.state.frame & FF_FRAMEMASK;
+        sprite.fullbright = (this.state.frame & FF_FULLBRIGHT) !== 0;
+        this.notify(sprite);
+        // this.sprite.set(sprite);
     }
 
     randomizeTicks(rng: RNG) {

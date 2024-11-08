@@ -10,10 +10,12 @@ import { thingSpec, inventoryWeapon } from "./things";
 import type { InventoryWeapon } from "./things/weapons";
 import { derived } from "svelte/store";
 import { Emitter } from 'strict-event-emitter';
+import type { Sprite } from "./sprite";
 
 type MapEvents = {
     ['mobj-added']: [MapObject];
     ['mobj-removed']: [MapObject];
+    ['mobj-updated-sprite']: [MapObject, Sprite];
 }
 
 const episode4MusicMap = [

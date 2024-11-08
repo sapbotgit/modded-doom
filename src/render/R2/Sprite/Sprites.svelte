@@ -84,8 +84,8 @@
             : -1;
     })($editor);
 
-    const geo = createSpriteGeometry(spriteSheet, material, depthMaterial, distanceMaterial);
-    const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial.material, tranMaterial.depthMaterial, tranMaterial.distanceMaterial);
+    const geo = createSpriteGeometry(spriteSheet, map, material, depthMaterial, distanceMaterial);
+    const tranGeo = createSpriteGeometry(spriteSheet, map, tranMaterial.material, tranMaterial.depthMaterial, tranMaterial.distanceMaterial);
     onDestroy(() => {
         geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
         tranGeo.rmobjs.values().forEach(r => geo.destroy(r.mo));
@@ -94,7 +94,6 @@
     $: usePlayerLight = $playerLight !== '#000000';
     $: geo.shadowState(usePlayerLight);
     $: tranGeo.shadowState(usePlayerLight);
-
 
     const addMobj = (mo: MapObject) => {
         if (mo.info.flags & MFFlags.MF_SHADOW) {
