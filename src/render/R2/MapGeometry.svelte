@@ -25,7 +25,7 @@
     const maxTextureSize = Math.min(8192, threlte.renderer.capabilities.maxTextureSize);
     const ta = new TextureAtlas(map.game.wad, maxTextureSize);
     const { geometry, skyGeometry, dispose } = buildMapGeometry(ta, renderSectors);
-    onDestroy(() => dispose());
+    onDestroy(dispose);
     console.timeEnd('map-geo')
 
     const { lightMap, lightLevels } = buildLightMap(map.data.sectors);

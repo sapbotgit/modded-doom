@@ -20,21 +20,15 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     uniform sampler2D tLightLevels;
     uniform sampler2D tLightMap;
     uniform uint tLightMapWidth;
-    uniform float doomExtraLight;
-    uniform uint dInspect;
     uniform float time;
     uniform float tics;
 
     attribute uvec2 texN;
-    attribute uint doomLight;
-    attribute uint ${inspectorAttributeName};
     attribute vec3 vel;
     attribute vec4 motion;
 
     varying vec4 sUV;
     varying vec2 vDim;
-    varying float doomLightLevel;
-    varying vec3 doomInspectorEmissive;
     varying float renderShadows;
 
     const uint flag_fullBright = uint(0);
@@ -113,9 +107,6 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     // sprite dimensions
     sUV = texture2D( tSpriteUVs, tUV );
     vDim = vec2( sUV.z - sUV.x, sUV.w - sUV.y );
-    // Would be really nice to do this and use vanilla map_fragment but it won't work for some reason.
-    // perhaps there is a precision loss?
-    // vMapUv = mod(vMapUv * vDim, vDim) + sUV.xy;
     `
     const begin_vertex = `
     #include <begin_vertex>
@@ -163,8 +154,6 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     varying vec4 sUV;
     varying vec2 vDim;
-    varying float doomLightLevel;
-    varying vec3 doomInspectorEmissive;
     varying float renderShadows;
     `;
     const depthDist_map_fragment = `
@@ -182,21 +171,22 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     #endif
     `;
 
-    interface MapMaterialUniforms {
-        dInspect: IUniform;
-        doomExtraLight: IUniform;
-        time: IUniform;
-        tics: IUniform;
-        camQ: IUniform;
-        camP: IUniform;
-    }
-    const uniforms = store<MapMaterialUniforms>({
-        dInspect: { value: -1 },
-        doomExtraLight: { value: 0 },
-        time: { value: 0 },
-        tics: { value: 0 },
-        camQ: { value: new Vector4() },
-        camP: { value: new Vector3() },
+    const uniforms = store({
+        dInspect: { value: -1 } as IUniform,
+        doomExtraLight: { value: 0 } as IUniform,
+        time: { value: 0 } as IUniform,
+        tics: { value: 0 } as IUniform,
+        camQ: { value: new Vector4() } as IUniform,
+        camP: { value: new Vector3() } as IUniform,
+        // map lighting info
+        tLightLevels: { value: lightLevels },
+        tLightMap: { value: lightMap },
+        tLightMapWidth: { value: lightMap.image.width },
+        // sprite meta data
+        tSpriteInfo: { value: sprites.spriteInfo },
+        tSpritesWidth: { value: sprites.sheet.image.width },
+        tSpriteUVs: { value: sprites.uvIndex },
+        tSpriteUVsWidth: { value: sprites.uvIndex.image.width },
     });
 
     const material = new MeshStandardMaterial({
@@ -206,18 +196,18 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         shadowSide: DoubleSide,
     });
     material.onBeforeCompile = shader => {
-        shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
-        shader.uniforms.tLightLevels = { value: lightLevels };
-        shader.uniforms.tLightMap = { value: lightMap };
-        shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
-        shader.uniforms.tSpriteInfo = { value: sprites.spriteInfo };
-        shader.uniforms.tSpritesWidth = { value: sprites.sheet.image.width };
-        shader.uniforms.tSpriteUVs = { value: sprites.uvIndex };
-        shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
-        uniforms.set(shader.uniforms as any);
+        Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
         shader.vertexShader = shader.vertexShader
-            .replace('#include <common>', vertexPars)
+            .replace('#include <common>', vertexPars + `
+            uniform float doomExtraLight;
+            attribute uint doomLight;
+            varying float doomLightLevel;
+
+            uniform uint dInspect;
+            attribute uint ${inspectorAttributeName};
+            varying vec3 doomInspectorEmissive;
+            `)
             .replace('#include <uv_vertex>', uv_vertex)
             .replace(`#include <beginnormal_vertex>`,`
             #include <beginnormal_vertex>
@@ -239,7 +229,10 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
             `);
 
         shader.fragmentShader = shader.fragmentShader
-            .replace('#include <common>', fragmentPars)
+            .replace('#include <common>', fragmentPars + `
+            varying float doomLightLevel;
+            varying vec3 doomInspectorEmissive;
+            `)
             .replace('#include <map_fragment>', `
             // #include <map_fragment>
             #ifdef USE_MAP
@@ -275,16 +268,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     const depthMaterial = new MeshDepthMaterial();
     depthMaterial.onBeforeCompile = shader => {
-        shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
-        shader.uniforms.tSpriteInfo = { value: sprites.spriteInfo };
-        shader.uniforms.tSpritesWidth = { value: sprites.sheet.image.width };
-        shader.uniforms.tSpriteUVs = { value: sprites.uvIndex };
-        shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
-        uniforms.subscribe(u => {
-            shader.uniforms.camQ.value = u.camQ.value;
-            shader.uniforms.tics.value = u.tics.value;
-            shader.uniforms.time.value = u.time.value;
-        });
+        Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
         shader.vertexShader = shader.vertexShader
             .replace('#include <common>', vertexPars)
@@ -298,17 +282,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     const distanceMaterial = new MeshDistanceMaterial();
     distanceMaterial.onBeforeCompile = shader => {
-        shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
-        shader.uniforms.tSpriteInfo = { value: sprites.spriteInfo };
-        shader.uniforms.tSpritesWidth = { value: sprites.sheet.image.width };
-        shader.uniforms.tSpriteUVs = { value: sprites.uvIndex };
-        shader.uniforms.tSpriteUVsWidth = { value: sprites.uvIndex.image.width };
-        // TODO: when do we unsubscribe? Can we avoid this subscription?
-        uniforms.subscribe(u => {
-            shader.uniforms.camQ.value = u.camQ.value;
-            shader.uniforms.tics.value = u.tics.value;
-            shader.uniforms.time.value = u.time.value;
-        });
+        Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
         // ideally we would "face" the light, not the camera but I don't fully understand the threejs shadow code
         // so I'm not quite sure how to do that. For now, this makes the shadow match the rendered sprite.

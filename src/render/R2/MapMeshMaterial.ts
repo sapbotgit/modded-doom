@@ -4,113 +4,66 @@ import { store } from "../../doom";
 
 export const inspectorAttributeName = 'doomInspect';
 
-const lightLevelParams = `
-flat out uint dL;
-attribute uint doomLight;
+const vertex_pars = `
+#include <common>
 
+attribute uint texN;
+attribute ivec2 doomOffset;
 uniform float time;
 uniform uint tWidth;
-attribute ivec2 doomOffset;
-varying vec2 vOff;
-
-flat out uvec2 dI;
-attribute uvec2 ${inspectorAttributeName};
-`
-const lightLevelInit = `
-dL = doomLight;
-dI = ${inspectorAttributeName};
-`;
-
-const vertexPars = `
-#include <common>
-
-flat out vec3 normal_;
-// texture index
-flat out uint tN;
-attribute uint texN;
-`;
-const vertexMain = `
-tN = texN;
-normal_ = normal;
-
-vOff = vec2( float(doomOffset.x), float(doomOffset.y) ) * time / float(tWidth);
-#include <uv_vertex>
-`;
-
-const fragmentPars = `
-#include <common>
-
 uniform sampler2D tAtlas;
 uniform uint tAtlasWidth;
-uniform sampler2D tLightLevels;
-uniform sampler2D tLightMap;
-uniform uint tLightMapWidth;
-uniform uvec2 dInspect;
-uniform float doomExtraLight;
-uniform int doomFakeContrast;
 
-flat in vec3 normal_;
-flat in uint dL;
-flat in uint tN;
-flat in uvec2 dI;
+varying vec4 vUV;
+varying vec2 vDim;
 varying vec2 vOff;
-
-const float oneSixteenth = 1.0 / 16.0;
-float doomLightLevel(float level) {
-    float light = level * 256.0;
-    vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
-    vec4 sectorLightLevel = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
-    return sectorLightLevel.g;
-}
-
-const float fakeContrastStep = 16.0 / 256.0;
-float fakeContrast(vec3 normal) {
-    vec3 absNormal = abs(normal);
-    if (doomFakeContrast == 2) {
-        // gradual contrast
-        return (smoothstep(0.0, 1.0, absNormal.x) * fakeContrastStep) -
-            (smoothstep(0.0, 1.0, absNormal.y) * fakeContrastStep);
-    } else if (doomFakeContrast == 1) {
-        // "classic" contrast that only impacts east-west are darker and north-south walls are brighter
-        return
-            absNormal.y == 1.0 ? -fakeContrastStep
-            : absNormal.x == 1.0 ? fakeContrastStep
-            : 0.0;
-    }
-    return 0.0;
-}
 `;
-const fragmentMap = `
+const uv_vertex = `
+#include <uv_vertex>
+
+float invAtlasWidth = 1.0 / float(tAtlasWidth);
+vec2 atlasUV = vec2( mod(float(texN), float(tAtlasWidth)), floor(float(texN) * invAtlasWidth));
+atlasUV = (atlasUV + .5) * invAtlasWidth;
+vUV = texture2D( tAtlas, atlasUV );
+vDim = vec2( vUV.z - vUV.x, vUV.w - vUV.y );
+vOff = vec2( float(doomOffset.x), float(doomOffset.y) ) * time / float(tWidth);
+`;
+
+const fragment_pars = `
+#include <common>
+
+varying vec4 vUV;
+varying vec2 vDim;
+varying vec2 vOff;
+`;
+const map_fragment = `
 #ifdef USE_MAP
 
-// texture dimensions
-vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
-vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
-
-vec2 mapUV = mod( vMapUv * dim + vOff, dim) + t1.xy;
+vec2 mapUV = mod( vMapUv * vDim + vOff, vDim) + vUV.xy;
 vec4 sampledDiffuseColor = texture2D( map, mapUV );
 diffuseColor *= sampledDiffuseColor;
 
 #endif
 `;
 
-interface MapMaterialUniforms {
-    dInspect: IUniform;
-    doomExtraLight: IUniform;
-    doomFakeContrast: IUniform;
-    time: IUniform;
-}
-
 export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightLevels: DataTexture) {
     // extending threejs standard materials feels like a hack BUT doing it this way
     // allows us to take advantage of all the advanced capabilities there
     // (like lighting and shadows)
 
-    const uniforms = store<MapMaterialUniforms>({
-        dInspect: { value: [-1, -1] },
-        doomExtraLight: { value: 0 },
-        doomFakeContrast: { value: 0 },
-        time: { value: 0 },
+    const uniforms = store({
+        dInspect: { value: [-1, -1] } as IUniform,
+        doomExtraLight: { value: 0 } as IUniform,
+        doomFakeContrast: { value: 0 } as IUniform,
+        time: { value: 0 } as IUniform,
+        // map lighting info
+        tLightLevels: { value: lightLevels },
+        tLightMap: { value: lightMap },
+        tLightMapWidth: { value: lightMap.image.width },
+        // texture meta data
+        tWidth: { value: ta.texture.image.width },
+        tAtlas: { value: ta.index },
+        tAtlasWidth: { value: ta.index.image.width },
     });
 
     const material = new MeshStandardMaterial({
@@ -119,87 +72,106 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightL
         shadowSide: FrontSide,
     });
     material.onBeforeCompile = shader => {
-        shader.uniforms = UniformsUtils.merge([uniforms.val, shader.uniforms]);
-        shader.uniforms.tLightLevels = { value: lightLevels };
-        shader.uniforms.tLightMap = { value: lightMap };
-        shader.uniforms.tLightMapWidth = { value: lightMap.image.width };
-        shader.uniforms.tWidth = { value: ta.texture.image.width };
-        shader.uniforms.tAtlas = { value: ta.index };
-        shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
-        uniforms.set(shader.uniforms as any);
+        Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
-        shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars + lightLevelParams);
-        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain + lightLevelInit);
+        shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', vertex_pars + `
+            uniform sampler2D tLightLevels;
+            uniform sampler2D tLightMap;
+            uniform uint tLightMapWidth;
+            uniform float doomExtraLight;
+            uniform int doomFakeContrast;
+            attribute uint doomLight;
+            varying float vScaledLightLevel;
 
-        shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
-        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-        #ifdef USE_MAP
+            uniform uvec2 dInspect;
+            attribute uvec2 ${inspectorAttributeName};
+            varying vec3 doomInspectorEmissive;
 
-        // texture dimensions
-        vec4 t1 = texture2D( tAtlas, vec2( ((float(tN)) + .5) / float(tAtlasWidth), 0.5 ) );
-        vec2 dim = vec2( t1.z - t1.x, t1.w - t1.y );
+            const float oneSixteenth = 1.0 / 16.0;
+            float doomLightLevel(float level) {
+                float light = level * 256.0;
+                vec2 luv = vec2( mod(light, oneSixteenth), floor(light * oneSixteenth) );
+                vec4 sectorLightLevel = texture2D( tLightLevels, (luv + .5) * oneSixteenth );
+                return clamp(sectorLightLevel.g, 0.0, 1.0);
+            }
 
-        vec2 mapUV = mod( vMapUv * dim + vOff, dim) + t1.xy;
-        vec4 sampledDiffuseColor = texture2D( map, mapUV );
-        if (sampledDiffuseColor.a < 1.0) discard;
-
-        #ifdef DECODE_VIDEO_TEXTURE
-            // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
-            sampledDiffuseColor = vec4( mix( pow( sampledDiffuseColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), sampledDiffuseColor.rgb * 0.0773993808, vec3( lessThanEqual( sampledDiffuseColor.rgb, vec3( 0.04045 ) ) ) ), sampledDiffuseColor.w );
-        #endif
-        diffuseColor *= sampledDiffuseColor;
-
-        #endif
-
-        if (dInspect == dI) {
-            // faded magenta
-            totalEmissiveRadiance = vec3(1.0, 0.0, 1.0) * .1;
-        }
-        `);
-        shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', `
-            #include <lights_fragment_begin>
-
+            const float fakeContrastStep = 16.0 / 256.0;
+            float fakeContrast(vec3 normal) {
+                vec3 absNormal = abs(normal);
+                if (doomFakeContrast == 2) {
+                    // gradual contrast
+                    return (smoothstep(0.0, 1.0, absNormal.x) * fakeContrastStep) -
+                        (smoothstep(0.0, 1.0, absNormal.y) * fakeContrastStep);
+                } else if (doomFakeContrast == 1) {
+                    // "classic" contrast that only impacts east-west are darker and north-south walls are brighter
+                    return
+                        absNormal.y == 1.0 ? -fakeContrastStep
+                        : absNormal.x == 1.0 ? fakeContrastStep
+                        : 0.0;
+                }
+                return 0.0;
+            }
+            `)
+            .replace('#include <uv_vertex>', uv_vertex + `
             // sector light level
-            float dLf = float(dL);
             float invLightMapWidth = 1.0 / float(tLightMapWidth);
             vec2 lightUV = vec2(
-                mod(dLf, float(tLightMapWidth)),
-                floor(dLf * invLightMapWidth) );
+                mod(float(doomLight), float(tLightMapWidth)),
+                floor(float(doomLight) * invLightMapWidth) );
             vec4 sectorLight = texture2D( tLightMap, (lightUV + .5) * invLightMapWidth );
 
-            sectorLight.rgb += fakeContrast(normal_);
-            float scaledLightLevel = doomLightLevel(sectorLight.g + doomExtraLight);
+            sectorLight.rgb += fakeContrast(normal);
+            vScaledLightLevel = doomLightLevel(sectorLight.g + doomExtraLight);
 
+            // faded magenta if selected for inspection
+            // maybe it's better to simply have an if/else?
+            vec2 insp = step(vec2(${inspectorAttributeName} - dInspect), vec2(0.0));
+            doomInspectorEmissive = (1.0 - step(dot(vec2(1.0), insp), 1.0)) * vec3(1.0, 0.0, 1.0) * .1;
+            `);
+
+        shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', fragment_pars + `
+            varying float vScaledLightLevel;
+            varying vec3 doomInspectorEmissive;
+            `)
+            .replace('#include <map_fragment>', map_fragment)
+            .replace('#include <lights_fragment_begin>', `
+            #include <lights_fragment_begin>
             // apply lighting
-            material.diffuseColor.rgb *= clamp(scaledLightLevel, 0.0, 1.0);
+            material.diffuseColor.rgb *= vScaledLightLevel;
             // material.diffuseColor.rgb = vec3(scaledLightLevel);
             // material.diffuseColor.rgb = vec3(fakeContrast(normal_) * 4.0 + .5);
             // material.diffuseColor.rgb = abs(normal_);
-        `);
+
+            totalEmissiveRadiance += doomInspectorEmissive;
+            `);
     };
 
-    const depthMaterial = new MeshDepthMaterial();
+    const depthMaterial = new MeshDepthMaterial({ alphaTest: 1.0 });
     depthMaterial.onBeforeCompile = shader => {
-        shader.uniforms.tAtlas = { value: ta.index };
-        shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
+        Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
-        shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars);
-        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain);
+        shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', vertex_pars)
+            .replace('#include <uv_vertex>', uv_vertex);
 
-        shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
-        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
+        shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', fragment_pars)
+            .replace('#include <map_fragment>', map_fragment);
     };
 
-    const distanceMaterial = new MeshDistanceMaterial();
+    const distanceMaterial = new MeshDistanceMaterial({ alphaTest: 1.0 });
     distanceMaterial.onBeforeCompile = shader => {
-        shader.uniforms.tAtlas = { value: ta.index };
-        shader.uniforms.tAtlasWidth = { value: ta.index.image.width };
+        Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
-        shader.vertexShader = shader.vertexShader.replace('#include <common>', vertexPars);
-        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', vertexMain);
+        shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', vertex_pars)
+            .replace('#include <uv_vertex>', uv_vertex);
 
-        shader.fragmentShader = shader.fragmentShader.replace('#include <common>', fragmentPars);
-        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', fragmentMap);
+        shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', fragment_pars)
+            .replace('#include <map_fragment>', map_fragment);
     };
 
     return { material, depthMaterial, distanceMaterial, uniforms };

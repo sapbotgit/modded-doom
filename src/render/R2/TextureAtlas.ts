@@ -1,6 +1,15 @@
 import { DataTexture, FloatType, NearestFilter, RepeatWrapping, SRGBColorSpace } from "three";
 import type { DoomWad, Picture } from "../../doom";
 
+
+function findNearestPower2(n: number) {
+    let t = 1;
+    while (t < n) {
+        t *= 2;
+    }
+    return t;
+}
+
 type RowEdge = { x: number, y: number, rowHeight: number };
 
 export class TextureAtlas {
@@ -17,10 +26,9 @@ export class TextureAtlas {
 
         const textures = wad.texturesNames();
         const flats = wad.flatsNames();
-        // TODO: make this 2D like lightMap in case we have more than tSize textures?
-        const indexData = new Float32Array((textures.length + flats.length) * 4);
-        // TODO: probably should be nearest power of two width
-        const tAtlas = new DataTexture(indexData, flats.length + textures.length);
+        const size = findNearestPower2(textures.length + flats.length);
+        const indexData = new Float32Array((size * size) * 4);
+        const tAtlas = new DataTexture(indexData, size, size);
         tAtlas.type = FloatType;
         tAtlas.needsUpdate = true;
         this.index = tAtlas;
