@@ -44,43 +44,44 @@ export class SpriteSheet {
         texture.colorSpace = SRGBColorSpace;
         this.sheet = texture;
 
-        const storeSpriteInfo = (idx: number, gfx: Picture, frame: { mirror: boolean, rotation: number }) => {
-            this.spriteInfo.image.data[0 + idx * 4] = gfx.xOffset;
-            this.spriteInfo.image.data[1 + idx * 4] = gfx.yOffset;
-            this.spriteInfo.image.data[2 + idx * 4] = frame.mirror ? -1 : 1;
-            this.spriteInfo.image.data[3 + idx * 4] = frame.rotation;
+        const storeSpriteInfo = (n: number, gfx: Picture, frame: { mirror: boolean, rotation: number }) => {
+            this.spriteInfo.image.data[0 + n * 4] = gfx.xOffset;
+            this.spriteInfo.image.data[1 + n * 4] = gfx.yOffset;
+            this.spriteInfo.image.data[2 + n * 4] = frame.mirror ? -1 : 1;
+            this.spriteInfo.image.data[3 + n * 4] = frame.rotation;
+        }
+
+        const indexFrame = (n: number, frame: { sprite : string, rotation: number, frame: number }) => {
+            let frames = this.spriteFrames[frame.sprite];
+            if (!frames) {
+                frames = [];
+                this.spriteFrames[frame.sprite] = frames;
+            }
+            if (frame.rotation === 0 || frame.rotation === 1) {
+                frames[frame.frame] = n;
+            }
         }
 
         let spriteGfx = new Map<string, number>();
         for (let idx = 0; idx < sprites.length; idx++) {
             const frame = sprites[idx];
             const gfx = wad.spriteTextureData(frame.name);
+            storeSpriteInfo(idx, gfx, frame);
+            indexFrame(idx, frame);
 
             let orig = spriteGfx.get(frame.name);
             if (orig) {
-                // copy uv coordinates
+                // copy uv coordinates but don't insert into texture
                 this.uvIndex.image.data[0 + idx * 4] = this.uvIndex.image.data[0 + orig * 4];
                 this.uvIndex.image.data[1 + idx * 4] = this.uvIndex.image.data[1 + orig * 4];
                 this.uvIndex.image.data[2 + idx * 4] = this.uvIndex.image.data[2 + orig * 4];
                 this.uvIndex.image.data[3 + idx * 4] = this.uvIndex.image.data[3 + orig * 4];
-
-                storeSpriteInfo(idx, gfx, frame);
                 continue;
             }
 
-            // insert image, index frame, and store info
+            // insert image
             this.insert(idx, frame.name, gfx);
             spriteGfx.set(frame.name, idx);
-            storeSpriteInfo(idx, gfx, frame);
-            // index frame
-            let frames = this.spriteFrames[frame.sprite];
-            if (!frames) {
-                frames = [];
-                this.spriteFrames[frame.sprite] = frames;
-            }
-            if (frames[frame.frame] === undefined) {
-                frames[frame.frame] = idx;
-            }
         }
         this.uvIndex.needsUpdate = true;
         this.spriteInfo.needsUpdate = true;

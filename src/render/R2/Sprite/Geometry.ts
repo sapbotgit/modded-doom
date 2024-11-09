@@ -92,7 +92,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
         const isMissile = mo.info.flags & MFFlags.MF_MISSILE;
         const subs = [];
 
-        const updateSprite = sprite => {
+        const updateSprite = (sprite: Sprite) => {
             if (!sprite) return;
             const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
             thingsMeshes[m].geometry.attributes.texN.array[n * 2] = spriteIndex;

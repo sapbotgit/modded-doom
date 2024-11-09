@@ -23,6 +23,7 @@
     const { editor, settings } = useAppContext();
     const { playerLight, interpolateMovement } = settings;
 
+
     function hit(ev) {
         ev.stopPropagation();
 
