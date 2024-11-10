@@ -249,12 +249,18 @@ export class DoomWad {
             return this.spriteFrameTable.get(uname)
         }
 
-        const sprites = this.spriteLumps.filter(lump => lump.name.startsWith(uname));
+        // reverse because we prioritize sprites from the last wad loaded
+        const sprites = this.spriteLumps.filter(lump => lump.name.startsWith(uname)).reverse();
         const frames: SpriteFrame[] = [];
         for (const lump of sprites) {
             const spriteName = lump.name;
             let frame = spriteName.charCodeAt(4) - 65;
             let rotation = spriteName.charCodeAt(5) - 48;
+
+            if (frames.find(fr => fr.frame === frame && fr.rotation === rotation)) {
+                // already have a sprite for this rotation and frame so ignore it
+                continue;
+            }
 
             frames.push({ frame, rotation, name: spriteName, mirror: false });
             if (rotation === 0) {

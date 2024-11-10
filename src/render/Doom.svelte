@@ -75,9 +75,10 @@
             setTimeout(set486Params, randInt(200, 800));
         }
         set486Params();
-    } else if (showMenu) {
+    // FIXME: this would be nice but it messes with game time on unpause.
+    // } else if (showMenu) {
         // no need to update the view as often when showing the menu
-        frameTime = $editor.active ? .1 : 1;
+        // frameTime = $editor.active ? .1 : 1;
     } else {
         frameTime = 1 / $fpsLimit;
         tscale = $timescale;
