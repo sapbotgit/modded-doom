@@ -1,10 +1,11 @@
-import { DoubleSide, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, UniformsUtils, Vector2, Vector3, Vector4, type DataTexture, type IUniform } from "three";
+import { DoubleSide, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, Vector3, Vector4, type DataTexture, type IUniform } from "three";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { store } from "../../../doom";
 
 // These materials are a giant mess. We could reduce some of the copy/paste but it doesn't make the shaders
 // any easier to read. Hmmm...
 
+export type SpriteMaterial = ReturnType<typeof createSpriteMaterial>;
 export const inspectorAttributeName = 'doomInspect';
 export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
 
@@ -138,6 +139,9 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     vMotion.x += cos(motion.y) * partialMove;
     vMotion.y += sin(motion.y) * partialMove;
     transformed += vMotion;
+
+    // downscale because of fixed geometry size for inspector
+    transformed *= 1.0 / vec3(40, 40, 80);
     `;
 
     const fragmentPars = `

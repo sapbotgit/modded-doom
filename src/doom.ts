@@ -12,6 +12,7 @@ export * from './doom/things'
 export * from './doom/doom-things-info'
 export * from './doom/store'
 export * from './doom/text'
+export * from './doom/sprite'
 
 export const data = {
     skills: [

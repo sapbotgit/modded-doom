@@ -1,13 +1,13 @@
-import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Material, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
-import { HALF_PI, MapRuntime, MFFlags, PlayerMapObject, type MapObject } from "../../../doom";
+import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
+import { HALF_PI, MFFlags, PlayerMapObject, type MapObject, type Sprite  } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
-import type { Sprite } from "../../../doom/sprite";
+import type { SpriteMaterial } from "./Materials";
 
 // TODO: tidy up parameters here...
-export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, material: Material, depthMaterial: Material, distanceMaterial: Material) {
-    // Are chunks actually beneficial? It's probably better than resizing/re-initializing a large array
-    // but maybe worth experimenting with sometime.
+export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteMaterial) {
+    // What is an ideal chunksize? Chunks are probably better than resizing/re-initializing a large array
+    // but would 10,000 be good? 20,000? 1,000? I'm not sure how to measure it.
     const chunkSize = 5_000;
 
     let thingsMeshes: InstancedMesh[] = [];
@@ -38,9 +38,9 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
     const createChunk = () => {
         const geometry = new PlaneGeometry();
         geometry.rotateX(-HALF_PI);
-        const mesh = new InstancedMesh(geometry, material, chunkSize);
-        mesh.customDepthMaterial = depthMaterial;
-        mesh.customDistanceMaterial = distanceMaterial;
+        const mesh = new InstancedMesh(geometry, material.material, chunkSize);
+        mesh.customDepthMaterial = material.depthMaterial;
+        mesh.customDistanceMaterial = material.distanceMaterial;
         // sector number that lights this object
         mesh.geometry.setAttribute('doomLight', int16BufferFrom([0], chunkSize));
         mesh.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([-1], chunkSize));
@@ -56,11 +56,12 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
         return mesh;
     }
 
+    // Now that we've got some functions here, maybe a class is better? (because we won't create memory for closures?)
+    // It would be interesting to measure it though I'm not sure how
     interface RenderInfo {
-        idx: number;
         mo: MapObject;
         updateSprite: (sprite: Sprite) => void;
-        subs: (() => void)[];
+        dispose: () => void;
     }
     const rmobjs = new Map<number, RenderInfo>();
 
@@ -90,10 +91,8 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
 
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
         const isMissile = mo.info.flags & MFFlags.MF_MISSILE;
-        const subs = [];
 
         const updateSprite = (sprite: Sprite) => {
-            if (!sprite) return;
             const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
             thingsMeshes[m].geometry.attributes.texN.array[n * 2] = spriteIndex;
 
@@ -113,8 +112,22 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
             thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 2] = mo.map.game.time.tick.val + mo.map.game.time.partialTick.val;
             thingsMeshes[m].geometry.attributes.motion.array[n * 4 + 3] = mo.direction.val;
             thingsMeshes[m].geometry.attributes.motion.needsUpdate = true;
-        }
-        rmobjs.set(mo.id, { mo, idx, subs, updateSprite });
+        };
+
+        const subs = [];
+        const dispose = () => {
+            subs.forEach(fn => fn());
+            rmobjs.delete(mo.id);
+            freeSlots.push(idx);
+
+            // We can't actually remove an instanced geometry but we can hide it until something else uses the free slot.
+            // We hide by moving it far away or scaling it very tiny (making it effectively invisible)
+            s.set(0, 0, 0);
+            thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
+            thingsMeshes[m].instanceMatrix.needsUpdate = true;
+        };
+
+        rmobjs.set(mo.id, { mo, dispose, updateSprite });
 
         // custom attributes
         subs.push(mo.sector.subscribe(sec => {
@@ -122,8 +135,8 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
         subs.push(mo.position.subscribe(pos => {
-            // FIXME: this breaks inspector but it makes it easier to scale sprites. Hmm
-            s.set(1, 1, 1);
+            // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
+            s.set(40, 40, 80);
             if (mo instanceof PlayerMapObject) {
                 s.set(0, 0, 0);
             }
@@ -147,17 +160,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
         if (!info) {
             return;
         }
-        info.subs.forEach(fn => fn());
-        rmobjs.delete(mo.id);
-        freeSlots.push(info.idx);
-
-        let m = Math.floor(info.idx / chunkSize);
-        let n = info.idx % chunkSize;
-        // We can't actually remove an instanced geometry but we can hide it until something else uses the free slot.
-        // We hide by moving it far away or scaling it very tiny (making it effectively invisible)
-        s.set(0, 0, 0);
-        thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
-        thingsMeshes[m].instanceMatrix.needsUpdate = true;
+        info.dispose();
     }
 
     let castShadows = false;
@@ -165,11 +168,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, map: MapRuntime, 
         castShadows = val;
         thingsMeshes.forEach(m => m.castShadow = m.receiveShadow = castShadows);
     };
-
-    map.events.on('mobj-updated-sprite', (mo, sprite) => {
-        const info = rmobjs.get(mo.id);
-        info?.updateSprite(sprite);
-    });
 
     const root = new Object3D();
     return { add, destroy, root, rmobjs, shadowState };

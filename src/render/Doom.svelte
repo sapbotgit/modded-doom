@@ -31,7 +31,7 @@
 
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
-    const { settings, pointerLock } = useAppContext();
+    const { settings, pointerLock, editor } = useAppContext();
     const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons, showPlayerInfo, renderMode } = settings;
     const { map, intermission } = game;
     // TODO: having a separate WipeContainer component is messy and so is tracking two screen states. I wonder if we could
@@ -77,7 +77,7 @@
         set486Params();
     } else if (showMenu) {
         // no need to update the view as often when showing the menu
-        frameTime = 1;
+        frameTime = $editor.active ? .1 : 1;
     } else {
         frameTime = 1 / $fpsLimit;
         tscale = $timescale;
@@ -90,7 +90,8 @@
     let viewSize = { width: 1024, height: 600 };
     onMount(() => {
         let lastTickTime = 0;
-        let lastFrameTime = 0;
+        // use negative number so we always render first frame as fast as possible
+        let lastFrameTime = -1000;
         let frameReq: number;
         const update = (time: DOMHighResTimeStamp) => {
             time *= .001;

@@ -7,7 +7,7 @@
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy } from "svelte";
-    import { MapRuntime, MFFlags, tickTime, type MapObject } from "../../../doom";
+    import { MapRuntime, MFFlags, tickTime, type MapObject, type Sprite } from "../../../doom";
 
     export let map: MapRuntime;
 
@@ -42,7 +42,8 @@
     // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=321.09&player-y=-2486.21&player-z=343.17&player-aim=-0.00&player-dir=-1.57
 
     const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
-    const { material, depthMaterial, distanceMaterial, uniforms } = createSpriteMaterial(spriteSheet, lightMap, lightLevels);
+    const material = createSpriteMaterial(spriteSheet, lightMap, lightLevels);
+    const uniforms = material.uniforms;
     const tranMaterial = createSpriteMaterialTransparent(spriteSheet, lightMap, lightLevels);
     const tranUniforms = tranMaterial.uniforms;
 
@@ -77,19 +78,27 @@
         $tranUniforms.tics.value =  $interpolateMovement ? time : 0;
     }
 
-    $: updateCameraUniforms($threlteCam, $position, $angle);
-    $: $uniforms.doomExtraLight.value = $extraLight / 255;
-    $: updateTimeUniforms($tick + $partialTick);
-    $: ((edit) => {
+    function updateInspectorUniforms(edit) {
         // map objects have 'health' so only handle those
         $uniforms.dInspect.value = edit.selected && 'health' in edit.selected
             ? edit.selected.id
             // clear selection
             : -1;
-    })($editor);
+        $tranUniforms.dInspect.value = $uniforms.dInspect.value;
+    }
 
-    const geo = createSpriteGeometry(spriteSheet, map, material, depthMaterial, distanceMaterial);
-    const tranGeo = createSpriteGeometry(spriteSheet, map, tranMaterial.material, tranMaterial.depthMaterial, tranMaterial.distanceMaterial);
+    function updateExtraLightUniforms(extraLight: number) {
+        $uniforms.doomExtraLight.value = extraLight;
+        $tranUniforms.doomExtraLight.value = extraLight;
+    }
+
+    $: updateCameraUniforms($threlteCam, $position, $angle);
+    $: updateExtraLightUniforms($extraLight / 255);
+    $: updateTimeUniforms($tick + $partialTick);
+    $: updateInspectorUniforms($editor);
+
+    const geo = createSpriteGeometry(spriteSheet, material);
+    const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial);
     onDestroy(() => {
         geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
         tranGeo.rmobjs.values().forEach(r => geo.destroy(r.mo));
@@ -103,22 +112,26 @@
         if (mo.info.flags & MFFlags.MF_NOSECTOR) {
             return;
         }
-        if (mo.info.flags & MFFlags.MF_SHADOW) {
-            tranGeo.add(mo);
-        } else {
-            geo.add(mo);
-        }
+        const geom = (mo.info.flags & MFFlags.MF_SHADOW) ? tranGeo : geo;
+        geom.add(mo);
     }
     const removeMobjs = (mo: MapObject) => {
         geo.destroy(mo);
         tranGeo.destroy(mo);
     }
+    const updateMobjSprite = (mo: MapObject, sprite: Sprite) => {
+        const info = geo.rmobjs.get(mo.id) ?? tranGeo.rmobjs.get(mo.id);
+        info?.updateSprite(sprite);
+    }
+
     map.objs.forEach(addMobj);
     map.events.on('mobj-added', addMobj);
     map.events.on('mobj-removed', removeMobjs);
+    map.events.on('mobj-updated-sprite', updateMobjSprite);
     onDestroy(() => {
         map.events.off('mobj-added', addMobj);
         map.events.off('mobj-removed', removeMobjs);
+        map.events.off('mobj-updated-sprite', updateMobjSprite);
     });
 </script>
 
