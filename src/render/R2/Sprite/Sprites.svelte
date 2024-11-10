@@ -25,6 +25,9 @@
 
 
     function hit(ev) {
+        if (!ev.instanceId) {
+            return;
+        }
         ev.stopPropagation();
 
         const id = ev.object.geometry.attributes.doomInspect.array[ev.instanceId];

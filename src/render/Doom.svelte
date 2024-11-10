@@ -75,6 +75,9 @@
             setTimeout(set486Params, randInt(200, 800));
         }
         set486Params();
+    } else if (showMenu) {
+        // no need to update the view as often when showing the menu
+        frameTime = 1;
     } else {
         frameTime = 1 / $fpsLimit;
         tscale = $timescale;

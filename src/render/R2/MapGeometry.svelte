@@ -64,6 +64,9 @@
     const { position, extraLight } = map.player;
 
     function hit(ev) {
+        if (!ev.face) {
+            return;
+        }
         ev.stopPropagation();
 
         const type = geometry.attributes.doomInspect.array[ev.face.a * 2];
