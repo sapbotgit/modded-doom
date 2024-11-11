@@ -23,7 +23,7 @@
     import { Bars3BottomLeft } from '@steeze-ui/heroicons'
     import WipeContainer from "./Components/WipeContainer.svelte";
     import { randInt } from "three/src/math/MathUtils";
-    import type { WebGLRendererParameters } from "three";
+    import { type WebGLRendererParameters } from "three";
 
     export let game: Game;
     export let musicGain: GainNode;
@@ -75,14 +75,50 @@
             setTimeout(set486Params, randInt(200, 800));
         }
         set486Params();
-    // FIXME: this would be nice but it messes with game time on unpause.
-    // } else if (showMenu) {
-        // no need to update the view as often when showing the menu
-        // frameTime = $editor.active ? .1 : 1;
     } else {
         frameTime = 1 / $fpsLimit;
         tscale = $timescale;
     }
+
+    const updateFrame = (function() {
+        let frameReq: number;
+        let lastTickTime = 0;
+        // use negative number so we always render first frame as fast as possible
+        let lastFrameTime = -1000;
+
+        const menuFn: FrameRequestCallback = (time) => {
+            time *= .001;
+            frameReq = requestAnimationFrame(obj.nextFn);
+            // use 10fps for editor mode otherwise 1 fps
+            let frameTime = $editor.active ? .1 : 1;
+            if (time - lastFrameTime > frameTime) {
+                threlteCtx?.advance();
+                lastFrameTime = time - (time % frameTime);
+            }
+            lastTickTime = time;
+        };
+
+        const gameFn: FrameRequestCallback = (time) => {
+            time *= .001;
+            frameReq = requestAnimationFrame(obj.nextFn);
+            if (time - lastFrameTime > frameTime) {
+                threlteCtx?.advance();
+                lastFrameTime = time - (time % frameTime);
+
+                game.tick(time - lastTickTime, tscale);
+                lastTickTime = time;
+            }
+        };
+
+        const obj = {
+            menuFn,
+            gameFn,
+            nextFn: gameFn,
+            stop: () => cancelAnimationFrame(frameReq),
+        }
+        return obj;
+    })();
+    $: updateFrame.nextFn = showMenu ? updateFrame.menuFn : updateFrame.gameFn;
 
     const rendererParameters: WebGLRendererParameters = {
         // resolves issues with z-fighting for large maps with small sectors (eg. Sunder 15 and 20 at least)
@@ -90,26 +126,8 @@
     };
     let viewSize = { width: 1024, height: 600 };
     onMount(() => {
-        let lastTickTime = 0;
-        // use negative number so we always render first frame as fast as possible
-        let lastFrameTime = -1000;
-        let frameReq: number;
-        const update = (time: DOMHighResTimeStamp) => {
-            time *= .001;
-            frameReq = requestAnimationFrame(update);
-            if (time - lastFrameTime > frameTime) {
-                threlteCtx?.advance();
-                lastFrameTime = time - (time % frameTime);
-
-                if (!showMenu) {
-                    game.tick(time - lastTickTime, tscale);
-                }
-                lastTickTime = time;
-            }
-        };
-        requestAnimationFrame(update);
-
-        return () => cancelAnimationFrame(frameReq);
+        requestAnimationFrame(updateFrame.nextFn);
+        return updateFrame.stop;
     });
 
     // Someday I hope to live in a world where I can use fullscreen API in safari on iPhone

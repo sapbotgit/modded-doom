@@ -23,7 +23,6 @@
     const { editor, settings } = useAppContext();
     const { playerLight, interpolateMovement } = settings;
 
-
     function hit(ev) {
         if (!ev.instanceId) {
             return;
@@ -69,6 +68,7 @@
             $tranUniforms.camP.value.copy(p);
         }
     })();
+    $: updateCameraUniforms($threlteCam, $position, $angle);
 
     function updateTimeUniforms(time: number) {
         const t2 = time * tickTime
@@ -77,6 +77,7 @@
         $tranUniforms.time.value = t2;
         $tranUniforms.tics.value =  $interpolateMovement ? time : 0;
     }
+    $: updateTimeUniforms($tick + $partialTick);
 
     function updateInspectorUniforms(edit) {
         // map objects have 'health' so only handle those
@@ -86,23 +87,21 @@
             : -1;
         $tranUniforms.dInspect.value = $uniforms.dInspect.value;
     }
+    $: updateInspectorUniforms($editor);
 
     function updateExtraLightUniforms(extraLight: number) {
         $uniforms.doomExtraLight.value = extraLight;
         $tranUniforms.doomExtraLight.value = extraLight;
     }
-
-    $: updateCameraUniforms($threlteCam, $position, $angle);
     $: updateExtraLightUniforms($extraLight / 255);
-    $: updateTimeUniforms($tick + $partialTick);
-    $: updateInspectorUniforms($editor);
+
 
     const geo = createSpriteGeometry(spriteSheet, material);
     const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial);
     onDestroy(() => {
         geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
         tranGeo.rmobjs.values().forEach(r => geo.destroy(r.mo));
-    })
+    });
 
     $: usePlayerLight = $playerLight !== '#000000';
     $: geo.shadowState(usePlayerLight);
