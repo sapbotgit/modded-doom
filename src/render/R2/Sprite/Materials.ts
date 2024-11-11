@@ -1,15 +1,17 @@
-import { DoubleSide, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, Vector3, Vector4, type DataTexture, type IUniform } from "three";
+import { DoubleSide, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, Vector3, Vector4, type IUniform } from "three";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { store } from "../../../doom";
+import type { buildLightMap } from "../GeometryBuilder";
 
-// These materials are a giant mess. We could reduce some of the copy/paste but it doesn't make the shaders
-// any easier to read. Hmmm...
-
+type LightMap = ReturnType<typeof buildLightMap>;
 export type SpriteMaterial = ReturnType<typeof createSpriteMaterial>;
 export const inspectorAttributeName = 'doomInspect';
-export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
+export function createSpriteMaterial(sprites: SpriteSheet, lighting: LightMap, params: { cameraMode: string }) {
+    const pars_prefix = [
+        params.cameraMode === 'bird' ? '#define BIRD_CAM' : ''
+    ].join('\n')
 
-    const vertexPars = `
+    const vertex_pars = pars_prefix + `
     #include <common>
 
     uniform vec4 camQ;
@@ -91,19 +93,20 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     // sprite info (offsets, mirrored, etc)
     ivec4 info = texture2D( tSpriteInfo, tUV );
 
-    float rot = 0.0;
+    #ifndef BIRD_CAM
     if (info.w > 0) {
         // sprite has rotations so figure out which one to use
         // NB: don't use actual position here but use origin because we are rendering planes from (-.5,0,-.5)-(.5,0,.5)
         // so we really just choose one point otherwise some vertices may use a different rotation.
         vec4 pos = instanceMatrix * vec4( 0, 0, 0, 1 );
-        rot = spriteRotation( pos, float(motion.w), camP );
+        float rot = spriteRotation( pos, float(motion.w), camP );
 
         spriteN += rot;
         tUV = vec2( mod(spriteN, fSpriteUVWidth), floor(spriteN * invSpriteUVsWidth));
         tUV = (tUV + .5) * invSpriteUVsWidth;
         info = texture2D( tSpriteInfo, tUV );
     }
+    #endif
 
     // sprite dimensions
     sUV = texture2D( tSpriteUVs, tUV );
@@ -116,8 +119,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     // scale based on texture size (vDim) and mirror (info.z)
     vec2 dim = vDim * tSpritesWidth;
-    float sXY = dim.x * float(info.z);
-    transformed *= vec3(sXY, sXY, dim.y);
+    transformed *= vec3(dim.x * float(info.z), dim.y, dim.y);
 
     // and position based on texture size and offsets (info.xy)
     float invertZ = 1.0 - 2.0 * flagBit(texN.y, flag_invertZOffset);
@@ -129,7 +131,14 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
 
     // apply camera angle quaternion after scale and offset otherwise offsets won't look right
     // (Doom2's burning barrels wiggle if we apply the quaternion before applying sprite offsets)
+    #ifdef BIRD_CAM
+    // Grr... burning barrels still wiggle in bird cam but I doubt it's a common use case so I'm going to ignore it for now
+    float halfAng = (motion.w - PI_HALF) * .5;
+    vec4 angleQuat = vec4(0.0, 0.0, sin(halfAng), cos(halfAng));
+    transformed = applyQuaternionToVector(angleQuat, transformed);
+    #else
     transformed = applyQuaternionToVector(camQ, transformed);
+    #endif
 
     // motion interpolation (motion = [speed/tic, direction, startTimeTics])
     const float notMoving = -0.01;
@@ -144,7 +153,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
     transformed *= 1.0 / vec3(40, 40, 80);
     `;
 
-    const fragmentPars = `
+    const fragment_pars = pars_prefix + `
     #include <common>
 
     // noise for objects with "shadows" flag (like spectres)
@@ -183,9 +192,9 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         camQ: { value: new Vector4() } as IUniform,
         camP: { value: new Vector3() } as IUniform,
         // map lighting info
-        tLightLevels: { value: lightLevels },
-        tLightMap: { value: lightMap },
-        tLightMapWidth: { value: lightMap.image.width },
+        tLightLevels: { value: lighting.lightLevels },
+        tLightMap: { value: lighting.lightMap },
+        tLightMapWidth: { value: lighting.lightMap.image.width },
         // sprite meta data
         tSpriteInfo: { value: sprites.spriteInfo },
         tSpritesWidth: { value: sprites.sheet.image.width },
@@ -203,7 +212,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
         shader.vertexShader = shader.vertexShader
-            .replace('#include <common>', vertexPars + `
+            .replace('#include <common>', vertex_pars + `
             uniform float doomExtraLight;
             attribute uint doomLight;
             varying float doomLightLevel;
@@ -233,7 +242,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
             `);
 
         shader.fragmentShader = shader.fragmentShader
-            .replace('#include <common>', fragmentPars + `
+            .replace('#include <common>', fragment_pars + `
             varying float doomLightLevel;
             varying vec3 doomInspectorEmissive;
             `)
@@ -275,12 +284,12 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         Object.keys(uniforms.val).forEach(key => shader.uniforms[key] = uniforms.val[key])
 
         shader.vertexShader = shader.vertexShader
-            .replace('#include <common>', vertexPars)
+            .replace('#include <common>', vertex_pars)
             .replace('#include <uv_vertex>', uv_vertex)
             .replace(`#include <begin_vertex>`, begin_vertex);
 
         shader.fragmentShader = shader.fragmentShader
-            .replace('#include <common>', fragmentPars)
+            .replace('#include <common>', fragment_pars)
             .replace('#include <map_fragment>', depthDist_map_fragment);
     };
 
@@ -292,19 +301,19 @@ export function createSpriteMaterial(sprites: SpriteSheet, lightMap: DataTexture
         // so I'm not quite sure how to do that. For now, this makes the shadow match the rendered sprite.
         // Perhaps rendering sprites as BoxGeometry would be slightly better?
         shader.vertexShader = shader.vertexShader
-            .replace('#include <common>', vertexPars)
+            .replace('#include <common>', vertex_pars)
             .replace('#include <uv_vertex>', uv_vertex)
             .replace(`#include <begin_vertex>`, begin_vertex);
 
         shader.fragmentShader = shader.fragmentShader
-            .replace('#include <common>', fragmentPars)
+            .replace('#include <common>', fragment_pars)
             .replace('#include <map_fragment>', depthDist_map_fragment);
     };
     return { material, distanceMaterial, depthMaterial, uniforms };
 }
 
-export function createSpriteMaterialTransparent(sprites: SpriteSheet, lightMap: DataTexture, lightLevels: DataTexture) {
-    const mat = createSpriteMaterial(sprites, lightMap, lightLevels);
+export function createSpriteMaterialTransparent(sprites: SpriteSheet, lighting: LightMap, params: { cameraMode: string }) {
+    const mat = createSpriteMaterial(sprites, lighting, params);
     mat.material.alphaTest = 0;
     mat.material.depthWrite = false;
     mat.material.transparent = true;

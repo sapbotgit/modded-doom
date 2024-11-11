@@ -15,7 +15,7 @@
 
     let zoom = 200;
     useTask(() => {
-        zoom = Math.max(50, Math.min(1500, zoom + map.game.input.aim.z));
+        zoom = Math.max(100, Math.min(2500, zoom + map.game.input.aim.z));
         map.game.input.aim.setZ(0);
     });
 

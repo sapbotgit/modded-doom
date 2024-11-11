@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type MapRuntime } from "../../doom";
+    import { MapObject, type MapRuntime, type Sprite } from "../../doom";
     import { useAppContext, useDoomMap } from "../DoomContext";
     import BlockMap from "../Debug/BlockMap.svelte";
     import Stats from "../Debug/Stats.svelte";
@@ -24,9 +24,10 @@
     $: interact.enabled.set($editor.active);
 
     // This is a hack to re-enable the $sprite readable for R1.
-    map.events.on('mobj-updated-sprite', (mo, sprite) => {
-        mo.sprite.set(sprite);
-    });
+    const updateSprite = (mo: MapObject, sprite: Sprite) => mo.sprite.set(sprite);
+    map.events.on('mobj-updated-sprite', updateSprite);
+    onDestroy(() => map.events.off('mobj-updated-sprite', updateSprite));
+
     // Another similar hack
     $: map.synchronizeSpecials('r1');
     onDestroy(() => map.synchronizeSpecials());

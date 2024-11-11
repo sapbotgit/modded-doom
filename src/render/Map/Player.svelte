@@ -3,7 +3,7 @@
     import Thing from "./Thing.svelte";
     import { Camera, CircleGeometry, MeshStandardMaterial, OrthographicCamera, Scene } from "three";
     import { useDoomMap } from "../DoomContext";
-    import { ticksPerSecond } from "../../doom";
+    import { MapObject, ticksPerSecond, type Sprite } from "../../doom";
     import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
     import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
     import { ScreenColorShader } from "../Shaders/ScreenColorShader";
@@ -15,6 +15,7 @@
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
     import Weapon from "./Weapon.svelte";
+    import { onDestroy } from "svelte";
 
     const { map, renderSectors } = useDoomMap();
     const { cameraMode } = map.game.settings;
@@ -57,13 +58,15 @@
     $: composer.setSize($size.width, $size.height);
 
     // This is a hack to re-enable the $sprite readable for weapons and player sprite
-    player.map.events.on('mobj-updated-sprite', (mo, sprite) => {
+    const updatePlayerSprite = (mo: MapObject) => {
         if (mo === player) {
             player.sprite.set(player.sprite.val);
             player.weapon.val.sprite.set(player.weapon.val.sprite.val);
             player.weapon.val.flashSprite.set(player.weapon.val.flashSprite.val);
         }
-    });
+    };
+    map.events.on('mobj-updated-sprite', updatePlayerSprite);
+    onDestroy(() => map.events.off('mobj-updated-sprite', updatePlayerSprite));
 
     useTask(delta => {
         composer.render(delta);

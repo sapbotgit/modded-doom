@@ -37,7 +37,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
 
     const createChunk = () => {
         const geometry = new PlaneGeometry();
-        geometry.rotateX(-HALF_PI);
         const mesh = new InstancedMesh(geometry, material.material, chunkSize);
         mesh.customDepthMaterial = material.depthMaterial;
         mesh.customDistanceMaterial = material.distanceMaterial;
@@ -56,6 +55,19 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         return mesh;
     }
 
+    const resetGeometry = (cameraMode: string, material: SpriteMaterial) => {
+        const ng = new PlaneGeometry();
+        if (cameraMode !== 'bird') {
+            ng.rotateX(-HALF_PI);
+        }
+        for (const mesh of thingsMeshes) {
+            mesh.material = material.material;
+            mesh.customDepthMaterial = material.depthMaterial;
+            mesh.customDistanceMaterial = material.distanceMaterial;
+            mesh.geometry.attributes.position = ng.attributes.position;
+        }
+    }
+
     // Now that we've got some functions here, maybe a class is better? (because we won't create memory for closures?)
     // It would be interesting to measure it though I'm not sure how
     interface RenderInfo {
@@ -68,10 +80,10 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     const freeSlots: number[] = [];
 
     const mat = new Matrix4();
-    const p = new Vector3( 1, 1, 1 );
+    const p = new Vector3();
     const q = new Quaternion();
-    const s = new Vector3( 1, 1, 1 );
-    function add(mo: MapObject) {
+    const s = new Vector3();
+    const add = (mo: MapObject) => {
         let idx = freeSlots.pop() ?? rmobjs.size;
 
         let m = Math.floor(idx / chunkSize);
@@ -155,12 +167,20 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
     }
 
-    function destroy(mo: MapObject) {
+    const remove = (mo: MapObject) => {
         const info = rmobjs.get(mo.id);
         if (!info) {
             return;
         }
         info.dispose();
+    }
+
+    const get = (mo: MapObject) => rmobjs.get(mo.id);
+
+    const dispose = () => {
+        for (const rinfo of rmobjs.values()) {
+            rinfo.dispose();
+        }
     }
 
     let castShadows = false;
@@ -170,5 +190,5 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     };
 
     const root = new Object3D();
-    return { add, destroy, root, rmobjs, shadowState };
+    return { add, remove, get, dispose, root, shadowState, resetGeometry };
 }

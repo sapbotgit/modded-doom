@@ -43,7 +43,7 @@
     import TouchControlsMenu from "./TouchControlsMenu.svelte";
     import type { Size } from "@threlte/core";
     import { Icon } from '@steeze-ui/svelte-icon'
-    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut } from '@steeze-ui/heroicons'
+    import { SpeakerWave, SpeakerXMark, VideoCamera, Cube, Eye, User, ArrowsPointingIn, ArrowsPointingOut, GlobeEuropeAfrica } from '@steeze-ui/heroicons'
 
     export let viewSize: Size;
 
@@ -153,6 +153,7 @@
                     <li><button on:click={() => $cameraMode = '1p'}><Icon src={Eye} theme='solid' size="1.5rem"/>First person</button></li>
                     <li><button on:click={() => $cameraMode = '3p'}><Icon src={User} theme='solid' size="1.5rem"/>Third person</button></li>
                     <li><button on:click={() => $cameraMode = 'ortho'}><Icon src={Cube} theme='solid' size="1.5rem"/>Isometric</button></li>
+                    <li><button on:click={() => $cameraMode = 'bird'}><Icon src={GlobeEuropeAfrica} theme='solid' size="1.5rem"/>Overhead</button></li>
                 </ul>
             </div>
             <label class="swap btn btn-lg join-item">

@@ -7,7 +7,7 @@
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy } from "svelte";
-    import { MapRuntime, MFFlags, tickTime, type MapObject, type Sprite } from "../../../doom";
+    import { MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject, type Sprite } from "../../../doom";
 
     export let map: MapRuntime;
 
@@ -21,7 +21,7 @@
     // }
 
     const { editor, settings } = useAppContext();
-    const { playerLight, interpolateMovement } = settings;
+    const { playerLight, interpolateMovement, cameraMode } = settings;
 
     function hit(ev) {
         if (!ev.instanceId) {
@@ -40,11 +40,11 @@
     // sprite offset test:
     // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=321.09&player-y=-2486.21&player-z=343.17&player-aim=-0.00&player-dir=-1.57
 
-    const { lightMap, lightLevels } = buildLightMap(renderSectors.map(e => e.sector));
-    const material = createSpriteMaterial(spriteSheet, lightMap, lightLevels);
-    const uniforms = material.uniforms;
-    const tranMaterial = createSpriteMaterialTransparent(spriteSheet, lightMap, lightLevels);
-    const tranUniforms = tranMaterial.uniforms;
+    const lighting = buildLightMap(renderSectors.map(e => e.sector));
+    let material = createSpriteMaterial(spriteSheet, lighting, { cameraMode: $cameraMode });
+    let uniforms = material.uniforms;
+    let tranMaterial = createSpriteMaterialTransparent(spriteSheet, lighting, { cameraMode: $cameraMode });
+    let tranUniforms = tranMaterial.uniforms;
 
     const threlteCam = threlte.camera;
     const { position, angle } = camera;
@@ -98,9 +98,18 @@
 
     const geo = createSpriteGeometry(spriteSheet, material);
     const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial);
+    $: if ($cameraMode) {
+        material = createSpriteMaterial(spriteSheet, lighting, { cameraMode: $cameraMode });
+        uniforms = material.uniforms;
+        tranMaterial = createSpriteMaterialTransparent(spriteSheet, lighting, { cameraMode: $cameraMode });
+        tranUniforms = tranMaterial.uniforms;
+
+        geo.resetGeometry($cameraMode, material);
+        tranGeo.resetGeometry($cameraMode, material);
+    }
     onDestroy(() => {
-        geo.rmobjs.values().forEach(r => geo.destroy(r.mo));
-        tranGeo.rmobjs.values().forEach(r => geo.destroy(r.mo));
+        geo.dispose();
+        tranGeo.dispose();
     });
 
     $: usePlayerLight = $playerLight !== '#000000';
@@ -115,11 +124,11 @@
         geom.add(mo);
     }
     const removeMobjs = (mo: MapObject) => {
-        geo.destroy(mo);
-        tranGeo.destroy(mo);
+        geo.remove(mo);
+        tranGeo.remove(mo);
     }
     const updateMobjSprite = (mo: MapObject, sprite: Sprite) => {
-        const info = geo.rmobjs.get(mo.id) ?? tranGeo.rmobjs.get(mo.id);
+        const info = geo.get(mo) ?? tranGeo.get(mo);
         info?.updateSprite(sprite);
     }
 
