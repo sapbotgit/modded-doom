@@ -24,7 +24,12 @@
     $: interact.enabled.set($editor.active);
 
     // This is a hack to re-enable the $sprite readable for R1.
-    const updateSprite = (mo: MapObject, sprite: Sprite) => mo.sprite.set(sprite);
+    const updateSprite = (mo: MapObject, sprite: Sprite) => {
+        // NB: player is handled elsewhere because it also updates the weapon sprites
+        if (mo !== map.player) {
+            mo.sprite.set(sprite);
+        }
+    }
     map.events.on('mobj-updated-sprite', updateSprite);
     onDestroy(() => map.events.off('mobj-updated-sprite', updateSprite));
 

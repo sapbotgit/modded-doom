@@ -1,5 +1,5 @@
 import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
-import { HALF_PI, MFFlags, PlayerMapObject, type MapObject, type Sprite  } from "../../../doom";
+import { HALF_PI, MFFlags, type MapObject, type Sprite  } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
 import type { SpriteMaterial } from "./Materials";
@@ -149,9 +149,6 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         subs.push(mo.position.subscribe(pos => {
             // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
             s.set(40, 40, 80);
-            if (mo instanceof PlayerMapObject) {
-                s.set(0, 0, 0);
-            }
             p.copy(pos);
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;

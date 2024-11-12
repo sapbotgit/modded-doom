@@ -97,7 +97,9 @@
 
 
     const geo = createSpriteGeometry(spriteSheet, material);
+    onDestroy(geo.dispose);
     const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial);
+    onDestroy(tranGeo.dispose);
     $: if ($cameraMode) {
         material = createSpriteMaterial(spriteSheet, lighting, { cameraMode: $cameraMode });
         uniforms = material.uniforms;
@@ -107,17 +109,14 @@
         geo.resetGeometry($cameraMode, material);
         tranGeo.resetGeometry($cameraMode, material);
     }
-    onDestroy(() => {
-        geo.dispose();
-        tranGeo.dispose();
-    });
 
     $: usePlayerLight = $playerLight !== '#000000';
     $: geo.shadowState(usePlayerLight);
     $: tranGeo.shadowState(usePlayerLight);
 
     const addMobj = (mo: MapObject) => {
-        if (mo.info.flags & MFFlags.MF_NOSECTOR) {
+        // TODO: we need a better solution for player than this...
+        if (mo.info.flags & MFFlags.MF_NOSECTOR || mo instanceof PlayerMapObject) {
             return;
         }
         const geom = (mo.info.flags & MFFlags.MF_SHADOW) ? tranGeo : geo;
