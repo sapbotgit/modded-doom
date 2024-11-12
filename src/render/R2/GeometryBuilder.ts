@@ -1,9 +1,8 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import { BufferAttribute, DataTexture, IntType, LinearSRGBColorSpace, PlaneGeometry, SRGBColorSpace, type BufferGeometry } from "three";
+import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
-import { HALF_PI, type LineDef, type Sector, type SideDef, type Vertex } from "../../doom";
+import { HALF_PI, type LineDef, type SideDef, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
-import { sineIn } from 'svelte/easing';
 import { inspectorAttributeName } from './MapMeshMaterial';
 
 // https://github.com/mrdoob/three.js/issues/17361
@@ -44,48 +43,6 @@ export const int16BufferFrom = (items: number[], vertexCount: number) => {
     const attr = new BufferAttribute(array, items.length);
     attr.gpuType = IntType;
     return attr;
-}
-
-function findNearestPower2(n: number) {
-    let t = 1;
-    while (t < n) {
-        t *= 2;
-    }
-    return t;
-}
-
-// TODO: Should we use sectors or render sector (because of renderSector.flatLighting)?
-export function buildLightMap(sectors: Sector[]) {
-    // NB: only use SRGBColorSpace for one texture because otherwise we apply it twice.
-    // Also, applying to lightLevels seems to look a little brighter than applying to lightMap
-    const maxLight = 255;
-    const scaledLight = new Uint8ClampedArray(16 * 16 * 4);
-    const lightLevels = new DataTexture(scaledLight, 16, 16);
-    for (let i = 0; i < maxLight + 1; i++) {
-        // scale light using a curve to make it look more like doom
-        const light = Math.floor(sineIn(i / maxLight) * maxLight);
-        scaledLight[i * 4 + 0] = light;
-        scaledLight[i * 4 + 1] = light;
-        scaledLight[i * 4 + 2] = light;
-        scaledLight[i * 4 + 3] = 255;
-    }
-    lightLevels.colorSpace = SRGBColorSpace;
-    lightLevels.needsUpdate = true;
-
-    const textureSize = findNearestPower2(Math.sqrt(sectors.length));
-    const sectorLights = new Uint8ClampedArray(textureSize * textureSize * 4);
-    const lightMap = new DataTexture(sectorLights, textureSize, textureSize);
-    sectors.forEach((sector, i) => {
-        sector.light.subscribe(light => {
-            const lightVal = Math.max(0, Math.min(maxLight, light));
-            sectorLights[i * 4 + 0] = lightVal;
-            sectorLights[i * 4 + 1] = lightVal;
-            sectorLights[i * 4 + 2] = lightVal;
-            sectorLights[i * 4 + 3] = 255;
-            lightMap.needsUpdate = true;
-        });
-    });
-    return { lightMap, lightLevels };
 }
 
 type GeoInfo = { vertexOffset: number, vertexCount: number, sky: boolean };

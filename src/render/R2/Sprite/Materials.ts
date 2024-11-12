@@ -1,12 +1,11 @@
 import { DoubleSide, MeshBasicMaterial, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, Vector3, Vector4, type IUniform } from "three";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { store } from "../../../doom";
-import type { buildLightMap } from "../GeometryBuilder";
+import type { MapLighting } from "../MapLighting";
 
-type LightMap = ReturnType<typeof buildLightMap>;
 export type SpriteMaterial = ReturnType<typeof createSpriteMaterial>;
 export const inspectorAttributeName = 'doomInspect';
-export function createSpriteMaterial(sprites: SpriteSheet, lighting: LightMap, params: { cameraMode: string }) {
+export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting, params: { cameraMode: string }) {
     const pars_prefix = [
         params.cameraMode === 'bird' ? '#define BIRD_CAM' : ''
     ].join('\n')
@@ -312,7 +311,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: LightMap, p
     return { material, distanceMaterial, depthMaterial, uniforms };
 }
 
-export function createSpriteMaterialTransparent(sprites: SpriteSheet, lighting: LightMap, params: { cameraMode: string }) {
+export function createSpriteMaterialTransparent(sprites: SpriteSheet, lighting: MapLighting, params: { cameraMode: string }) {
     const mat = createSpriteMaterial(sprites, lighting, params);
     mat.material.alphaTest = 0;
     mat.material.depthWrite = false;

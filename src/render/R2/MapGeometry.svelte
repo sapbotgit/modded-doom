@@ -3,13 +3,15 @@
     import { MeshBasicMaterial } from 'three';
     import { useAppContext, useDoomMap } from '../DoomContext';
     import { TextureAtlas } from './TextureAtlas'
-    import { buildLightMap, buildMapGeometry } from './GeometryBuilder';
+    import { buildMapGeometry } from './GeometryBuilder';
     import Wireframe from '../Debug/Wireframe.svelte';
     import { mapMeshMaterials } from './MapMeshMaterial';
     import { onDestroy } from 'svelte';
     import type { MapRuntime } from '../../doom';
+    import type { MapLighting } from './MapLighting';
 
     export let map: MapRuntime;
+    export let lighting: MapLighting;
 
     const threlte = useThrelte();
 
@@ -28,8 +30,7 @@
     onDestroy(dispose);
     console.timeEnd('map-geo')
 
-    const { lightMap, lightLevels } = buildLightMap(map.data.sectors);
-    const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lightMap, lightLevels);
+    const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lighting);
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
     const interpolateMovement = settings.interpolateMovement;
 

@@ -8,8 +8,15 @@
     import { interactivity } from "@threlte/extras";
     import EditorTagLink from "../Editor/EditorTagLink.svelte";
     import Sprites from './Sprite/Sprites.svelte';
+    import type { SpriteSheet } from "./Sprite/SpriteAtlas";
+    import { onDestroy } from "svelte";
+    import { buildLightMap } from "./MapLighting";
 
     export let map: MapRuntime;
+    export let spriteSheet: SpriteSheet;
+
+    const lighting = buildLightMap(map.data.sectors);
+    onDestroy(lighting.dispose);
 
     const { editor } = useAppContext();
     const interact = interactivity({ enabled: $editor.active });
@@ -20,9 +27,9 @@
 
 <SkyBox />
 
-<MapGeometry {map} />
+<MapGeometry {map} {lighting} />
 
-<Sprites {map} />
+<Sprites {map} {spriteSheet} {lighting} />
 
 <Player />
 

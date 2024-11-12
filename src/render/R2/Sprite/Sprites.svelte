@@ -1,17 +1,19 @@
 <script lang="ts">
     import { T, useThrelte } from "@threlte/core";
     import { useAppContext, useDoomMap } from "../../DoomContext";
-    import { SpriteSheet } from "./SpriteAtlas";
-    import { buildLightMap } from "../GeometryBuilder";
+    import type { SpriteSheet } from "./SpriteAtlas";
     import { createSpriteMaterialTransparent, createSpriteMaterial } from "./Materials";
     import { Camera, Euler, Quaternion, Vector3 } from "three";
     import { createSpriteGeometry } from "./Geometry";
     import { onDestroy } from "svelte";
     import { MapRuntime, MFFlags, PlayerMapObject, tickTime, type MapObject, type Sprite } from "../../../doom";
+    import type { MapLighting } from "../MapLighting";
 
     export let map: MapRuntime;
+    export let spriteSheet: SpriteSheet;
+    export let lighting: MapLighting;
 
-    const { renderSectors, camera } = useDoomMap();
+    const { camera } = useDoomMap();
     const { extraLight } = map.player;
     const { tick, partialTick } = map.game.time;
     // TODO: draw tracers?
@@ -33,20 +35,12 @@
         $editor.selected = map.objs.find(e => e.id === id);
     }
 
-    const threlte = useThrelte();
-    const maxTextureSize = Math.min(8192, threlte.renderer.capabilities.maxTextureSize);
-    const spriteSheet = new SpriteSheet(map.game.wad, maxTextureSize);
-
-    // sprite offset test:
-    // http://localhost:5173/#wad=doom&skill=4&map=E1M3&player-x=321.09&player-y=-2486.21&player-z=343.17&player-aim=-0.00&player-dir=-1.57
-
-    const lighting = buildLightMap(renderSectors.map(e => e.sector));
     let material = createSpriteMaterial(spriteSheet, lighting, { cameraMode: $cameraMode });
     let uniforms = material.uniforms;
     let tranMaterial = createSpriteMaterialTransparent(spriteSheet, lighting, { cameraMode: $cameraMode });
     let tranUniforms = tranMaterial.uniforms;
 
-    const threlteCam = threlte.camera;
+    const threlteCam = useThrelte().camera;
     const { position, angle } = camera;
     const updateCameraUniforms = (() => {
         // https://discourse.threejs.org/t/mesh-points-to-the-camera-on-only-2-axis-with-shaders/21555/7
@@ -94,7 +88,6 @@
         $tranUniforms.doomExtraLight.value = extraLight;
     }
     $: updateExtraLightUniforms($extraLight / 255);
-
 
     const geo = createSpriteGeometry(spriteSheet, material);
     onDestroy(geo.dispose);

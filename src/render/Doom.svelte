@@ -25,6 +25,7 @@
     import { randInt } from "three/src/math/MathUtils";
     import { type WebGLRendererParameters } from "three";
     import { derived } from "svelte/store";
+    import { SpriteSheet } from "./R2/Sprite/SpriteAtlas";
 
     export let game: Game;
     export let musicGain: GainNode;
@@ -42,6 +43,12 @@
     $: screenName = ($map?.name ?? '') + Math.random();
     $: intScreen = $intermission ? 'summary' : null;
     let intermissionMusic: string;
+
+    let spriteSheet: SpriteSheet;
+    onMount(() => {
+        const maxTextureSize = Math.min(8192, threlteCtx.renderer.capabilities.maxTextureSize);
+        spriteSheet = new SpriteSheet(game.wad, maxTextureSize);
+    });
 
     const touchDevice = matchMedia('(hover: none)').matches;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
@@ -181,7 +188,7 @@
             {:else}
             <Canvas bind:ctx={threlteCtx} renderMode='manual' {rendererParameters} autoRender={false}>
                 {#if $renderMode === 'r2'}
-                    <R2 map={$map} />
+                    <R2 map={$map} {spriteSheet} />
                 {:else}
                     <R1 map={$map} />
                 {/if}

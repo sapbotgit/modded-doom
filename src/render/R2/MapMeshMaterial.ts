@@ -1,6 +1,7 @@
-import { DataTexture, FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, UniformsUtils, type IUniform } from "three";
+import { FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, type IUniform } from "three";
 import type { TextureAtlas } from "./TextureAtlas";
 import { store } from "../../doom";
+import type { MapLighting } from "./MapLighting";
 
 export const inspectorAttributeName = 'doomInspect';
 
@@ -46,7 +47,7 @@ diffuseColor *= sampledDiffuseColor;
 #endif
 `;
 
-export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightLevels: DataTexture) {
+export function mapMeshMaterials(ta: TextureAtlas, lighting: MapLighting) {
     // extending threejs standard materials feels like a hack BUT doing it this way
     // allows us to take advantage of all the advanced capabilities there
     // (like lighting and shadows)
@@ -57,9 +58,9 @@ export function mapMeshMaterials(ta: TextureAtlas, lightMap: DataTexture, lightL
         doomFakeContrast: { value: 0 } as IUniform,
         time: { value: 0 } as IUniform,
         // map lighting info
-        tLightLevels: { value: lightLevels },
-        tLightMap: { value: lightMap },
-        tLightMapWidth: { value: lightMap.image.width },
+        tLightLevels: { value: lighting.lightLevels },
+        tLightMap: { value: lighting.lightMap },
+        tLightMapWidth: { value: lighting.lightMap.image.width },
         // texture meta data
         tWidth: { value: ta.texture.image.width },
         tAtlas: { value: ta.index },

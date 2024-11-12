@@ -1,4 +1,4 @@
-import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, PCFShadowMap, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, NearestFilter, RepeatWrapping, SRGBColorSpace, Shape, ShapeGeometry, type Texture } from "three";
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import {
     type DoomWad,
