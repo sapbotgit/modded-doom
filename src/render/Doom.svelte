@@ -24,6 +24,7 @@
     import WipeContainer from "./Components/WipeContainer.svelte";
     import { randInt } from "three/src/math/MathUtils";
     import { type WebGLRendererParameters } from "three";
+    import { derived } from "svelte/store";
 
     export let game: Game;
     export let musicGain: GainNode;
@@ -86,11 +87,17 @@
         // use negative number so we always render first frame as fast as possible
         let lastFrameTime = -1000;
 
+        // A nifty hack to watch all settings for changes and then force a re-render when the menu is open
+        let settingsChanged = false;
+        const allSettings = Object.keys(settings).filter(k => typeof settings[k] === 'object').map(k => settings[k]);
+        derived(allSettings, () => new Date()).subscribe(() => settingsChanged = true);
+
         const menuFn: FrameRequestCallback = (time) => {
             time *= .001;
             frameReq = requestAnimationFrame(obj.nextFn);
-            // use 10fps for editor mode otherwise 1 fps
-            let frameTime = $editor.active ? .1 : 1;
+            // update within 50ms if a setting changes otherwise use 1fps
+            let frameTime = $editor.selected || settingsChanged ? .05 : 1;
+            settingsChanged = false;
             if (time - lastFrameTime > frameTime) {
                 threlteCtx?.advance();
                 lastFrameTime = time - (time % frameTime);

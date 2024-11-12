@@ -17,7 +17,7 @@
 
 {#if $editor.selected}
     <div class="bg-honeycomb" transition:fly|global={{ x: `100%` }}>
-        <button class="btn rounded-full w-20 block self-end" on:click={close}>X</button>
+        <button class="btn btn-accent btn-sm rounded-full w-20 block self-start" on:click={close}>X</button>
         {#key $editor.selected}
             {#if 'special' in $editor.selected}
                 <LinedefEditor {map} linedef={$editor.selected} />
