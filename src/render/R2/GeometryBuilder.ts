@@ -494,6 +494,7 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
 
     mapGeo = mapBuilder.build();
     pendingUpdates.forEach(fn => fn(mapGeo));
+    textureAtlas.commit();
 
     const { geometry, skyGeometry } = mapGeo;
     const dispose = () => disposables.forEach(fn => fn());

@@ -21,11 +21,7 @@
     const { tick, partialTick } = map.game.time;
 
     console.time('map-geo')
-    // My iPhone XR says max texture size is 16K but if I do that, the webview uses 1GB of RAM and immediately crashes.
-    // 8K is still 256MB RAM but apparently it's okay. Actually, we could probably go even lower if we were smarter
-    // about arranging textures in the atlas.
-    const maxTextureSize = Math.min(8192, threlte.renderer.capabilities.maxTextureSize);
-    const ta = new TextureAtlas(map.game.wad, maxTextureSize);
+    const ta = new TextureAtlas(map.game.wad, threlte.renderer.capabilities.maxTextureSize);
     const { geometry, skyGeometry, dispose } = buildMapGeometry(ta, renderSectors);
     onDestroy(dispose);
     console.timeEnd('map-geo')
