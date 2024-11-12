@@ -1,6 +1,6 @@
 <script lang="ts">
     import { type Game, randomNorm } from "../doom";
-    import { onMount, setContext } from "svelte";
+    import { onDestroy, onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
@@ -45,10 +45,7 @@
     let intermissionMusic: string;
 
     let spriteSheet: SpriteSheet;
-    onMount(() => {
-        const maxTextureSize = Math.min(8192, threlteCtx.renderer.capabilities.maxTextureSize);
-        spriteSheet = new SpriteSheet(game.wad, maxTextureSize);
-    });
+    onMount(() => spriteSheet = new SpriteSheet(game.wad, threlteCtx.renderer.capabilities.maxTextureSize));
 
     const touchDevice = matchMedia('(hover: none)').matches;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];

@@ -2,7 +2,7 @@
     import { T, useThrelte } from '@threlte/core';
     import { MeshBasicMaterial } from 'three';
     import { useAppContext, useDoomMap } from '../DoomContext';
-    import { TextureAtlas } from './TextureAtlas'
+    import { MapTextureAtlas, TextureAtlas } from './TextureAtlas'
     import { buildMapGeometry } from './GeometryBuilder';
     import Wireframe from '../Debug/Wireframe.svelte';
     import { mapMeshMaterials } from './MapMeshMaterial';
@@ -21,7 +21,7 @@
     const { tick, partialTick } = map.game.time;
 
     console.time('map-geo')
-    const ta = new TextureAtlas(map.game.wad, threlte.renderer.capabilities.maxTextureSize);
+    const ta = new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize));
     const { geometry, skyGeometry, dispose } = buildMapGeometry(ta, renderSectors);
     onDestroy(dispose);
     console.timeEnd('map-geo')

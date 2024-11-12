@@ -2,7 +2,7 @@ import { DataTexture, FloatType, NearestFilter, RepeatWrapping, SRGBColorSpace }
 import type { DoomWad, Picture } from "../../doom";
 
 
-function findNearestPower2(n: number) {
+export function findNearestPower2(n: number) {
     let t = 1;
     while (t < n) {
         t *= 2;
@@ -10,107 +10,69 @@ function findNearestPower2(n: number) {
     return t;
 }
 
-type RowEdge = { x: number, y: number, rowHeight: number };
-
 export class TextureAtlas {
-    index: DataTexture;
-    texture: DataTexture;
-    private textures = new Map<string, [number, Picture]>();
-    private flats = new Map<string, [number, Picture]>();
-
+    private _index: DataTexture;
+    get index() { return this._index; };
+    private _texture: DataTexture;
+    get texture() { return this._texture; };
+    private textures: [number, Picture][] = [];
     private count = 0;
 
-    constructor(private wad: DoomWad, private maxSize: number) {}
+    constructor(private maxSize: number) {}
+
+    insertTexture(pic: Picture): [number, Picture] {
+        let item: [number, Picture] = [this.count++, pic];
+        this.textures.push(item);
+        return item;
+    }
 
     // actually builds the texture atlas and index
     commit() {
-        const textures = [...this.textures.values(), ...this.flats.values()];
-        const size = findNearestPower2(textures.length);
+        const size = findNearestPower2(this.textures.length);
         const tAtlas = new DataTexture(new Float32Array((size * size) * 4), size, size);
         tAtlas.type = FloatType;
         tAtlas.needsUpdate = true;
-        this.index = tAtlas;
+        this._index = tAtlas;
 
-        // My iPhone XR says max texture size is 16K but if I do that, the webview uses 1GB of RAM and immediately crashes.
-        // 8K is still 256MB RAM but apparently it's okay so have a hard coded limit here
-        for (const tSize of [1024, 2048, 4096, 8192]) {
-            if (tSize > this.maxSize) {
-                break;
-            }
+        const { tSize, packing, texture } = findPacking(this.textures, this.maxSize);
+        this._texture = texture;
 
-            const packing = packTextures(textures, tSize);
-            if (packing) {
-                const texture = new DataTexture(new Uint8ClampedArray(tSize * tSize * 4).fill(0), tSize, tSize);
-                texture.wrapS = RepeatWrapping;
-                texture.wrapT = RepeatWrapping;
-                texture.magFilter = NearestFilter;
-                texture.colorSpace = SRGBColorSpace;
-                texture.needsUpdate = true;
-                this.texture = texture;
+        for (const tx of packing) {
+            tx.pic.toAtlasBuffer(this.texture.image.data, tSize, tx.x, tx.y);
 
-                for (const tx of packing) {
-                    tx.pic.toAtlasBuffer(this.texture.image.data, tSize, tx.x, tx.y);
-
-                    this.index.image.data[0 + tx.idx * 4] = tx.x / tSize;
-                    this.index.image.data[1 + tx.idx * 4] = tx.y / tSize;
-                    this.index.image.data[2 + tx.idx * 4] = (tx.x + tx.pic.width) / tSize;
-                    this.index.image.data[3 + tx.idx * 4] = (tx.y + tx.pic.height) / tSize;
-                }
-                return;
-            }
+            this.index.image.data[0 + tx.idx * 4] = tx.x / tSize;
+            this.index.image.data[1 + tx.idx * 4] = tx.y / tSize;
+            this.index.image.data[2 + tx.idx * 4] = (tx.x + tx.pic.width) / tSize;
+            this.index.image.data[3 + tx.idx * 4] = (tx.y + tx.pic.height) / tSize;
         }
-        throw new Error(`cannot build texture atlas with ${[this.maxSize, textures.length]}`);
     }
+}
 
-    // animations cause jank after map load as the different frames are loaded into the atlas.
-    // So we store the texture names that are part of animations and if one is loaded, we load the rest
-    wallTexture(name: string): [number, Picture] {
-        let data = this.textures.get(name);
-        if (!data) {
-            const pic = this.wad.wallTextureData(name);
-            data = this.insertTexture(pic);
-            this.textures.set(name, data);
-
-            if (this.wad.animatedWalls.has(name)) {
-                // load the rest of the animation frames
-                for (const frame of this.wad.animatedWalls.get(name).frames) {
-                    if (frame === name) {
-                        continue;
-                    }
-                    const pic = this.wad.wallTextureData(frame);
-                    this.textures.set(frame, this.insertTexture(pic));
-                }
-            }
+export function findPacking(textures: [number, Picture][], maxSize: number) {
+    // My iPhone XR says max texture size is 16K but if I do that, the webview uses 1GB of RAM and immediately crashes.
+    // 8K is still 256MB RAM but apparently it's okay so have a hard coded limit here
+    for (const tSize of [1024, 2048, 4096, 8192]) {
+        if (tSize > maxSize) {
+            break;
         }
-        return data;
-    }
-
-    private insertTexture = (pic: Picture): [number, Picture] => [this.count++, pic];
-
-    flatTexture(name: string): [number, Picture] {
-        let data = this.flats.get(name);
-        if (!data) {
-            const pic = this.wad.flatTextureData(name);
-            data = this.insertTexture(pic);
-            this.flats.set(name, data);
-
-            if (this.wad.animatedFlats.has(name)) {
-                // load the rest of the animation frames
-                for (const frame of this.wad.animatedFlats.get(name).frames) {
-                    if (frame === name) {
-                        continue;
-                    }
-                    const pic = this.wad.flatTextureData(frame);
-                    this.flats.set(frame, this.insertTexture(pic));
-                }
-            }
+        const packing = packTextures(textures, tSize);
+        if (!packing) {
+            continue;
         }
-        return data;
+
+        const texture = new DataTexture(new Uint8ClampedArray(tSize * tSize * 4).fill(0), tSize, tSize);
+        texture.wrapS = texture.wrapT = RepeatWrapping;
+        texture.magFilter = texture.minFilter = NearestFilter;
+        texture.colorSpace = SRGBColorSpace;
+        texture.needsUpdate = true;
+        return { tSize, packing, texture };
     }
+    throw new Error(`cannot build texture atlas with ${[this.maxSize, this.textures.length]}`);
 }
 
 // Cool background I found while trying to improve this: https://www.david-colson.com/2020/03/10/exploring-rect-packing.html
 // My function is similar to the "row splitter" with a few extra heuristics for splitting rows
+type RowEdge = { x: number, y: number, rowHeight: number };
 type PackInfo = { idx: number, pic: Picture, x: number, y: number };
 function packTextures(textures: [number, Picture][], maxSize: number) {
     let rows: RowEdge[] = [{ x: 0, y: 0, rowHeight: maxSize }];
@@ -159,4 +121,63 @@ function packTextures(textures: [number, Picture][], maxSize: number) {
     }
 
     return result;
+}
+
+export class MapTextureAtlas {
+    index: DataTexture;
+    texture: DataTexture;
+    private textures = new Map<string, [number, Picture]>();
+    private flats = new Map<string, [number, Picture]>();
+
+    constructor(private wad: DoomWad, private atlas: TextureAtlas) {}
+
+    commit() {
+        this.atlas.commit();
+        this.index = this.atlas.index;
+        this.texture = this.atlas.texture;
+    }
+
+    // animations cause jank after map load as the different frames are loaded into the atlas.
+    // So we store the texture names that are part of animations and if one is loaded, we load the rest
+    wallTexture(name: string): [number, Picture] {
+        let data = this.textures.get(name);
+        if (!data) {
+            const pic = this.wad.wallTextureData(name);
+            data = this.atlas.insertTexture(pic);
+            this.textures.set(name, data);
+
+            if (this.wad.animatedWalls.has(name)) {
+                // load the rest of the animation frames
+                for (const frame of this.wad.animatedWalls.get(name).frames) {
+                    if (frame === name) {
+                        continue;
+                    }
+                    const pic = this.wad.wallTextureData(frame);
+                    this.textures.set(frame, this.atlas.insertTexture(pic));
+                }
+            }
+        }
+        return data;
+    }
+
+    flatTexture(name: string): [number, Picture] {
+        let data = this.flats.get(name);
+        if (!data) {
+            const pic = this.wad.flatTextureData(name);
+            data = this.atlas.insertTexture(pic);
+            this.flats.set(name, data);
+
+            if (this.wad.animatedFlats.has(name)) {
+                // load the rest of the animation frames
+                for (const frame of this.wad.animatedFlats.get(name).frames) {
+                    if (frame === name) {
+                        continue;
+                    }
+                    const pic = this.wad.flatTextureData(frame);
+                    this.flats.set(frame, this.atlas.insertTexture(pic));
+                }
+            }
+        }
+        return data;
+    }
 }

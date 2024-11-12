@@ -3,7 +3,7 @@
     import { Vector3, BufferGeometry, Material, PlaneGeometry, SphereGeometry, MeshBasicMaterial, Fog } from 'three';
     import { DoomWad, HALF_PI, store, WadFile } from '../../doom';
     import { WadStore } from '../../WadStore';
-    import { TextureAtlas } from '../R2/TextureAtlas';
+    import { MapTextureAtlas, TextureAtlas } from '../R2/TextureAtlas';
     import { inspectorAttributeName, mapMeshMaterials } from '../R2/MapMeshMaterial';
     import { geometryBuilder, int16BufferFrom, mapGeometry } from '../R2/GeometryBuilder';
     import { buildLightMap } from '../R2/MapLighting';
@@ -12,7 +12,7 @@
     let material: Material;
     let depthMaterial: Material;
     let distanceMaterial: Material;
-    let ta: TextureAtlas;
+    let ta: MapTextureAtlas;
 
     const threlte = useThrelte();
 
@@ -30,7 +30,7 @@
         const wads = await Promise.all(wadResolvers);
         const wad = new DoomWad(wadNames.join('+'), wads);
 
-        ta = new TextureAtlas(wad, atlasSize);
+        ta = new MapTextureAtlas(wad, new TextureAtlas(atlasSize));
         // TODO: can we split DOOM stuff (linedef/sector) out of mapGeometryBuilder and just get a geometry builder that
         // is _used by_ MGB?
         const geoBuilder = geometryBuilder();
@@ -119,6 +119,7 @@
                 0, 0);
         }
 
+        ta.commit();
         const lighting = buildLightMap([{ light: store(255) } as any]);
         let m = mapMeshMaterials(ta, lighting);
         material = m.material;

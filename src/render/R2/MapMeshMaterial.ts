@@ -1,5 +1,5 @@
 import { FrontSide, MeshDepthMaterial, MeshDistanceMaterial, MeshStandardMaterial, type IUniform } from "three";
-import type { TextureAtlas } from "./TextureAtlas";
+import type { MapTextureAtlas } from "./TextureAtlas";
 import { store } from "../../doom";
 import type { MapLighting } from "./MapLighting";
 
@@ -47,7 +47,7 @@ diffuseColor *= sampledDiffuseColor;
 #endif
 `;
 
-export function mapMeshMaterials(ta: TextureAtlas, lighting: MapLighting) {
+export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
     // extending threejs standard materials feels like a hack BUT doing it this way
     // allows us to take advantage of all the advanced capabilities there
     // (like lighting and shadows)

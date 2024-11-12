@@ -1,29 +1,14 @@
-import { DataTexture, FloatType, NearestFilter, RGBAIntegerFormat, ShortType, SRGBColorSpace } from "three";
+import { DataTexture, FloatType, NearestFilter, RGBAIntegerFormat, ShortType } from "three";
 import { DoomWad, SpriteNames, type Picture } from "../../../doom";
+import { findNearestPower2, findPacking } from "../TextureAtlas";
 
-function findNearestPower2(n: number) {
-    let t = 1;
-    while (t < n) {
-        t *= 2;
-    }
-    return t;
-}
-
-// TODO: there is a lot of similar functionality with TextureAtlas but building the indexes
-// requires us to know how many textures we're adding so maybe we need to "build" an atlas.
-// Someday I'll clean this up...
-type RowEdge = { x: number, y: number, rowHeight: number };
 export class SpriteSheet {
     readonly uvIndex: DataTexture;
     readonly spriteInfo: DataTexture;
     readonly sheet: DataTexture;
     private spriteFrames = {};
 
-    private rows: RowEdge[];
-
-    constructor(wad: DoomWad, private tSize: number) {
-        this.rows = [{ x: 0, y: 0, rowHeight: this.tSize }];
-
+    constructor(wad: DoomWad, maxSize: number) {
         const sprites = SpriteNames.map(sprite => wad.spriteFrames(sprite).flat().flat().map(f => ({ ...f, sprite }))).flat();
 
         const sz = findNearestPower2(Math.sqrt(sprites.length));
@@ -38,12 +23,6 @@ export class SpriteSheet {
         tSpriteInfo.magFilter = tSpriteInfo.minFilter = NearestFilter;
         tSpriteInfo.generateMipmaps = false;
         this.spriteInfo = tSpriteInfo;
-
-        const textureData = new Uint8ClampedArray(tSize * tSize * 4).fill(0);
-        const texture = new DataTexture(textureData, tSize, tSize)
-        texture.colorSpace = SRGBColorSpace;
-        this.sheet = texture;
-
         const storeSpriteInfo = (n: number, gfx: Picture, frame: { mirror: boolean, rotation: number }) => {
             this.spriteInfo.image.data[0 + n * 4] = gfx.xOffset;
             this.spriteInfo.image.data[1 + n * 4] = gfx.yOffset;
@@ -52,98 +31,62 @@ export class SpriteSheet {
         }
 
         const indexFrame = (n: number, frame: { sprite : string, rotation: number, frame: number }) => {
-            let frames = this.spriteFrames[frame.sprite];
-            if (!frames) {
-                frames = [];
-                this.spriteFrames[frame.sprite] = frames;
-            }
+            let frames = this.spriteFrames[frame.sprite] ?? [];
             if (frame.rotation === 0 || frame.rotation === 1) {
                 frames[frame.frame] = n;
             }
+            this.spriteFrames[frame.sprite] = frames;
         }
 
+        let textures: [number, Picture][] = [];
         let spriteGfx = new Map<string, number>();
         for (let idx = 0; idx < sprites.length; idx++) {
             const frame = sprites[idx];
-            const gfx = wad.spriteTextureData(frame.name);
-            storeSpriteInfo(idx, gfx, frame);
             indexFrame(idx, frame);
 
             let orig = spriteGfx.get(frame.name);
             if (orig) {
-                // copy uv coordinates but don't insert into texture
-                this.uvIndex.image.data[0 + idx * 4] = this.uvIndex.image.data[0 + orig * 4];
-                this.uvIndex.image.data[1 + idx * 4] = this.uvIndex.image.data[1 + orig * 4];
-                this.uvIndex.image.data[2 + idx * 4] = this.uvIndex.image.data[2 + orig * 4];
-                this.uvIndex.image.data[3 + idx * 4] = this.uvIndex.image.data[3 + orig * 4];
+                // we've already got this frame so it's probably mirrored, don't insert it into the texture
+                // but write a meta entry below to retrieve it
                 continue;
             }
 
             // insert image
-            this.insert(idx, frame.name, gfx);
+            const gfx = wad.spriteTextureData(frame.name);
+            textures.push([idx, gfx]);
             spriteGfx.set(frame.name, idx);
         }
         this.uvIndex.needsUpdate = true;
         this.spriteInfo.needsUpdate = true;
+
+        const { tSize, packing, texture } = findPacking(textures, maxSize);
+        this.sheet = texture;
+
+        for (const tx of packing) {
+            tx.pic.toAtlasBuffer(texture.image.data, tSize, tx.x, tx.y);
+
+            tAtlas.image.data[0 + tx.idx * 4] = tx.x / tSize;
+            tAtlas.image.data[1 + tx.idx * 4] = tx.y / tSize;
+            tAtlas.image.data[2 + tx.idx * 4] = (tx.x + tx.pic.width) / tSize;
+            tAtlas.image.data[3 + tx.idx * 4] = (tx.y + tx.pic.height) / tSize;
+        }
+
+        for (let idx = 0; idx < sprites.length; idx++) {
+            const frame = sprites[idx];
+            const gfx = wad.spriteTextureData(frame.name);
+            storeSpriteInfo(idx, gfx, frame);
+            let orig = spriteGfx.get(frame.name);
+            if (orig) {
+                // copy uv coordinates of existing texture
+                tAtlas.image.data[0 + idx * 4] = tAtlas.image.data[0 + orig * 4];
+                tAtlas.image.data[1 + idx * 4] = tAtlas.image.data[1 + orig * 4];
+                tAtlas.image.data[2 + idx * 4] = tAtlas.image.data[2 + orig * 4];
+                tAtlas.image.data[3 + idx * 4] = tAtlas.image.data[3 + orig * 4];
+            }
+        }
     }
 
     indexOf(sprite: string, frame: number) {
         return this.spriteFrames[sprite][frame];
-    }
-
-    private insert(idx: number, key: string, pic: Picture) {
-        const row = this.findSpace(pic);
-        if (!row) {
-            // TODO: default texture?
-            console.warn('texture atlas out of space', key);
-            return null;
-        }
-
-        pic.toAtlasBuffer(this.sheet.image.data, this.tSize, row.x, row.y);
-        this.sheet.needsUpdate = true;
-
-        this.uvIndex.image.data[0 + idx * 4] = row.x / this.tSize;
-        this.uvIndex.image.data[1 + idx * 4] = row.y / this.tSize;
-        row.x += pic.width;
-        this.uvIndex.image.data[2 + idx * 4] = row.x / this.tSize;
-        this.uvIndex.image.data[3 + idx * 4] = (row.y + pic.height) / this.tSize;
-        this.uvIndex.needsUpdate = true;
-    }
-
-    // To create on demand we'll need a map of rows with their starting height and xoffset
-    // On each insert, we move the row pointer forward by width. If full, we shift down by height.
-    // If we find a row of the exact height, use it.
-    // If a texture is 80% the height of a row (like 112 of a 128 tall row) we insert it
-    // Else we create a new row
-    // We could do even better but there doesn't seem to be a need to (yet)
-    private findSpace(pic: Picture): RowEdge {
-        const perfectMatch = this.rows.find(row => row.rowHeight === pic.height && row.x + pic.width < this.tSize);
-        if (perfectMatch) {
-            return perfectMatch;
-        }
-
-        const noSplit = this.rows.find(row => pic.height < row.rowHeight && pic.height / row.rowHeight > .8 && row.x + pic.width < this.tSize);
-        if (noSplit) {
-            return noSplit;
-        }
-
-        // const smallFit = this.rows.find(row => pic.height < row.rowHeight && pic.height / row.rowHeight <= .3 && row.x + pic.width < this.tSize);
-        // if (smallFit) {
-        //     // split the row so insert a new row with the remainder of the space
-        //     this.rows.push({ x: smallFit.x, y: smallFit.y + pic.height, rowHeight: smallFit.rowHeight - pic.height });
-        //     // and change the row height to match the picture we're inserting
-        //     smallFit.rowHeight = pic.height;
-        //     return smallFit;
-        // }
-
-        const end = this.rows[this.rows.length - 1];
-        if (end.rowHeight >= pic.height) {
-            // split
-            this.rows.push({ x: end.x, y: end.y + pic.height, rowHeight: end.rowHeight - pic.height });
-            end.rowHeight = pic.height;
-            return end;
-        }
-        // no space!
-        return null;
     }
 }

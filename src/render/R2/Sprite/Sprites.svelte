@@ -100,7 +100,9 @@
         tranUniforms = tranMaterial.uniforms;
 
         geo.resetGeometry($cameraMode, material);
-        tranGeo.resetGeometry($cameraMode, material);
+        tranGeo.resetGeometry($cameraMode, tranMaterial);
+        // set camera uniforms so we project sprites properly on the first frame
+        updateCameraUniforms($threlteCam, $position, $angle);
     }
 
     $: usePlayerLight = $playerLight !== '#000000';

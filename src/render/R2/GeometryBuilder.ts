@@ -1,6 +1,6 @@
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { BufferAttribute, IntType, PlaneGeometry, type BufferGeometry } from "three";
-import type { TextureAtlas } from "./TextureAtlas";
+import type { MapTextureAtlas } from "./TextureAtlas";
 import { HALF_PI, type LineDef, type SideDef, type Vertex } from "../../doom";
 import type { RenderSector } from '../RenderData';
 import { inspectorAttributeName } from './MapMeshMaterial';
@@ -140,7 +140,7 @@ interface LindefUpdater{
     single: MapUpdater;
 }
 
-function mapGeometryBuilder(textures: TextureAtlas) {
+function mapGeometryBuilder(textures: MapTextureAtlas) {
     const geoBuilder = geometryBuilder();
 
     type TextureType = 'upper' | 'lower' | 'middle';
@@ -383,7 +383,7 @@ function mapGeometryBuilder(textures: TextureAtlas) {
     return { addSector, addLinedef, build };
 }
 
-export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: RenderSector[]) {
+export function buildMapGeometry(textureAtlas: MapTextureAtlas, renderSectors: RenderSector[]) {
     // Geometry updates happen on the merged geometry but it's more efficient to merge the geometries
     // once. With this little structure, we keep track of all the pending changes to apply them when
     // the geometry has been created.
@@ -502,7 +502,7 @@ export function buildMapGeometry(textureAtlas: TextureAtlas, renderSectors: Rend
 }
 
 export function mapGeometry(
-    textures: TextureAtlas,
+    textures: MapTextureAtlas,
     geometry: BufferGeometry,
     skyGeometry: BufferGeometry,
     geoInfo: GeoInfo[],
