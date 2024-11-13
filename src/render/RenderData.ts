@@ -197,14 +197,15 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
         const fakeFloorLines = bothLindefs.filter(unequalFloorNoLowerTexture);
         // If there is only one linedef... we'll just not add the fake floor and hope it's okay.
         // I've seen this done as a mapping trick to reference an unreachable sector
-        if (fakeFloorLines.length > 1) {
+        if (fakeFloorLines.length && bothLindefs.every(ld => ld.left)) {
             for (const line of fakeFloorLines) {
-                let zSec = line.right.sector === sector ? line.left.sector : line.right.sector;
+                let zSec = line.left.sector === sector ? line.right.sector : line.left.sector;
+                let lowerSec = (zSec.zFloor.val > sector.zFloor.val) ? sector : zSec;
                 renderSector.extraFlats.push({
                     geometry,
                     z: zSec.zFloor,
-                    flat: sector.floorFlat,
-                    lightSector: sector,
+                    flat: lowerSec.floorFlat,
+                    lightSector: lowerSec,
                     ceil: false,
                 });
                 break;
@@ -219,7 +220,7 @@ export function buildRenderSectors(wad: DoomWad, mapRuntime: MapRuntime) {
             console.warn('no outer sector for self-referencing sectors', rs.sector.num);
             continue;
         }
-        rs.sector = outerSector;
+        rs.sector = secMap.get(outerSector).sector;
     }
 
     // transparent door and window hack (https://www.doomworld.com/tutorials/fx5.php)

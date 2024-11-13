@@ -9,6 +9,8 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
     // What is an ideal chunksize? Chunks are probably better than resizing/re-initializing a large array
     // but would 10,000 be good? 20,000? 1,000? I'm not sure how to measure it.
     const chunkSize = 5_000;
+    // track last used camera so we spawn chunks of geometry correctly
+    let camera = '1p';
 
     let thingsMeshes: InstancedMesh[] = [];
     const int16BufferFrom = (items: number[], vertexCount: number) => {
@@ -37,6 +39,9 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
 
     const createChunk = () => {
         const geometry = new PlaneGeometry();
+        if (camera !== 'bird') {
+            geometry.rotateX(-HALF_PI);
+        }
         const mesh = new InstancedMesh(geometry, material.material, chunkSize);
         mesh.customDepthMaterial = material.depthMaterial;
         mesh.customDistanceMaterial = material.distanceMaterial;
@@ -55,9 +60,12 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         return mesh;
     }
 
-    const resetGeometry = (cameraMode: string, material: SpriteMaterial) => {
+    const resetGeometry = (cameraMode: string, mat: SpriteMaterial) => {
+        camera = cameraMode;
+        material = mat;
+
         const ng = new PlaneGeometry();
-        if (cameraMode !== 'bird') {
+        if (camera !== 'bird') {
             ng.rotateX(-HALF_PI);
         }
         for (const mesh of thingsMeshes) {

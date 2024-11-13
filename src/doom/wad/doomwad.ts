@@ -89,7 +89,7 @@ export class DoomWad {
             }
         }
 
-        const customAnimations = loadCustomAnimations(this.lumpByName('ANIMATED'));
+        const customAnimations = loadCustomAnimations(this.optionalLump('ANIMATED'));
         // list of animated flats https://doomwiki.org/wiki/Animated_flat
         const allFlats = this.flatsNames();
         [
@@ -134,7 +134,7 @@ export class DoomWad {
         }).filter(e => e.frames.length)
         .forEach(anim => anim.frames.forEach(frame => this.animatedWalls.set(frame, anim)));
 
-        const customSwitches = loadCustomSwitches(this.lumpByName('SWITCHES'));
+        const customSwitches = loadCustomSwitches(this.optionalLump('SWITCHES'));
         this.switchWalls = [
             // Built in wall switches https://doomwiki.org/wiki/Switch
             ['SW1BRCOM', 'SW2BRCOM'],
@@ -312,6 +312,14 @@ export class DoomWad {
     }
 
     lumpByName(name: string) {
+        const lump = this.optionalLump(name);
+        if (!lump) {
+            console.warn('unknown lump', name);
+        }
+        return lump;
+    }
+
+    optionalLump(name: string) {
         // go from last wad to first because the last wad lump wins
         for (let i = this.wads.length - 1; i >= 0; i--) {
             const lump = this.wads[i].lumpByName(name);
@@ -319,7 +327,7 @@ export class DoomWad {
                 return lump;
             }
         }
-        console.warn('unknown lump', name);
+        return null;
     }
 }
 

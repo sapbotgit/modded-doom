@@ -21,6 +21,12 @@ export class TextureAtlas {
     constructor(private maxSize: number) {}
 
     insertTexture(pic: Picture): [number, Picture] {
+        if (!pic) {
+            // this means a flat/wall has a texture that isn't in the wad. It shouldn't happen and yet...
+            // I've seen it in at least idumea. Instead of failing, just return the first texture as a placeholder
+            // (there is already a console.warning() about it
+            return this.textures[0];
+        }
         let item: [number, Picture] = [this.count++, pic];
         this.textures.push(item);
         return item;
@@ -155,6 +161,12 @@ export class MapTextureAtlas {
                     const pic = this.wad.wallTextureData(frame);
                     this.textures.set(frame, this.atlas.insertTexture(pic));
                 }
+            }
+
+            const toggle = this.wad.switchToggle(name);
+            if (toggle) {
+                const pic = this.wad.wallTextureData(toggle);
+                this.textures.set(toggle, this.atlas.insertTexture(pic));
             }
         }
         return data;

@@ -23,7 +23,7 @@
     // }
 
     const { editor, settings } = useAppContext();
-    const { playerLight, interpolateMovement, cameraMode } = settings;
+    const { playerLight, interpolateMovement, cameraMode, useTextures } = settings;
 
     function hit(ev) {
         if (!ev.instanceId) {
@@ -89,14 +89,10 @@
     }
     $: updateExtraLightUniforms($extraLight / 255);
 
-    const geo = createSpriteGeometry(spriteSheet, material);
-    onDestroy(geo.dispose);
-    const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial);
-    onDestroy(tranGeo.dispose);
-    $: if ($cameraMode) {
-        material = createSpriteMaterial(spriteSheet, lighting, { cameraMode: $cameraMode });
+    function updateCameraMode(cameraMode: string) {
+        material = createSpriteMaterial(spriteSheet, lighting, { cameraMode });
         uniforms = material.uniforms;
-        tranMaterial = createSpriteMaterialTransparent(spriteSheet, lighting, { cameraMode: $cameraMode });
+        tranMaterial = createSpriteMaterialTransparent(spriteSheet, lighting, { cameraMode });
         tranUniforms = tranMaterial.uniforms;
 
         geo.resetGeometry($cameraMode, material);
@@ -104,10 +100,19 @@
         // set camera uniforms so we project sprites properly on the first frame
         updateCameraUniforms($threlteCam, $position, $angle);
     }
+    $: updateCameraMode($cameraMode);
 
-    $: usePlayerLight = $playerLight !== '#000000';
-    $: geo.shadowState(usePlayerLight);
-    $: tranGeo.shadowState(usePlayerLight);
+    function setShadowsEnabled(state: boolean) {
+        geo.shadowState(state);
+        tranGeo.shadowState(state);
+    }
+    // shadows don't look right from overhead cam and I don't have a good idea how to fix it so disable them
+    $: setShadowsEnabled($cameraMode !== 'bird' && $playerLight !== '#000000');
+
+    const geo = createSpriteGeometry(spriteSheet, material);
+    onDestroy(geo.dispose);
+    const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial);
+    onDestroy(tranGeo.dispose);
 
     const addMobj = (mo: MapObject) => {
         // TODO: we need a better solution for player than this...

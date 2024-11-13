@@ -313,7 +313,7 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 let height = Math.min(pic.height, zCeil - zFloor + side.yOffset.val);
                 m.changeWallHeight(idx, top, height);
                 m.applyWallTexture(idx, tx, width, height,
-                    side.xOffset.initial, side.yOffset.initial + pegging('middle', height));
+                    side.xOffset.initial, pegging('middle', height));
             };
             if (middleL.val) {
                 const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
