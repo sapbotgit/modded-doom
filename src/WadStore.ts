@@ -53,6 +53,9 @@ export class WadStore {
             req.onerror = reject;
             req.onsuccess = ev => {
                 const record = (ev.target as any).result;
+                if (!record) {
+                    return reject(new Error('wad not found: ' + name));
+                }
                 resolve(record.buff);
             };
         });

@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { type Game, randomNorm } from "../doom";
-    import { onDestroy, onMount, setContext } from "svelte";
+    import { type Game, type GameLogicFailure, randomNorm } from "../doom";
+    import { onMount, setContext } from "svelte";
     import { createGameContext, useAppContext } from "./DoomContext";
     import EditPanel from "./Editor/EditPanel.svelte";
     import PlayerInfo from "./Debug/PlayerInfo.svelte";
@@ -33,7 +33,7 @@
 
     const doomContext = createGameContext(game);
     setContext("doom-game-context", doomContext);
-    const { settings, pointerLock, editor } = useAppContext();
+    const { settings, pointerLock, editor, error } = useAppContext();
     const { cameraMode, keymap, mouseSensitivity, mouseInvertY, mouseSwitchLeftRightButtons, showPlayerInfo, renderMode } = settings;
     const { map, intermission } = game;
     // TODO: having a separate WipeContainer component is messy and so is tracking two screen states. I wonder if we could
@@ -45,7 +45,10 @@
     let intermissionMusic: string;
 
     let spriteSheet: SpriteSheet;
-    onMount(() => spriteSheet = new SpriteSheet(game.wad, threlteCtx.renderer.capabilities.maxTextureSize));
+    $: if ($cameraMode !== 'svg' && threlteCtx) {
+        // only create once
+        spriteSheet = spriteSheet ?? new SpriteSheet(game.wad, threlteCtx.renderer.capabilities.maxTextureSize);
+    }
 
     const touchDevice = matchMedia('(hover: none)').matches;
     $: renderSectors = $map ? buildRenderSectors(game.wad, $map) : [];
@@ -116,8 +119,18 @@
                 threlteCtx?.advance();
                 lastFrameTime = time - (time % frameTime);
 
-                game.tick(time - lastTickTime, tscale);
-                lastTickTime = time;
+                try {
+                    game.tick(time - lastTickTime, tscale);
+                    lastTickTime = time;
+                } catch (exception) {
+                    // debugger;
+                    const err: GameLogicFailure = {
+                        code: 4,
+                        details: { game, exception },
+                        message: 'Game logic failed',
+                    };
+                    $error = err;
+                }
             }
         };
 

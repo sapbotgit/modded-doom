@@ -1,5 +1,5 @@
 import { store, type Store } from "./store";
-import { MapData, type LineDef, type Thing, type Action } from "./map-data";
+import type { MapData, LineDef, Thing, Action } from "./map-data";
 import { Object3D, Vector3 } from "three";
 import { HALF_PI, ComputedRNG, TableRNG, ToRadians } from "./math";
 import { PlayerMapObject, MapObject } from "./map-object";
@@ -86,7 +86,6 @@ interface ShotTrace {
 }
 
 export class MapRuntime {
-    readonly data: MapData; // TODO: make this non-public?
     private actions = new Set<Action>();
     private animatedTextures = new Map<Store<string>, AnimatedTexture>();
 
@@ -113,10 +112,9 @@ export class MapRuntime {
 
     constructor(
         readonly name: string,
+        readonly data: MapData, // TODO: make this non-public?
         readonly game: Game,
     ) {
-        this.data = game.wad.readMap(name);
-
         this.musicTrack = store(mapMusicTrack(game, name));
 
         // some maps (plutonia MAP28) have multiple player 1 starts (I guess for coop?) so make sure to findLast()
@@ -462,7 +460,7 @@ class GameInput {
                 this.input.weaponKeyNum = 0;
                 // restart the level
                 this.map.game.resetInventory();
-                this.map.game.startMap(new MapRuntime(this.map.name, this.map.game));
+                this.map.game.startMap(this.map.name);
             }
             return;
         }

@@ -65,7 +65,7 @@
     $: hasNextEpisode = game.wad.mapNames.includes(nextEpisodeMap);
     function startNextEpisode() {
         game.resetInventory();
-        game.startMap(new MapRuntime(nextEpisodeMap, game));
+        game.startMap(nextEpisodeMap);
         pointerLock.requestLock();
     }
 
@@ -117,7 +117,7 @@
             <div class="flex gap-4 items-center pb-2">
                 {#if $intermission}
                     <span>Intermission</span>
-                {:else}
+                {:else if $map}
                     <span><MapNamePic name={$map.name} /></span>
                 {/if}
                 <span><Picture name={data.skills.find((sk) => sk.num === game.skill).pic}/></span>

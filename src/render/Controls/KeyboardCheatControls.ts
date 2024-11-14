@@ -152,7 +152,7 @@ function warp(game: Game, extra: string[]) {
 export function idclev(game: Game, mapName: string) {
     game.map.val?.player?.hudMessage?.set('Changing Level...');
     game.resetInventory();
-    game.startMap(new MapRuntime(mapName, game));
+    game.startMap(mapName);
 }
 
 function changeMusic(game: Game, extra: string[]) {

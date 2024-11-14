@@ -1,22 +1,24 @@
 <script lang="ts">
-    import { DoomWad, Game, MapRuntime, type Skill, WadFile } from './doom';
+    import { type DoomError, DoomWad, Game, type MissingWads, MapRuntime, type Skill, WadFile } from './doom';
     import Doom from './render/Doom.svelte';
     import AABBSweepDebug from './render/Debug/AABBSweepDebug.svelte';
+    import TextureMapScene from './render/Debug/TextureMapScene.svelte';
     import AppInfo from './render/Components/AppInfo.svelte';
     import { createAppContext } from './render/DoomContext';
     import { setContext } from 'svelte';
     import WadScreen from './WadScreen.svelte';
     import { WadStore } from './WadStore';
     import WipeContainer from './render/Components/WipeContainer.svelte';
-    import { fly } from 'svelte/transition';
-    import TextureMapScene from './render/Debug/TextureMapScene.svelte';
+    import ErrorScreen from './Screens/Errors/Root.svelte';
     import { loadOptionalUrlParams } from './render/Menu/Menu.svelte';
 
     const wadStore = new WadStore();
+    const availableWads = wadStore.wads;
+
     const context = createAppContext();
     setContext('doom-app-context', context);
 
-    const { audio } = context;
+    const { error, audio } = context;
     function enableSoundOnce() {
         audio.resume();
     }
@@ -39,16 +41,46 @@
     let difficulty: Skill = null;
     let urlMapName: string;
 
-    // TODO: this function probably needs more validation (like upper/lower case, bounds checks, etc)
     async function parseUrlParams() {
+        try {
+            await parseUrlParams2();
+            $error = null;
+        } catch (e) {
+            $error = e;
+        }
+    }
+    let lastWads = 0;
+    $: if ($availableWads.length != lastWads) {
+        lastWads = $availableWads.length;
+        // maybe a wad was added and now we can load the map?
+        parseUrlParams();
+    }
+
+    async function parseUrlParams2() {
         const params = new URLSearchParams(window.location.hash.substring(1));
 
         const wadNames = params.getAll('wad');
         const urlWads = wadNames.map(wad => `wad=${wad}`).join('&');
         if (urlWads !== wad?.name) {
             if (urlWads) {
-                const wadResolvers = wadNames.map(name => wadStore.fetchWad(name).then(buff => new WadFile(name, buff)));
-                const wads = await Promise.all(wadResolvers);
+                const wadResolvers = wadNames.map(name => wadStore.fetchWad(name)
+                    .then(buff => new WadFile(name, buff), err => [name, err]));
+                const wads: any = await Promise.all(wadResolvers);
+
+                const succeeded = wads.filter(e => e instanceof WadFile);
+                const failed = wads.filter(e => !(e instanceof WadFile));
+                if (failed.length) {
+                    const err: MissingWads = {
+                        code: 2,
+                        details: {
+                            succeededWads: succeeded.map(e => e.name),
+                            failedWads: failed,
+                        },
+                        message: `Failed to load wads: ${failed.map(e => e[0])}`,
+                    }
+                    throw err;
+                }
+
                 wad = new DoomWad(urlWads, wads);
                 game = null;
             } else {
@@ -67,11 +99,10 @@
         urlMapName = params.get('map');
         if (urlMapName && validUrlSkill && (!game || game.map.val?.name !== urlMapName)) {
             game = new Game(wad, difficulty, context.settings);
-            game.startMap(new MapRuntime(urlMapName, game));
+            game.startMap(urlMapName);
             loadOptionalUrlParams(game, params);
         }
     }
-    parseUrlParams();
 
     // keep url in sync with game
     $: map = game?.map;
@@ -79,7 +110,7 @@
         history.pushState(null, null, `#${game.wad.name}&skill=${game.skill}&map=${$map.name}`);
     }
 
-    $: screenName = game ? 'game' : 'start';
+    $: screenName = $error ? 'error' : game ? 'game' : 'start';
 </script>
 
 <svelte:window on:popstate={parseUrlParams} />
@@ -95,7 +126,9 @@
     <!-- <TextureMapScene /> -->
 
     <WipeContainer key={screenName}>
-        {#if game}
+        {#if $error}
+            <ErrorScreen error={$error} {wadStore} />
+        {:else if game}
             {#key game}
                 <Doom {game} {musicGain} {soundGain} />
             {/key}

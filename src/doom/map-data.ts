@@ -3,11 +3,10 @@ import { Vector3 } from "three";
 import { MapObject } from "./map-object";
 import { centerSort, closestPoint, lineAABB, lineBounds, lineLineIntersect, pointOnLine, signedLineDistance, sweepAABBAABB, sweepAABBLine, type Bounds, type Vertex } from "./math";
 import { MFFlags } from "./doom-things-info";
-import type { GameTime } from "./game";
 import { type Lump, int16, word, lumpString } from "../doom";
 import { readBspData } from "./wad/bsp-data";
 
-export type Action = (time: GameTime) => void;
+export type Action = () => void;
 
 export interface Thing {
     x: number;

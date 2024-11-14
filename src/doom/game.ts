@@ -1,12 +1,13 @@
 import { store, type Store } from "./store";
 import { PlayerMapObject, type PlayerInventory, MapObject } from "./map-object";
 import type { DoomWad } from "./wad/doomwad";
-import type { MapRuntime } from "./map-runtime";
+import { MapRuntime } from "./map-runtime";
 import { inventoryWeapon, type InventoryWeapon } from "./things/weapons";
 import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
 import type { Sector } from "./map-data";
 import { type RNG, TableRNG } from "./math";
+import type { InvalidMap, MissingMap } from "./error";
 
 export interface GameTime {
     elapsed: number; // seconds
@@ -154,9 +155,29 @@ export class Game implements SoundEmitter {
         Object.assign(this.inventory, defaultInventory());
     }
 
-    startMap(map: MapRuntime) {
+    startMap(mapName: string) {
         this.map.val?.dispose();
-        this.map.set(map);
+
+        const mapData = this.wad.readMap(mapName);
+        if (!mapData) {
+            const err: MissingMap = {
+                code: 2,
+                details: { mapName, game: this },
+                message: `Map not found: ${name}`,
+            }
+            throw err;
+        }
+
+        try {
+            this.map.set(new MapRuntime(mapName, mapData, this));
+        } catch (exception) {
+            const err: InvalidMap = {
+                code: 1,
+                details: { mapName, exception, game: this},
+                message: `Invalid map: ${mapName}; ${exception.message}`
+            }
+            throw err;
+        }
         this.intermission.set(null);
     }
 

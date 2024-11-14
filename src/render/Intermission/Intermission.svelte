@@ -27,7 +27,7 @@
         mapName === 'MAP30' ? 'cast' :
         screenName;
     $: if (summaryComplete && textComplete && artComplete && mapName !== 'MAP30' && !episodeEnd) {
-        game.startMap(new MapRuntime(details.nextMapName, game));
+        game.startMap(details.nextMapName);
     }
 
     $: musicTrack =
