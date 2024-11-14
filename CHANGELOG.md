@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Error screen to show when maps are invalid, fail to load, or the game crashes
+
+### Changed
+- R2: sprites rendered via instance geometry (big performance boost)
+- smaller texture atlas to speed up map load (600ms -> 10ms)
+- Improved algorithm to generate "fake floors"
+- Reduce render frequency when showing menu (reduce energy use)
+- R2: scrolling wall calculation done in shader to reduce CPU load and enable interpolation
+
+### Fixed
+- Load maps with missing textures (eg. idumea MAP02)
+- Fade in and out timing on nightvision was wrong
+- Set sky height properly (eg. E3M1)
+- Reset game when wads in url change
+
 ## [0.8.1] - 2024-10-28
 
 ### Fixed
