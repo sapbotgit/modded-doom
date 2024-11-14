@@ -122,14 +122,8 @@
                 try {
                     game.tick(time - lastTickTime, tscale);
                     lastTickTime = time;
-                } catch (exception) {
-                    // debugger;
-                    const err: GameLogicFailure = {
-                        code: 4,
-                        details: { game, exception },
-                        message: 'Game logic failed',
-                    };
-                    $error = err;
+                } catch (e) {
+                    $error = e;
                 }
             }
         };

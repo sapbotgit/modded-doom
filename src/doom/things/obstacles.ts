@@ -1,7 +1,6 @@
 import { Vector3 } from 'three';
 import type { ThingType } from '.';
 import { ActionIndex, MFFlags, MapObjectIndex } from '../doom-things-info';
-import type { GameTime } from '../game';
 import { MapObject } from '../map-object';
 import { zeroVec } from '../map-data';
 
@@ -48,9 +47,9 @@ export const obstacles: ThingType[] = [
     { type: 2035, class: 'O', description: 'Exploding barrel' },
 ];
 
-type StateChangeAction = (time: GameTime, mobj: MapObject) => void
+type StateChangeAction = (mobj: MapObject) => void
 export const actions: { [key: number]: StateChangeAction } = {
-    [ActionIndex.A_Explode]: (time, mobj: MapObject) => radiusDamage(128, mobj, mobj.chaseTarget),
+    [ActionIndex.A_Explode]: mobj => radiusDamage(128, mobj, mobj.chaseTarget),
 }
 
 export function radiusDamage(damage: number, mobj: MapObject, source: MapObject) {

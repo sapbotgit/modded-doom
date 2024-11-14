@@ -8,7 +8,6 @@ import { keys } from './keys';
 import { obstacles, actions as obstacleActions } from './obstacles';
 import { decorations } from './decorations';
 import { other } from './other';
-import type { GameTime } from '../game';
 import type { PickupFunction } from './pickup';
 
 export { inventoryWeapon, weaponTop, PlayerWeapon } from './weapons';
@@ -48,7 +47,7 @@ const actions = {
     ...monsterActions,
     [ActionIndex.A_BFGSpray]: weaponActions[ActionIndex.A_BFGSpray],
 }
-export const stateChangeAction = (action: ActionIndex, time: GameTime, mobj: MapObject) => {
+export const stateChangeAction = (action: ActionIndex, mobj: MapObject) => {
     // disable ai actions based on setting (but we must not disable BOSSPIT because that is the thing that triggers the MAP30 spawning)
     const aiActions =
         // enable full AI for MAP30 boss to feel pain and fire cubes (what the cubes do is up to the other conditions here)
@@ -57,5 +56,5 @@ export const stateChangeAction = (action: ActionIndex, time: GameTime, mobj: Map
         mobj.map.game.settings.monsterAI.val === 'disabled' ? noActions :
         monsterAiActions;
     const fn = actions[action] ?? aiActions[action];
-    return fn?.(time, mobj);
+    return fn?.(mobj);
 };

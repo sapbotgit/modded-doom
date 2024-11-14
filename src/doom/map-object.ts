@@ -45,7 +45,7 @@ export class MapObject {
 
     protected _state = new SpriteStateMachine(
         sprite => this.map.events.emit('mobj-updated-sprite', this, sprite),
-        action => stateChangeAction(action, this.map.game.time, this),
+        action => stateChangeAction(action, this),
         () => this.map.destroy(this));
     protected _zFloor = -Infinity;
     protected _zCeil = Infinity;

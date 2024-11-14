@@ -248,7 +248,7 @@ export class MapRuntime {
     }
 
     private tick() {
-        this.actions.forEach(action => action(this.game.time));
+        this.actions.forEach(action => action());
 
         // update wall/flat animations
         this.animatedTextures.forEach(anim => {

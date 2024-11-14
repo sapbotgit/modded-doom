@@ -7,7 +7,7 @@ import { Vector3 } from "three";
 import { SoundIndex } from "./doom-things-info";
 import type { Sector } from "./map-data";
 import { type RNG, TableRNG } from "./math";
-import type { InvalidMap, MissingMap } from "./error";
+import type { GameLogicFailure, InvalidMap, MissingMap } from "./error";
 
 export interface GameTime {
     elapsed: number; // seconds
@@ -146,7 +146,17 @@ export class Game implements SoundEmitter {
                 const partial = 1 - Math.max(0, (this.nextTickTime - this.time.elapsed) / tickTime)
                 this.time.partialTick.set(partial);
             }
-            this.map.val?.timeStep(this.time);
+
+            try {
+                this.map.val?.timeStep(this.time);
+            } catch (exception) {
+                const err: GameLogicFailure = {
+                    code: 4,
+                    details: { game: this, exception },
+                    message: 'Game logic failed',
+                };
+                throw err;
+            }
         }
         this.remainingTime = delta;
     }
