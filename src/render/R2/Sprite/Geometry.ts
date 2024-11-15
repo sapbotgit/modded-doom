@@ -54,7 +54,8 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         mesh.geometry.setAttribute('texN', int16BufferFrom([0, 0], chunkSize));
         mesh.receiveShadow = mesh.castShadow = castShadows;
         mesh.count = 0;
-        // mesh.frustumCulled = false;
+        // NB: transparent objects in particular need frustum culling turned off
+        mesh.frustumCulled = false;
         root.add(mesh);
         return mesh;
     }
@@ -155,20 +156,20 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
         subs.push(mo.position.subscribe(pos => {
-            if (camera === '1p' && isPlayer) {
-                s.set(0, 0, 0);
-            } else {
-                // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
-                s.set(40, 40, 80);
-            }
+            // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
+            s.set(40, 40, 80);
             p.copy(pos);
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
-            // velocity for interpolation
-            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
-            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
-            thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
-            thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
+
+            // NB: don't interpolate player velocity because they already update every frame
+            if (!isPlayer) {
+                // velocity for interpolation
+                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 0] = mo.velocity.x;
+                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 1] = mo.velocity.y;
+                thingsMeshes[m].geometry.attributes.vel.array[n * 3 + 2] = mo.velocity.z;
+                thingsMeshes[m].geometry.attributes.vel.needsUpdate = true;
+            }
         }));
         updateSprite(mo.sprite.val);
 
@@ -176,14 +177,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         thingsMeshes[m].geometry.attributes[inspectorAttributeName].needsUpdate = true;
     }
 
-    const remove = (mo: MapObject) => {
-        const info = rmobjs.get(mo.id);
-        if (!info) {
-            return;
-        }
-        info.dispose();
-    }
-
+    const remove = (mo: MapObject) => rmobjs.get(mo.id)?.dispose();
     const get = (mo: MapObject) => rmobjs.get(mo.id);
 
     const dispose = () => {

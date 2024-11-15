@@ -95,7 +95,7 @@
         tranMaterial = createSpriteMaterialTransparent(spriteSheet, lighting, { cameraMode });
         tranUniforms = tranMaterial.uniforms;
 
-        geo.resetGeometry($cameraMode, material);
+        opaqGeo.resetGeometry($cameraMode, material);
         tranGeo.resetGeometry($cameraMode, tranMaterial);
         // set camera uniforms so we project sprites properly on the first frame
         updateCameraUniforms($threlteCam, $position, $angle);
@@ -105,36 +105,55 @@
     $: updateCameraMode($cameraMode);
 
     function setShadowsEnabled(state: boolean) {
-        geo.shadowState(state);
+        opaqGeo.shadowState(state);
         tranGeo.shadowState(state);
     }
     // shadows don't look right from overhead cam and I don't have a good idea how to fix it so disable them
     $: setShadowsEnabled($cameraMode !== 'bird' && $playerLight !== '#000000');
 
-    const geo = createSpriteGeometry(spriteSheet, material);
-    onDestroy(geo.dispose);
+    const opaqGeo = createSpriteGeometry(spriteSheet, material);
+    onDestroy(opaqGeo.dispose);
     const tranGeo = createSpriteGeometry(spriteSheet, tranMaterial);
     onDestroy(tranGeo.dispose);
 
     const addMobj = (mo: MapObject) => {
-        // TODO: we need a better solution for player than this...
         if (mo.info.flags & MFFlags.MF_NOSECTOR) {
             return;
         }
-        const geom = (mo.info.flags & MFFlags.MF_SHADOW) ? tranGeo : geo;
-        geom.add(mo);
+        const geo = (mo.info.flags & MFFlags.MF_SHADOW) ? tranGeo : opaqGeo;
+        geo.add(mo);
     }
     const removeMobjs = (mo: MapObject) => {
-        geo.remove(mo);
+        opaqGeo.remove(mo);
         tranGeo.remove(mo);
     }
     const updateMobjSprite = (mo: MapObject, sprite: Sprite) => {
+        if (mo.info.flags & MFFlags.MF_NOSECTOR) {
+            return;
+        }
+
+        // it would be nice to not do two lookups everytime a sprite changes.
+        // updateSprite events happen before mobj-added so we have to be careful
+        const info = opaqGeo.get(mo);
+        const tInfo = tranGeo.get(mo);
+        const isSpectre = mo.info.flags & MFFlags.MF_SHADOW;
+        // swap from spector to non?
+        if (info && isSpectre) {
+            opaqGeo.remove(mo);
+            tranGeo.add(mo);
+            return;
+        } else if (tInfo && !isSpectre) {
+            tranGeo.remove(mo);
+            opaqGeo.add(mo);
+            return;
+        }
+
+        // no swapping needed, just update the sprite
         if (mo instanceof PlayerMapObject) {
             // weapon sprites are also updated this way so we have to be careful
             sprite = mo.sprite.val;
         }
-        const info = geo.get(mo) ?? tranGeo.get(mo);
-        info?.updateSprite(sprite);
+        (info ?? tInfo)?.updateSprite(sprite);
     }
 
     map.objs.forEach(addMobj);
@@ -148,5 +167,5 @@
     });
 </script>
 
-<T is={geo.root} on:click={hit} renderOrder={1} />
-<T is={tranGeo.root} on:click={hit} renderOrder={1} />
+<T is={opaqGeo.root} on:click={hit} renderOrder={1} />
+<T is={tranGeo.root} on:click={hit} renderOrder={2} />

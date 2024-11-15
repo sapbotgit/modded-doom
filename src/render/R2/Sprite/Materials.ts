@@ -31,12 +31,12 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
 
     varying vec4 sUV;
     varying vec2 vDim;
-    varying float renderShadows;
+    varying float renderSpectre;
 
     const uint flag_fullBright = uint(0);
     const uint flag_isMissile = uint(1);
     const uint flag_invertZOffset = uint(2);
-    const uint flag_shadows = uint(3);
+    const uint flag_isSpectre = uint(3);
     const uint flag_isFloating = uint(4);
     // returns 1.0 if flag is set or else 0.0
     float flagBit(uint val, uint bit) {
@@ -114,7 +114,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
     const begin_vertex = `
     #include <begin_vertex>
 
-    renderShadows = flagBit(texN.y, flag_shadows);
+    renderSpectre = flagBit(texN.y, flag_isSpectre);
 
     // scale based on texture size (vDim) and mirror (info.z)
     vec2 dim = vDim * tSpritesWidth;
@@ -166,7 +166,7 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
 
     varying vec4 sUV;
     varying vec2 vDim;
-    varying float renderShadows;
+    varying float renderSpectre;
     `;
     const depthDist_map_fragment = `
     #ifdef USE_MAP
@@ -175,10 +175,10 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
     vec4 sampledDiffuseColor = texture2D( map, mapUV );
     if (sampledDiffuseColor.a < 1.0) discard;
 
-    sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderShadows);
+    sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderSpectre);
     vec2 ipos = floor(vMapUv * 200.0);
     float n = fract( time * noise(ipos) );
-    sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderShadows);
+    sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderSpectre);
 
     #endif
     `;
@@ -253,9 +253,9 @@ export function createSpriteMaterial(sprites: SpriteSheet, lighting: MapLighting
             vec4 sampledDiffuseColor = texture2D( map, mapUV );
 
             // render shadows (optional)
-            sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderShadows);
+            sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.0), renderSpectre);
             float n = fract( time * noise( floor(vMapUv * 200.0) ) );
-            sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderShadows);
+            sampledDiffuseColor.a *= mix(sampledDiffuseColor.a, n, renderSpectre);
 
             #ifdef DECODE_VIDEO_TEXTURE
                 // use inline sRGB decode until browsers properly support SRGB8_ALPHA8 with video textures (#26516)
