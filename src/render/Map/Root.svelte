@@ -25,8 +25,12 @@
 
     // This is a hack to re-enable the $sprite readable for R1.
     const updateSprite = (mo: MapObject, sprite: Sprite) => {
-        // NB: player is handled elsewhere because it also updates the weapon sprites
-        if (mo !== map.player) {
+        // NB: player needs special handling to update the weapon sprites
+        if (mo === map.player) {
+            map.player.sprite.set(map.player.sprite.val);
+            map.player.weapon.val.sprite.set(map.player.weapon.val.sprite.val);
+            map.player.weapon.val.flashSprite.set(map.player.weapon.val.flashSprite.val);
+        } else {
             mo.sprite.set(sprite);
         }
     }

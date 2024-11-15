@@ -39,7 +39,6 @@ export class SpriteStateMachine {
     }
 
     setState(stateIndex: StateIndex, tickOffset = 0) {
-        const lastState = this.state;
         do {
             this.stateIndex = stateIndex;
             if (stateIndex === StateIndex.S_NULL) {
@@ -54,12 +53,6 @@ export class SpriteStateMachine {
         } while (!this.ticks)
 
         this.ticks = Math.max(0, this.ticks + tickOffset);
-        // FIXME: this will impact performance but the whole subscription thing falls apart on large maps anyway so
-        // we need a different solution
-        // if (this.state === lastState) {
-        //     // don't change sprite if the state hasn't changed
-        //     return;
-        // }
         let sprite = this.sprite.val;
         if (!sprite) {
             sprite = { name: '', frame: 0, fullbright: false, ticks: 0 };

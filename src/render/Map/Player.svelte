@@ -2,8 +2,8 @@
     import { HierarchicalObject, T, useTask, useThrelte } from "@threlte/core";
     import Thing from "./Thing.svelte";
     import { Camera, CircleGeometry, MeshStandardMaterial, OrthographicCamera, Scene } from "three";
-    import { useDoomMap } from "../DoomContext";
-    import { MapObject, ticksPerSecond, type Sprite } from "../../doom";
+    import { useAppContext, useDoomMap } from "../DoomContext";
+    import { ticksPerSecond } from "../../doom";
     import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader';
     import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
     import { ScreenColorShader } from "../Shaders/ScreenColorShader";
@@ -15,10 +15,9 @@
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
     import Weapon from "./Weapon.svelte";
-    import { onDestroy } from "svelte";
 
     const { map, renderSectors } = useDoomMap();
-    const { cameraMode } = map.game.settings;
+    const { cameraMode, renderMode } = useAppContext().settings;
     const player = map.player;
 
     const { position: playerPosition, damageCount, bonusCount, inventory, sector } = player;
@@ -57,23 +56,12 @@
     $: setupEffectComposer($camera, hudScene);
     $: composer.setSize($size.width, $size.height);
 
-    // This is a hack to re-enable the $sprite readable for weapons and player sprite
-    const updatePlayerSprite = (mo: MapObject) => {
-        if (mo === player) {
-            player.sprite.set(player.sprite.val);
-            player.weapon.val.sprite.set(player.weapon.val.sprite.val);
-            player.weapon.val.flashSprite.set(player.weapon.val.flashSprite.val);
-        }
-    };
-    map.events.on('mobj-updated-sprite', updatePlayerSprite);
-    onDestroy(() => map.events.off('mobj-updated-sprite', updatePlayerSprite));
-
     useTask(delta => {
         composer.render(delta);
     }, { stage: renderStage });
 </script>
 
-{#if $cameraMode !== "1p"}
+{#if $renderMode === 'r1' && $cameraMode !== '1p'}
     <Thing {renderSector} thing={player} />
 
     <T.Mesh

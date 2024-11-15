@@ -99,6 +99,8 @@
         tranGeo.resetGeometry($cameraMode, tranMaterial);
         // set camera uniforms so we project sprites properly on the first frame
         updateCameraUniforms($threlteCam, $position, $angle);
+        // force player position update because player sprite is hidden in 1p but visible in other cams
+        map.player.position.set(map.player.position.val);
     }
     $: updateCameraMode($cameraMode);
 
@@ -116,7 +118,7 @@
 
     const addMobj = (mo: MapObject) => {
         // TODO: we need a better solution for player than this...
-        if (mo.info.flags & MFFlags.MF_NOSECTOR || mo instanceof PlayerMapObject) {
+        if (mo.info.flags & MFFlags.MF_NOSECTOR) {
             return;
         }
         const geom = (mo.info.flags & MFFlags.MF_SHADOW) ? tranGeo : geo;
@@ -127,6 +129,10 @@
         tranGeo.remove(mo);
     }
     const updateMobjSprite = (mo: MapObject, sprite: Sprite) => {
+        if (mo instanceof PlayerMapObject) {
+            // weapon sprites are also updated this way so we have to be careful
+            sprite = mo.sprite.val;
+        }
         const info = geo.get(mo) ?? tranGeo.get(mo);
         info?.updateSprite(sprite);
     }

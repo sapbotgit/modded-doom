@@ -1,10 +1,9 @@
 import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
-import { HALF_PI, MFFlags, type MapObject, type Sprite  } from "../../../doom";
+import { HALF_PI, MFFlags, PlayerMapObject, type MapObject, type Sprite  } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
 import type { SpriteMaterial } from "./Materials";
 
-// TODO: tidy up parameters here...
 export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteMaterial) {
     // What is an ideal chunksize? Chunks are probably better than resizing/re-initializing a large array
     // but would 10,000 be good? 20,000? 1,000? I'm not sure how to measure it.
@@ -109,8 +108,11 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         // NB: count will not decrease because removed items may not be at the end of the list
         thingsMeshes[m].count = Math.max(n + 1, thingsMeshes[m].count);
 
+        const isPlayer = mo instanceof PlayerMapObject;
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
-        const isMissile = mo.info.flags & MFFlags.MF_MISSILE;
+        const spriteFlags =
+            ((mo.info.flags & MFFlags.MF_MISSILE) ? 2 : 0) |
+            ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0);
 
         const updateSprite = (sprite: Sprite) => {
             const spriteIndex = spriteSheet.indexOf(sprite.name, sprite.frame);
@@ -118,12 +120,10 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
 
             // rendering flags
             thingsMeshes[m].geometry.attributes.texN.array[n * 2 + 1] = (
-                (sprite.fullbright ? 1 : 0) |
-                (isMissile ? 2 : 0) |
-                ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0) |
-                ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0) |
-                ((mo.info.flags & MFFlags.MF_INFLOAT) ? 16 : 0)
-            );
+                spriteFlags
+                | (sprite.fullbright ? 1 : 0)
+                | ((mo.info.flags & MFFlags.MF_SHADOW) ? 8 : 0)
+                | ((mo.info.flags & MFFlags.MF_INFLOAT) ? 16 : 0));
             thingsMeshes[m].geometry.attributes.texN.needsUpdate = true;
 
             // movement info for interpolation
@@ -155,8 +155,12 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
             thingsMeshes[m].geometry.attributes.doomLight.needsUpdate = true;
         }));
         subs.push(mo.position.subscribe(pos => {
-            // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
-            s.set(40, 40, 80);
+            if (camera === '1p' && isPlayer) {
+                s.set(0, 0, 0);
+            } else {
+                // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
+                s.set(40, 40, 80);
+            }
             p.copy(pos);
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;
