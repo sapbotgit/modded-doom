@@ -1,6 +1,6 @@
 <script lang="ts">
     import { T, useThrelte } from '@threlte/core';
-    import { MeshBasicMaterial } from 'three';
+    import { BackSide, BufferGeometry, DoubleSide, FrontSide, MeshBasicMaterial } from 'three';
     import { useAppContext, useDoomMap } from '../DoomContext';
     import { MapTextureAtlas, TextureAtlas } from './TextureAtlas'
     import { buildMapGeometry } from './GeometryBuilder';
@@ -22,35 +22,60 @@
 
     console.time('map-geo')
     const ta = new MapTextureAtlas(map.game.wad, new TextureAtlas(threlte.renderer.capabilities.maxTextureSize));
-    const { geometry, skyGeometry, dispose } = buildMapGeometry(ta, renderSectors);
+    const { geometry, skyGeometry, translucentGeometry, dispose } = buildMapGeometry(ta, renderSectors);
     onDestroy(dispose);
     console.timeEnd('map-geo')
 
     const { material, distanceMaterial, depthMaterial, uniforms } = mapMeshMaterials(ta, lighting);
+    const tranMaterial = mapMeshMaterials(ta, lighting);
+    const tranUniforms = tranMaterial.uniforms;
+    tranMaterial.material.transparent = true;
+    tranMaterial.material.opacity = 0.8;
+    tranMaterial.material.depthWrite = false;
+    tranMaterial.material.alphaTest = 0;
     const skyMaterial = new MeshBasicMaterial({ depthWrite: true, colorWrite: false });
     const interpolateMovement = settings.interpolateMovement;
 
-    // set material props
-    $: (() => {
-        material.map = $useTextures ? ta.texture : null;
-        material.needsUpdate = true;
-    })();
-    $: $uniforms.doomFakeContrast.value =
-        $fakeContrast === 'off' ? 0 :
-        $fakeContrast === 'classic' ? 1 :
-        2;
-    $: if ($tick || $partialTick) $uniforms.time.value = $tick + ($interpolateMovement ? $partialTick : 0);
-    $: $uniforms.doomExtraLight.value = $extraLight / 255;
-    $: ((edit) => {
+    // set material properties
+    function updateMaterialTexture(useTextures: boolean) {
+        tranMaterial.material.map =
+            material.map = useTextures ? ta.texture : null;
+        tranMaterial.material.needsUpdate =
+            material.needsUpdate = true;
+    }
+    $: updateMaterialTexture($useTextures);
+
+    const updateFakeContrast = (fakeContrast: string) =>
+        $tranUniforms.doomFakeContrast.value =
+        $uniforms.doomFakeContrast.value =
+            fakeContrast === 'off' ? 0 :
+            fakeContrast === 'classic' ? 1 :
+            2;
+    $: updateFakeContrast($fakeContrast);
+
+    const updateTime = (time: number) =>
+        $tranUniforms.time.value = $uniforms.time.value = time;
+    $: updateTime($tick + ($interpolateMovement ? $partialTick : 0));
+
+    const updateExtraLight = (extraLight: number) =>
+        $tranUniforms.doomExtraLight.value =
+        $uniforms.doomExtraLight.value =
+        extraLight;
+    $: updateExtraLight($extraLight / 255);
+
+    function updateInspectors(edit: typeof $editor) {
         // map objects have 'health' so ignore those
-        $uniforms.dInspect.value = edit.selected && !('health' in edit.selected)
+        $tranUniforms.dInspect.value =
+        $uniforms.dInspect.value =
+        edit.selected && !('health' in edit.selected)
             ? [
                 'special' in edit.selected ? 0 : 1,
                 edit.selected.num,
             ]
             // clear selection
             : [-1, -1];
-    })($editor);
+    }
+    $: updateInspectors($editor);
 
     // magic https://stackoverflow.com/questions/49873459
     const shadowBias = -0.004;
@@ -60,15 +85,16 @@
     $: castShadow = receiveShadow;
     const { position, extraLight } = map.player;
 
-    function hit(ev) {
+    const hit = (geom: BufferGeometry) => (ev) => {
         if (!ev.face) {
             return;
         }
         ev.stopPropagation();
 
-        const type = geometry.attributes.doomInspect.array[ev.face.a * 2];
+        // Also tran?
+        const type = geom.attributes.doomInspect.array[ev.face.a * 2];
         const items = type === 0 ? map.data.linedefs : map.data.sectors;
-        const num = geometry.attributes.doomInspect.array[ev.face.a * 2 + 1];
+        const num = geom.attributes.doomInspect.array[ev.face.a * 2 + 1];
         $editor.selected = items.find(e => e.num === num);
     }
 </script>
@@ -82,12 +108,25 @@
 </T.Mesh>
 
 <T.Mesh
-    on:click={hit}
+    on:click={hit(geometry)}
     renderOrder={1}
     {geometry}
     {material}
     customDepthMaterial={depthMaterial}
     customDistanceMaterial={distanceMaterial}
+    {receiveShadow}
+    {castShadow}
+>
+    <Wireframe />
+</T.Mesh>
+
+<T.Mesh
+    on:click={hit(translucentGeometry)}
+    renderOrder={1}
+    geometry={translucentGeometry}
+    material={tranMaterial.material}
+    customDepthMaterial={tranMaterial.depthMaterial}
+    customDistanceMaterial={tranMaterial.distanceMaterial}
     {receiveShadow}
     {castShadow}
 >

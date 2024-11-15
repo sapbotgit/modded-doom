@@ -119,6 +119,7 @@ interface LindefUpdater{
 function mapGeometryBuilder(textures: MapTextureAtlas) {
     const geoBuilder = geometryBuilder();
     const skyBuilder = geometryBuilder();
+    const translucencyBuilder = geometryBuilder();
 
     const flatGeoBuilder = (flatName: Store<string>) =>
         flatName.val === 'F_SKY1' ? skyBuilder : geoBuilder;
@@ -182,6 +183,10 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
         const skyHack = (ceilFlatL === 'F_SKY1' && needSkyWall);
         const skyHeight = ld.right.sector.skyHeight;
 
+        let builder = geoBuilder;
+        if (ld.special === 260) {
+            builder = translucencyBuilder;
+        }
         function applySpecials(geo: BufferGeometry) {
             if (ld.special === 48) {
                 for (let i = 0; i < geo.attributes.position.count; i++) {
@@ -230,8 +235,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             // two-sided so figure out top
             if (!skyHack) {
                 let left = false;
-                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-                const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+                const geo = builder.createWallGeo(width, height, mid, top, angle);
+                const idx = builder.addWallGeometry(geo, ld.right.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 applySpecials(geo);
 
@@ -253,8 +258,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             // And bottom
             if (true) {
                 let left = false;
-                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-                const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+                const geo = builder.createWallGeo(width, height, mid, top, angle);
+                const idx = builder.addWallGeometry(geo, ld.right.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 applySpecials(geo);
 
@@ -295,16 +300,16 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                     side.xOffset.initial, pegging('middle', height));
             };
             if (middleL.val) {
-                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle + Math.PI);
-                const idx = geoBuilder.addWallGeometry(geo, ld.left.sector.num);
+                const geo = builder.createWallGeo(width, height, mid, top, angle + Math.PI);
+                const idx = builder.addWallGeometry(geo, ld.left.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 applySpecials(geo);
 
                 result.midLeft = middleUpdater(idx, ld.left);
             }
             if (middleR.val) {
-                const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-                const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+                const geo = builder.createWallGeo(width, height, mid, top, angle);
+                const idx = builder.addWallGeometry(geo, ld.right.sector.num);
                 geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
                 applySpecials(geo);
 
@@ -312,8 +317,8 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
             }
 
         } else {
-            const geo = geoBuilder.createWallGeo(width, height, mid, top, angle);
-            const idx = geoBuilder.addWallGeometry(geo, ld.right.sector.num);
+            const geo = builder.createWallGeo(width, height, mid, top, angle);
+            const idx = builder.addWallGeometry(geo, ld.right.sector.num);
             geo.setAttribute(inspectorAttributeName, int16BufferFrom(inspectVal, geo.attributes.position.count));
             applySpecials(geo);
 
@@ -350,8 +355,9 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
 
     function build() {
         const skyGeometry = skyBuilder.build('sky');
+        const translucentGeometry = translucencyBuilder.build('map-translucent');
         const geometry = geoBuilder.build('map');
-        return { geometry, skyGeometry, updater: mapGeometryUpdater(textures) };
+        return { geometry, skyGeometry, translucentGeometry, updater: mapGeometryUpdater(textures) };
     }
 
     return { addSector, addLinedef, build };
@@ -469,9 +475,9 @@ export function buildMapGeometry(textureAtlas: MapTextureAtlas, renderSectors: R
     pendingUpdates.forEach(fn => fn(mapUpdater));
     textureAtlas.commit();
 
-    const { geometry, skyGeometry } = map;
+    const { geometry, skyGeometry, translucentGeometry } = map;
     const dispose = () => disposables.forEach(fn => fn());
-    return { geometry, skyGeometry, dispose };
+    return { geometry, skyGeometry, translucentGeometry, dispose };
 }
 
 export function mapGeometryUpdater(textures: MapTextureAtlas) {
