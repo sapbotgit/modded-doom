@@ -4,8 +4,8 @@
     import { DoomWad, HALF_PI, store, WadFile } from '../../doom';
     import { WadStore } from '../../WadStore';
     import { MapTextureAtlas, TextureAtlas } from '../R2/TextureAtlas';
-    import { inspectorAttributeName, mapMeshMaterials } from '../R2/MapMeshMaterial';
-    import { geometryBuilder, int16BufferFrom, mapGeometry } from '../R2/GeometryBuilder';
+    import { mapMeshMaterials } from '../R2/MapMeshMaterial';
+    import { geometryBuilder, mapGeometryUpdater } from '../R2/GeometryBuilder';
     import { buildLightMap } from '../R2/MapLighting';
 
     let geometry: BufferGeometry;
@@ -16,7 +16,7 @@
 
     const threlte = useThrelte();
 
-    type TestGeom = { id: number, width: number, height: number };
+    type TestGeom = { id: any, width: number, height: number };
     let stressTestSize = 400_000;
     // stressTestSize = 1000;
     const animate = true;
@@ -70,13 +70,11 @@
 
         // ceil
         geo = new PlaneGeometry(wallSize, wallSize);
-        geo = geoBuilder.createFlatGeo(geo, "CEIL4_2");
         geo.translate(0, wallSize / 2, -2 * wallSize / 3);
         box.ceil = { id: geoBuilder.addFlatGeometry(geo, 0), width: wallSize, height: wallSize };
         // floor
         geo = new PlaneGeometry(wallSize, wallSize);
         geo.rotateX(Math.PI);
-        geo = geoBuilder.createFlatGeo(geo, "STEP1");
         geo.translate(0, wallSize / 2, wallSize / 3);
         box.floor = { id: geoBuilder.addFlatGeometry(geo, 0), width: wallSize, height: wallSize };
 
@@ -99,10 +97,8 @@
         // texture atlas wall
         geo = geoBuilder.createWallGeo(atlasSize * .2, atlasSize * .2, { x: 0, y: 200 }, 0, Math.PI);
 
-        const map = geoBuilder.build();
-        const mapGeo = mapGeometry(ta, map.geometry, map.skyGeometry, map.geoInfo);
-        mapGeo.geometry.setAttribute(inspectorAttributeName, int16BufferFrom([0, 0], mapGeo.geometry.attributes.position.count));
-        geometry = mapGeo.geometry;
+        geometry = geoBuilder.build('map');
+        const mapGeo = mapGeometryUpdater(ta);
 
         mapGeo.applyFlatTexture(box.ceil.id, "CEIL3_2");
         mapGeo.applyFlatTexture(box.floor.id, "STEP1");

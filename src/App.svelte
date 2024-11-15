@@ -71,7 +71,7 @@
                 const failed = wads.filter(e => !(e instanceof WadFile));
                 if (failed.length) {
                     const err: MissingWads = {
-                        code: 2,
+                        code: 3,
                         details: {
                             succeededWads: succeeded.map(e => e.name),
                             failedWads: failed,
