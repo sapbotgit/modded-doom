@@ -1,6 +1,6 @@
 <script lang="ts">
     import { T, useThrelte } from '@threlte/core';
-    import { BackSide, BufferGeometry, DoubleSide, FrontSide, MeshBasicMaterial } from 'three';
+    import { BufferGeometry, MeshBasicMaterial } from 'three';
     import { useAppContext, useDoomMap } from '../DoomContext';
     import { MapTextureAtlas, TextureAtlas } from './TextureAtlas'
     import { buildMapGeometry } from './GeometryBuilder';

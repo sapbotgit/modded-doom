@@ -91,10 +91,10 @@ export function geometryBuilder() {
     };
 
     const emptyPlane = () => new PlaneGeometry(0, 0)
-        .setAttribute('texN', int16BufferFrom([0], 1))
-        .setAttribute('doomLight', int16BufferFrom([0], 0))
-        .setAttribute('doomOffset', sInt16BufferFrom([0, 0], 0))
-        .setAttribute(inspectorAttributeName, int16BufferFrom([0, 0], 0));
+        .setAttribute('texN', int16BufferFrom([0], 4))
+        .setAttribute('doomLight', int16BufferFrom([0], 4))
+        .setAttribute('doomOffset', sInt16BufferFrom([0, 0], 4))
+        .setAttribute(inspectorAttributeName, int16BufferFrom([0, 0], 4));
     function build(name: string) {
         // NB: BufferGeometryUtils.mergeGeometries() fails if array is empty
         const geometry = geos.length ? BufferGeometryUtils.mergeGeometries(geos) : emptyPlane();
@@ -241,9 +241,9 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 applySpecials(geo);
 
                 result.upper = m => {
-                    let useLeft = zCeilL.val >= zCeilR.val;
-                    const height = useLeft ? zCeilL.val - zCeilR.val : zCeilR.val - zCeilL.val;
+                    let useLeft = zCeilL.val > zCeilR.val;
                     const top = Math.max(zCeilR.val, zCeilL.val);
+                    const height = top - Math.min(zCeilL.val, zCeilR.val);
                     const side = useLeft ? ld.left : ld.right;
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'upper', useLeft),
@@ -264,15 +264,13 @@ function mapGeometryBuilder(textures: MapTextureAtlas) {
                 applySpecials(geo);
 
                 result.lower = m => {
-                    // NB: use >= here, see lowering wall at the start of E1M8. If we only use > then there is a
-                    // slight flicker when switching from right side to left side
-                    let useLeft = zFloorR.val >= zFloorL.val;
-                    const height = left ? zFloorR.val - zFloorL.val : zFloorL.val - zFloorR.val;
+                    let useLeft = zFloorR.val > zFloorL.val;
                     // FIXME: LD#40780 in Sunder MAP20 has zfighting. I think it's from big negative yoffset which pushes
                     // the middle wall down and perhaps it should push the top of this wall down too. I'm not sure.
                     // The sector floors also have problems in that area so something isn't right. (special 242)
                     const side = useLeft ? ld.left : ld.right;
                     const top = Math.max(zFloorR.val, zFloorL.val);
+                    const height = top - Math.min(zFloorL.val, zFloorR.val);
                     m.changeWallHeight(idx, top, height);
                     m.applyWallTexture(idx, chooseTexture(ld, 'lower', useLeft),
                         width, height,
@@ -505,10 +503,7 @@ export function mapGeometryUpdater(textures: MapTextureAtlas) {
         geo.attributes.uv.array[2 * vertexOffset + 2] =
             geo.attributes.uv.array[2 * vertexOffset + 6] = (width + offsetX) * invWidth;
         // set texture index
-        geo.attributes.texN.array[vertexOffset + 0] = index;
-        geo.attributes.texN.array[vertexOffset + 1] = index;
-        geo.attributes.texN.array[vertexOffset + 2] = index;
-        geo.attributes.texN.array[vertexOffset + 3] = index;
+        geo.attributes.texN.array.fill(index, vertexOffset, vertexOffset + 4);
 
         geo.attributes.texN.needsUpdate = true;
         geo.attributes.uv.needsUpdate = true;
@@ -517,10 +512,10 @@ export function mapGeometryUpdater(textures: MapTextureAtlas) {
     const changeWallHeight = (info: GeoInfo, top: number, height: number) => {
         const offset = info.vertexOffset * 3;
         const geo = info.geom;
-        geo.attributes.position.array[offset + 2] = top;
-        geo.attributes.position.array[offset + 5] = top;
-        geo.attributes.position.array[offset + 8] = top - height;
-        geo.attributes.position.array[offset + 11] = top - height;
+        geo.attributes.position.array[offset + 2] =
+            geo.attributes.position.array[offset + 5] = top;
+        geo.attributes.position.array[offset + 8] =
+            geo.attributes.position.array[offset + 11] = top - height;
         geo.attributes.position.needsUpdate = true;
     };
 
@@ -529,9 +524,7 @@ export function mapGeometryUpdater(textures: MapTextureAtlas) {
         const geo = info.geom;
 
         // apply new sector light
-        for (let i = info.vertexOffset, end = info.vertexOffset + info.vertexCount; i < end; i++) {
-            geo.attributes.doomLight.array[i] = sectorNum;
-        }
+        geo.attributes.doomLight.array.fill(sectorNum, info.vertexOffset, info.vertexOffset + info.vertexCount);
         geo.attributes.doomLight.needsUpdate = true;
 
         // rotate wall by 180

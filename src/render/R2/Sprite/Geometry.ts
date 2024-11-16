@@ -158,6 +158,10 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         subs.push(mo.position.subscribe(pos => {
             // use a fixed size so that inspector can hit objects (in material, we'll have to scale by 1/size)
             s.set(40, 40, 80);
+            if (isPlayer && camera === '1p') {
+                // hide player
+                s.set(0, 0, 0);
+            }
             p.copy(pos);
             thingsMeshes[m].setMatrixAt(n, mat.compose(p, q, s));
             thingsMeshes[m].instanceMatrix.needsUpdate = true;

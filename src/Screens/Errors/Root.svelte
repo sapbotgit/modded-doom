@@ -1,6 +1,6 @@
 <script lang="ts">
     import { type DoomError, type InvalidMap, type MissingMap } from '../../doom';
-    import { ExclamationCircle, CheckCircle, XCircle } from '@steeze-ui/heroicons'
+    import { ExclamationCircle, CheckCircle, XCircle, Home } from '@steeze-ui/heroicons'
     import { Icon } from '@steeze-ui/svelte-icon'
     import WadDropbox from '../../WadDropbox.svelte';
     import { WadStore } from '../../WadStore';
@@ -27,65 +27,68 @@
     }
 </script>
 
-<div class="w-screen h-screen flex flex-col p-20 red-honeycomb overflow-scroll">
-    <div class="flex flex-col gap-4">
+<div class="w-screen h-screen flex flex-col red-honeycomb overflow-scroll">
+    <a class="link link-primary max-w-32" href="/">
+        <span><Icon src={Home} theme='solid' size="3rem"/></span>
+    </a>
+    <div class="flex flex-col gap-4 p-20">
         <h1 class="text-7xl flex gap-2">
             <span><Icon src={ExclamationCircle} theme='solid' size="5rem"/></span>
             <span>Error</span>
         </h1>
         <div>{error.message}</div>
-    </div>
 
-    {#if error.code === 1 || error.code === 2}
-        <label class="label max-w-xl">
-            <span class="label-text">Available maps</span>
-            <select class="select w-full max-w-xs" bind:value={warpMap}>
-                {#each error.details.game.wad.mapNames as opt}
-                    <option>{opt}</option>
+        {#if error.code === 1 || error.code === 2}
+            <label class="label max-w-xl">
+                <span class="label-text">Available maps</span>
+                <select class="select w-full max-w-xs" bind:value={warpMap}>
+                    {#each error.details.game.wad.mapNames as opt}
+                        <option>{opt}</option>
+                    {/each}
+                </select>
+                <button class="btn btn-primary" on:click={warpToMap(error)}>Go</button>
+            </label>
+        {:else if error.code === 3}
+            <ul class="pb-4">
+                {#each error.details.failedWads as [name, err]}
+                    <li class="pt-2 flex gap-4 items-center">
+                        <Icon src={XCircle} theme="solid" size="2rem" />
+                        {err}
+                        <!--
+                        future?
+                        <button class="btn">Search idgames</button>
+                        -->
+                        <button class="btn btn-accent" on:click={removeWadFromUrl(name)}>Remove</button>
+                    </li>
                 {/each}
-            </select>
-            <button class="btn btn-primary" on:click={warpToMap(error)}>Go</button>
-        </label>
-    {:else if error.code === 3}
-        <ul class="pb-4">
-            {#each error.details.failedWads as [name, err]}
-                <li class="pt-2 flex gap-4 items-center">
-                    <Icon src={XCircle} theme="solid" size="2rem" />
-                    {err}
-                    <!--
-                    future?
-                    <button class="btn">Search idgames</button>
-                    -->
-                    <button class="btn btn-accent" on:click={removeWadFromUrl(name)}>Remove</button>
-                </li>
-            {/each}
-            {#each error.details.succeededWads as name}
-                <li class="pt-2 flex gap-4 items-center">
-                    <Icon src={CheckCircle} theme="solid" size="2rem" />
-                    {name}
-                </li>
-            {/each}
-        </ul>
-        <WadDropbox {wadStore} />
-    {/if}
+                {#each error.details.succeededWads as name}
+                    <li class="pt-2 flex gap-4 items-center">
+                        <Icon src={CheckCircle} theme="solid" size="2rem" />
+                        {name}
+                    </li>
+                {/each}
+            </ul>
+            <WadDropbox {wadStore} />
+        {/if}
 
-    {#if 'exception' in error.details}
-        {@const ex = error.details.exception}
-        <div class="collapse collapse-arrow bg-base-300">
-            <input type="checkbox" />
-            <div class="collapse-title text-center text-xl font-medium">Details</div>
-            <div class="collapse-content overflow-scroll">
-                {#if 'lineNumber' in ex && 'columnNumber' in ex && 'fileName' in ex}
-                    <div>{ex.message} at {ex.lineNumber}:{ex.columnNumber} of {ex.fileName}:</div>
-                {:else}
-                    <div>{ex.message}</div>
-                {/if}
-                <pre class="text-xs">
-                    {ex.stack}
-                </pre>
+        {#if 'exception' in error.details}
+            {@const ex = error.details.exception}
+            <div class="collapse collapse-arrow bg-base-300">
+                <input type="checkbox" />
+                <div class="collapse-title text-center text-xl font-medium">Details</div>
+                <div class="collapse-content overflow-scroll">
+                    {#if 'lineNumber' in ex && 'columnNumber' in ex && 'fileName' in ex}
+                        <div>{ex.message} at {ex.lineNumber}:{ex.columnNumber} of {ex.fileName}:</div>
+                    {:else}
+                        <div>{ex.message}</div>
+                    {/if}
+                    <pre class="text-xs">
+                        {ex.stack}
+                    </pre>
+                </div>
             </div>
-        </div>
-    {/if}
+        {/if}
+    </div>
 </div>
 
 <style>

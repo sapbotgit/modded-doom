@@ -148,10 +148,12 @@
             return;
         }
 
-        // no swapping needed, just update the sprite
         if (mo instanceof PlayerMapObject) {
             // weapon sprites are also updated this way so we have to be careful
             sprite = mo.sprite.val;
+            // make sure weapon sprites update
+            mo.weapon.val.sprite.set(map.player.weapon.val.sprite.val);
+            mo.weapon.val.flashSprite.set(map.player.weapon.val.flashSprite.val);
         }
         (info ?? tInfo)?.updateSprite(sprite);
     }

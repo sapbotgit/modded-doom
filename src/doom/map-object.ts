@@ -352,7 +352,12 @@ export class MapObject {
     }
 
     touchingSector(sector: Sector) {
-        return this.subsectorMap.keys().find(ss => ss.sector === sector) !== undefined;
+        for (const ss of this.subsectorMap.keys()) {
+            if (ss.sector === sector) {
+                return true;
+            }
+        }
+        return false;
     }
 
     subsectors(fn: (subsector: SubSector) => void) {
