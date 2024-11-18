@@ -100,6 +100,8 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
             const float fakeContrastStep = 16.0 / 256.0;
             float fakeContrast(vec3 normal) {
                 vec3 absNormal = abs(normal);
+                float dotN = dot(normal, vec3(0, 1, 0));
+                float dotN2 = dotN * dotN;
                 float dfc = float(doomFakeContrast);
                 float gradual = step(2.0, dfc);
                 float classic = step(1.0, dfc) * (1.0 - gradual);
@@ -107,10 +109,10 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
                     (classic * (
                         step(1.0, absNormal.y) * -fakeContrastStep +
                         step(1.0, absNormal.x) * fakeContrastStep
-                    )) +
-                    (gradual * (
-                        (smoothstep(0.0, 1.0, absNormal.y) * -fakeContrastStep) +
-                        (smoothstep(0.0, 1.0, absNormal.x) * fakeContrastStep)
+                    ))
+                    + (gradual * (
+                        dotN2 * -2.0 * fakeContrastStep
+                        + step(absNormal.z, 0.0) * fakeContrastStep
                     ))
                 );
             }
@@ -125,6 +127,7 @@ export function mapMeshMaterials(ta: MapTextureAtlas, lighting: MapLighting) {
 
             sectorLight.rgb += fakeContrast(normal);
             vScaledLightLevel = doomLightLevel(sectorLight.g + doomExtraLight);
+            // vScaledLightLevel = sectorLight.g;
 
             // faded magenta if selected for inspection
             // maybe it's better to simply have an if/else?
