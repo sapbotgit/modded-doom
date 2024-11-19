@@ -1,5 +1,5 @@
 import { FloatType, InstancedBufferAttribute, InstancedMesh, IntType, Matrix4, Object3D, PlaneGeometry, Quaternion, Vector3 } from "three";
-import { HALF_PI, MFFlags, PlayerMapObject, type MapObject, type Sprite  } from "../../../doom";
+import { HALF_PI, MapObjectIndex, MFFlags, PlayerMapObject, type MapObject, type Sprite  } from "../../../doom";
 import type { SpriteSheet } from "./SpriteAtlas";
 import { inspectorAttributeName } from "../MapMeshMaterial";
 import type { SpriteMaterial } from "./Materials";
@@ -112,7 +112,7 @@ export function createSpriteGeometry(spriteSheet: SpriteSheet, material: SpriteM
         const isPlayer = mo instanceof PlayerMapObject;
         // mapObject.explode() removes this flag but to offset the sprite properly, we want to preserve it
         const spriteFlags =
-            ((mo.info.flags & MFFlags.MF_MISSILE) ? 2 : 0) |
+            ((mo.info.flags & MFFlags.MF_MISSILE || mo.type === MapObjectIndex.MT_EXTRABFG) ? 2 : 0) |
             ((mo.info.flags & MFFlags.InvertSpriteYOffset) ? 4 : 0);
 
         const updateSprite = (sprite: Sprite) => {

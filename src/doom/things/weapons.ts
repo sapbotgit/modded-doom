@@ -424,7 +424,7 @@ export const weaponActions: { [key: number]: WeaponAction } = {
         const tDir = new Vector3();
         const shooter = mobj.chaseTarget;
         const dir = mobj.direction.val;
-        const aim = aimTrace(shooter, mobj.position.val.z, scanRange);
+        const aim = aimTrace(shooter, shooter.position.val.z, scanRange);
         for (let i = 0; i < 40; i++) {
             let angle = dir - QUARTER_PI + HALF_PI / 40 * i;
 

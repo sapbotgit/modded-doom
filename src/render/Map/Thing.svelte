@@ -32,7 +32,7 @@
     const { sector, position: tpos, sprite, direction, renderShadow } = thing;
     const invertYOffset = (thing.info.flags & MFFlags.InvertSpriteYOffset);
     const isBillboard = (thing.info.flags & MFFlags.BillboardSprite);
-    const isMissile = thing.info.flags & MFFlags.MF_MISSILE;
+    const isMissile = (thing.info.flags & MFFlags.MF_MISSILE || thing.type === MapObjectIndex.MT_EXTRABFG);
     const camPos = camera.position;
     const camAngle = camera.angle;
 
