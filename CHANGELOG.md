@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.1] - 2024-11-21
+
+### Fixed
+- Fix player not sliding along walls in some maps
+- Fix BFG trace position and trace hit sprite offset
+
 ## [0.9.0] - 2024-11-18
 
 ### Added
