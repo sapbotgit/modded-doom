@@ -448,10 +448,25 @@ function createBspTracer(root: TreeNode) {
     return (start: Vector3, move: Vector3, radius: number, height: number, onHit: HandleTraceHit) => {
         const allowZeroDot = move.x !== 0 || move.y !== 0 || move.z !== 0;
         let hits: TraceHit[] = [];
+        function notify() {
+            // sort hits by distance (or by overlap if distance is too close)
+            hits.sort((a, b) => {
+                const dist = a.fraction - b.fraction;
+                return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
+            });
+
+            let complete = false;
+            for (let i = 0; !complete && i < hits.length; i++) {
+                complete = !onHit(hits[i]);
+            }
+            hits.length = 0;
+            return complete;
+        }
 
         // TODO: since we have a height parameter, I wonder if we should check for top/bottom collisions with walls
         // and things and maybe avoid a few redundant checks? Teleportation, for example, does not check z position and
         // maybe that is desired?
+        let firstSubsec = true;
         subsectorTrace(start, move,radius, subsector => {
             // collide with things
             for (const mobj of subsector.mobjs) {
@@ -505,19 +520,15 @@ function createBspTracer(root: TreeNode) {
                 hits.push(ceilHit);
             }
 
-            // sort hits by distance (or by overlap if distance is too close)
-            hits.sort((a, b) => {
-                const dist = a.fraction - b.fraction;
-                return Math.abs(dist) < 0.000001 ? b.overlap - a.overlap : dist;
-            });
-
-            let complete = false;
-            for (let i = 0; !complete && i < hits.length; i++) {
-                complete = !onHit(hits[i]);
+            // always search more than one subsec because we may be on the edge of two
+            // so we need to at least look at both (and sort hits) before we notify
+            if (firstSubsec) {
+                firstSubsec = false;
+                return true;
             }
-            hits.length = 0;
-            return !complete;
+            return !notify();
         });
+        notify();
 
         function flatHit(flat: SectorTraceHit['flat'], subsector: SubSector, zFlat: number): SectorTraceHit {
             const u = (zFlat - start.z) / move.z;

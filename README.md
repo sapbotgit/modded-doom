@@ -10,7 +10,7 @@ A playable version of DOOM implemented in typescript, rendered in threejs, with 
 
 The project started as a playground to dabble in threejs, svelte, and game development for the web. Putting DOOM on the web is not unique, several people have created WASM ports or built partial projects in JS: [smol/doom](https://github.com/smol/doom), [yvesgurcan/jsdoom](https://github.com/yvesgurcan/jsdoom), [jmickle66666666/wad-js](https://github.com/jmickle66666666/wad-js), but this project is probably unique in terms of completeness. At least for a web project. It's not as complete a project as [Helion](https://github.com/Helion-Engine/Helion) or older source ports.
 
-Performance is not great mostly because the renderer is inefficent. DUNSHIRE DOOM renders the entire map and all monsters and items using thousands of draw calls per frame. Interestingly, this naive approach is fast enough for most of the original WADs on modern(ish) hardware. In a perfect world, I would take a closer look at [Helion](https://github.com/Helion-Engine/Helion) and fix this.
+Performance should be fine for Doom, Doom 2, or Final Doom maps. The renderer is [pretty efficient now](https://www.lloydmarkle.com/quieter-life/2024/doom-perf-part-1/) but for large maps or maps with tens of thousands of monsters (like [Cosmogenesis](https://www.doomworld.com/idgames/levels/doom2/Ports/a-c/cosmogenesis) or [Profane Promisland](https://www.doomworld.com/forum/topic/131532-profane-promiseland-rc1-release/)) you'll want to turn off the AI. You can still turn on noclip and fly around the map which is fun! I'm doing some profiling and changes to hopefully make those maps playable but I'm not sure when it be released.
 
 ## Getting Started
 
@@ -27,7 +27,7 @@ Open your web browser to http://localhost:5173 and the page should explain the r
 
 Nonexhaustive list of bugs and missing/incomplete features:
 
-* Render performance
+* ~~Render performance~~
 * Screen wipe
 * ~~Victory screens~~
 * ~~Automatic weapon switching on low ammo~~
@@ -39,6 +39,7 @@ Nonexhaustive list of bugs and missing/incomplete features:
 * Load/Save games
 * Lighting effects (like ~~[fake contrast](https://doomwiki.org/wiki/Fake_contrast)~~ and [light diminishing](https://doomwiki.org/wiki/Light_diminishing))
 * Automap
+* AI performance on large maps
 * ~~Fullscreen mode~~
 
 Nice to haves:
