@@ -39,10 +39,10 @@ WANTED:
 * Play demos
 * Nightmare monster respawn (and other nightmare monster behaviours)
 * More HUD options
-* Spin off src/doom into it's own project to make it easier to re-use (or rewrite)
 * Improve the intro and menu UI. I don't have a design in mind, I just don't love what's there. It would be really fun to build something DOOM themed.
 * Support more DOOM engine games (Heretic, Hexen, Strife)
 * More Boom compatibility like switches, platforms, lights, etc. At least enough to play the community chest maps, ancient aliens, or sunlust.
+* ZDoom compatibility like voxels, 3d models ZScript and etc.
 * Generate BSP, SEGS, and SSECTOR nodes for large maps that don't have them
 
 ## Authors
